@@ -121,12 +121,14 @@ export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts
   const eye = eyeHeightM(ctx, opts.eyePosture ?? "prone"), tz = ctx.catalog.body.postures.crouching.heightM * 0.8, seenVis = opts.seenVisibility ?? S.seenVisibility;
   // (A point may carry its own target height above the ground: a known enemy's posture, step 5.)
   const ptz = pts.map((p) => heightAt(map, p.x, p.y) + (p.h ?? tz)); // ground: ok (the approach's open ground)
+  // (A point given twice — a closing enemy counts twice, step 5 — is looked at once: `first[i]`, its first index.)
+  const first = pts.map((p, i) => { for (let j = 0; j < i; j++) if (pts[j]!.x === p.x && pts[j]!.y === p.y && ptz[j] === ptz[i]) return j; return i; });
   const seenFrom = (x: number, y: number, z0: number): { seen: Uint8Array; n: number; ax: number; ay: number } => {
     const seen = new Uint8Array(N);
     let n = 0, ax = 0, ay = 0;
     for (let i = 0; i < N; i++) {
-      const p = pts[i]!;
-      if (sight(ctx, x, y, z0, p.x, p.y, ptz[i]!).visibility >= seenVis) {
+      const p = pts[i]!, f = first[i]!;
+      if (f !== i ? seen[f] === 1 : sight(ctx, x, y, z0, p.x, p.y, ptz[i]!).visibility >= seenVis) {
         seen[i] = 1; n++;
         const d = hypot2(p.x - x, p.y - y) || 1;
         ax += (p.x - x) / d; ay += (p.y - y) / d;

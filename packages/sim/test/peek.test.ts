@@ -72,6 +72,44 @@ describe("sight realism step 4: looking for a lost enemy", () => {
     expect(s.posture).toBe(s.homePosture);
   });
 
+  // (Review fixes 2026-11-16.)
+  const lowWall = (i: BattleInput) => { i.map.obstacles.push({ id: 1, kind: "wall", points: [52, 40, 52, 60], heightM: 1.3, thicknessM: 0.25, material: "brick" } as never); };
+  it("with no posture of his own he goes back to the posture he stood up from, and it does not become his", () => {
+    const { sim, me } = setup(lowWall);
+    run(sim, 3);
+    const s = sim.state.soldier.req(me);
+    s.posture = "prone"; delete s.homePosture;
+    let stood = false;
+    for (let k = 0; k < 12 && !stood; k++) { run(sim, 1); stood = (s.posture as string) === "standing" || s.postureTo === "standing"; }
+    expect(stood).toBe(true);
+    expect(s.peekFrom).toBe("prone");
+    run(sim, 8);
+    expect(s.posture).toBe("prone");
+    expect(s.peekFrom).toBeUndefined();
+    expect(s.homePosture).toBeUndefined();
+  });
+
+  it("in a fight (rounds passing him lately) he does not stand up to look", () => {
+    const { sim, me } = setup(lowWall);
+    run(sim, 3);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: me, kind: "posture", posture: "prone" });
+    const s = sim.state.soldier.req(me);
+    run(sim, 3);
+    expect(s.homePosture).toBe("prone");
+    for (let k = 0; k < 20; k++) { s.fireFrom = { dx: 1, dy: 0, tick: sim.state.tick }; run(sim, 1); expect(s.posture === "standing" || s.postureTo === "standing").toBe(false); }
+    expect(s.peekTick).toBeDefined(); // (he did look: turned to him)
+  });
+
+  it("a man of a missile team that is set up does not leave his post to look", () => {
+    const { sim, me } = setup(lowWall);
+    run(sim, 3);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: me, kind: "posture", posture: "prone" });
+    (sim.state.unit.req(unitOf(sim, "blue")[0]) as { missileTeam?: unknown }).missileTeam = { state: "ready" };
+    run(sim, 25);
+    expect(sim.state.soldier.req(me).posture).toBe("prone");
+    expect(sim.state.soldier.req(me).peekTick).toBeUndefined();
+  });
+
   it("does not look under rule hold or in an ambush", () => {
     const { sim, me } = setup((i) => { i.map.obstacles.push({ id: 1, kind: "wall", points: [52, 40, 52, 60], heightM: 1.3, thicknessM: 0.25, material: "brick" } as never); });
     submitOrder(sim, { tick: 0, issuer: "blue", target: unitOf(sim, "blue")[0], kind: "rules", fire: "hold" });

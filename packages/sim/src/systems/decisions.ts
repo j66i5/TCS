@@ -132,7 +132,7 @@ function selfFire(ctx: SimContext, state: SimState, id: EntityId, c: Contact, on
 
 /**
  * An enemy close in front of him (sight realism step 2, `soldier.closeThreatM`): he fires at him whatever else he is
- * doing — on an errand (on the move: as he goes), caring for a comrade (his care waits: the treatment is broken off,
+ * doing — on an errand (on the move: as he goes; not crawling, bolting, going to cover or hiding), caring for a comrade (his care waits: the treatment is broken off,
  * he stops where he is, and goes on `decisions.contactLostSeconds` after he last saw such an enemy; medical.ts), with
  * a drill's or an order's fire at a point more than `closeThreatTaskFactor` times farther off. A fire task already at
  * an enemy as close (his own or not) is kept.
@@ -146,6 +146,12 @@ function closeThreat(ctx: SimContext, state: SimState, events: EventSink, id: En
     const m = state.mover.get(id);
     if (m && m.waypoints.length > 0) { m.waypoints = []; m.speedMps = 0; m.formation = null; }
     moving = false;
+  }
+  // (Review fix: not on a crawl, a bolt out of a house, a dash to cover or to hide from a drone — as fireOnMoveOk; he
+  // fires once he halts. His intent is left alone then.)
+  if (moving) {
+    const m = state.mover.get(id)!, last = m.waypoints[m.waypoints.length - 1]!;
+    if (last.bolt === true || m.waypoints[0]!.mode === S.crawlMode || s.intent?.kind === "cover" || s.intent?.kind === "hideDrone") return;
   }
   if (cur) {
     if (cur.contact === near.c.target) { if (cur.self) { cur.reasonTick = state.tick; if (moving) cur.onTheMove = true; } return; }
@@ -668,11 +674,17 @@ function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: Sold
     if (task) task.basePosture = home!; // (his fire is from there again)
     return;
   }
-  if (task) { if (s.peekUntilTick !== undefined) delete s.peekUntilTick; return; }
-  // Stood up to look (sight realism step 4) and saw nobody: back to his fire position's posture.
+  if (task) {
+    // (Stood up to look and found him: he fires from the posture he stood up from, not standing.)
+    if (s.peekUntilTick !== undefined) { delete s.peekUntilTick; if (s.peekFrom !== undefined && home === undefined) task.basePosture = s.peekFrom; delete s.peekFrom; }
+    return;
+  }
+  // Stood up to look (sight realism step 4) and saw nobody: back to the posture he stood up from (his fire
+  // position's, if he has one).
   if (s.peekUntilTick !== undefined && state.tick >= s.peekUntilTick) {
-    delete s.peekUntilTick;
-    if (home !== undefined && s.posture !== home) { requestPosture(ctx, state, id, home); return; }
+    const back = home ?? s.peekFrom;
+    delete s.peekUntilTick; delete s.peekFrom;
+    if (back !== undefined && s.posture !== back) { requestPosture(ctx, state, id, back); return; }
   }
   const threat = threatOf(state, id, s);
   const me = state.transform.req(id);
@@ -716,11 +728,12 @@ function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: Sold
 
 /**
  * May a man of this unit leave his place or posture on his own to look for an enemy he has lost (sight realism step
- * 4)? Not in an ambush, a sector to hold, a cease-fire or under rule "hold", nor while his unit moves or is in a drill.
+ * 4)? Not at a post (an action, a mortar or missile team not packed, a drone: postedMan), not in an ambush, a sector
+ * to hold, a cease-fire or under rule "hold", nor while his unit moves or is in a drill.
  */
-function mayLook(state: SimState, unitId: EntityId): boolean {
+function mayLook(state: SimState, id: EntityId, unitId: EntityId): boolean {
   const unit = state.unit.get(unitId), top = topUnit(state, unitId);
-  if (!unit || !top || unit.ambush !== undefined || unit.arc !== undefined || unit.fireRule === "hold" || unit.moving || inDrill(state, unitId)) return false;
+  if (!unit || !top || postedMan(state, id, unitId) || unit.ambush !== undefined || unit.arc !== undefined || unit.fireRule === "hold" || unit.moving || inDrill(state, unitId)) return false;
   return !(top.ceaseFireTick > -1e9 && top.underFireTick <= top.ceaseFireTick);
 }
 
@@ -748,8 +761,9 @@ function lostContact(ctx: SimContext, state: SimState, id: EntityId, s: SoldierS
 /**
  * Sight realism step 4: a man outdoors, halted and not pinned, with no fire task, who has lost sight of an enemy he
  * knows (`lostContact`), looks for him once every `soldier.peek.everySeconds` (at once when his own fire on him has
- * just stopped): he turns to him (out of a fight only within 90 degrees of his facing); if the ground or plants hide him where he is, he kneels if that clears the line,
- * else stands for `standSeconds` if that does (not under any fire), else moves a few metres across the line
+ * just stopped): he turns to him (out of a fight only within `turnMaxDeg` of his facing); if the ground or plants hide
+ * him where he is, he kneels if that clears the line, else stands for `standSeconds` if that does (not under any fire,
+ * and out of a fight unless `standInFight`; then back to the posture he stood up from), else moves a few metres across the line
  * (`sidestepM`, measured from where this blind spell's looks began) to the least exposed spot that sees him, and takes
  * his posture there. Returns whether he did something.
  */
@@ -759,28 +773,33 @@ function lookForLost(ctx: SimContext, state: SimState, id: EntityId, s: SoldierS
   const tick = state.tick;
   if (s.sawEnemyTick !== undefined && tick - s.sawEnemyTick < secondsToTicks(P.afterSeconds)) { if (s.peekHome !== undefined) delete s.peekHome; return false; }
   if (s.peekTick !== undefined && tick - s.peekTick < secondsToTicks(P.everySeconds)) return false;
-  if (s.mental.suppression >= S.riseBelowSuppression || !mayLook(state, unitId)) return false;
+  if (s.mental.suppression >= S.riseBelowSuppression || !mayLook(state, id, unitId)) return false;
   const c = lostContact(ctx, state, id, s, P.afterSeconds);
   if (!c) return false;
   const me = state.transform.req(id);
   s.peekTick = tick;
   s.peekHome ??= { x: me.x, y: me.y };
-  // (He turns to him: in a fight — his platoon fired on lately — whatever way he faced; out of one only within 90
-  // degrees of the facing he was given, which otherwise stands.)
+  // (He turns to him: in a fight — his platoon fired on lately — whatever way he faced; out of one only within turnMaxDeg
+  // (90 degrees) of the facing he was given, which otherwise stands.)
   const top = topUnit(state, unitId), bearing = atan2(c.y - me.y, c.x - me.x);
   const inFight = top !== undefined && state.tick - top.underFireTick <= secondsToTicks(ctx.catalog.behaviour.decisions.underFireMemorySeconds);
-  if (inFight || Math.abs(wrapAngle(bearing - me.heading)) <= PI / 2) me.heading = bearing;
+  if (inFight || Math.abs(wrapAngle(bearing - me.heading)) <= ((P.turnMaxDeg ?? 90) * PI) / 180) me.heading = bearing;
   const body = ctx.catalog.body.postures, cz = c.z ?? 0, now = POSTURES.indexOf(s.posture);
   if (!coveredFrom(ctx, me.x, me.y, c.x, c.y, body[s.posture].heightM * 0.9, me.z, cz)) return true; // (a line already: he watches)
   if (now < 1 && !coveredFrom(ctx, me.x, me.y, c.x, c.y, body.crouching.heightM * 0.9, me.z, cz)) { requestPosture(ctx, state, id, "crouching"); return true; }
-  if (now < 2 && s.mental.suppression <= 0 && !coveredFrom(ctx, me.x, me.y, c.x, c.y, body.standing.heightM * 0.9, me.z, cz)) {
+  // (Not in a fight — his platoon fired on lately, rounds past him, or the enemy he looks for firing lately (he hears
+  // it) — review fix: a man standing up in the open to look where the enemy is firing from is shot.)
+  const mem = secondsToTicks(ctx.catalog.behaviour.decisions.underFireMemorySeconds);
+  const fight = inFight || (s.fireFrom !== undefined && tick - s.fireFrom.tick <= mem) || tick - (state.weapon.get(c.target)?.lastShotTick ?? -1e9) <= mem;
+  if (now < 2 && s.mental.suppression <= 0 && (!fight || P.standInFight === true) && !coveredFrom(ctx, me.x, me.y, c.x, c.y, body.standing.heightM * 0.9, me.z, cz)) {
+    s.peekFrom = s.posture;
     requestPosture(ctx, state, id, "standing");
     s.peekUntilTick = tick + secondsToTicks(P.standSeconds);
     return true;
   }
   // A few metres aside: the least exposed spot from which he sees him, in his posture or kneeling.
   if (P.sidestepM.length === 0) return true;
-  const home: Posture = s.homePosture ?? s.posture;
+  const home: Posture = s.homePosture ?? s.peekFrom ?? s.posture;
   const hs = [body[home].heightM * 0.9, body.crouching.heightM * 0.9];
   const grid = navFor(ctx, "foot").grid;
   let best: { x: number; y: number } | null = null, bestE = Infinity;
@@ -814,11 +833,11 @@ function windowSwitch(ctx: SimContext, state: SimState, id: EntityId, s: Soldier
   if (!W || !S.peek) return;
   const tick = state.tick;
   if (s.windowSwitchTick !== undefined && tick - s.windowSwitchTick < secondsToTicks(W.everySeconds)) return;
-  if (s.mental.suppression >= S.riseBelowSuppression || !mayLook(state, unitId)) return;
+  if (s.mental.suppression >= S.riseBelowSuppression || !mayLook(state, id, unitId)) return;
   const c = lostContact(ctx, state, id, s, W.afterSeconds);
   if (!c) return;
   s.windowSwitchTick = tick;
-  const r = windowWithView(ctx, state, id, { x: c.x, y: c.y, z: c.z ?? 0 }, W.routeCandidates);
+  const r = windowWithView(ctx, state, id, { x: c.x, y: c.y, z: c.z ?? 0 }, W.routeCandidates, W.minView, W.storeyWeight);
   const m = state.mover.get(id);
   if (!r || !m) return;
   m.waypoints = routeWaypoints(r.leg, { x: 0, y: 0, mode: W.mode });
@@ -1246,6 +1265,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     const m = state.mover.get(id);
     const halted = !m || m.waypoints.length === 0;
     const task = state.fire.get(id);
+    // (His own fire as he went ends with the move: a later move — a crawl, a side-step — is not fired on by it.)
+    if (halted && task?.self === true && task.onTheMove === true) delete task.onTheMove;
 
     // ---- his own fire: keep it up while he sees the enemy, stop when he has lost him
     if (task?.self) {

@@ -637,6 +637,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         const live = r.men.filter((m) => men.includes(m));
         const hit = live.some((m) => (view.soldier.get(m)?.mental.suppression ?? 0) >= COMMANDER.underFireSuppression);
         if (live.length === 0 || !anyFresh || (r.follow && (hit || tick - r.tick >= RQ.followMaxSeconds * 60))) {
+          // (A house clearing under way: the record waits for its end, then they are sent back — review fix. An assault,
+          // a withdrawal or a rout has taken them elsewhere on purpose: they stay with it.)
+          if (u.drill?.kind === "clear" && live.length > 0) return;
           if (!u.drill) for (const m of live) { back(m); tally.back++; }
           delete resited[key];
           return;
@@ -686,6 +689,18 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         pts.push(...one);
         if (closing(id, cx, cy) > RQ.closingM) pts.push(...one); // (a closing enemy counts twice)
       }
+      // Does he see any of the points from where he is now (kneeling outdoors, at his own eye indoors)?
+      const seesNow = (m: EntityId): boolean => {
+        const t = view.transform.get(m)!, s = view.soldier.get(m)!;
+        const indoor = t.z > 0 || indoorAt(ctx, t.x, t.y) >= 0;
+        const z0 = standZ(map, t) + eyeHeightM(ctx, indoor && s.posture === "standing" ? "standing" : "crouching");
+        // ground: ok (the target points are on open ground)
+        return pts.some((p) => sight(ctx, t.x, t.y, z0, p.x, p.y, heightAt(map, p.x, p.y) + p.h).visibility >= RQ.seenVisibility);
+      };
+      // (Only a blind man who sees none of them where he is may shift: if there is none, nothing to work out — review
+      // fix, a cost bound; the others are anchored where they are.)
+      const shift = blind.filter((m) => !seesNow(m));
+      if (shift.length === 0) return;
       // (A squad blind as a whole for `longBlindSeconds` may reach as far as a follow, within the ring plus `longRingM`.)
       const longBlind = allBlind && men.every((m) => !fresh(m, RQ.longBlindSeconds));
       const leash = follow || longBlind ? RQ.followLeashM : RQ.leashM;
@@ -696,7 +711,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         // (A man far from where he was sited — a counter-attack, a rally — is anchored where he is now.)
         if (!p || hypot2(p[0] - t.x, p[1] - t.y) > 2 * RQ.followLeashM) p = sited[String(m)] = [t.x, t.y, -1, -1];
         // (The others keep their places: anchored where they are.)
-        anchors.set(m, blind.includes(m) ? { x: p[0], y: p[1], r: leash } : { x: t.x, y: t.y, r: 1 });
+        anchors.set(m, shift.includes(m) ? { x: p[0], y: p[1], r: leash } : { x: t.x, y: t.y, r: 1 });
       }
       const o = objectives.find((ob) => ob.holder === side && hypot2(ob.x - cx, ob.y - cy) <= ob.radiusM + COMMANDER.siteRingSlackM);
       const ring = o ? { x: o.x, y: o.y, r: o.radiusM + (follow ? RQ.followLeashM : longBlind ? RQ.longRingM : COMMANDER.siteRingSlackM) } : undefined;
@@ -711,20 +726,12 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       }
       const places = siteDefence(ctx, [{ men: men.map((m) => { const t = view.transform.get(m)!; return { id: m, x: t.x, y: t.y }; }), cx, cy, ...(ring ? { ring } : {}) }], pts, leash,
         { anchors, taken: takenBy, eyePosture: "crouching", seenVisibility: RQ.seenVisibility });
-      // Does he see any of the points from where he is now (kneeling outdoors, at his own eye indoors)?
-      const seesNow = (m: EntityId): boolean => {
-        const t = view.transform.get(m)!, s = view.soldier.get(m)!;
-        const indoor = t.z > 0 || indoorAt(ctx, t.x, t.y) >= 0;
-        const z0 = standZ(map, t) + eyeHeightM(ctx, indoor && s.posture === "standing" ? "standing" : "crouching");
-        // ground: ok (the target points are on open ground)
-        return pts.some((p) => sight(ctx, t.x, t.y, z0, p.x, p.y, heightAt(map, p.x, p.y) + p.h).visibility >= RQ.seenVisibility);
-      };
       const maxMove = Math.max(1, Math.floor(men.length * RQ.moveShare));
       const moved: number[] = [];
       const faceX = list.reduce((a, [, c]) => a + c.x, 0) / list.length, faceY = list.reduce((a, [, c]) => a + c.y, 0) / list.length;
       for (const p of [...places].sort((a, b) => (b.seen ?? 0) - (a.seen ?? 0) || a.id - b.id)) {
         if (moved.length >= maxMove) break;
-        if (!p.move || (p.seen ?? 0) <= 0 || !blind.includes(p.id) || seesNow(p.id)) continue;
+        if (!p.move || (p.seen ?? 0) <= 0 || !shift.includes(p.id)) continue;
         lastMoved[String(p.id)] = tick;
         const t = view.transform.get(p.id)!;
         if (p.building !== undefined) order(p.id, { kind: "occupy", building: p.building, windowIndex: p.windowIndex, mode: "walk" });

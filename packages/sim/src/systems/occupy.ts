@@ -136,12 +136,12 @@ export function occupyBuilding(ctx: SimContext, state: SimState, soldiers: reado
 
 /**
  * Another window of the house he is in (sight realism step 4) from which he would see a point (`to`: an enemy he
- * knows, `tz` his height above the ground) — clear of walls and with no more than a tenth of the view taken by plants
- * and smoke: one that no other man of his side holds or is on his way to (on any floor), not the one he is at; of the
- * `candidates` nearest such windows (straight line, a storey counting its height twice), the one with the shortest
+ * knows, `tz` his height above the ground) — clear of walls and with at least `minView` of the view left by plants
+ * and smoke (windowSwitch.minView): one that no other man of his side holds or is on his way to (on any floor), not the one he is at; of the
+ * `candidates` nearest such windows (straight line, a storey counting its height `storeyWeight` times), the one with the shortest
  * way there. Null: none, or he is not indoors.
  */
-export function windowWithView(ctx: SimContext, state: SimState, id: EntityId, to: { x: number; y: number; z: number }, candidates: number): { place: WindowPlace; leg: RouteResult } | null {
+export function windowWithView(ctx: SimContext, state: SimState, id: EntityId, to: { x: number; y: number; z: number }, candidates: number, minView = 0.1, storeyWeight = 2): { place: WindowPlace; leg: RouteResult } | null {
   const me = state.transform.req(id);
   const bi = indoorAt(ctx, me.x, me.y);
   if (bi < 0) return null;
@@ -161,8 +161,8 @@ export function windowWithView(ctx: SimContext, state: SimState, id: EntityId, t
     if (Math.abs(w.z - me.z) < 1 && hypot2(w.x - me.x, w.y - me.y) < 1.2) continue; // (his own)
     if (taken.some((p) => Math.abs(p.z - w.z) < 1.5 && hypot2(p.x - w.x, p.y - w.y) < 1.2)) continue;
     const r = sight(ctx, w.x, w.y, standZ(ctx.map, w) + eyeHeightM(ctx, w.posture), to.x, to.y, tz, id);
-    if (r.blockedBy !== null || r.visibility < 0.1) continue;
-    cands.push({ w, d: hypot2(w.x - me.x, w.y - me.y) + 2 * Math.abs(w.z - me.z) });
+    if (r.blockedBy !== null || r.visibility < minView) continue;
+    cands.push({ w, d: hypot2(w.x - me.x, w.y - me.y) + storeyWeight * Math.abs(w.z - me.z) });
   }
   cands.sort((a, b) => a.d - b.d);
   const { search } = navFor(ctx, "foot");

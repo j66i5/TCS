@@ -149,6 +149,10 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
     if (box) for (const st of box.stacks) { const k = ctx.catalog.items[st.type]?.sensor; if (k !== undefined && st.count > 0) sensors.push(D.sensors[k]); }
     // Sight realism step 3: a cued search — where he heard shots or was told of an enemy, he looks harder.
     const nCue = cueContacts(os, ot.x, ot.y, CC);
+    // (The ground hides a man lying still at a grazing angle: from higher up — an upper floor, a roof — the view is
+    // steeper, as if from nearer: the range in that term is scaled by proneGroundEyeM / his eye height, squared here.)
+    const eyeUp = ez - heightAt(map, ot.x, ot.y), eyeRef = D.conceal?.proneGroundEyeM; // ground: ok (his eye above the ground)
+    const eyeK = eyeRef !== undefined && eyeUp > eyeRef ? (eyeRef / eyeUp) * (eyeRef / eyeUp) : 1;
     for (const tg of targets) {
       if (tg.side === oi.side || tg.id === oid) continue;
       const dx = tg.x - ot.x, dy = tg.y - ot.y, d2 = dx * dx + dy * dy;
@@ -169,7 +173,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       const view = look <= front ? 1 : look <= side ? D.sideFactor : D.rearFactor;
       let rate = D.baseRatePerS * pow(D.referenceRangeM / Math.max(D.minRangeM, dist), D.rangeExponent) * tg.size * tg.motion * view * own * sensor;
       if (tg.fireX > 0) rate *= firingAt(tg, dist);
-      if (tg.groundK > 0 && sensor > 0) { const g = d2 * tg.groundK; rate *= Math.max(1 / (1 + g * g), heat / sensor); } // (thermal: heat shows through the grass)
+      if (tg.groundK > 0 && sensor > 0) { const g = d2 * tg.groundK * eyeK; rate *= Math.max(1 / (1 + g * g), heat / sensor); } // (thermal: heat shows through the grass)
       // (Only while looking for him: a man already seen is kept anyway.)
       if (nCue > 0 && idx < 0 && cued(nCue, dx, dy, dist, tg.x, tg.y)) rate *= CC.factor;
       if (idx >= 0) rate *= tg.keep;
@@ -406,7 +410,8 @@ interface SoldierTarget {
    *  blends in, so its factor is multiplied by this (step 3). */
   unblend: number;
   /** 1 / proneGroundM^2 for a man lying still (0 otherwise): at range 1 / (1 + (range / proneGroundM)^4) of him shows
-   *  to an observer on the ground (step 3). */
+   *  to an observer on the ground (step 3; from higher up the range is scaled down, `proneGroundEyeM`); 0 also for a
+   *  man not on the ground (a roof, an upper floor). */
   groundK: number;
 }
 
@@ -464,12 +469,14 @@ const NEAR_SEGS: number[] = [];
 
 /**
  * Sight realism step 3: how far (m) a man in building `bi` at (x, y), `z` above the ground, is from the nearest
- * opening (window, door, breach) in its outer walls on his floor; Infinity if there is none.
+ * opening (window, door, breach) in its outer walls on his floor; Infinity if there is none within `withinM` (walls
+ * are looked for only that far: the caller asks "within backM?", review fix — any backM works, and the query is small).
  */
-function openingDistance(ctx: SimContext, bi: number, x: number, y: number, z: number): number {
+function openingDistance(ctx: SimContext, bi: number, x: number, y: number, z: number, withinM: number): number {
   const b = ctx.map.buildings[bi];
   if (!b) return Infinity;
-  const n = segmentsInRectInto(ctx.mapIndex, x - 16, y - 16, x + 16, y + 16, NEAR_SEGS);
+  const r = withinM + 0.5;
+  const n = segmentsInRectInto(ctx.mapIndex, x - r, y - r, x + r, y + r, NEAR_SEGS);
   const segs = ctx.mapIndex.segments, info = ctx.ballistics.seg;
   let best = Infinity;
   for (let q = 0; q < n; q++) {
@@ -557,25 +564,32 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
           indoors = true;
           const I = C.indoor, day = 1 - dark;
           let f = 1 - (1 - I.shade) * day;
-          if (openingDistance(ctx, bi, tt.x, tt.y, tt.z) > I.backM) f *= 1 - (1 - I.backFactor) * day;
+          if (openingDistance(ctx, bi, tt.x, tt.y, tt.z, I.backM) > I.backM) f *= 1 - (1 - I.backFactor) * day;
           r.size *= f;
           fireF = I.firingFactor;
         }
       }
       // Lying still: grass, furrows and small folds of the ground hide more of him the flatter the view, i.e. the
-      // farther off the observer (crawling or firing he shows; drones look down and are not affected).
-      if (still && ts.posture === "prone" && !indoors) r.groundK = 1 / (C.proneGroundM * C.proneGroundM);
+      // farther off the observer (crawling or firing he shows; drones look down and are not affected; not on a roof or
+      // an upper floor; an observer looking down from higher up sees him as if nearer, proneGroundEyeM).
+      if (still && ts.posture === "prone" && !indoors && tt.z < 0.5) r.groundK = 1 / (C.proneGroundM * C.proneGroundM);
       if (still && (v > 0 || indoors)) {
-        // His conspicuity where he lies, among plants or in a room (clutter he can blend into; drawn once there,
+        // His conspicuity where he lies, among plants or in a room (clutter he can blend into; drawn once there for
+        // each posture he takes — review fix: kneeling to look and lying down again on the spot keeps both values —
         // the same for every observer). On open ground his outline shows against it whatever he does.
         const cx = ts.conspX ?? 0, cy = ts.conspY ?? 0, rm = C.conspicuityResetM;
-        if (ts.consp === undefined || ts.conspPosture !== ts.posture || (tt.x - cx) * (tt.x - cx) + (tt.y - cy) * (tt.y - cy) > rm * rm) {
+        if (ts.conspX === undefined || (tt.x - cx) * (tt.x - cx) + (tt.y - cy) * (tt.y - cy) > rm * rm) { ts.conspBy = {}; ts.conspX = tt.x; ts.conspY = tt.y; }
+        // (A save from before the fix: its one value, for the posture it was drawn in.)
+        else if (ts.conspBy === undefined) ts.conspBy = ts.consp !== undefined && ts.conspPosture !== undefined ? { [ts.conspPosture]: ts.consp } : {};
+        const by = ts.conspBy!;
+        let k = by[ts.posture];
+        if (k === undefined) {
           const sg = C.conspicuitySigma;
-          ts.consp = exp(sg * nextNormal(state.rng, Streams.conspicuity) - (sg * sg) / 2);
-          ts.conspX = tt.x; ts.conspY = tt.y; ts.conspPosture = ts.posture;
+          k = by[ts.posture] = exp(sg * nextNormal(state.rng, Streams.conspicuity) - (sg * sg) / 2);
         }
-        r.size *= ts.consp;
-        r.unblend = 1 / ts.consp;
+        ts.consp = k; ts.conspPosture = ts.posture;
+        r.size *= k;
+        r.unblend = 1 / k;
         if (v > 0) {
           // Vegetation round him: he blends into it (seen from a man's eye height, the background behind him is
           // more of it). Vegetation lower than the point an observer looks at also hides the part of him below its

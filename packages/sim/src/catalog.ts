@@ -539,13 +539,21 @@ export interface BehaviourDef {
      * first spot sidestepM metres across the line (from where his look started) that sees him, the one in the
      * least exposed cell, at `mode` (lying) or `uprightMode`. Absent: off.
      */
-    peek?: { afterSeconds: number; standSeconds: number; everySeconds: number; contactSeconds: number; contactErrM: number; sidestepM: number[]; mode: string; uprightMode: string };
+    peek?: { afterSeconds: number; standSeconds: number; everySeconds: number; contactSeconds: number; contactErrM: number; sidestepM: number[]; mode: string; uprightMode: string;
+      /** Out of a fight he turns to the enemy he lost only within this angle of his facing (absent: 90). */
+      turnMaxDeg?: number;
+      /** He stands up to look even in a fight (his platoon fired on lately); absent or false: kneels or side-steps only. */
+      standInFight?: boolean };
     /**
      * Indoors (sight realism step 4, game values, low): a man at a window who has not seen the enemy he knows for
      * afterSeconds moves to another window of his house that no comrade holds and that sees him (of the
      * routeCandidates nearest, the shortest way), at `mode`, at most once every everySeconds. Absent: off.
      */
-    windowSwitch?: { afterSeconds: number; everySeconds: number; mode: string; routeCandidates: number };
+    windowSwitch?: { afterSeconds: number; everySeconds: number; mode: string; routeCandidates: number;
+      /** A window is turned down when plants and smoke leave less than this of the view (absent: 0.1). */
+      minView?: number;
+      /** In the "nearest window" distance a storey counts this many times its height (absent: 2). */
+      storeyWeight?: number };
     atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
     grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
     /**
@@ -658,6 +666,10 @@ export interface SpottingConcealDef {
   crawlFactor: number; crawlBelowMps: number;
   /** A man lying still shows 1 / (1 + (range / proneGroundM)^4) of himself to an observer on the ground. */
   proneGroundM: number;
+  /** Review fix (2026-11-16): an observer whose eye is higher above the ground than this (an upper floor, a roof)
+   *  looks down more steeply: the range in that term is scaled by (proneGroundEyeM / his eye height). Absent: no
+   *  scaling (every observer as on the ground). */
+  proneGroundEyeM?: number;
   /** By day firing shows 1 + (firingFactor - 1) / (1 + range / firingHalfM); the floor through vegetation by day. */
   firingHalfM: number; firingVisibilityFloorDay: number;
   /** A heard or reported contact (the cueMax nearest) within cueBearingDeg of the target's bearing and its guessed position within cueRangeM of him: x cueFactor while looking for him. */

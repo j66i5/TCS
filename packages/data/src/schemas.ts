@@ -390,7 +390,7 @@ export const SpottingFile = withProv({
    *  conspicuity, crawling, firing reveal by range, a cued search toward a heard enemy, dark rooms. */
   conceal: z.object({
     keepDecaySeconds: Num(0.1, 600), keepFloorFactor: Num(1, 1000), conspicuitySigma: Num(0, 3), conspicuityResetM: Num(0, 100),
-    crawlFactor: Num(1, 50), crawlBelowMps: Num(0, 5), proneGroundM: Num(1, 10000), firingHalfM: Num(1, 5000), firingVisibilityFloorDay: Num(0, 1),
+    crawlFactor: Num(1, 50), crawlBelowMps: Num(0, 5), proneGroundM: Num(1, 10000), proneGroundEyeM: Num(0.1, 100).optional(), firingHalfM: Num(1, 5000), firingVisibilityFloorDay: Num(0, 1),
     cueBearingDeg: Num(0, 90), cueRangeM: Num(0, 1000), cueFactor: Num(1, 50), cueMax: z.number().int().min(1).max(50),
     indoor: z.object({ shade: Num(0, 1), backM: Num(0, 20), backFactor: Num(0, 1), firingFactor: Num(1, 500) }).strict(),
   }).strict().optional(),
@@ -494,9 +494,9 @@ export const BehaviourFile = withProv({
     /** Sight realism step 4. See BehaviourDef.soldier.peek / windowSwitch. */
     peek: z.object({
       afterSeconds: Num(0, 600), standSeconds: Num(0, 60), everySeconds: Num(0.5, 600), contactSeconds: Num(0, 600), contactErrM: Num(0, 500),
-      sidestepM: z.array(Num(-20, 20)).max(12), mode: z.string(), uprightMode: z.string(),
+      sidestepM: z.array(Num(-20, 20)).max(12), mode: z.string(), uprightMode: z.string(), turnMaxDeg: Num(0, 180).optional(), standInFight: z.boolean().optional(),
     }).strict().optional(),
-    windowSwitch: z.object({ afterSeconds: Num(0, 600), everySeconds: Num(0.5, 600), mode: z.string(), routeCandidates: z.number().int().min(1).max(20) }).strict().optional(),
+    windowSwitch: z.object({ afterSeconds: Num(0, 600), everySeconds: Num(0.5, 600), mode: z.string(), routeCandidates: z.number().int().min(1).max(20), minView: Num(0, 1).optional(), storeyWeight: Num(0, 20).optional() }).strict().optional(),
     atMoveM: Num(0, 200), atMoveMinRangeM: Num(0, 1000), atMoveRetrySeconds: Num(0, 600), atContactSeconds: Num(0, 600),
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
     moveEngageM: Num(0, 500).optional(), pinnedSelfDefenceM: Num(0, 500).optional(), closeThreatM: Num(0, 500).optional(), closeThreatTaskFactor: Num(1, 100).optional(),

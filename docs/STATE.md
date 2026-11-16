@@ -1,10 +1,21 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (sight realism step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Sight realism: review fixes (2026-11-16, branch `claude/sight-realism`).** Men of a set-up mortar or missile team
+  stay at their post instead of looking for a lost enemy; a man stands up to look only when there is no fight (else
+  he kneels or steps aside) and lies down again afterwards even with no posture of his own; a man crawling, bolting
+  or going to cover no longer fires on the move at a close enemy; a man lying still on a roof is no longer hidden as
+  if in grass, and men at upper windows see men lying still better (they look down); how well a still man blends in is drawn once
+  per posture where he is, not again at each look; a few tuning numbers moved into the data. The commander's
+  re-siting costs about a third of what it did (headless platoon 33x -> 54x real time, base 48-51x; bench-vehicles 12-13x, floor 8x). Batches: platoon 6 of
+  10 attacker wins (base 8), platoon-ru 8 (base 8; step 5 had 10), mounted 9 and 1 as before. Numbers in DECISIONS
+  "Sight realism: review fixes". Open: re-acquisition in the platoon defence 17.5 % (goal 30 %); village-occupy
+  attackers pinned in the open still hardly fire back at the house (a pinned man fires only within 50 m); a prone
+  enemy beside a lone walker's path is often missed (attention to the side and rear).
 - **Sight realism, step 5 of 5: squads shift to see a lost enemy again (2026-11-16, branch `claude/sight-realism`).**
   The computer commander, in defence, looks at each squad and the platoon leader's men every 10 s: a man who has seen
   no enemy for 6 s (not pinned or under fire) is moved, crawling or walking, to the best spot within 35 m of his
@@ -14,8 +25,9 @@ DECISIONS.md under its date._
   and data unchanged. Platoon defence blind-idle to sighted 1.74 -> 0.35, fully blind squad-time 15.2 -> 2.6 %,
   re-acquisition 13 -> 29 %; batches as before (breaks 33 -> 29 of 40). Numbers in DECISIONS "Sight realism, step
   5". Open: re-acquisition just short (defence 29 %, goal 30 %; attack 13 %, goal 15 %); village-occupy defenders
-  (scripted sides, no commander) still blind at windows; platoon-ru 10 of 10 and the mounted scenarios 9 and 1 of 10
-  outside the 2-8 band, as at the baseline; platoon breaks above the morale rework's 17 of 40.
+  (scripted sides, no commander) still blind at windows; platoon-ru 10 of 10 (the baseline was 8, inside the band;
+  corrected by the review fixes) and the mounted scenarios 9 and 1 of 10 outside the 2-8 band, as at the baseline;
+  platoon breaks above the morale rework's 17 of 40.
 - **Sight realism, step 4 of 5: a man who has lost a known enemy looks for him (2026-11-15, branch
   `claude/sight-realism`).** After 4 s without seeing any enemy, a halted man who is not pinned or firing turns to the
   enemy he knows, kneels or stands up for 3 s if that would show him, else moves 2-6 m aside to the least exposed spot

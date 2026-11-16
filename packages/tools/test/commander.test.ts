@@ -100,7 +100,7 @@ describe("AI commander (M6.3)", () => {
     const loaded = loadGame(input, save, cs2);
     const end = continueBattle(loaded, input, { controllers: cs2 });
     expect(end.finalStateHash).toBe(r.finalStateHash);
-  });
+  }, 150_000); // (about 25 s alone; the full suite's parallel load has pushed it past 60 s, sight realism review)
 
   it("with the defence gone (one man left, far off, holding fire) the attacker takes the main objective, and the second, and holds them", () => {
     // (Its whole sequence of phases, not the balance: against a real defence the AI attack fails, see DECISIONS.md.)

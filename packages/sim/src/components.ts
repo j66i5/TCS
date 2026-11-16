@@ -204,8 +204,11 @@ export interface SoldierState {
   sawEnemyTick?: number;
   /** Sight realism step 4: the tick of his last look for an enemy he lost (a peek); absent: none in this spell. */
   peekTick?: number;
-  /** Sight realism step 4: he stands to look until this tick, then takes his fire position's posture again. */
+  /** Sight realism step 4: he stands to look until this tick, then takes the posture he looked from again. */
   peekUntilTick?: number;
+  /** Sight realism step 4 (review fix): the posture he stood up from to look (restored when the look ends, or taken
+   *  as his fire posture if he opens fire meanwhile); absent: not standing to look. */
+  peekFrom?: Posture;
   /** Sight realism step 4: where his looks in this blind spell started (side-steps are measured from here, so he does
    *  not drift); cleared when he sees the enemy again or his unit gets an order. */
   peekHome?: { x: number; y: number };
@@ -220,13 +223,16 @@ export interface SoldierState {
   /**
    * Sight realism step 3: how conspicuous he is while still (a lognormal factor of mean 1 on his size, the same for
    * every observer: how well his outline, colours and shadow blend in where he lies), drawn from the "conspicuity"
-   * stream at (conspX, conspY) in conspPosture; drawn anew when he takes another posture or is more than
-   * spotting.conceal.conspicuityResetM from there. Absent until he first holds still.
+   * stream at (conspX, conspY) once for each posture he takes there (`conspBy`; review fix: kneeling to look and lying
+   * down again on the same spot keeps both values, it does not draw anew); all drawn anew when he is more than
+   * spotting.conceal.conspicuityResetM from there. `consp` / `conspPosture`: the value in use and its posture.
+   * Absent until he first holds still.
    */
   consp?: number;
   conspX?: number;
   conspY?: number;
   conspPosture?: Posture;
+  conspBy?: { prone?: number; crouching?: number; standing?: number };
   /**
    * Hiding from an enemy drone (M9.6, behaviour.soldier.droneHide). "freeze": stopped on his way since `since`, held
    * until `until`; "spent": he froze as long as he may and moves on regardless until `until`; "hide": lying down (under a

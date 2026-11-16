@@ -233,6 +233,8 @@ export const SIGHT_CASES: SightCase[] = [
   ...[1, 3, 9].flatMap((o) => [200, 400].map((r) => ({ name: `prone, still, behind 4 m of crops, ${o} observer${o > 1 ? "s" : ""}`, rangeM: r, ...P("prone", "still"), veg: "crops", depthM: 4, observers: o }))),
   ...[400, 600].flatMap((r) => [false, true].map((iron) => ({ name: `standing, still, open, ${iron ? "iron sights" : "G36 optic"}`, rangeM: r, ...P("standing", "still"), ironSights: iron }))),
   { name: "standing, still, at a house window", rangeM: 300, ...P("standing", "still"), window: true },
+  // (Review fix: a man firing from a window must be found by the men he fires at.)
+  ...[150, 300].map((r) => ({ name: "firing from a house window", rangeM: r, ...P("standing", "fire"), window: true })),
 ];
 
 /**

@@ -7073,3 +7073,65 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   crawl or walk; nothing for a far or vague contact; a follow within the follow leash and the men sent back).
   `npm run golden:update`: platoon-vehicles-s1 changed (intended; the other goldens replay their recorded orders
   unchanged); `golden/no-interiors` untouched.
+
+## 2026-11-16 — Sight realism: review fixes (goldens regenerated)
+- **Review of steps 1-5, eleven findings; nine fixed, one partly, one left** (the owner's two complaints: hidden men
+  seen too easily; an enemy in front not engaged and not looked for). Game values, low confidence, as the steps.
+  - **Men at a post do not wander to look** (`decisions.ts mayLook`): a man of a mortar or missile team that is not
+    packed, a drone operator or a man busy with an action (`postedMan`, as the drone-hiding rule) neither turns,
+    rises, side-steps nor changes window to look for a lost enemy (a Metis-M gunner's post moved with him).
+  - **Standing up to look only out of a fight** (`soldier.peek.standInFight` false): not when his platoon was fired on,
+    rounds passed him (`fireFrom`) or the enemy he looks for fired, all within 30 s; he kneels or side-steps instead.
+    He goes back to the posture he stood up from (`SoldierState.peekFrom`) even with no posture of his own, and a
+    fire task taken while standing to look fires from that posture; the side-step keeps that posture too (before, a
+    man with no posture of his own stayed standing in the open and the next side-step made standing his posture).
+  - **Fire on the move at a close enemy** (`closeThreat`): not on a crawl, a bolt out of a house, a dash to cover or
+    to hide from a drone (as `fireOnMoveOk`); his intent "cover" is left alone; a man's own `onTheMove` flag is
+    cleared when he halts (it carried over to a later crawl or side-step).
+  - **Lying still in the grass** (`spotting.ts`): the ground term does not apply to a man on a roof or an upper floor;
+    an observer whose eye is higher above the ground than `conceal.proneGroundEyeM` 1.6 m (an upper floor, a roof)
+    sees it as from nearer, the range scaled by 1.6 m / his eye height (an upper window at about 4 m: a man lying
+    still 400 m off shows about 0.9 of himself instead of 0.13). Vehicle sights as before.
+  - **Conspicuity drawn once per posture at a spot** (`SoldierState.conspBy`): kneeling to look and lying down again no
+    longer draws a new value each time; all are drawn again after 5 m (a save from before keeps its one value).
+    Keying on the spot alone (the review's first suggestion) was tried: platoon attacker casualties 14.6 -> 18.6 (10
+    runs; a kneeling man then kept a prone man's good blend); one value per posture: 16.2.
+  - **Numbers into data:** `peek.turnMaxDeg` 90, `peek.standInFight` false, `windowSwitch.minView` 0.1,
+    `windowSwitch.storeyWeight` 2 (all optional, these defaults). `openingDistance` looks for walls only within
+    `indoor.backM` + 0.5 m (any backM works; smaller query). The route search caps (2000, 8000 expansions) stay in
+    code: cost bounds, not game values.
+  - **Commander:** a re-siting record waits for a house clearing (`clear` drill) to end before its men are sent back
+    (an assault, withdrawal or rout takes them elsewhere on purpose: dropped as before). Cost: `reacquire` runs the
+    siting only when a blind man who sees none of the points where he is exists (the others are anchored where they
+    are), and `siteDefence` looks at a point given twice (a closing enemy) once.
+  - **Tests:** commander save-and-reload test timeout 150 s (it ran 66.6 s under the full suite's load; about 25 s
+    alone); `commander-clear` on seed 4 (seed 3's attack no longer reaches a house in 1200 s); peek tests for the
+    restore without a posture of his own, no standing in a fight, and a missile team's man at his post; spotting lab
+    rows "firing from a house window" at 150 and 300 m.
+- **village-occupy (high finding), checked:** the red men standing up there at 39.8 s, 41.0 s and 55.8 s (seed 1) were
+  stretcher-bearers starting a two-man carry and men going to a wounded comrade, not the step-4 look (events and a
+  per-second probe of every red man); the standing look is now barred in a fight anyway. Red fires little because it
+  walks in the open at 260-300 m toward an MG in a house (the scripted `occupyControllers`: walk, fire free), is
+  pinned within seconds of the first burst and a pinned man fires back only within 50 m; red does spot the window
+  men (14, 13, 10 within 49-58 s in seed 1). A man firing from a window: median 2 s to be found at 150 m, 11 s at
+  300 m (new lab rows; standing still there 33 s). Raising the indoor firing factor 6 -> 10 changed nothing in the
+  batch (red small arms 9 -> 5), so it stays 6. Batch: red small arms 22 (base) -> 7 (review) -> 9, blue 141 -> 119,
+  casualties blue 0.6 -> 0.2, red 3.1 -> 3.7. Not fixed: a pinned attacker who cannot see the window firing back at
+  it (suppressive fire at a known place) would need a new rule; left for the owner.
+- **Left, with reason:** a prone enemy beside the path of a lone man walking past (engage lab "walking across", 60 m
+  7/12 within 60 s, 100 m 6/12): one observer whose path puts the enemy at his side and then behind him (side factor
+  0.3, rear 0.05), the attention model from before this work; scanning the flanks on the move would be a new rule.
+- **Numbers after the fixes** (10 x 1200 s, seeds 1-10; base = before step 1, s5 = after step 5): platoon attacker
+  wins 8 / 6 / 6, casualties blue/red 12.1/11.8 / 14.6/12.7 / 16.2/10.7; platoon-ru attacker 8 / 10 / 8, 14.1/5.3 /
+  14.0/7.7 / 13.8/9.5 (back inside the 2-8 band; STATE wrongly said 10 was "as at the baseline": the baseline was 8);
+  platoon-vehicles 9 / 9 / 9, 7.6/26.0; platoon-ru-vehicles 0 / 1 / 1, 8.7/31.9; village-occupy draws, 0.2/3.7.
+  Labs: spotting rows unchanged; engage unchanged (return 65/72 within 10 s, walking toward 68/72, walking across
+  49/72); reacquire platoon s1-3 defence blind-idle/sighted 0.35 -> 0.54 (goal under 0.7), fully blind squad-time
+  2.6 -> 3.3 % (goal under 4 %), re-acquisition 28.7 -> 17.5 % (goal 30 %: further off), squad episodes over 30 s
+  0.7 per battle; attack re-acquisition 13.3 -> 10.8 %; men standing up to look: platoon s1-3 30 man-s, none hit; platoon-ru and village-occupy none.
+- **Performance** (one at a time, idle machine, base = before step 1 (origin/main), alternating, two runs each):
+  headless platoon seed 3, 900 s: base 51x/48x, after step 5 33x (measured earlier the same way), now 54x/54x (the
+  battle itself differs now, so read it as "no longer slower"); bench-vehicles seed 1, 120 s: base 12x/11x, now
+  12x/13x (floor 8x); bench seed 1: base 20x/24x, now 22x/19x. The step-5 re-siting was most of the platoon slowdown
+  (5.6 s of 24 s, 700 000 sight calls in 84 runs; now about 1.6 s in 40). `npm run test:perf` alone: 23/23.
+- `npm run golden:update`: the ten goldens with interiors changed (intended); `golden/no-interiors` untouched.

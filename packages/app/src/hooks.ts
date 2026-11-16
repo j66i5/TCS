@@ -5,7 +5,7 @@
  * are screenshot-only shortcuts, as before.
  */
 import { buildAppearance, type DataSet } from "@tcs/data";
-import { EventSink, indoorAt, isOffMap, navFor, refreshStatus, simHash, startCarry, supportLeft, type EntityId, type Wound } from "@tcs/sim";
+import { EventSink, indoorAt, isOffMap, isOutside, navFor, refreshStatus, simHash, startCarry, supportLeft, type EntityId, type Wound } from "@tcs/sim";
 import { enemyMenInSight, SIDE_COLOURS, worldToScreen } from "@tcs/render";
 import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
@@ -79,6 +79,16 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     mount: () => issue(a, { ...to(), kind: "mount" }),
     dismount: () => issue(a, { ...to(), kind: "dismount" }),
     rearRun: () => issue(a, { ...to(), kind: "rearRun" }),
+    /** M11.7a: the selected crew's field repair now; damage a hull's components of a kind (screenshots, checks:
+     *  the status follows as a hit would make it). */
+    repair: () => issue(a, { ...to(), kind: "repair" }),
+    isOutside: (id: EntityId) => isOutside(sim.state, id),
+    damage: (vid: EntityId, kind: string, c: number) => {
+      const v = sim.state.vehicle.get(vid), def = v ? sim.ctx.catalog.vehicles[v.def] : undefined;
+      if (!v || !def?.components) return;
+      def.components.forEach((x, k) => { if (x.kind === kind) v.comp[k] = c; });
+      if (c <= 0 && (kind === "track" || kind === "wheels" || kind === "engine" || kind === "transmission") && (v.status === "ok" || v.status === "disarmed")) { v.status = "immobilised"; v.drive.route = []; v.drive.arrived = true; }
+    },
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */
     dismountWounded: () => issue(a, { ...to(), kind: "dismount", wounded: true }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */

@@ -761,7 +761,14 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         const vid = u?.vehicle ?? (kind === "mount" ? u?.carrier : undefined);
         return vid !== undefined && view.vehicle.get(vid)?.rearRun !== undefined;
       };
-      const order = (target: EntityId, body: Record<string, unknown>) => { if (!committed(view.soldier.get(target) as SoldierState | undefined) && !onRun(target, body["kind"])) out.push({ tick, issuer: side, target, ...body } as Order); };
+      // (M11.7a: nor a move to a crew at a field repair, unless the platoon assaults or withdraws: then the move, the
+      // commander's choice, ends the repair.)
+      const repairing = (target: EntityId, kind: unknown) => {
+        if (kind !== "move" || mem.phase === "assault" || mem.phase === "withdraw") return false;
+        const vid = view.unit.get(target)?.vehicle;
+        return vid !== undefined && view.vehicle.get(vid)?.repair?.working === true;
+      };
+      const order = (target: EntityId, body: Record<string, unknown>) => { if (!committed(view.soldier.get(target) as SoldierState | undefined) && !onRun(target, body["kind"]) && !repairing(target, body["kind"])) out.push({ tick, issuer: side, target, ...body } as Order); };
       // Every platoon of the side (the attacker may have two): their squads and their own men.
       // (M8.3a: a mortar section fires missions; it is not a platoon to manoeuvre.)
       // (M9.3b: nor a missile team: it is sited and fired below; its men's eyes still count for what the side knows.)
@@ -858,7 +865,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         const ownFoot = all.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined; }).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
         return tankSections({ view, tick, side, ctx: ground(), objectives, mem, order, defending, ux, uy, phase: mem.phase, phaseTick: mem.phaseTick, remounting: mem.remount?.length ?? 0, ownFoot, back: backOf, reverseHoldSeconds: COMMANDER.reverseOutHoldSeconds });
       };
-      const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || v.status === "immobilised").length;
+      // (M11.7a: an immobilised hull whose crew is at a repair with under 300 s of work left for two men is not lost.)
+      const fixing = (v: (typeof ownVehicles)[number]) => v.repair?.working === true && (v.repair.needManS - v.repair.doneManS) / 2 < 300;
+      const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || (v.status === "immobilised" && !fixing(v))).length;
       mem.sentBack ??= [];
       // (M7.6b review fix: the tank sections' crews that bailed out too.)
       const tankBailed = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ground(), id)).flatMap(([, u]) => u.children).filter((c) => view.unit.get(c)?.exVehicle !== undefined).sort((a, b) => a - b);

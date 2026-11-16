@@ -5,7 +5,7 @@
  * `ordersFor` turns it into the bar. Nothing selected: every button shown greyed (`none`). Pure: tested
  * without a DOM.
  */
-import { isAble, isOut, supportLeft, type Catalog, type EntityId, type SimView } from "@tcs/sim";
+import { isAble, isOut, repairTaskFor, supportLeft, type Catalog, type EntityId, type SimView } from "@tcs/sim";
 import type { OrderMode } from "./hud";
 
 export type Nature = "ap" | "he" | "mg";
@@ -32,6 +32,8 @@ export interface OrderSet {
   natures?: Nature[];
   /** "Take wounded back" (M10.6b, owner Q-9): a combat vehicle's rear run. Absent: not offered. */
   rearRun?: boolean;
+  /** "Repair" (M11.7a): the crew has a field repair it can do now (not already at it). Absent: not offered. */
+  repair?: boolean;
 }
 
 /** What the selected unit can do about vehicles now (M7.2). */
@@ -69,6 +71,8 @@ export interface UnitCapabilities {
   own?: boolean;
   /** A combat vehicle that can take wounded back (M10.6b): the battle has rear runs, it is on the map, not on one. */
   canRearRun?: boolean;
+  /** The crew can start a field repair now (M11.7a): a task with its parts aboard, not already working at it. */
+  canRepair?: boolean;
 }
 
 const NONE: UnitCapabilities = { kind: "none", vehicleClass: null, ableMen: 0, hasLauncherRounds: false, handGrenades: 0, rifleGrenades: 0, smokeGrenades: 0, supportHe: 0, supportSmoke: 0, canMount: false, canDismount: false, passengers: 0, hasSmokeDischargers: false, natures: [] };
@@ -124,6 +128,8 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     out.passengers = veh.seats.filter((o, i) => o !== null && vdef.seats[i]?.station === "passenger").length;
     out.hasSmokeDischargers = vdef.dischargers !== undefined && countIn(view, u.vehicle, vdef.dischargers.item) > 0;
     if (catalog.medical?.rearRun !== undefined && veh.offMap === undefined && veh.rearRun === undefined && (veh.status === "ok" || veh.status === "disarmed")) out.canRearRun = true;
+    if (catalog.repair !== undefined && veh.offMap === undefined && veh.rearRun === undefined && veh.repair?.working !== true && veh.fire === null && (veh.status !== "abandoned" && veh.status !== "destroyed")
+      && typeof repairTaskFor(catalog, view, u.vehicle, veh, vdef) !== "string") out.canRepair = true;
     // The natures its guns offer: a coaxial machine gun "mg"; a cannon "ap" / "he" by the feed's round.
     const set = new Set<Nature>();
     vdef.stations.forEach((st, si) => st.weapons.forEach((w, wi) => {
@@ -210,6 +216,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     o.nature = cap.natures.length > 1;
     if (cap.hasLauncherRounds) o.modes = [...o.modes, "antitank"];
     if (cap.canRearRun) o.rearRun = true;
+    if (cap.canRepair) o.repair = true;
     return o;
   }
   const grenades = cap.handGrenades + cap.rifleGrenades;

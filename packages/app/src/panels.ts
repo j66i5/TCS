@@ -2,7 +2,7 @@
  * The HUD's panels from the state (from the `main.ts` split, D2): the order bar, the unit sidebar and card, the
  * rules panel's status text and the score line. All read-only; all text from the string table.
  */
-import { atRuleOf, fuelLitres, isOut, launcherOf, aglRoundsLeft, mortarTeams, teamRounds, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
+import { atRuleOf, fuelLitres, isOut, launcherOf, aglRoundsLeft, mortarTeams, teamRounds, navFor, repairWorkers, supportLeft, ticksToSeconds, vehicleItems, workRate, type EntityId } from "@tcs/sim";
 import { shownCallsigns } from "@tcs/render";
 import { endPlan } from "./orders";
 import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleGuns, woundedRows, settleRules, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
@@ -102,6 +102,31 @@ export function settlePendingRules(a: App, uid: EntityId, kind?: string): void {
   if (now === null || !settleRules(pend, now, kind)) a.pendingRules.delete(uid);
 }
 
+/**
+ * Field repair lines of a vehicle's card (M11.7a): the task under way (share done, minutes left, "paused" while the
+ * men are not at it), the spares aboard (tool kit and parts its tasks use), parts beyond the crew. "" without
+ * repair data.
+ */
+function repairLines(a: App, vid: EntityId): string {
+  const st = a.sim.state, cat = a.input.catalog, t = a.strings.t.bind(a.strings);
+  const v = st.vehicle.get(vid), def = v ? cat.vehicles[v.def] : undefined;
+  if (!v || !def?.repair || !def.components || cat.repair === undefined) return "";
+  let out = "";
+  const rep = v.repair;
+  if (rep) {
+    const kind = def.components[rep.comp]?.kind ?? "";
+    const men = repairWorkers(st, vid, v);
+    let rate = 0;
+    for (const k of men) rate += workRate(cat, st.soldier.get(v.seats[k]!), def.seats[k]!.station);
+    if (rate <= 0) rate = cat.repair.tasks[kind as keyof typeof cat.repair.tasks]?.men ?? 1;
+    out += `\n${t("status.vehicle.repair", { part: t(`vehicle.comp.${kind}`), pct: Math.floor((100 * rep.doneManS) / rep.needManS), min: Math.max(1, Math.ceil((rep.needManS - rep.doneManS) / rate / 60)), paused: rep.working ? "" : t("status.vehicle.repairPaused") })}`;
+  }
+  const items = [...new Set([...(def.repair.tool !== undefined ? [def.repair.tool] : []), ...Object.values(def.repair.parts).flatMap((ps) => (ps ?? []).map((p) => p.item))])];
+  if (items.length > 0) out += `\n${t("status.vehicle.spares", { list: items.map((it) => `${t(`item.${it}`, {}, v.faction)} ${vehicleItems(st, vid, it)}`).join(", ") })}`;
+  for (const k of v.repairBeyond ?? []) out += `\n${t("status.vehicle.beyond", { part: t(`vehicle.comp.${def.components[k]?.kind ?? ""}`) })}`;
+  return out;
+}
+
 /** The selected unit's rules and state for the rules panel. */
 export function showUnit(a: App): void {
   const uid = a.overlay.selectedUnit, st = a.sim.state, t = a.strings.t.bind(a.strings), cat = a.input.catalog;
@@ -127,6 +152,7 @@ export function showUnit(a: App): void {
         parts: def.components.map((c, k) => ({ c, x: veh.comp[k] ?? 1 })).filter((p) => p.x < 1).map((p) => `${t(`vehicle.comp.${p.c.kind}`)} ${Math.round(p.x * 100)} %`).join(", ") || t("status.vehicle.partsOk"),
         ext: def.extinguisher ? vehicleItems(st, vid, def.extinguisher.item) : 0,
       })}` : "")
+      + repairLines(a, vid)
       + (veh.crewReaction !== null ? `\n${t("status.vehicle.reaction", { reaction: t(`reaction.${veh.crewReaction}`), why: veh.reactionWhy.map((k) => t(k)).join(", ") })}` : "");
     settlePendingRules(a, uid);
     a.hud.setUnit({ ...rulesNow(a, uid)!, ...(a.pendingRules.get(uid) ?? {}) }, status);

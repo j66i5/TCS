@@ -77,6 +77,8 @@ async function main(): Promise<void> {
   // ?time=HH:MM (M9.1): the battle at that local time, the light following the clock; &moon=0..1 (default a half moon).
   const timeOfDay = parseTimeOfDay(params.get("time"));
   if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(params.get("moon") ?? 0.5));
+  // ?repair=0 (M11.7a): no field repair by the crews.
+  if (params.get("repair") === "0") input.rules.repair = false;
   const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
     : [commanderController(enemySide, input)];
@@ -114,7 +116,7 @@ async function main(): Promise<void> {
     revealAll: false, sightAt: -1, lastSeen: new LastSeenBook(), rangingBook: new RangingBook(), ordersShownFor: undefined, ordersKey: "",
   };
   const vehicleDebug = new VehicleDebug();
-  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
+  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
   const hud = a.hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -138,6 +140,7 @@ async function main(): Promise<void> {
     // Vehicles (M7.3): smoke screen now; the gun and round of the next fire order.
     onDischarge: () => { endPlan(a); orderFor("discharge"); },
     onRearRun: () => { endPlan(a); orderFor("rearRun"); },
+    onRepair: () => { endPlan(a); orderFor("repair"); },
     onNature: (n) => { a.nature = n; },
     onCeaseFire: () => orderFor("ceaseFire"),
     onPace: (m) => { a.pace = m; },
@@ -268,7 +271,10 @@ async function main(): Promise<void> {
       if (e.kind === "radio" && e.side === playerSide) {
         const faction = sim.state.identity.get(e.from)?.faction;
         // (Review fix: a refusal stands out from routine traffic.)
-        hud.radio(strings.t(e.key, e.params, faction), ticksToSeconds(e.tick), e.key === "radio.refuseProtected" ? "#ffb4b4" : sideColour(a, e.side));
+        // (M11.7a: a parameter named `...Key` is a string key itself: `partKey` gives `part`, in words.)
+        const params: Record<string, string | number> = { ...e.params };
+        for (const [k, v] of Object.entries(e.params)) if (k.endsWith("Key") && typeof v === "string") params[k.slice(0, -3)] = strings.t(v, {}, faction);
+        hud.radio(strings.t(e.key, params, faction), ticksToSeconds(e.tick), e.key === "radio.refuseProtected" ? "#ffb4b4" : sideColour(a, e.side));
       } else if (e.kind === "order.delivered" && (e.orderKind === "rules" || e.orderKind === "ambush")) {
         settlePendingRules(a, e.target, e.orderKind); // (D4b: an ambush delivered and sprung at once leaves the chip)
       } else if (e.kind === "order.rejected" && e.issuer === playerSide && e.reason !== "superseded") {

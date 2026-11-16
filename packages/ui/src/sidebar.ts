@@ -40,6 +40,8 @@ export interface UnitTile {
   droneAboard?: boolean;
   /** A vehicle with the platoon headquarters aboard (owner 2026-11-15: readable as the HQ's ride). */
   hqAboard?: boolean;
+  /** A vehicle whose crew is at a field repair now (M11.7a). */
+  repairing?: boolean;
 }
 
 /** Which part of a unit a tile selects: the unit (undefined), its drone, or its own men (the headquarters). */
@@ -143,6 +145,7 @@ export function unitTiles(view: SimView, side: string, catalog: Catalog): UnitTi
     if (!veh && fit > 0 && u.morale) { tile.morale = Math.round(u.morale.value * 100); tile.moraleState = u.morale.state; }
     if (veh && def) {
       tile.vehicleStatus = veh.status;
+      if (veh.repair?.working === true) tile.repairing = true; // (M11.7a)
       tile.passengers = veh.seats.filter((o, i) => o !== null && def.seats[i]?.station === "passenger").length;
       if (veh.seats.some((o, i) => o !== null && def.seats[i]?.station === "passenger" && isHqMan(view, o))) tile.hqAboard = true;
     }
@@ -308,7 +311,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
         }
         const detail = isDrone ? s.t(t.droneUp ? "side.droneUp" : t.droneAboard ? "side.droneAboard" : "side.droneReady", { pct: t.dronePct ?? 0 })
           : t.kind === "vehicle"
-          ? `${s.t(`vehicle.status.${t.vehicleStatus ?? "ok"}`)}${(t.passengers ?? 0) > 0 ? ` · ${s.t("side.riding", { n: t.passengers ?? 0 })}` : ""}${t.hqAboard ? ` · ${s.t("side.hqAboard")}` : ""}`
+          ? `${s.t(`vehicle.status.${t.vehicleStatus ?? "ok"}`)}${t.repairing ? ` · ${s.t("side.repairing")}` : ""}${(t.passengers ?? 0) > 0 ? ` · ${s.t("side.riding", { n: t.passengers ?? 0 })}` : ""}${t.hqAboard ? ` · ${s.t("side.hqAboard")}` : ""}`
           : t.kind === "hq" ? `${s.t("side.platoonAll")} · ${s.t(`side.state.${t.state}`)}${moraleChip(s, t)}`
           : `${s.t(`side.state.${t.state}`)}${moraleChip(s, t)}`;
         const key = `${t.callsign}|${t.fit}|${t.total}|${t.state}|${detail}|${t.parent}`;

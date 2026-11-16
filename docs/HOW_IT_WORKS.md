@@ -732,6 +732,31 @@ when he sees an enemy again, forgets him, fires or his squad moves. (Code: `look
 `sim/src/systems/decisions.ts`, `forEachSidestep` in `systems/peek.ts`, shared with the drills' side-step,
 `windowWithView` in `systems/occupy.ts`; values `behaviour.soldier.peek` and `windowSwitch`.)
 
+**Squads shifting to see a lost enemy (sight realism step 5, 2026-11-16).** A man's own look reaches only a few
+metres; when nothing near him shows the enemy, the computer commander now moves him. In defence, once its platoon
+has taken its fire positions, it looks at each squad (and at the platoon leader's own men) every 10 s, one after
+another. A man who has seen no enemy for 6 s, is not pinned, under fire or on his way somewhere, and whose squad
+knows an enemy man within the range of fire (300 m by day, 200 m in the dark) to within 40 m, may be shifted: the
+commander works out, as it did at the start, the best spot within 35 m of the place first chosen for him (inside
+the objective's ring for a squad holding one; a window of a house nearby counts too) from which a kneeling man
+would see where the enemy is known to be and the ground round it, judged by the enemy's own posture. An enemy known
+to be coming nearer counts double. Only a man whose new spot shows the enemy while his place now does not is sent, at
+most half the squad at one look, crawling if it is 8 m or less, walking otherwise, facing the enemy; the same man
+is not sent again within 20 s. A squad that has seen nothing for 30 s may reach 50 m. **A bounded follow:** when the
+enemy the squad knows best draws away by more than 30 m within 20 s and nobody of the squad sees him, a steady
+squad (morale 0.45 or more, not pinned or broken) sends up to half its men to spots up to 50 m out that see where
+he went, never more than 50 m beyond its objective's ring; they come back to their places after a minute, or at
+once when fire comes near them. Men shifted go back to their places once nothing is known of the enemy for a
+minute. **In attack**, a squad of the base of fire none of whose men has seen an enemy for a minute slides along
+the support line (20, 40 or 60 m to either side, or 20 m forward) to the spot that sees most of the enemies known
+near the objective (or its ring when none are known) instead of firing blind, at most every 30 s. Only the
+computer commander does this: your own squads find a lost enemy only through their men's own looks (step 4) and
+your orders. The lab `npm run lab -- reacquire` prints how many men each commander shifted, followed
+and sent back, and how often the base of fire slid; a man shifted by his commander is on a look, and his blind
+spell goes on until he sees the enemy again. (Code: `reacquire` and the base-of-fire slide in
+`ai/src/commander.ts`, values `COMMANDER.reacquire`; `siteDefence` in `ai/src/siting.ts` with its new `anchors`
+option.)
+
 ## Under fire
 
 Every enemy round that cracks past a man within about 4 m — or strikes near him — **suppresses** him a little

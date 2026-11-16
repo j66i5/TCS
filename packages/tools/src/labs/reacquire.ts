@@ -7,6 +7,8 @@
  *    contact, at most 20 m off, refreshed within 60 s, not spared) but has seen no enemy man for 3 s or more. He is
  *    "blind and idle" when he also is not moving, not firing, not changing posture and busy with nothing. A blind
  *    episode ends when he sees an enemy again (a re-acquisition), when he forgets, or when he does something.
+ *    (Step 4: his own looks are part of the episode; step 5: so is a move his commander gave him alone to see the
+ *    enemy again, within `RESITE_LOOK_S` of the order.)
  *    A squad is "fully blind" when at least one of its men is blind and none sees and none moves or fires, and the
  *    squad is neither moving nor in a drill. For each blind-idle sample the lab also asks whether a peek would have
  *    shown the enemy (kneeling, standing, or a side-step of 2-6 m), and indoors whether another window of the same
@@ -21,6 +23,7 @@ import {
   contactErrorM, eyeHeightM, indoorAt, isAble, navCostAt, navFor, runBattle, secondsToTicks, sight, spared, standZ, TARGET_POINT_M, windowPlaces,
   type EntityId, type SimContext, type SimState,
 } from "@tcs/sim";
+import { reacquireStats, type ReacquireStats } from "@tcs/ai";
 import { getScenario, loadData } from "../scenarios";
 
 /** Which side attacks in each scenario the lab knows (the other defends). */
@@ -30,6 +33,8 @@ const DEFAULT_SECONDS: Record<string, number> = { platoon: 1200, "platoon-ru": 1
 
 /** Step 4: an episode spans the man's own looks (posture, a few steps, another window); false: the step 1 definition. */
 const PEEK_SPANS = process.env.TCS_REACQUIRE_STEP1 !== "1";
+/** Step 5: a man his commander re-sited toward a lost enemy within this many seconds is on a look, not a unit move. */
+const RESITE_LOOK_S = 60;
 const HZ = 60, LOST_MIN_S = 3, KNOWN_MAX_S = 60, KNOWN_ERR_M = 20, BLIND_RANGE_M = 300, VIS_PEEK = 0.1;
 const ENGAGE_RANGE_M = 100, ENGAGE_VIS = 0.5, FRONT_RAD = (60 * Math.PI) / 180, NO_SHOT_S = 5, SEEN_WITHIN_S = 2;
 
@@ -55,6 +60,8 @@ export interface SideStats {
   proneOpenSightingsM: number[];
   /** Step 4: man-s standing up to look / moving aside to look (sampled), and men who went down within 2 s of it. */
   peekStandS: number; peekMoveS: number; downPeekStand: number; downPeekMove: number;
+  /** Step 5: the side's commander's re-sitings (null: no commander). */
+  commander?: ReacquireStats | null;
 }
 export interface BattleStats { scenario: string; seed: number; seconds: number; end: string; attack: SideStats; defence: SideStats }
 
@@ -121,11 +128,18 @@ export function reacquireBattle(scenario: string, seed: number, seconds: number)
   const men = new Map<EntityId, { prev?: { x: number; y: number; p: string }; run: number; stay: boolean; looked?: boolean; peekAt?: number; peekKind?: "stand" | "move" }>();
   const squadRun = new Map<EntityId, number>(), squadSide = new Map<EntityId, "attack" | "defence">();
   const spotted: { observer: EntityId; target: EntityId; rangeM: number }[] = [];
+  const controllers = sc.controllers?.(input) ?? [];
+  const resitedAt = new Map<EntityId, number>();
   const res = runBattle(input, {
-    controllers: sc.controllers?.(input) ?? [],
+    controllers,
     onEvents: (evs) => { for (const e of evs) if (e.kind === "spotted" && e.drone !== true) spotted.push({ observer: e.observer, target: e.target, rangeM: e.rangeM }); },
     onTick: (sim) => {
       const st = sim.state, ctx = sim.ctx;
+      // (Step 5: men their commander re-sited toward a lost enemy lately: their move is a look, like a man's own.)
+      if (st.tick % HZ === 0) {
+        resitedAt.clear();
+        for (const c of controllers) { const m = (c.saveState?.() as { rqMoved?: Record<string, number> } | undefined)?.rqMoved; if (m) for (const [k, v] of Object.entries(m)) resitedAt.set(Number(k), v); }
+      }
       // ---- 3. sighting census (every tick: the events of this tick)
       for (const e of spotted) {
         const os = st.soldier.get(e.observer), ts = st.soldier.get(e.target), oi = st.identity.get(e.observer), tt = st.transform.get(e.target);
@@ -221,7 +235,8 @@ export function reacquireBattle(scenario: string, seed: number, seconds: number)
         // episode, which goes on until he sees the enemy again, forgets him, fires or his unit moves.)
         if (moving || stepped) {
           A.blindMovingS++;
-          const unitMoved = st.unit.get(idn.unit)?.moving || st.unit.get(sq)?.moving || st.unit.get(sq)?.drill;
+          const resited = st.tick - (resitedAt.get(id) ?? -1e9) <= RESITE_LOOK_S * HZ && !st.unit.get(sq)?.drill;
+          const unitMoved = !resited && (st.unit.get(idn.unit)?.moving || st.unit.get(sq)?.moving || st.unit.get(sq)?.drill);
           if (unitMoved || !PEEK_SPANS) end(unitMoved ? "unit moved" : "own move"); else { rec.run++; rec.looked = true; }
           continue;
         }
@@ -270,6 +285,7 @@ export function reacquireBattle(scenario: string, seed: number, seconds: number)
   });
   // A fully blind squad episode still open at the end counts too.
   for (const [sq, r] of squadRun) if (r > 0) stats[squadSide.get(sq) ?? "attack"].squadEpisodes.push(r);
+  for (const c of controllers) { const k = c.side === attacker ? "attack" : "defence"; stats[k].commander = c.saveState ? reacquireStats(c.saveState()) : null; }
   return { scenario, seed, seconds, end: `${res.endReason} at ${res.durationSeconds.toFixed(0)} s`, ...stats };
 }
 
@@ -314,6 +330,10 @@ export function sumSides(ss: readonly SideStats[]): SideStats {
     for (const k of NOT_ENGAGED_CAUSES) t.notEngaged[k] += s.notEngaged[k];
     t.proneOpenSightingsM.push(...s.proneOpenSightingsM);
     t.peekStandS += s.peekStandS; t.peekMoveS += s.peekMoveS; t.downPeekStand += s.downPeekStand; t.downPeekMove += s.downPeekMove;
+    if (s.commander) {
+      const c = t.commander ??= { resites: 0, men: 0, follows: 0, followMen: 0, back: 0, baseShifts: 0 };
+      for (const k of Object.keys(c) as (keyof ReacquireStats)[]) c[k] += s.commander[k];
+    }
   }
   return t;
 }
@@ -379,6 +399,15 @@ export function reacquireLabMarkdown(rows: BattleStats[]): string {
   for (const sc of scenarios) {
     const rs = rows.filter((r) => r.scenario === sc);
     for (const side of ["defence", "attack"] as const) { const t = sumSides(rs.map((r) => r[side])); out.push(`| ${sc} | ${side} | ${t.peekStandS} | ${t.downPeekStand} | ${t.peekMoveS} | ${t.downPeekMove} |`); }
+  }
+  out.push("", "### Squads shifting to see (step 5)", "", "The commanders' tally: defence squads re-sited toward a lost enemy (looks that moved men), men moved (of them on a bounded follow), men sent back to their places; attack base-of-fire squads slid along the support line.", "",
+    "| scenario | side | battles | re-sitings | men moved | per battle | follows | men on a follow | men sent back | base slides |", "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|");
+  for (const sc of scenarios) {
+    const rs = rows.filter((r) => r.scenario === sc);
+    for (const side of ["defence", "attack"] as const) {
+      const c = sumSides(rs.map((r) => r[side])).commander;
+      out.push(c ? `| ${sc} | ${side} | ${rs.length} | ${c.resites} | ${c.men} | ${(c.men / rs.length).toFixed(1)} | ${c.follows} | ${c.followMen} | ${c.back} | ${c.baseShifts} |` : `| ${sc} | ${side} | ${rs.length} | – | – | – | – | – | – | – |`);
+    }
   }
   return out.join("\n");
 }

@@ -6996,3 +6996,80 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   aside behind a 2.5 m wall, not closer, back in his posture; nothing under rule hold; `windowWithView` picks the
   window that sees and skips one a comrade holds). Goldens regenerated (intended; `npm run golden:update`, 10 files);
   `golden/no-interiors` untouched.
+
+## 2026-11-16 — Sight realism, step 5 of 5: squads shift to see a lost enemy again (AI commander only; golden regenerated)
+- **What changed** (owner request "make the line of sight more realistic", second complaint: men and squads do not
+  move to see a known enemy again; plan step "squad"; values in `COMMANDER.reacquire` in `ai/src/commander.ts`,
+  following that file's pattern; game values, low confidence: alternate and supplementary positions, local
+  repositioning, holding the ground rather than pursuing, from search extracts only, no page opened). The sim and the
+  data are unchanged: spotting, engage, night and thermal labs are as after step 4.
+  - **Defence, in "hold"** (`reacquire` in commander.ts): every 10 s per group (each squad and the platoon
+    headquarters' own men, staggered) the men who have seen no enemy for 6 s (`SoldierState.sawEnemyTick`), are not
+    pinned, panicked or under fire (suppression below 0.1), are halted and were not shifted in the last 20 s may be
+    shifted, when the group knows an enemy man (seen or reported, not heard, not down or given up) within the
+    defence's range of fire (300 m, 200 m in the dark) to 40 m or better, and the group is not in a drill, broken or
+    pinned as a unit. `siteDefence` is run on that group with the known positions plus a ring of 4 points at their
+    uncertainty as the points to see (each at the height of the enemy's known posture, plus his floor; a contact
+    whose known position came more than 10 m nearer over 20 s counts twice), a kneeling eye and visibility 0.2, each
+    shiftable man limited to 35 m of his sited place (new `SitingOptions.anchors`; the others anchored where they are),
+    the side's other men's places kept clear (`SitingOptions.taken`), inside the objective's ring plus 15 m. A man is
+    moved only if his new place sees some of the points and his place now does not (kneeling, or his own eye at a
+    window), at most half the group at one look, crawling within 8 m, else walking, facing the enemy; a window place
+    is an `occupy` order. A group whose men have all seen nothing for 30 s may reach 50 m. Men shifted go back to
+    their sited places once no contact of theirs is fresher than 60 s. The sited places are remembered at the start
+    (and after a rally or a house left).
+  - **Bounded follow:** when the group's freshest contact drew away by more than 30 m over 20 s (none closing), all
+    its men are blind and its morale is ready (state not pinned or broken, 0.45 or more), the same shift is run with a
+    50 m leash, inside the ring plus 50 m; the men moved come back after 60 s, or at once when one of them is under
+    fire.
+  - **Attack:** a base-of-fire squad on its support line, idle, none of whose men has seen an enemy for 60 s (and
+    60 s into the assault phase) slides 20/40/60 m either way along the line, or 20 m forward, to the spot that sees
+    most of the enemies known near the objective (else 8 points on its ring and its centre) from a man lying there,
+    if that beats where it is by 0.05; at most every 30 s.
+  - Lab `reacquire`: a new table "Squads shifting to see" (the commanders' tally, `reacquireStats`); a man his
+    commander shifted within 60 s is on a look (his blind spell goes on), as a man's own look since step 4.
+- **Plan deviations (all to meet the acceptance, measured on platoon seeds 1-8):** (1) the plan's trigger (no man of
+  the squad has seen an enemy for 10 s, the whole squad halted and unpinned) fired 5-17 times in a battle and
+  barely moved anyone; a man-by-man trigger inside each group (blind men only, the others hold) did the work
+  (blind-idle/sighted over seeds 1-8 1.11 -> 0.58 with it and (4), before the change of cadence (3)). (2) Contacts to 40 m, not 20 m:
+  at 1 m/s drift a contact is 20 m vague about 15 s after it was last refreshed, so a squad blind for 10 s almost
+  never had one. (3) Every 10 s and 6 s blind, not 15 s and 10 s: re-acquisition 14.9 -> 22.5 % over seeds 1-8,
+  the other figures the same within noise. (4) The platoon headquarters' own men are a group too: the lab counts
+  them as a "squad", and their blind spells were the longest left (575 s). (5) A squad blind as a whole for 30 s may
+  reach 50 m (not in the plan); a ring extension of 30 m for it was tried and dropped (ring + 15 m as planned). (6)
+  The unit's `moving` flag does not stop a look (a man still on his way is left out, the others may shift). (7) The
+  follow may start after a re-siting (otherwise it never started: a squad had always been re-sited before its
+  enemy drew away); 2 follows in 8 battles.
+- **Before -> after** (reacquire lab, "before" = step 4, ab01ba4):
+  - platoon s1-3 defence: blind-idle/sighted 1.74 -> 0.35 (goal under 0.7: met); blind-idle share 20.2 -> 6.3 %;
+    fully blind squad-time 15.2 -> 2.6 % (goal under 4 %: met), longest 232 -> 57 s, squad episodes over 30 s 5.3 ->
+    1.0 per battle (goal at most 1: met); re-acquisition 13.1 -> 28.7 % (goal 30 %: just short); median blind spell
+    with the enemy still within 10 m of the known spot 2 -> 4 s (goal under 10 s: met); men moved per battle 36 (goal
+    tens, not hundreds: met), 1 follow, 15 men sent back.
+  - platoon s1-3 attack: re-acquisition 8.4 -> 13.3 % (goal 15 %: not met), blind-idle/sighted 0.24 -> 0.15; base
+    slides 4 in 3 battles. platoon-ru s1-3: defence 0.12 -> 0.08, re-acquisition 52.8 -> 38.6 %; attack 17.9 -> 14.1 %.
+  - Seeds 1-8 (check against noise): platoon defence 1.11 -> 0.40, fully blind 10.7 -> 5.2 % (longest 242 -> 242 s,
+    1.5 episodes over 30 s per battle), re-acquisition 13.2 -> 23.7 %; platoon attack 7.2 -> 10.7 %; platoon-ru
+    defence 0.19 -> 0.19, fully blind 5.8 -> 7.2 %, re-acquisition 13.6 -> 17.9 %; platoon-ru attack 17.1 -> 9.3 %
+    (twice the episodes: longer battles). What is left blind: mostly men who cannot be moved (a lone wounded platoon
+    leader, pinned men) and enemies 200-300 m off that no spot within 50 m of the position sees.
+  - village-occupy unchanged (its two sides are scripted, `occupyControllers`, no commander): attackers blind-idle
+    3.8 %, defenders indoors 634 man-s in s1 (goal under 380: not met by this step).
+  - Enemy in front, not engaged (platoon s1-3): 26 -> 13 man-s.
+- **Batches** (10 x 1200 s, seeds 1-10; step 4 -> step 5): platoon attacker wins 6 -> 6, casualties blue/red
+  13.6/12.4 -> 14.6/12.7, mean duration 980 -> 992 s; platoon-ru 10 -> 10, 12.8/6.1 -> 14.0/7.7, 807 -> 851 s;
+  platoon-vehicles 9 -> 9, 8.2/25.5 -> 8.4/25.6, 887 -> 933 s; platoon-ru-vehicles 2 -> 1, 9.7/32.4 -> 8.7/30.8, 939
+  -> 1006 s. Casualties and durations within 30 % (the largest: platoon-ru red +26 %, 1.6 men). platoon-ru (10) and
+  the two mounted scenarios (9 and 1) stay outside the 2-8 band, as in the baseline. Battles with a platoon break
+  (step 1's script) 33 -> 29 of 40 (the morale rework's 17 of 40 is still exceeded). An objective changes hands only
+  with the enemy inside its ring (objectives.ts), and the shifted men stay inside the ring plus 15 m (50 m on a
+  follow, at most half a squad, for a minute).
+- **Performance:** `siteDefence` runs only for a group with a man to shift, on candidates within the leash discs
+  around its men's anchors (5 m grid, shared between overlapping discs) against at most 6 contacts x 5 points.
+  Headless platoon-vehicles 1200 s, seed 1: 29.6/30.4 s before, 29.2/29.0 s after. `npm run test:perf` alone: 23/23
+  (bench-combined and bench-vehicles above their floors).
+- **Tests:** new `tools/test/reacquire-squad.test.ts` (anchored siting keeps each man in his disc and is pure; the
+  commander moves only blind men who do not see the contact, at most half a squad per look, within the leash, by
+  crawl or walk; nothing for a far or vague contact; a follow within the follow leash and the men sent back).
+  `npm run golden:update`: platoon-vehicles-s1 changed (intended; the other goldens replay their recorded orders
+  unchanged); `golden/no-interiors` untouched.

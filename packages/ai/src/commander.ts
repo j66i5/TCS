@@ -25,8 +25,8 @@
  */
 import { withDrones } from "./drone";
 import {
-  atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
-  type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
+  atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
+  type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
@@ -122,6 +122,25 @@ export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new 
   // `supportM` (closer, within night sight); the defender's men fire at will only out to `defenceRangeM`.
   night: { belowLight: 0.3, illumTriggerM: 300, illumAnyM: 200, illumMinMen: 2, illumEverySeconds: 90, illumBeyondM: 150, contactSeconds: 60, sneakFactor: 2.5, supportFactor: 0.7, defenceRangeM: 200 },
   sneakM: 50, resumeSeconds: 15, resumeMax: 4, arrivedM: 40, advanceTimeoutSeconds: 600, assaultPositionM: 120, flankMaxDeg: 50, closeTimeoutSeconds: 300, closeInM: 60, underFireSuppression: 0.1, prepLeadS: 15, restFatigue: 0.35, restMaxSeconds: 60, blindAheadM: 10, axisMaxDeg: 45, screenShare: 0.5, screenHalfM: 50, screenRounds: 4, screenLeadS: 20, dangerCloseMarginM: 50, liftM: 40, lineAllowanceM: 5, placeDepthsM: [0, 20, -10], placeAsideM: [0, -20, 20, -40, 40], flankClearM: 320, launcherReachM: 200,
+  // Sight realism step 5 (squads shift to see a lost enemy again; game values, low confidence: alternate and
+  // supplementary positions and local repositioning in the defence, hold the ground rather than pursue, from search
+  // extracts only). Defence, in "hold": a squad is looked at every `everySeconds` (staggered); it is re-sited when its
+  // men know an enemy man (seen or reported, not heard) within the defence's range of fire to `errM` or better, none of
+  // them has seen an enemy for `blindSeconds`, and it is neither pinned, broken, moving nor in a drill. Its men's places
+  // are sited again (siting.ts, kneeling eye, a point counts at visibility `seenVisibility`) against the known
+  // positions and a ring of 4 points at their uncertainty (a contact closing on it by more than `closingM` over
+  // `trailSeconds` counted twice), each man within `leashM` of where he was sited (inside the objective's ring); only
+  // men whose new place sees and whose place now does not are moved, at most `moveShare` of the squad, crawling within
+  // `crawlM`, else walking. They go back once no contact of theirs is fresher than `restoreSeconds`. A bounded follow:
+  // when the squad's freshest contact has drawn away by more than `followRecedeM` over `trailSeconds` and the squad's
+  // morale is at `assaultMinMorale` or above, half the squad is sited within `followLeashM` instead (never beyond the
+  // objective's ring plus that), and comes back under fire or after `followMaxSeconds`.
+  // Attack: a base-of-fire squad none of whose men has seen an enemy for `baseBlindSeconds` slides along the support
+  // line (`baseShiftM` either way, `baseForwardM` forward) to the spot that sees most of the enemies known near the
+  // objective, at most every `baseShiftSeconds`.
+  reacquire: { everySeconds: 10, blindSeconds: 6, errM: 40, leashM: 35, seenVisibility: 0.2, closingM: 10, trailSeconds: 20, moveShare: 0.5, crawlM: 8,
+    restoreSeconds: 60, longBlindSeconds: 30, longRingM: 15, followRecedeM: 30, followLeashM: 50, followMaxSeconds: 60, ringPts: 4, maxContacts: 6,
+    baseBlindSeconds: 60, baseShiftM: [20, -20, 40, -40, 60, -60], baseForwardM: [0, 20], baseShiftSeconds: 30 },
   // D4a (game values, low, owner to review): the platoon's reserve in the assault and the base of fire's bounds.
   reserve: { minSquads: 3, backM: 60, commitStrength: 0.6, commitSeconds: 90 },
   baseBound: { maskedLooks: 2, everySeconds: 40, stepM: 60, minM: 150, turnDeg: [20, 40, 60], shiftM: 250, stepAsideM: [3, -3, 6, -6, 9, -9], stepAsideSeconds: 30 } } as const;
@@ -167,6 +186,14 @@ interface Memory extends TanksMemory {
    *  objective is assaulted afresh), the assault squads it backs, the squad committed and when; per base-of-fire squad,
    *  its masked looks in a row and when it last bounded forward; per man, when he last stepped aside. */
   reserve?: number; reserveLead?: number[]; reserveSq?: number; reserveAt?: number; maskedRun?: Record<string, number>; baseMoved?: Record<string, number>; stepAside?: Record<string, number>;
+  /** Sight realism step 5: each defender's sited place [x, y, building id or -1, window index or -1]; per squad, the
+   *  men re-sited toward a lost enemy, since when, and whether it is a follow; per enemy man, where his side's
+   *  freshest contact placed him at each look of the last `trailSeconds` [x, y, tick]; per base-of-fire squad, its
+   *  last slide along the support line. */
+  sited?: Record<string, [number, number, number, number]>; resited?: Record<string, { men: number[]; tick: number; follow: boolean }>;
+  trail?: Record<string, [number, number, number][]>; baseShift?: Record<string, number>;
+  /** Step 5's tally (read by the reacquire lab through `reacquireStats`). */
+  rq?: ReacquireStats; rqMoved?: Record<string, number>;
   clearing?: Record<string, [number, number]>; taken?: number[]; takenAt?: Record<string, number>; held?: Record<string, number>; clearFailed?: Record<string, number>; houseSeen?: Record<string, number>;
 }
 
@@ -177,6 +204,16 @@ export interface AttackStats {
    *  house of the objective's ring, `reserveExploit`). */
   reserveKept: number; reserveCommitted: number; committedBeforeTake: number; reserveExploit?: number;
   baseBounds: number; inLineLooks?: number; stepped?: number;
+}
+/** Sight realism step 5: what a commander did to see a lost enemy again (from its saved memory). */
+export interface ReacquireStats {
+  /** Defence: squads re-sited (looks that moved men), men moved, of them on a follow, men sent back. Attack: base-of-fire
+   *  squads slid along the support line. */
+  resites: number; men: number; follows: number; followMen: number; back: number; baseShifts: number;
+}
+export function reacquireStats(saved: unknown): ReacquireStats | null {
+  const m = (saved as { rq?: ReacquireStats } | null | undefined)?.rq;
+  return m === undefined ? null : { ...m };
 }
 export function attackStats(saved: unknown): AttackStats | null {
   const m = (saved as { att?: AttackStats } | null | undefined)?.att;
@@ -550,6 +587,159 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
     }
   };
 
+  /**
+   * Sight realism step 5: defending squads shift to see a lost enemy again (values and rules in COMMANDER.reacquire).
+   * `known`: what a man knows of the enemy the commander may act on (not spared); `rangeM`: the defence's range of fire.
+   */
+  const reacquire = (view: SimView, tick: number, groups: readonly [EntityId, EntityId[]][], order: (t: EntityId, body: Record<string, unknown>) => void,
+    known: (m: EntityId) => readonly Contact[], rangeM: number): void => {
+    const RQ = COMMANDER.reacquire, ctx = ground(), map = ctx.map, step = Math.floor(tick / every);
+    const sited = mem.sited ??= {}, resited = mem.resited ??= {}, trail = mem.trail ??= {};
+    const tally = mem.rq ??= { resites: 0, men: 0, follows: 0, followMen: 0, back: 0, baseShifts: 0 };
+    const fresh = (m: EntityId, s: number) => { const t = view.soldier.get(m)?.sawEnemyTick; return t !== undefined && tick - t < s * 60; };
+    // Where the side's freshest contacts put each enemy man, over the last `trailSeconds` (one entry a look).
+    const latest = new Map<EntityId, { x: number; y: number; tick: number }>();
+    for (const [, ms] of groups) for (const m of ms) for (const c of known(m)) {
+      if (c.cls === "vehicle" || c.kind === "heard" || c.down === true || c.surrendered === true) continue;
+      const b = latest.get(c.target);
+      if (!b || c.tick > b.tick) latest.set(c.target, c);
+    }
+    for (const [id, c] of [...latest.entries()].sort((a, b) => a[0] - b[0])) {
+      const l = trail[String(id)] ??= [];
+      if (l.length === 0 || l[l.length - 1]![2] !== c.tick) l.push([c.x, c.y, c.tick]);
+      while (l.length > 1 && tick - l[1]![2] >= RQ.trailSeconds * 60) l.shift();
+    }
+    for (const k of Object.keys(trail)) { const l = trail[k]!; if (l.length === 0 || tick - l[l.length - 1]![2] > RQ.restoreSeconds * 60) delete trail[k]; }
+    /** How far (m) this enemy's known place came nearer (x, y) over the trail (negative: drew away). */
+    const closing = (id: EntityId, x: number, y: number): number => {
+      const l = trail[String(id)];
+      if (!l || l.length < 2) return 0;
+      const a = l[0]!, b = l[l.length - 1]!;
+      if (b[2] - a[2] < (RQ.trailSeconds / 2) * 60) return 0;
+      return hypot2(a[0] - x, a[1] - y) - hypot2(b[0] - x, b[1] - y);
+    };
+    const back = (m: EntityId) => {
+      const p = sited[String(m)], t = view.transform.get(m);
+      if (!p || !t || (p[2] < 0 && hypot2(p[0] - t.x, p[1] - t.y) <= 2)) return;
+      if (p[2] >= 0) order(m, { kind: "occupy", building: p[2], windowIndex: p[3], mode: "walk" });
+      else order(m, { kind: "move", waypoints: [{ x: p[0], y: p[1], mode: hypot2(p[0] - t.x, p[1] - t.y) <= RQ.crawlM ? "crawl" : "walk" }], facing: mem.front ?? t.heading });
+    };
+    groups.forEach(([sq, ms], i) => {
+      const u = view.unit.get(sq), key = String(sq);
+      if (!u) return;
+      const men = ms.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && !committed(s) && s!.mount === undefined && s!.impair.canWalk && view.transform.has(m); }).sort((a, b) => a - b);
+      if (men.length === 0) { delete resited[key]; return; }
+      // Back to where they were sited: no contact of theirs fresher than `restoreSeconds`; a follow also under fire
+      // or after `followMaxSeconds`.
+      const r = resited[key];
+      if (r) {
+        const anyFresh = men.some((m) => known(m).some((c) => c.cls !== "vehicle" && c.down !== true && c.surrendered !== true && tick - c.tick <= RQ.restoreSeconds * 60));
+        const live = r.men.filter((m) => men.includes(m));
+        const hit = live.some((m) => (view.soldier.get(m)?.mental.suppression ?? 0) >= COMMANDER.underFireSuppression);
+        if (live.length === 0 || !anyFresh || (r.follow && (hit || tick - r.tick >= RQ.followMaxSeconds * 60))) {
+          if (!u.drill) for (const m of live) { back(m); tally.back++; }
+          delete resited[key];
+          return;
+        }
+        // (A follow under way is not added to; a re-siting may be, while the squad is still blind.)
+        if (r.follow) return;
+      }
+      if ((step + i) % Math.max(1, Math.round(RQ.everySeconds / COMMANDER.stepSeconds)) !== 0) return;
+      // (Not `moving`: a man of it still on his way is left out below, the others may shift.)
+      if (u.drill || u.broken || u.morale?.state === "pinned" || u.morale?.state === "broken") return;
+      // The men who may shift: blind for `blindSeconds`, not pinned or panicked, not under fire, halted, not moved for
+      // this in the last `everySeconds` x 2.
+      const lastMoved = mem.rqMoved ??= {};
+      const blind = men.filter((m) => {
+        const s = view.soldier.get(m)!, b = s.mental.behaviour;
+        return !fresh(m, RQ.blindSeconds) && b !== "pinned" && b !== "panicked" && s.mental.suppression < COMMANDER.underFireSuppression
+          && (view.mover.get(m)?.waypoints.length ?? 0) === 0 && tick - (lastMoved[String(m)] ?? -1e9) >= 2 * RQ.everySeconds * 60;
+      });
+      if (blind.length === 0) return;
+      const allBlind = !men.some((m) => fresh(m, RQ.blindSeconds));
+      // The enemy men its men know well enough, the freshest of each, within the range of fire of one of them.
+      const cs = new Map<EntityId, { x: number; y: number; z?: number; tick: number; posture?: string; err: number }>();
+      for (const m of men) for (const c of known(m)) {
+        if (c.cls === "vehicle" || c.kind === "heard" || c.down === true || c.surrendered === true) continue;
+        const err = contactErrorM(ctx, c, tick);
+        if (err > RQ.errM) continue;
+        const b = cs.get(c.target);
+        if (b && b.tick >= c.tick) continue;
+        if (!men.some((f) => { const t = view.transform.get(f)!; return hypot2(c.x - t.x, c.y - t.y) <= rangeM; })) continue;
+        cs.set(c.target, { x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), tick: c.tick, ...(c.posture !== undefined ? { posture: c.posture } : {}), err });
+      }
+      if (cs.size === 0) return;
+      const cx = men.reduce((a, m) => a + view.transform.get(m)!.x, 0) / men.length, cy = men.reduce((a, m) => a + view.transform.get(m)!.y, 0) / men.length;
+      const list = [...cs.entries()].sort((a, b) => hypot2(a[1].x - cx, a[1].y - cy) - hypot2(b[1].x - cx, b[1].y - cy) || a[0] - b[0]).slice(0, RQ.maxContacts);
+      // A follow: the freshest contact drew away (and none comes nearer), the squad steady enough.
+      const freshest = [...list].sort((a, b) => b[1].tick - a[1].tick || a[0] - b[0])[0]!;
+      const follow = allBlind && blind.length === men.length && closing(freshest[0], cx, cy) < -RQ.followRecedeM && !list.some(([id]) => closing(id, cx, cy) > RQ.closingM) && moraleReady(u);
+      const pts: { x: number; y: number; h: number }[] = [];
+      for (const [id, c] of list) {
+        const h = (TARGET_POINT_M[(c.posture ?? "crouching") as keyof typeof TARGET_POINT_M] ?? 0.75) + (c.z ?? 0);
+        const one = [{ x: c.x, y: c.y, h }];
+        const rr = Math.max(3, c.err);
+        for (let k = 0; k < RQ.ringPts; k++) {
+          const a = (2 * PI * k) / RQ.ringPts, x = c.x + cos(a) * rr, y = c.y + sin(a) * rr;
+          if (x > 2 && y > 2 && x < W - 2 && y < H - 2) one.push({ x, y, h });
+        }
+        pts.push(...one);
+        if (closing(id, cx, cy) > RQ.closingM) pts.push(...one); // (a closing enemy counts twice)
+      }
+      // (A squad blind as a whole for `longBlindSeconds` may reach as far as a follow, within the ring plus `longRingM`.)
+      const longBlind = allBlind && men.every((m) => !fresh(m, RQ.longBlindSeconds));
+      const leash = follow || longBlind ? RQ.followLeashM : RQ.leashM;
+      const anchors = new Map<number, { x: number; y: number; r: number }>();
+      for (const m of men) {
+        const t = view.transform.get(m)!;
+        let p = sited[String(m)];
+        // (A man far from where he was sited — a counter-attack, a rally — is anchored where he is now.)
+        if (!p || hypot2(p[0] - t.x, p[1] - t.y) > 2 * RQ.followLeashM) p = sited[String(m)] = [t.x, t.y, -1, -1];
+        // (The others keep their places: anchored where they are.)
+        anchors.set(m, blind.includes(m) ? { x: p[0], y: p[1], r: leash } : { x: t.x, y: t.y, r: 1 });
+      }
+      const o = objectives.find((ob) => ob.holder === side && hypot2(ob.x - cx, ob.y - cy) <= ob.radiusM + COMMANDER.siteRingSlackM);
+      const ring = o ? { x: o.x, y: o.y, r: o.radiusM + (follow ? RQ.followLeashM : longBlind ? RQ.longRingM : COMMANDER.siteRingSlackM) } : undefined;
+      // Places the side's other men hold: kept clear.
+      const takenBy: { x: number; y: number; bi: number; z: number }[] = [];
+      for (const [id, idn] of view.identity.entries()) {
+        if (idn.side !== side || men.includes(id)) continue;
+        const t = view.transform.get(id), s = view.soldier.get(id);
+        if (!t || !s || isOut(s) || s.mount !== undefined) continue;
+        const w = view.mover.get(id)?.waypoints, end = w && w.length > 0 ? w[w.length - 1]! : t;
+        takenBy.push({ x: end.x, y: end.y, bi: indoorAt(ctx, end.x, end.y), z: end.z ?? 0 });
+      }
+      const places = siteDefence(ctx, [{ men: men.map((m) => { const t = view.transform.get(m)!; return { id: m, x: t.x, y: t.y }; }), cx, cy, ...(ring ? { ring } : {}) }], pts, leash,
+        { anchors, taken: takenBy, eyePosture: "crouching", seenVisibility: RQ.seenVisibility });
+      // Does he see any of the points from where he is now (kneeling outdoors, at his own eye indoors)?
+      const seesNow = (m: EntityId): boolean => {
+        const t = view.transform.get(m)!, s = view.soldier.get(m)!;
+        const indoor = t.z > 0 || indoorAt(ctx, t.x, t.y) >= 0;
+        const z0 = standZ(map, t) + eyeHeightM(ctx, indoor && s.posture === "standing" ? "standing" : "crouching");
+        // ground: ok (the target points are on open ground)
+        return pts.some((p) => sight(ctx, t.x, t.y, z0, p.x, p.y, heightAt(map, p.x, p.y) + p.h).visibility >= RQ.seenVisibility);
+      };
+      const maxMove = Math.max(1, Math.floor(men.length * RQ.moveShare));
+      const moved: number[] = [];
+      const faceX = list.reduce((a, [, c]) => a + c.x, 0) / list.length, faceY = list.reduce((a, [, c]) => a + c.y, 0) / list.length;
+      for (const p of [...places].sort((a, b) => (b.seen ?? 0) - (a.seen ?? 0) || a.id - b.id)) {
+        if (moved.length >= maxMove) break;
+        if (!p.move || (p.seen ?? 0) <= 0 || !blind.includes(p.id) || seesNow(p.id)) continue;
+        lastMoved[String(p.id)] = tick;
+        const t = view.transform.get(p.id)!;
+        if (p.building !== undefined) order(p.id, { kind: "occupy", building: p.building, windowIndex: p.windowIndex, mode: "walk" });
+        else order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: hypot2(p.x - t.x, p.y - t.y) <= RQ.crawlM ? "crawl" : "walk" }], facing: atan2(faceY - p.y, faceX - p.x) });
+        moved.push(p.id);
+      }
+      if (moved.length > 0) {
+        tally.resites++; tally.men += moved.length;
+        if (follow) { tally.follows++; tally.followMen += moved.length; }
+        // (A follow starts its clock now; a re-siting adds its men to those already shifted.)
+        resited[key] = { men: [...new Set([...(r?.men ?? []), ...moved])].sort((a, b) => a - b), tick: follow || !r ? tick : r.tick, follow };
+      }
+    });
+  };
+
   const ctl: Controller = {
     side,
     think(view, tick): Order[] {
@@ -753,7 +943,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // The attack is expected from the middle of the map edge farthest from where the side starts.
           const front = mem.front = front0();
           const placed = new Set<EntityId>();
+          mem.sited ??= {};
           for (const p of siteDefence(ground(), groups, approachPoints(ground(), main.x, main.y, front))) {
+            mem.sited[String(p.id)] = [p.x, p.y, p.building ?? -1, p.windowIndex ?? -1];
             if (!p.move) continue;
             // (M7.5e: a window place is one man's occupy order, at a walk.)
             if (p.building !== undefined) order(p.id, { kind: "occupy", building: p.building, windowIndex: p.windowIndex, mode: "walk" });
@@ -814,9 +1006,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const e = enemyCentre(r[0], r[1], men.map((m) => m.id));
           const toward = e ? atan2(e.y - o.y, e.x - o.x) : mem.front;
           for (const p of siteDefence(ground(), [{ men, cx: r[0], cy: r[1] }], rallyView(o, toward), F.rallySiteM, { windows: false })) {
+            (mem.sited ??= {})[String(p.id)] = [p.x, p.y, -1, -1];
             if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward : p.facing });
             else order(p.id, { kind: "posture", posture: "prone" });
           }
+          if (mem.resited) delete mem.resited[String(sq)];
         }
         // Out of a house (M7.5e step "leave": a trap, the enemy inside, cut off): once its men are out and halted (or
         // `houseResiteSeconds` on), each takes a fire position of his own around where they went, outdoors
@@ -834,9 +1028,13 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const e = enemyCentre(cx, cy, men.map((m) => m.id));
           const toward = e ? atan2(e.y - o.y, e.x - o.x) : mem.front;
           for (const p of siteDefence(ground(), [{ men, cx, cy }], rallyView(o, toward), F.rallySiteM, { windows: false })) {
+            (mem.sited ??= {})[String(p.id)] = [p.x, p.y, -1, -1];
             if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward : p.facing });
           }
+          if (mem.resited) delete mem.resited[String(sq)];
         }
+        // (The platoon headquarters' own men are a group of their own, as the squads.)
+        reacquire(view, tick, [...topIds.map((id): [EntityId, EntityId[]] => [id, [...view.unit.get(id)!.members]]), ...squads.map((sq): [EntityId, EntityId[]] => [sq, members(view, sq)])], order, known, dark ? N.defenceRangeM : COMMANDER.defenceRangeM);
         // Mortars on attackers its men have seen out in the open (not near its own men).
         if (supportLeft(view, side, "he", input.catalog) > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.defenceHeEverySeconds * 60) {
           let sx2 = 0, sy2 = 0, n = 0;
@@ -1603,6 +1801,43 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
               mem.baseMoved[k] = tick; mem.maskedRun[k] = 0;
               boundNow.add(base);
               att.baseBounds++;
+            }
+          }
+          // Sight realism step 5: a base-of-fire squad none of whose men has seen an enemy for `baseBlindSeconds` slides
+          // along the support line (`baseShiftM` either way, `baseForwardM` forward) to the spot that sees most of the
+          // enemies known near the objective (else the objective's ring), rather than firing blind; at most every
+          // `baseShiftSeconds`, and only when the spot sees more than where it lies now.
+          {
+            const RQ = COMMANDER.reacquire, ctx = ground();
+            mem.baseShift ??= {};
+            const tally = mem.rq ??= { resites: 0, men: 0, follows: 0, followMen: 0, back: 0, baseShifts: 0 };
+            const pts = maskAims.length > 0 && !(maskAims.length === 1 && maskAims[0]!.h === 0.5) ? maskAims.map((p) => ({ x: p.x, y: p.y }))
+              : [0, 1, 2, 3, 4, 5, 6, 7].map((k) => ({ x: tgt.x + cos((k * PI) / 4) * tgt.radiusM, y: tgt.y + sin((k * PI) / 4) * tgt.radiusM })).concat([{ x: tgt.x, y: tgt.y }]);
+            for (const base of bases) {
+              const k = String(base);
+              if (boundNow.has(base) || !idle(base) || !onLine(base) || tick - (mem.baseShift[k] ?? -1e9) < RQ.baseShiftSeconds * 60 || tick - (mem.baseMoved?.[k] ?? -1e9) < RQ.baseShiftSeconds * 60) continue;
+              const ms = members(view, base).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
+              if (ms.length === 0 || ms.some((m) => { const t = view.soldier.get(m)?.sawEnemyTick; return t !== undefined && tick - t < RQ.baseBlindSeconds * 60; })) continue;
+              if (tick - mem.phaseTick < RQ.baseBlindSeconds * 60) continue;
+              const c = centre(base);
+              if (!c) continue;
+              const foot = navFor(ctx, "foot").grid;
+              const here = seenShare(ctx, c.x, c.y, pts);
+              const L = hypot2(tgt.x - c.x, tgt.y - c.y) || 1, fx = (tgt.x - c.x) / L, fy = (tgt.y - c.y) / L;
+              let best: { x: number; y: number } | null = null, bestScore = here + 0.05;
+              for (const fwd of RQ.baseForwardM) for (const off of RQ.baseShiftM) {
+                const x = clamp(c.x + fx * fwd - fy * off, W), y = clamp(c.y + fy * fwd + fx * off, H);
+                if (navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
+                const q = bestCoverNear(foot, x, y, 4) ?? { x, y };
+                const score = seenShare(ctx, q.x, q.y, pts) - hypot2(q.x - c.x, q.y - c.y) * 0.001;
+                if (score > bestScore) { bestScore = score; best = q; }
+              }
+              mem.baseShift[k] = tick;
+              if (!best) continue;
+              order(base, { kind: "move", waypoints: [{ x: best.x, y: best.y, mode: underFire(base) ? "run" : "walk" }], facing: atan2(tgt.y - best.y, tgt.x - best.x) });
+              (mem.baseMoved ??= {})[k] = tick;
+              boundNow.add(base);
+              tally.baseShifts++;
             }
           }
           // D4a: a man of the base whose every line of fire has an own man in it (a squad gone to ground on its way lies

@@ -1,10 +1,21 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (sight realism step 4; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (sight realism step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Sight realism, step 5 of 5: squads shift to see a lost enemy again (2026-11-16, branch `claude/sight-realism`).**
+  The computer commander, in defence, looks at each squad and the platoon leader's men every 10 s: a man who has seen
+  no enemy for 6 s (not pinned or under fire) is moved, crawling or walking, to the best spot within 35 m of his
+  place (50 m once the whole squad has seen nothing for 30 s; inside the objective's ring plus 15 m) from which a
+  kneeling man sees where the enemy is known to be, at most half a squad at a time; an enemy drawing away is followed
+  by up to half a steady squad for a minute; a blind base of fire in the attack slides along its support line. Sim
+  and data unchanged. Platoon defence blind-idle to sighted 1.74 -> 0.35, fully blind squad-time 15.2 -> 2.6 %,
+  re-acquisition 13 -> 29 %; batches as before (breaks 33 -> 29 of 40). Numbers in DECISIONS "Sight realism, step
+  5". Open: re-acquisition just short (defence 29 %, goal 30 %; attack 13 %, goal 15 %); village-occupy defenders
+  (scripted sides, no commander) still blind at windows; platoon-ru 10 of 10 and the mounted scenarios 9 and 1 of 10
+  outside the 2-8 band, as at the baseline; platoon breaks above the morale rework's 17 of 40.
 - **Sight realism, step 4 of 5: a man who has lost a known enemy looks for him (2026-11-15, branch
   `claude/sight-realism`).** After 4 s without seeing any enemy, a halted man who is not pinned or firing turns to the
   enemy he knows, kneels or stands up for 3 s if that would show him, else moves 2-6 m aside to the least exposed spot

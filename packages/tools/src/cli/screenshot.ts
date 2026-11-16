@@ -540,6 +540,65 @@ async function repairScenes(page: Page, name: string, errors: string[], shots: s
 }
 
 /**
+ * M11.7b recovery (`--scene recovery`): the vehicles scenario with tanks and recovery vehicles (`&recovery=1`): the
+ * Leopard 2A7V with both tracks broken, selected (order bar: Recover), the card after the call ("on its way"); the
+ * Büffel coming on (hurried: its delay over), its man outside at the hitch hooking up, the Leopard under tow (photo
+ * and flat); then, the player red, the BREM-1 towing a BMP-2 (photo).
+ */
+async function recoveryScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const map = args["map"] ?? "farmland";
+  const shot = async (label: string) => {
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p = `${outDir}/recovery-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  };
+  // Step until the side's first recovery vehicle is in `phase` (at most `maxS` seconds), then `extraS` more.
+  const until = (phase: string, maxS: number, extraS: number) => `for (let k = 0; k < ${maxS} && (t.recovery().find((r) => r.target !== null)?.phase ?? "") !== "${phase}"; k++) t.stepTicks(60); t.stepTicks(60 * ${extraS});`;
+  const focusOn = (scale: number) => `const r = t.recovery().find((x) => x.target !== null); const p = s.transform.get(r.phase === "hookUp" || r.phase === "towing" ? r.id : r.target); t.focusScale(p.x, p.y, ${scale}); t.stepTicks(1);`;
+  const info: Record<string, object> = {};
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&map=${map}&look=${look}&crew=leopard2a7v-besatzung,t90m-ekipazh&recovery=1`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    info[`${look}-0`] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+      const [vid, unit] = t.vehicles()[0]; t.damage(vid, "track", 0); t.damage(vid, "engine", 0); t.select(unit); t.stepTicks(60 * 3);
+      const p = s.transform.get(vid); t.focus(p.x, p.y, 60); t.stepTicks(1);
+      return { status: s.vehicle.get(vid).status, recover: t.orderSet().recover ?? false, left: t.orderSet().recoverLeft ?? 0 };`) as () => object);
+    if (look === "photo") await shot(`${look}-0-recover-offered`);
+    info[`${look}-1`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      t.callRecovery(); t.stepTicks(60 * 5); t.showRules(); t.stepTicks(1);
+      return { recovery: t.recovery() };`) as () => object);
+    if (look === "photo") await shot(`${look}-1-called-card`);
+    info[`${look}-2`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      t.showRules(); t.select(null); t.hurryRecovery(); ${until("inbound", 30, 25)} ${focusOn(4)}
+      return { recovery: t.recovery() };`) as () => object);
+    await shot(`${look}-2-coming`);
+    info[`${look}-3`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      ${until("hookUp", 900, 40)} ${focusOn(20)}
+      return { recovery: t.recovery() };`) as () => object);
+    await shot(`${look}-3-hook-up`);
+    info[`${look}-4`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      ${until("towing", 600, 30)} ${focusOn(9)}
+      return { recovery: t.recovery() };`) as () => object);
+    await shot(`${look}-4-towing`);
+    if (look === "photo") {
+      // The card of the hull under tow.
+      info["card"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+        const r = t.recovery().find((x) => x.target !== null); t.select(s.vehicle.get(r.target).unit); t.showRules(); t.stepTicks(1); return { towed: s.vehicle.get(r.target).towedBy ?? null };`) as () => object);
+      await shot(`${look}-4b-card-under-tow`);
+    }
+  }
+  // The player red: the BREM-1 towing a BMP-2.
+  await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&map=${map}&look=photo&side=red&crew=puma-besatzung,bmp2-ekipazh&recovery=1&ai=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  info["brem"] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+    const [vid, unit] = t.vehicles()[0]; t.damage(vid, "track", 0); t.damage(vid, "engine", 0); t.select(unit); t.stepTicks(60 * 3);
+    t.callRecovery(); t.stepTicks(60 * 5); t.select(null); t.hurryRecovery(); ${until("towing", 1500, 30)} ${focusOn(9)}
+    return { type: s.vehicle.get(vid).def, recovery: t.recovery() };`) as () => object);
+  await shot("photo-5-brem1-bmp2");
+  console.log(`${name}: recovery scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M10.6-data ambulances (`--scene ambulances`): the vehicles scenario with the ambulance crews
  * (`&crew=boxer-san-besatzung,bmm-ekipazh`): the Boxer ambulance close up (wheels, red cross), then both sides in
  * Debug, in the photo and the flat look.
@@ -1958,6 +2017,7 @@ try {
     if (args["scene"] === "triage") { await triageScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "repair") { await repairScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "recovery") { await recoveryScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks") { await tankScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "wheeled") { await wheeledScenes(page, name, errors, shots); await page.close(); continue; }
@@ -2102,7 +2162,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

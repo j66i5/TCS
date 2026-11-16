@@ -291,15 +291,18 @@ function stepRun(ctx: SimContext, state: SimState, events: EventSink, rid: Entit
     const quiet = quietAt(ctx, state, rv.side, tv, tt, near);
     if (!quiet) o.noisyTick = tick;
     if (o.phase === "waiting") {
-      if (ticksToSeconds(tick - (o.waitTick ?? tick)) >= R.giveUpS) { goBack(ctx, state, events, rid, "underFire"); return; }
+      // (The time spent waiting adds up over the run: giveUpS in all.)
+      o.waitedS = (o.waitedS ?? 0) + STEP_S;
+      if (o.waitedS >= R.giveUpS) { goBack(ctx, state, events, rid, "underFire"); return; }
       if (tick - (o.noisyTick ?? -1e9) < secondsToTicks(R.quietS)) return;
       o.phase = "inbound"; delete o.goal;
     } else if (!quiet && dT <= R.waitShortM + 20) {
-      // Short of a hull under fire: it halts and waits for quiet.
+      // Short of a hull under fire: it halts and waits for quiet (the crew radios it the first time).
       vehicleHalt(state, rid);
+      const first = o.waitTick === undefined;
       o.phase = "waiting"; o.waitTick = tick;
       emit(state, events, rid, rv, "waiting");
-      if (o.unit !== undefined) radio(state, events, o.unit, "radio.recoveryWaiting");
+      if (first && o.unit !== undefined) radio(state, events, o.unit, "radio.recoveryWaiting");
       return;
     }
     // (Re-)route: first time, or the last try ended short of its spot.
@@ -398,7 +401,7 @@ function startTow(ctx: SimContext, state: SimState, events: EventSink, rid: Enti
   rv.drive.towCapMps = rdef.recovery!.towMaxMps;
   emit(state, events, rid, rv, "hookedUp");
   emit(state, events, rid, rv, "departed");
-  if (o.unit !== undefined) radio(state, events, o.unit, "radio.recoveryLeaving");
+  if (o.unit !== undefined) radio(state, events, o.unit, "radio.recoveryTowing");
   const entry = o.entry!;
   if (vehicleMove(ctx, state, rid, [{ x: entry.x, y: entry.y, mode: R.pace }], undefined) !== true) emit(state, events, rid, rv, "noRoute");
   o.retryTick = state.tick + secondsToTicks(R.retryS);

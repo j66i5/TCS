@@ -81,7 +81,8 @@ async function main(): Promise<void> {
   if (params.get("repair") === "0") input.rules.repair = false;
   // ?recovery=0 (M11.7b): no recovery vehicles; ?recovery=1: the vehicles scenario gets them too.
   if (params.get("recovery") === "0") withoutRecovery(input);
-  const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
+  // ?ai=0: no enemy controller (screenshots: a scene the enemy must not walk into).
+  const ai = params.get("ai") === "0" ? [] : scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
     : [commanderController(enemySide, input)];
   // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).

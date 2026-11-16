@@ -33,7 +33,7 @@ import { oddsLab, selfAidLab, treatmentLabMarkdown } from "../labs/treatment";
 import { carryLab, carryLabMarkdown } from "../labs/carry";
 import { medevacLab, medevacLabMarkdown } from "../labs/medevac";
 import { breachLab, breachLabMarkdown, chanceTable, protectionLab, protectionLabMarkdown } from "../labs/protection";
-import { repairLab, repairLabMarkdown } from "../labs/repair";
+import { repairLab, repairLabMarkdown, towLab, towLabMarkdown } from "../labs/repair";
 import { loadData } from "../scenarios";
 
 const LABS: Record<string, () => string> = {
@@ -75,7 +75,7 @@ const LABS: Record<string, () => string> = {
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,
   agl: () => `# Automatic grenade launcher lab\n\n${aglLabMarkdown(aglLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
   "missile-team": () => `# Missile team lab\n\n${missileTeamLabMarkdown(missileTeamLab(loadData(), Number(process.argv[3] ?? 50)))}\n`,
-  repair: () => `# Repair lab\n\n${repairLabMarkdown(repairLab(loadData(true), Number(process.argv[3] ?? 10)))}\n`,
+  repair: () => `# Repair lab\n\n## Part A: field repair (M11.7a)\n\n${repairLabMarkdown(repairLab(loadData(true), Number(process.argv[3] ?? 10)))}\n\n## Part B: recovery and towing (M11.7b)\n\n${towLabMarkdown(towLab(loadData(true)))}\n`,
   missile: () => `# Missile lab\n\n${missileLabMarkdown(missileLab(loadData(true), Number(process.argv[3] ?? 20)))}\n`,
 };
 const name = process.argv[2] ?? "movement";

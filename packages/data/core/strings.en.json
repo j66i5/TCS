@@ -892,5 +892,6 @@
   "vehicle.recoveryState.towed": "towed away",
   "vehicle.recoveryState.recovered": "recovered",
   "vehicle.recoveryState.captured": "captured",
-  "vehicle.recoveryState.lost": "lost"
+  "vehicle.recoveryState.lost": "lost",
+  "radio.recoveryTowing": "{callsign}: hooked up, the recovery vehicle is towing the hull back."
 }

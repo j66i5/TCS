@@ -10,11 +10,13 @@
  * ok within one drill step (+-2 s). For coax and radio over `seeds` seeds: the share of repairs that worked
  * (chance 0.6 / 0.5). Plus "interrupted": a round strikes the hull half-way: the progress is kept, the work resumes
  * after the quiet period: total = expected + the wait.
+ *
+ * Part B, recovery and towing (M11.7b, `towLab`): see there.
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
-import { buildForce, defaultRules } from "@tcs/scenario";
+import { addRecoveryAssets, allMembers, buildForce, defaultRules } from "@tcs/scenario";
 import {
-  createSim, flatMap, launchProjectile, newVehicleRecord, step, workRate,
+  createSim, flatMap, launchProjectile, newVehicleRecord, step, submitOrder, workRate,
   type BattleInput, type ComponentKind, type EntityId, type SimEvent, type StationKind,
 } from "@tcs/sim";
 
@@ -151,5 +153,149 @@ export function repairLabMarkdown(rows: RepairRow[]): string {
   for (const r of rows) {
     lines.push(`| ${r.faction} | ${r.vehicle} | ${r.task} | ${r.quality} | ${r.men} | ${r.parts} | ${r.expectedMin.toFixed(1)} | ${r.measuredMin === null ? "-" : r.measuredMin.toFixed(1)} | ${r.ok ? "yes" : "NO"} | ${r.chance < 1 ? `${r.worked}/${r.runs} (chance ${r.chance})` : r.worked === r.runs ? "yes" : "no"} | ${r.note} |`);
   }
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------- Part B: recovery and towing (M11.7b)
+
+export interface TowRow {
+  faction: string; recovery: string; target: string; massT: number; towMaxT: number; distM: number; outcome: string;
+  delayS: number | null; driveS: number | null; aloneS: number | null; driveOk: boolean; hookS: number | null; hookUpS: number;
+  towMps: number | null; capMps: number; towS: number | null; ok: boolean;
+}
+
+const REFUSALS = new Set(["radio.noRecovery", "radio.recoveryTooHeavy", "radio.recoveryAlready", "radio.recoveryNotNeeded", "radio.recoveryNoWay", "radio.unable"]);
+
+/** A foot unit of the faction to make the call (its demo team, else its first team without a vehicle). */
+function footTemplate(data: DataSet, faction: string): string {
+  const pack = data.factions[faction]!;
+  return pack.manifest.demoTemplate ?? Object.values(pack.units).filter((u) => u.vehicle === undefined && u.echelon === "team").map((u) => u.id).sort()[0]!;
+}
+
+/**
+ * One recovery run: on a flat field 1600 x 1400 m, the hull (abandoned, no crew: a roster record) `distM` from the west
+ * edge, heading 0.7 rad, a foot team of the recovery's faction near the edge to call; the faction's recovery vehicle
+ * off the map. The call goes in at tick 1; the run is followed to its end.
+ */
+function towRun(data: DataSet, faction: string, targetType: string, distM: number, seed: number): { evs: Extract<SimEvent, { kind: "vehicle.recovery" | "radio" }>[]; sim: ReturnType<typeof createSim>; rid: EntityId | null; vid: EntityId; speeds: number[] } {
+  const catalog = buildCatalog(data, Object.keys(data.factions).sort());
+  const map = flatMap("tow-lab", 1600, 1400);
+  const team = buildForce(data, { faction, template: footTemplate(data, faction), seed: 1, keyPrefix: "t", number: 1 });
+  const rec = newVehicleRecord(catalog, targetType, "hull");
+  rec.status = "abandoned";
+  const force: BattleInput["forces"][number] = {
+    side: "blue", faction, units: [team], placements: allMembers(team).map((m, i) => ({ personId: m.personId, x: 30, y: 680 + 3 * i, heading: 0 })),
+    vehicles: [rec], vehiclePlacements: [{ vehicleId: "hull", x: 10 + distM, y: 700, heading: 0.7 }],
+  };
+  addRecoveryAssets(data, catalog, force, 1);
+  const input: BattleInput = { map, catalog, seed, orders: [], rules: { ...defaultRules(4 * 3600) }, forces: [force] };
+  const sim = createSim(input);
+  const vid = [...sim.state.vehicle.entries()].find(([, v]) => v.offMap === undefined)![0];
+  const tu = [...sim.state.unit.entries()].find(([, u]) => u.asset === undefined && u.parent === null)![0];
+  submitOrder(sim, { tick: 0, issuer: "blue", target: tu, kind: "callRecovery", vehicle: vid });
+  const evs: Extract<SimEvent, { kind: "vehicle.recovery" | "radio" }>[] = [];
+  let rid: EntityId | null = null;
+  const speeds: number[] = [];
+  for (let t = 0; t < 3 * 3600 * 60; t++) {
+    for (const e of step(sim)) if (e.kind === "vehicle.recovery" || (e.kind === "radio" && REFUSALS.has(e.key))) { evs.push(e); if (e.kind === "vehicle.recovery") rid = e.vehicle; }
+    if (rid !== null) {
+      const o = sim.state.vehicle.req(rid).offMap!;
+      if (o.phase === "towing" && sim.state.tick % 60 === 0) speeds.push(Math.abs(sim.state.vehicle.req(rid).drive.speed));
+      if (o.phase === "away" || o.phase === "lost" || o.phase === "ready") break;
+    }
+    if (evs.some((e) => e.kind === "radio")) break; // (a refusal: nothing comes)
+  }
+  return { evs, sim, rid, vid, speeds };
+}
+
+/** The same recovery vehicle alone, driving from where it came on to its turning point and reversing onto its spot. */
+function aloneRun(data: DataSet, faction: string, from: { x: number; y: number; heading: number }, a: { x: number; y: number }, s: { x: number; y: number }): number | null {
+  const catalog = buildCatalog(data, Object.keys(data.factions).sort());
+  const rcv = data.factions[faction]!.manifest.recovery!;
+  const vtype = data.factions[faction]!.units[rcv.template]!.vehicle!;
+  const crew = buildForce(data, { faction, template: rcv.template, seed: 1, keyPrefix: "r", number: 1 });
+  crew.vehicleId = crew.key;
+  const def = catalog.vehicles[vtype]!, slots = data.factions[faction]!.units[rcv.template]!.members;
+  const input: BattleInput = {
+    map: flatMap("tow-lab", 1600, 1400), catalog, seed: 1, orders: [], rules: { ...defaultRules(3600) },
+    forces: [{ side: "blue", faction, units: [crew], placements: crew.members.map((m, i) => ({ personId: m.personId, x: from.x, y: from.y, heading: from.heading, seat: def.seats.findIndex((q) => q.id === slots[i]?.seat) })), vehicles: [newVehicleRecord(catalog, vtype, crew.key)], vehiclePlacements: [{ vehicleId: crew.key, ...from }] }],
+  };
+  const sim = createSim(input);
+  const R = catalog.recovery!, uid = [...sim.state.unit.keys()][0]! as EntityId;
+  submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "move", waypoints: [{ x: a.x, y: a.y, mode: R.pace }, { x: s.x, y: s.y, mode: R.nearPace, reverse: true }] });
+  let start = -1;
+  for (let t = 0; t < 3600 * 60; t++) {
+    for (const e of step(sim)) if (e.kind === "unit.arrived" && start >= 0) return (e.tick - start) / 60;
+    const v = [...sim.state.vehicle.values()][0]!;
+    if (start < 0 && v.drive.route.length > 0) start = sim.state.tick;
+  }
+  return null;
+}
+
+/**
+ * The recovery lab (M11.7b): per faction its recovery vehicle against each of its own hull types (no ambulances, no
+ * recovery vehicles) 300 m from the edge it comes on by, the heaviest also from 600 m; the Russian BREM-1 against the
+ * Leopard 2A7V (refused: too heavy). Columns: the delay drawn, the drive in (call to arrival less the delay) against
+ * the same drive alone (+-10 %), the hook-up (its hookUpS), the mean tow speed (at most its cap) and the tow to the
+ * edge.
+ */
+export function towLab(data: DataSet, only?: string[]): TowRow[] {
+  const rows: TowRow[] = [];
+  const catalog = buildCatalog(data, Object.keys(data.factions).sort());
+  for (const faction of Object.keys(data.factions).sort()) {
+    const pack = data.factions[faction]!, rcv = pack.manifest.recovery;
+    if (!rcv) continue;
+    const rtype = pack.units[rcv.template]!.vehicle!, rdef = catalog.vehicles[rtype]!;
+    const own = Object.keys(pack.vehicles).sort().filter((t) => catalog.vehicles[t]!.ambulance === undefined && catalog.vehicles[t]!.recovery === undefined);
+    const heaviest = [...own].sort((a, b) => catalog.vehicles[b]!.massKg - catalog.vehicles[a]!.massKg)[0];
+    const cases: [string, number][] = own.map((t) => [t, 300] as [string, number]);
+    if (heaviest) cases.push([heaviest, 600]);
+    // (A foreign heavy hull: the Russian recovery vehicle and a Leopard 2, a captured hull.)
+    for (const [f, t] of [["ru", "de-leopard2a7v"]] as const) if (faction === f && catalog.vehicles[t]) cases.push([t, 300]);
+    for (const [t, distM] of cases) {
+      if (only !== undefined && !only.includes(t)) continue;
+      const tdef = catalog.vehicles[t]!;
+      const { evs, sim, rid, vid, speeds } = towRun(data, faction, t, distM, rows.length + 1);
+      const at = (p: string) => (evs.find((e) => e.kind === "vehicle.recovery" && e.phase === p)?.tick ?? null);
+      const refused = evs.find((e) => e.kind === "radio");
+      const called = at("called"), entered = at("entered"), arrived = at("arrived"), hooked = at("hookedUp"), away = at("away");
+      const towed = sim.state.vehicle.req(vid).towAway === true;
+      const delayS = called !== null && entered !== null ? (entered - called) / 60 : null;
+      const driveS = entered !== null && arrived !== null ? (arrived - entered) / 60 : null;
+      let aloneS: number | null = null;
+      if (driveS !== null && rid !== null) {
+        const o = sim.state.vehicle.req(rid).offMap!, entry = o.entry!;
+        const tt = { x: 10 + distM, y: 700 };
+        const L = Math.hypot(entry.x - tt.x, entry.y - tt.y), ux = (entry.x - tt.x) / L, uy = (entry.y - tt.y) / L;
+        const off = tdef.body.lengthM / 2 + catalog.recovery!.gapM + rdef.body.lengthM / 2;
+        const s = { x: tt.x + ux * off, y: tt.y + uy * off }, a = { x: s.x + ux * catalog.recovery!.approachM, y: s.y + uy * catalog.recovery!.approachM };
+        aloneS = aloneRun(data, faction, entry, a, s);
+      }
+      const hookS = arrived !== null && hooked !== null ? (hooked - arrived) / 60 : null;
+      const towS = hooked !== null && away !== null ? (away - hooked) / 60 : null;
+      const towMps = speeds.length > 0 ? speeds.reduce((x, y) => x + y, 0) / speeds.length : null;
+      const driveOk = driveS !== null && aloneS !== null && Math.abs(driveS - aloneS) <= 0.1 * aloneS + 2;
+      const cap = rdef.recovery!.towMaxMps;
+      const outcome = refused ? `refused (${refused.key.replace("radio.", "")})` : towed ? "towed" : "not towed";
+      const tooHeavy = tdef.massKg > rdef.recovery!.towMaxKg;
+      const ok = tooHeavy ? refused?.key === "radio.recoveryTooHeavy" : towed && driveOk && hookS !== null && Math.abs(hookS - rdef.recovery!.hookUpS) <= 2 && towMps !== null && towMps <= cap + 0.05;
+      rows.push({
+        faction, recovery: rtype, target: t, massT: tdef.massKg / 1000, towMaxT: rdef.recovery!.towMaxKg / 1000, distM, outcome,
+        delayS, driveS, aloneS, driveOk, hookS, hookUpS: rdef.recovery!.hookUpS, towMps, capMps: cap, towS, ok,
+      });
+    }
+  }
+  return rows;
+}
+
+export function towLabMarkdown(rows: TowRow[]): string {
+  const f = (x: number | null, d = 0) => (x === null ? "-" : x.toFixed(d));
+  const lines = [
+    "The hull abandoned on a flat field `dist` m from the west edge (heading 0.7 rad), a foot team of the faction calls at tick 1; the recovery vehicle comes on at the edge after the delay (drawn, `Streams.recovery`), drives to the hull and reverses the last 25 m onto its spot, hooks up, tows the hull back to where it came on. drive in = arrival - coming on; alone = the same vehicle on the same two legs with nothing else (ok within 10 % + 2 s); hook-up against the vehicle's hookUpS; tow speed = mean while towing (at most the cap); tow = hooked up to off the map.",
+    "",
+    "| recovery | hull | t | tows up to t | dist m | outcome | delay s | drive in s | alone s | hook-up s (data) | tow m/s (cap) | tow s | ok |",
+    "|---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---|",
+  ];
+  for (const r of rows) lines.push(`| ${r.recovery} | ${r.target} | ${r.massT.toFixed(1)} | ${r.towMaxT.toFixed(0)} | ${r.distM} | ${r.outcome} | ${f(r.delayS)} | ${f(r.driveS)} | ${f(r.aloneS)} | ${f(r.hookS)} (${r.hookUpS}) | ${f(r.towMps, 2)} (${r.capMps.toFixed(2)}) | ${f(r.towS)} | ${r.ok ? "yes" : "NO"} |`);
   return lines.join("\n");
 }

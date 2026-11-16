@@ -1006,6 +1006,8 @@ export interface OffMapAsset {
    *  quiet, whether the towed hull hangs on by its rear, and the bar length (hitch to the towed hull's centre, m). */
   hookDoneS?: number;
   waitTick?: number;
+  /** M11.7b: seconds a recovery vehicle has waited short of its hull so far (it gives up after `giveUpS` in all). */
+  waitedS?: number;
   noisyTick?: number;
   towRear?: boolean;
   towLenM?: number;

@@ -9,6 +9,7 @@ import { CREW_STATION_ORDER } from "./mount";
 import { cos, sin } from "./math";
 import type { EntityId, SideId, DefId } from "./ids";
 import { addItems, aglBoxOf, countItems, emptyContainer, removeItems, type ItemStack } from "./items";
+import { fitBatteries, loadWithBatteries } from "./power";
 import { nextNormal, Streams } from "./rng";
 import { MORALE_SOURCES } from "./components";
 import type { Catalog, VehicleDef } from "./catalog";
@@ -315,7 +316,11 @@ function addSoldier(
   updateImpairment(catalog, s);
   state.soldier.set(id, s);
   const c = emptyContainer();
-  for (const st of rec.load) addItems(c, st.type, st.count, st.charge);
+  // (M11.6: a charged item listed without a charge that is not a magazine or belt, a battery or water, comes in full.)
+  for (const st of rec.load) {
+    const d = st.charge === undefined ? catalog.items[st.type] : undefined;
+    addItems(c, st.type, st.count, d !== undefined && d.chargeCapacity !== undefined && d.chargeItem === undefined ? d.chargeCapacity : st.charge);
+  }
   // His identity tag (owner request 2026-11-15; faction data): issued if his record has none.
   const tag = catalog.medical?.down !== undefined ? catalog.factions[faction]?.identityTag : undefined;
   if (tag && catalog.items[tag.item] && countItems(c, tag.item) === 0) addItems(c, tag.item, tag.perMan);
@@ -334,6 +339,8 @@ function addSoldier(
     });
     if (mag && (mag.charge ?? 0) <= 0) addItems(c, mag.type, 1, mag.charge);
   }
+  // M11.6: the batteries in his powered devices (a fresh record's partly used, stream "power").
+  fitBatteries(catalog, state.rng, s, c, state.environment.light, rec.powerFitted === true);
   return id;
 }
 
@@ -359,7 +366,9 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     wounds: JSON.parse(JSON.stringify(s.wounds)) as SoldierRecord["wounds"],
     // The magazine in the weapon goes back into the load, so nothing is lost between battles.
     // (M7.6d: so does the box on his team's AGL, if he carries its post.)
-    load: loadWithMagazine(loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null), aglBoxOf(state, id)),
+    // (M11.6: so do the batteries in his devices, at their charge now.)
+    load: loadWithBatteries(loadWithMagazine(loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null), aglBoxOf(state, id)), s, state.tick),
+    ...(s.power !== undefined ? { powerFitted: true as const } : {}),
     ...(w ? { weapon: w.weapon } : {}),
     ...(s.wounds.length > 0 || !s.physiology.alive ? { physiology: { ...s.physiology } } : {}),
     status,

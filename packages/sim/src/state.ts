@@ -87,7 +87,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 21;
+export const STATE_SCHEMA_VERSION = 22;
 
 /**
  * Older schemas this build can still load, each with its migration to the next (M10.1 onwards).
@@ -101,6 +101,8 @@ export const STATE_SCHEMA_VERSION = 21;
  * lossBooked` are new required fields: an older save gets neutral values (no strain, an average nerve, no reasons,
  * a unit steady and not yet under fire, its start strength its men now, a man already down booked as a loss), so it
  * loads and steps instead of crashing in the morale system.
+ * 21 -> 22 (M11.6 batteries): `SoldierState.power` (the batteries in a man's devices) is a new optional field and the
+ * "power" RNG stream is created on first use; an older save has no slots, so its devices count as powered (deviceLive).
  */
 function migrateMorale20(d: SerializedState): SerializedState {
   const soldiers = (d.stores.soldier ?? []) as [EntityId, { casualty?: string; captive?: unknown; mental: Record<string, unknown> }][];
@@ -129,6 +131,7 @@ const MIGRATIONS: Record<number, (d: SerializedState) => SerializedState> = {
   18: (d) => ({ ...d, schema: 19, stores: { ...d.stores, carry: d.stores.carry ?? [] } }),
   19: (d) => ({ ...d, schema: 20, stores: { ...d.stores, rear: d.stores.rear ?? [] } }),
   20: migrateMorale20,
+  21: (d) => ({ ...d, schema: 22 }),
 };
 
 /** Bring a save up to the current schema, or throw if it is too old or too new. */

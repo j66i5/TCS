@@ -160,6 +160,11 @@
               "count": 1
             },
             {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "de-helmet",
               "count": 1
             },
@@ -169,7 +174,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -206,6 +212,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -237,7 +248,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -274,6 +286,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-mg5"
@@ -318,7 +335,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -355,6 +373,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -386,7 +409,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -425,8 +449,18 @@
               "count": 1
             },
             {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
               "item": "de-thermal-sight",
               "count": 1
+            },
+            {
+              "item": "de-thermal-battery",
+              "count": 3,
+              "charge": 12
             }
           ],
           "weapon": "de-g28"
@@ -466,7 +500,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -503,6 +538,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -539,7 +579,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -576,6 +617,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             },
             {
               "item": "de-ehb-bag",
@@ -648,6 +694,11 @@
               "count": 1
             },
             {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "de-helmet",
               "count": 1
             },
@@ -657,7 +708,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -694,6 +746,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -720,6 +777,11 @@
               "count": 1
             },
             {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "de-helmet",
               "count": 1
             },
@@ -729,7 +791,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -766,6 +829,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             },
             {
               "item": "de-quadcopter",
@@ -798,7 +866,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -835,6 +904,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             },
             {
               "item": "de-medic-bag",
@@ -1261,7 +1335,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -1278,6 +1353,11 @@
             {
               "item": "de-radio",
               "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "de-120-smoke",
@@ -1305,7 +1385,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -1345,7 +1426,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -1385,7 +1467,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -1441,7 +1524,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -1458,6 +1542,11 @@
             {
               "item": "de-radio",
               "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "de-40x53-belt",
@@ -1481,7 +1570,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -1526,7 +1616,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -1887,6 +1978,11 @@
               "count": 1
             },
             {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "de-helmet",
               "count": 1
             },
@@ -1896,7 +1992,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -1933,6 +2030,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -1964,7 +2066,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2001,6 +2104,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-mg5"
@@ -2037,7 +2145,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2074,6 +2183,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -2118,7 +2232,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2155,6 +2270,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -2186,7 +2306,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2225,8 +2346,18 @@
               "count": 1
             },
             {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
               "item": "de-thermal-sight",
               "count": 1
+            },
+            {
+              "item": "de-thermal-battery",
+              "count": 3,
+              "charge": 12
             }
           ],
           "weapon": "de-g28"
@@ -2266,7 +2397,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2303,6 +2435,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -2339,7 +2476,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2376,6 +2514,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             },
             {
               "item": "de-ehb-bag",
@@ -2440,7 +2583,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2477,6 +2621,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -2522,6 +2671,11 @@
               "count": 1
             },
             {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "de-helmet",
               "count": 1
             },
@@ -2531,7 +2685,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2568,6 +2723,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "de-g36"
@@ -2594,6 +2754,11 @@
               "count": 1
             },
             {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "de-helmet",
               "count": 1
             },
@@ -2603,7 +2768,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2640,6 +2806,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             },
             {
               "item": "de-quadcopter",
@@ -2672,7 +2843,8 @@
             },
             {
               "item": "de-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "de-rations",
@@ -2709,6 +2881,11 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
             },
             {
               "item": "de-medic-bag",

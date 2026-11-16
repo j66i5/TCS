@@ -160,6 +160,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -169,7 +174,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -202,6 +208,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -233,7 +244,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -266,6 +278,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-pkp"
@@ -305,7 +322,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -338,6 +356,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -378,7 +401,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -411,6 +435,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -450,7 +479,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -483,6 +513,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -527,7 +562,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -560,6 +596,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -602,6 +643,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -611,7 +657,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -644,6 +691,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -675,7 +727,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -708,6 +761,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-pkp"
@@ -747,7 +805,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -780,6 +839,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -820,7 +884,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -853,6 +918,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -892,7 +962,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -925,6 +996,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -969,7 +1045,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1002,6 +1079,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             },
             {
               "item": "ru-fr-bag",
@@ -1052,6 +1134,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -1061,7 +1148,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1096,8 +1184,18 @@
               "count": 1
             },
             {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
               "item": "ru-thermal-sight",
               "count": 1
+            },
+            {
+              "item": "ru-thermal-battery",
+              "count": 3,
+              "charge": 12
             },
             {
               "item": "ru-quadcopter",
@@ -1368,7 +1466,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1385,6 +1484,11 @@
             {
               "item": "ru-radio",
               "count": 1
+            },
+            {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "ru-82-smoke",
@@ -1412,7 +1516,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1452,7 +1557,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1492,7 +1598,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1546,7 +1653,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1563,6 +1671,11 @@
             {
               "item": "ru-radio",
               "count": 1
+            },
+            {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "ru-120-smoke",
@@ -1590,7 +1703,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1630,7 +1744,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1670,7 +1785,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1710,7 +1826,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1792,7 +1909,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1809,6 +1927,11 @@
             {
               "item": "ru-radio",
               "count": 1
+            },
+            {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "ru-9m131-round",
@@ -1837,7 +1960,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1882,7 +2006,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1941,7 +2066,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1958,6 +2084,11 @@
             {
               "item": "ru-radio",
               "count": 1
+            },
+            {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "ru-ags-box",
@@ -1986,7 +2117,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2061,7 +2193,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2094,6 +2227,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2133,7 +2271,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2166,6 +2305,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2201,7 +2345,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2234,6 +2379,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2281,7 +2431,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2314,6 +2465,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-pkp"
@@ -2350,7 +2506,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2383,6 +2540,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2414,7 +2576,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2447,6 +2610,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-svd"
@@ -2499,7 +2667,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2532,6 +2701,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2567,7 +2741,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2600,6 +2775,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2650,8 +2830,18 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-thermal-sight",
               "count": 1
+            },
+            {
+              "item": "ru-thermal-battery",
+              "count": 3,
+              "charge": 12
             },
             {
               "item": "ru-helmet",
@@ -2663,7 +2853,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2696,6 +2887,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2718,6 +2914,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-quadcopter",
               "count": 1
             },
@@ -2736,7 +2937,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2769,6 +2971,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -3085,6 +3292,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -3094,7 +3306,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3127,6 +3340,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -3158,7 +3376,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3191,6 +3410,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-pkp"
@@ -3227,7 +3451,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3260,6 +3485,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -3299,7 +3529,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3332,6 +3563,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -3372,7 +3608,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3405,6 +3642,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -3444,7 +3686,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3477,6 +3720,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -3513,7 +3761,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3546,6 +3795,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-svd"
@@ -3590,6 +3844,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -3599,7 +3858,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3634,8 +3894,18 @@
               "count": 1
             },
             {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
               "item": "ru-thermal-sight",
               "count": 1
+            },
+            {
+              "item": "ru-thermal-battery",
+              "count": 3,
+              "charge": 12
             },
             {
               "item": "ru-quadcopter",

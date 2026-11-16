@@ -60,6 +60,8 @@ export * from "./impair";
 export * from "./hash";
 export * from "./store";
 export * from "./items";
+export * from "./power";
+export { powerSystem, SWAP_ACTION } from "./systems/power";
 export * from "./wounds";
 export * from "./orders";
 export * from "./events";

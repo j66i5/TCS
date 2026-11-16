@@ -7135,3 +7135,51 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   12x/13x (floor 8x); bench seed 1: base 20x/24x, now 22x/19x. The step-5 re-siting was most of the platoon slowdown
   (5.6 s of 24 s, 700 000 sight calls in 84 runs; now about 1.6 s in 40). `npm run test:perf` alone: 23/23.
 - `npm run golden:update`: the ten goldens with interiors changed (intended); `golden/no-interiors` untouched.
+
+## 2026-11-16 — M11.6 stage 1: batteries and water as counted, charged items; battery slots, lazy drain, swaps (goldens regenerated)
+
+Software decisions (owner to review); design in the slice notes. No effects of a flat device yet (radio silence and
+the sight fallback are later stages), no water physiology yet.
+
+- **Data, item schema:** the reserved `batteryHours` is replaced by `power: { battery, hours, swapSeconds,
+  onBelowLight? }` (draw W = the battery's `chargeCapacity` Wh / hours; `onBelowLight`: a night device is on only
+  while the light is below it). Water items carry `water: true` (never found by id, rule 8). Loader: a device's
+  battery is an item of its faction with a charge and no `chargeItem`; water needs a charge.
+- **Batteries (all search extracts; medium at most):** radio packs `de-radio-battery` / `ru-radio-battery` 30 Wh,
+  0.35 kg (inferred, low); DE radio 6 h (SOVERON HR short pack "up to 6 h", R&S datasheet, medium), RU radio 8 h
+  (R-187 family "up to 12 h", shorter for combat duty: low); 10 s to change (low). Goggle cell (1x AA lithium,
+  `*-nvg-battery`) 4 Wh, 0.015 kg; DE goggle 50 h (Lucie 60 h, PVS-14 class 40-50 h), RU 40 h (low); 20 s. Thermal
+  sight set (3x AA, `*-thermal-battery`) 12 Wh, 0.045 kg; DE 7 h (Hensoldt IRV-MR >= 7 h, medium), RU 5 h (1PN139/140
+  not found, low); 15 s. Goggles and thermal sights `onBelowLight` 0.3 (the AI's night threshold; game value, low).
+  Device masses drop by their battery's mass, so device + fitted battery weighs what the device did before.
+- **Loads (script, deterministic):** every load with a powered device carries its batteries: devices x (1 fitted +
+  spares), full; spares: radio 2, goggle 1, thermal sight 2 (game values, low). A radio operator carries 0.7 kg more.
+  Water (`de-water`, `ru-water`): charge in ml, 2000 full, `chargeMassKg` 0.0008 and `massKg` 0 (the full 1.6 kg kept;
+  the canteens folded into the water: low); loads list `charge: 2000`.
+- **Core data** `behaviour.soldier.power` (game values, low): `installedMin` 0.3 (a battery fitted at setup from a
+  fresh record holds a share of full drawn evenly from [0.3, 1], new RNG stream "power", so no other stream moves; spares
+  start full), `swapBelowShare` 0.1 (in a lull a battery below a tenth of full is changed for a fuller spare). Short
+  battles practically never see a change (the emptiest fitted radio lasts 1.8 h); 3-hour night battles will.
+- **Sim:** `SoldierState.power?: PowerSlot[]` (one slot per device type, ascending device id; devices of a type beyond
+  the first share it): `{device, battery, wh0, since, on, flatTick, drawW, flatSent?}`. The charge is never stepped:
+  `chargeAt = wh0 - drawW x ticks since / (3600 x 60)` while on; `flatTick` is precomputed (1e9 when off: finite for
+  JSON); `deviceLive` is one compare (an unpowered item, or a man without slots from an older save, counts as live).
+  Setup takes the fullest battery of the device's type out of the load into the slot (none: an empty slot, a dead
+  device). `loadKg` adds the fitted batteries; roster out puts them back into the load at their charge now, rounded
+  down to 0.01 Wh (`settle`), and marks the record `powerFitted: true`: the next battle fits the fullest as it is,
+  without a new draw (every Wh carries over). A charged item that is not a magazine or belt listed without a charge
+  comes in full (old records with `{type: "de-water", count: 1}`).
+- **System** `powerSystem` (after physiology; once a second per man, staggered by id, so about N/60 men a tick):
+  switches night devices on/off by the light (restamping the slot), emits `power.flat {soldier, device, side}` once per
+  battery, and starts the action `swapBattery` (the device's `swapSeconds`; able, arms usable, not stunned, not guiding
+  a missile, no other action) when the battery is flat and a spare with charge exists, or in a lull (no fire task,
+  steady or cautious) when it is below `swapBelowShare` and a fuller spare exists. On completion the fullest spare is
+  fitted and the old battery goes back into the load as a counted item, even at 0 Wh (`power.swapped {soldier, device,
+  battery, whOut, whIn}`); an interrupted change changes nothing. No radio message (a flat radio sends nothing).
+- **State schema 21 -> 22:** identity migration (new optional field; the "power" stream is created on first use).
+- **Tests:** `packages/sim/test/power.test.ts` (fit and draw, lazy drain and the exact flat tick, flat event once and a
+  swap with Wh conserved, no spare stays flat, lull swap, on/off by light, save/load mid-drain same hash and events,
+  roster round trip keeps every Wh, mass); `packages/tools/test/power-data.test.ts` (real data: every device fitted,
+  spares full, water 2000 ml). `lab-attack.test.ts`: the extra mass reshuffled the 32 seeds (support 1/32 against 3/32
+  wins; the defence's losses still favour support); the win-rate check now allows one standard error (0.07).
+- `npm run golden:update`: the ten goldens with interiors changed (catalog fingerprint, loads' mass); `golden/no-interiors` untouched.

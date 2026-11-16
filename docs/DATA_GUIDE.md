@@ -388,7 +388,15 @@ sees: `man`, `vehicleCold` (halted longer than `hotSeconds`), `vehicleHot` (movi
 `vehicleBurning`, and `vegetationExponent` (visibility through vegetation for heat = visibility^exponent; the better of the best
 sensor and the best thermal one counts). Items: a
 thermal weapon sight is an item with `"sensor": "thermal"`; a thermal blanket has `thermalCover` (the share of a still
-man's heat it lets through); `batteryHours` is reserved for M11.6. Check with `npm run lab -- thermal`.
+man's heat it lets through). Check with `npm run lab -- thermal`.
+
+Powered devices (M11.6): an item with `power: { battery, hours, swapSeconds, onBelowLight? }` runs on `battery` (an item
+of the same faction with `chargeCapacity` in Wh and no `chargeItem`; category "battery"); it draws `chargeCapacity /
+hours` W; changing the battery takes `swapSeconds`; a night device is on only while the light is below `onBelowLight`.
+Every load that carries a device lists its batteries too (devices x (1 fitted + spares), with `charge` = full); setup
+fits the fullest. Water items have `water: true` and a charge in ml (`chargeCapacity` 2000). Core
+`behaviour.soldier.power`: `installedMin` (the fitted battery's share of full at the start is drawn from [installedMin,
+1]) and `swapBelowShare` (a lull change below that share).
 
 ## Guided missiles (M9.3a)
 

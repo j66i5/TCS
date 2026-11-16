@@ -331,6 +331,11 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 
 ## Open questions for the owner
 
+- M11.6 batteries and water (2026-11-16, low unless noted; DECISIONS "M11.6 stage 1"): radio pack 30 Wh / 0.35 kg,
+  DE radio 6 h (medium), RU radio 8 h, goggle cell 4 Wh, DE goggle 50 h, RU 40 h, thermal set 12 Wh, DE thermal 7 h
+  (medium), RU 5 h; change times 10 / 20 / 15 s; spares radio 2, goggle 1, thermal 2; night devices on below light
+  0.3; fitted batteries start at 30-100 % of full; lull change below 10 %; water 2000 ml at 0.8 g/ml (canteens folded in).
+
 - Sight realism step 3 (2026-11-15, all low; `core/spotting.json` `conceal`, `core/terrain/vegetation.json`): the
   vegetation concealment and backdrop figures, the conspicuity spread (sigma 0.8), the kept-sight decay (5 s, floor
   20), the ground clutter for men lying still (250 m), the firing reveal by range (half at 200 m), the dark room (0.25

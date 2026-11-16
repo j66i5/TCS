@@ -106,6 +106,16 @@ export type SurrenderReason = "wounded" | "panicked" | "routed";
 export interface Captive { state: "surrendered" | "captured"; /** Tick at which he gave up. */ tick: number }
 
 /** Individual soldier state (SPEC 6.4). M0 holds the fields; systems that change them come in M1-M4. */
+/**
+ * M11.6: the battery fitted in one powered device a man carries (a radio, a goggle, a thermal sight). It lives outside
+ * his container, as the magazine in his weapon does (mass and roster out count it). The charge is not stepped: it is
+ * `wh0` Wh at tick `since` and falls at the device's draw while `on` (power.ts `chargeAt`); `flatTick` is the tick it
+ * reaches 0 while on (NEVER_TICK when off). `battery` null: no battery fitted (a dead device). `flatSent`: the
+ * `power.flat` event for this battery has gone out. `drawW`: the device's draw (W; from the catalog, kept here so the
+ * charge can be read without it).
+ */
+export interface PowerSlot { device: DefId; battery: DefId | null; wh0: number; since: number; on: boolean; flatTick: number; drawW: number; flatSent?: true }
+
 export interface SoldierState {
   /** Skills 0..1: marksmanship, fieldcraft, medical, leadership, experience (keys are data). */
   skills: Record<string, number>;
@@ -202,6 +212,9 @@ export interface SoldierState {
   fireFrom?: { dx: number; dy: number; tick: number };
   /** Sight realism step 4: the last tick he saw an enemy man or vehicle with his own eyes (not a drone); absent: never. */
   sawEnemyTick?: number;
+  /** M11.6: the battery in each powered device he carries (one slot per device type, ascending device id); absent:
+   *  he carries none (or a save from before M11.6). See power.ts. */
+  power?: PowerSlot[];
   /** Sight realism step 4: the tick of his last look for an enemy he lost (a peek); absent: none in this spell. */
   peekTick?: number;
   /** Sight realism step 4: he stands to look until this tick, then takes the posture he looked from again. */

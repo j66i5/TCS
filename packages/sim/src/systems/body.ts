@@ -13,6 +13,7 @@ import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
 import { aglBoxOf, containerMassKg } from "../items";
 import { clamp, exp } from "../math";
+import { slotsMassKg } from "../power";
 import type { Posture } from "../orders";
 import type { SimState } from "../state";
 
@@ -28,6 +29,8 @@ export function loadKg(ctx: SimContext, state: SimState, id: EntityId): number {
       if (d) kg += d.massKg + w.magazine.rounds * (d.chargeMassKg ?? 0);
     }
   }
+  // M11.6: the batteries in his devices.
+  kg += slotsMassKg(ctx.catalog, state.soldier.get(id));
   // M7.6d: the box on his team's AGL, if he carries the post.
   const box = aglBoxOf(state, id);
   if (box) { const d = ctx.catalog.items[box.item]; if (d) kg += d.massKg + box.rounds * (d.chargeMassKg ?? 0); }

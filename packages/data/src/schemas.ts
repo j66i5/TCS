@@ -507,6 +507,9 @@ export const BehaviourFile = withProv({
       dangerSustained: Num(0, 1), dangerMagnified: Num(0, 1), dangerFiring: Num(0, 1), spreadPenalty: Num(0, 10), spreadCap: z.number().int().min(0).max(20),
       note: z.string().optional(),
     }).strict().optional(),
+    /** M11.6 batteries: a battery fitted in a device at setup starts at a share of full drawn from [installedMin, 1]
+     *  (stream "power"); in a lull a man changes a battery below swapBelowShare of full for a fuller spare. */
+    power: z.object({ installedMin: Num(0, 1), swapBelowShare: Num(0, 1), note: z.string().optional() }).strict().optional(),
     droneHide: z.object({ triggerM: Num(0, 3000), freezeTriggerM: Num(0, 3000), freezeSeconds: Num(0, 600), maxFreezeSeconds: Num(0, 3600), freezeCooldownSeconds: Num(0, 3600), searchM: Num(0, 200), hideSeconds: Num(0, 3600), mode: z.string(), moveBeyondM: Num(0, 3000) }).strict().optional(),
     houseLeave: z.boolean(), houseTrapBursts: Num(0, 50), houseTrapSeconds: Num(0, 600), houseHeavyKg: Num(0, 100), houseHeavyCount: Num(0, 10), houseBurstNearM: Num(0, 20),
     houseEnemySeconds: Num(0, 120), houseFightM: Num(0, 50), houseFlankM: Num(0, 2000), houseFlankDeg: Num(0, 180), houseFlankSeconds: Num(0, 120),
@@ -863,8 +866,12 @@ export const ItemSchema = withProv({
   sensor: z.string().optional(),
   /** Thermal blanket (M9.2): a man carrying it who is still and not firing shows this share of his heat. */
   thermalCover: Num(0, 1).optional(),
-  /** Battery life of a powered item, hours (M9.2: reserved, not used yet; batteries are M11.6). */
-  batteryHours: Num(0, 10000).optional(),
+  /** M11.6: a powered device (radio, goggle, thermal sight): the battery item it runs on (an item of this faction
+   *  with a charge in Wh), how many hours a full battery lasts (its draw = the battery's charge / hours, W), seconds
+   *  to change the battery, and, for a night device, the light below which it is switched on (absent: always on). */
+  power: z.object({ battery: Id, hours: Num(0.01, 10000), swapSeconds: Num(0, 600), onBelowLight: Num(0, 1).optional() }).strict().optional(),
+  /** M11.6: drinking water (its charge in ml). */
+  water: z.literal(true).optional(),
   /** M8.2a: a laser rangefinder (binocular): its carrier locates a target for indirect fire with it. */
   rangefinder: z.boolean().optional(),
   /** M8.3a: a crew-served mortar (the tube; its carrier is the gunner): its HE and smoke rounds (counted round items

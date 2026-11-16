@@ -116,6 +116,11 @@ export type SimEvent =
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
+  /** M11.6 batteries: the battery in a man's powered device (`device`, an item id) has gone flat (once per battery);
+   *  he changed it (`battery` fitted with `whIn` Wh; the old one went back into his load with `whOut` Wh, 0 if the
+   *  device had none). No radio message: a flat radio sends nothing. */
+  | { kind: "power.flat"; tick: number; soldier: EntityId; device: DefId; side: SideId }
+  | { kind: "power.swapped"; tick: number; soldier: EntityId; device: DefId; battery: DefId; whOut: number; whIn: number }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
   /** A leader rallied a man of his unit (morale rework 2026-11-15): his shock eased, a runner stopped. */
   | { kind: "morale.rally"; tick: number; leader: EntityId; soldier: EntityId }

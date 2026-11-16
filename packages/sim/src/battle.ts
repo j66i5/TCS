@@ -40,6 +40,9 @@ export interface SoldierRecord {
   physiology?: Physiology;
   /** Load: counted items (SPEC 4.3 rule 9). */
   load: ItemStack[];
+  /** M11.6: the batteries in his devices went back into `load` after an earlier battle: setup fits his fullest ones as
+   *  they are (absent: a fresh record, whose fitted batteries start partly used; see power.ts `fitBatteries`). */
+  powerFitted?: true;
   /** Outcome status after a battle. "fit" going in. */
   /** "surrendered" / "captured" (M6.6): such a record placed in a battle is a prisoner from the first tick. */
   /** "evacuated" (M10.6a/b): taken off the map by an ambulance, a combat vehicle's rear run, or at the battle's end

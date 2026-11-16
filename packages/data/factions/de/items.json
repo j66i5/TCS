@@ -139,10 +139,13 @@
       "id": "de-water",
       "nameKey": "item.de-water",
       "category": "kit",
-      "massKg": 1.6,
+      "massKg": 0,
+      "chargeCapacity": 2000,
+      "chargeMassKg": 0.0008,
+      "water": true,
       "sources": [],
       "confidence": "low",
-      "note": "Two litres of water in canteens or a bladder. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+      "note": "Two litres of water in canteens or a bladder (M11.6: a charged item, charge in ml; 2000 ml full). The 1.6 kg of the full item is kept: 0.8 g per ml folds the canteens into the water (water is 1 g/ml; empty canteens ~0.1-0.15 kg each, unsourced estimate): low, owner to review."
     },
     {
       "id": "de-rations",
@@ -175,20 +178,68 @@
       "id": "de-nvg",
       "nameKey": "item.de-nvg",
       "category": "kit",
-      "massKg": 0.6,
-      "sources": [],
+      "massKg": 0.585,
+      "sensor": "night",
+      "power": {
+        "battery": "de-nvg-battery",
+        "hours": 50,
+        "swapSeconds": 20,
+        "onBelowLight": 0.3
+      },
+      "sources": [
+        "https://nv-intl.com/wiki/index.php/Thales_Lucie",
+        "https://www.atncorp.com/pdf/specsheets/pvs14-3_spec.pdf",
+        "https://peo360portfolio.com/product-details/product/175"
+      ],
       "confidence": "low",
-      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder.",
-      "sensor": "night"
+      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder. M11.6 power: 50 h on one AA (Thales Lucie 60 h at 1.5 V, PVS-14 class 40-50 h; search extracts, medium; 50 h chosen, low); 20 s to change the cell (inferred, low); switched on below light 0.3 (the AI's night threshold; game value, low). Mass 0.585 kg without the cell (0.6 kg with it, as before)."
+    },
+    {
+      "id": "de-nvg-battery",
+      "nameKey": "item.de-nvg-battery",
+      "category": "battery",
+      "massKg": 0.015,
+      "chargeCapacity": 4,
+      "chargeMassKg": 0,
+      "sources": [
+        "https://data.energizer.com/pdfs/L91.pdf"
+      ],
+      "confidence": "low",
+      "note": "M11.6: one AA lithium cell for the night-vision goggle; charge in Wh (Energizer L91: ~3.5 Ah at 1.5 V ~ 4-5 Wh, 15 g; mass medium, Wh rounded down to an integer 4: low, owner to review)."
     },
     {
       "id": "de-radio",
       "nameKey": "item.de-radio",
       "category": "kit",
-      "massKg": 0.9,
-      "sources": [],
+      "massKg": 0.55,
+      "power": {
+        "battery": "de-radio-battery",
+        "hours": 6,
+        "swapSeconds": 10
+      },
+      "sources": [
+        "https://scdn.rohde-schwarz.com/ur/pws/dl_downloads/dl_common_library/dl_brochures_and_datasheets/pdf_1/SOVERON-HR_fly_en_5215-8170-32_v0300.pdf",
+        "https://www.rohde-schwarz.com/us/products/aerospace-defense-security/software-defined-radios-options/soveron-hr_63493-652358.html",
+        "https://www.greenradio.de/e_sem52sl.htm"
+      ],
       "confidence": "low",
-      "note": "Section radio with battery, typical mass; the comms model does not read it yet (M14)."
+      "note": "Section radio, typical mass (0.9 kg with its battery). M11.6 power: 6 h on a battery pack (SOVERON HR short pack, R&S datasheet search extract: medium); 10 s to change it (inferred, low). The battery is a separate item now: mass 0.55 kg without it (0.9 kg with it, as before)."
+    },
+    {
+      "id": "de-radio-battery",
+      "nameKey": "item.de-radio-battery",
+      "category": "battery",
+      "massKg": 0.35,
+      "chargeCapacity": 30,
+      "chargeMassKg": 0,
+      "sources": [
+        "https://scdn.rohde-schwarz.com/ur/pws/dl_downloads/dl_common_library/dl_brochures_and_datasheets/pdf_1/SOVERON-HR_fly_en_5215-8170-32_v0300.pdf",
+        "https://www.rohde-schwarz.com/us/products/aerospace-defense-security/software-defined-radios-options/soveron-hr_63493-652358.html",
+        "https://www.greenradio.de/e_sem52sl.htm",
+        "https://www.cryptomuseum.com/radio/azart"
+      ],
+      "confidence": "low",
+      "note": "M11.6: battery pack of the section handheld radio (SOVERON HR / SEM 52 SL class); charge in Wh. The R&S SOVERON HR datasheet gives up to 6 h on the short pack and more than 12 h on the long pack (search extract, duty cycle not stated): the radio's power.hours is 6 (short pack, medium). Capacity ~30 Wh and mass 0.35 kg are inferred from handheld packs (R-187P1: 466 g bare, ~900 g with battery and antenna; PRC-152 class 0.3-0.4 kg): low, owner to review."
     },
     {
       "id": "de-g95-mag",
@@ -520,15 +571,35 @@
       "id": "de-thermal-sight",
       "nameKey": "item.de-thermal-sight",
       "category": "kit",
-      "massKg": 0.9,
+      "massKg": 0.855,
       "sensor": "thermal",
-      "batteryHours": 6,
+      "power": {
+        "battery": "de-thermal-battery",
+        "hours": 7,
+        "swapSeconds": 15,
+        "onBelowLight": 0.3
+      },
       "sources": [
         "https://militaeraktuell.at/deutschland-neue-nachtsichtsysteme-thales/",
-        "https://defence-network.com/thales-liefert-optronik-systeme-an-rheinmetall/"
+        "https://defence-network.com/thales-liefert-optronik-systeme-an-rheinmetall/",
+        "https://dam.hensoldt.net/m/8f69bc535373174/original/IRV-MR-English.pdf"
       ],
       "confidence": "low",
-      "note": "Thermal weapon sight (M9.2): IdZ-ES optics include a combined reflex and thermal rifle sight (Thales XTRAIM, search extracts); how many a Gruppe has is not public. Research default, low (owner round M9 screen 3 (a)): one per Schuetzentrupp, with the marksman. Mass and battery life are game values (batteries reserved for M11.6)."
+      "note": "Thermal weapon sight (M9.2): IdZ-ES optics include a combined reflex and thermal rifle sight (Thales XTRAIM, search extracts); how many a Gruppe has is not public. Research default, low (owner round M9 screen 3 (a)): one per Schuetzentrupp, with the marksman. Mass is a game value. M11.6 power: 7 h on 3x AA (Hensoldt IRV-MR >= 7 h at 21 C, datasheet search extract, medium); 15 s to change the set (IRV-MR 'quick, blind battery replacement'; seconds inferred, low); switched on below light 0.3 (game value, low). Mass 0.855 kg without the cells (0.9 kg with them, as before)."
+    },
+    {
+      "id": "de-thermal-battery",
+      "nameKey": "item.de-thermal-battery",
+      "category": "battery",
+      "massKg": 0.045,
+      "chargeCapacity": 12,
+      "chargeMassKg": 0,
+      "sources": [
+        "https://dam.hensoldt.net/m/8f69bc535373174/original/IRV-MR-English.pdf",
+        "https://data.energizer.com/pdfs/L91.pdf"
+      ],
+      "confidence": "low",
+      "note": "M11.6: a set of 3 AA lithium cells for the clip-on thermal sight (Hensoldt IRV-MR runs on 3x AA, >= 7 h at 21 C; search extract); charge in Wh (3 x ~4 Wh, 3 x 15 g). Low, owner to review."
     },
     {
       "id": "de-thermal-blanket",

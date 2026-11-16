@@ -607,6 +607,82 @@ is in DECISIONS (2026-11-15, M10.8). In both tabs each side has its own coloured
 indented; durations read "13 min 52 s" or "3 h 4 min" so they are not taken for clock times; the evacuation time
 is "during the battle" and left out when nobody was; smoke is mentioned only when there was some on the line.
 
+## Batteries and water (M11.6)
+
+Radios, night-vision goggles and thermal sights run on batteries, and drones on their flight packs. Every battery
+is a counted item (rule 9): a man carries the one in his device and his spares, and a used battery stays in his
+load at the charge it has left.
+
+- **The battery in a device** sits in a small slot on the man (like the magazine in his rifle). It does not tick
+  down every frame: the slot remembers when it was switched on and how full it was, and the charge is worked out
+  when someone asks. The tick it goes flat is known in advance, so "is it flat?" is one comparison.
+- **When a device is on.** The radio always; the thermal sight always (it is used by day too); the goggles only
+  while the light is below 0.5 (where they help). Batteries fitted at the start are part used (30-100 %, drawn
+  from the battle's seed), spares are full.
+- **Changing it.** A man swaps a flat battery himself, from his own spares, in 10-20 s. In a lull he also swaps
+  one that is nearly empty (below 10 %) for a clearly fuller spare. Nobody hands batteries over yet: that is the
+  resupply part of M11.
+- **When it is flat.** A squad whose radios are all flat is off the net: orders sent to it do not arrive
+  ("no comms"), it shares what it sees only by voice (40 m), it calls no ambulance and observes for nobody's
+  fire mission, and its radio messages stop (except the few the after-action review needs). A squad riding in a
+  hull with a working radio stays on the net. Flat goggles or a flat thermal sight leave the man with his eyes
+  (and his weapon sight). A drone with too little charge cannot take off; in the air it comes home when its
+  battery runs low.
+- **Water** matters only in battles of two hours or more. Men lose water faster when they work hard or in heat;
+  below about 85 % they drink 250 ml from the emptiest canteen when nobody is shooting at them. Short of water
+  (more than about 2 % of body weight), they tire faster, recover more slowly and aim a little worse.
+- **What the numbers are.** Radio packs 6 h (German) and 8 h (Russian), goggles 40-50 h on one AA cell, thermal
+  sights 5-7 h on three AA cells, drone packs 75-77 Wh at 150 W (about half an hour), two litres of water a man:
+  from public figures where they could be found (medium at most), game values otherwise (DECISIONS "M11.6").
+- **Checking it.** `npm run lab -- batteries` runs both platoons on a three-hour night patrol and shows the
+  changes, the flat batteries, the drone flights and the water drunk, and checks that every watt-hour and every
+  millilitre is accounted for. The review and the batch report have a "Batteries and water" line.
+
+## Ammunition: loose rounds, refilling, the long hold (M11.1)
+
+Every round in the battle is counted. A man's rounds are in the magazine in his weapon, in his spare magazines or
+belts, and now also in **loose rounds**: a German rifleman or leader carries one bandolier of 140 rounds on stripper
+clips, a Russian one four paper packs of 30. Vehicles carry cans of loose rounds for their squads (two cans of
+5.56 mm and two of 7.62 mm in a Puma or Boxer, a tin of 5.45 mm and one of 7.62 x 54R in a BMP-2 or BTR-82A). These
+numbers are assumptions (low) until a source for what is really carried is found; the packaging itself (840 rounds
+in a 5.56 mm can, 1,080 in a 5.45 mm tin, 440 in a 7.62 x 54R tin) comes from search extracts.
+
+**Refilling magazines.** In a quiet moment — he has not fired for 20 s, nobody is firing at him, he stands still
+and is not caring for or carrying anyone — a rifleman refills his emptiest spare magazine that is less than half
+full from his loose rounds, one round at a time: 1.2 s a round by hand, 0.4 s from stripper clips. Anything that
+needs him (a shot of his, fire on him, a move, an order to fire, an enemy he sees) stops him at once, and he keeps
+the rounds he has already put in. A machine gunner never does this in battle: belts come linked.
+
+**Nothing appears or vanishes.** A tool (the "ledger") counts every round of every kind wherever it is: on the men,
+in vehicles and their guns' ready belts, in crates on the ground, in the mortar sections' stocks. A test runs every
+scenario and checks that what the battle started with, minus what it ended with, is exactly what was fired, thrown
+or launched (read from the battle's events only). It found no leak. Moving rounds from one item into another (a
+bandolier into a magazine) goes through one function, `moveCharge`, that keeps the total exact; fuel (litres) and
+batteries (watt-hours) will use the same one.
+
+**The long hold (`hold-resupply`, in the app `?scenario=hold`).** A German platoon on foot holds the village centre
+for an hour against three Russian platoons that come in waves from the east, at the start, after 15 and after 30
+minutes (the attacker has a third of the platoon battle's mortar rounds, all from the start: with more, the first wave shelled the defence apart). A wave is not on the map before its time (it does not exist in the
+battle yet, so it costs nothing and nobody can see it); the side is not beaten while a wave is still to come. Each
+wave has its own computer commander, who plans its attack from where it comes in. The defenders have a supply point
+150 m behind the village: per squad one can of loose rounds for each kind of rifle and machine-gun round it fires.
+In this step nobody fetches from it yet (the next steps bring bearers, vehicle runs and deliveries); `--no-resupply`
+(headless and batch) switches refilling and, later, every resupply off for comparisons. `hold-resupply-ru` swaps the
+sides.
+
+**Men fire a little more (where the sources support it).** Two changes, each measured on its own: (1) a unit firing
+on an order or a drill slows to one shot every 10 s after 30 s without fire coming in — now only if none of its men
+knows of an enemy (seen or told of) within the last 60 s; (2) a machine gun fires rapid bursts (one every 1.5 s, about
+200 rounds a minute) for the first 30 s of a target, then the sustained rate (one burst of five every 3 s, about 100 a
+minute), as the manuals' rapid and sustained rates (search extracts, medium). A third idea — defenders firing at the
+known place of an enemy they cannot see — is built but switched off: in the measurements it wasted rounds without
+hits and made the defence break sooner.
+
+**Measuring it.** `npm run lab -- consumption` runs the platoon battles and the hold and reports, per side and weapon,
+how much each man carried and fired, how many rounds a minute while in contact (he fired or was under fire in the
+last 60 s), how much of the load was gone at 20 minutes and at the end, who ran out of loaded spares or dry and when,
+and how many magazines were refilled. `--conservation` runs the conservation check over every scenario.
+
 ## Grenades
 
 A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one

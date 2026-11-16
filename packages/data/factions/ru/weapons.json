@@ -136,8 +136,10 @@
       },
       "sustained": {
         "burstRounds": 5,
-        "intervalS": 2.5,
-        "recoilFactor": 0.3
+        "intervalS": 3.0,
+        "recoilFactor": 0.3,
+        "rapidIntervalS": 1.5,
+        "rapidSeconds": 30
       },
       "sources": [
         "https://en.wikipedia.org/wiki/PKP_Pecheneg"

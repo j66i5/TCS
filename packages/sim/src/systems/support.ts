@@ -27,6 +27,7 @@
  * the correction; then every tube fires for effect at its own rate (`roundSeconds`). Rounds in flight are kept in
  * the mission (`flying`). With no team in range and no off-map battery, the call is refused out of range.
  */
+import { onAir } from "../comms";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId, type SideId } from "../ids";
@@ -508,7 +509,10 @@ function ownMenWithin(state: SimState, side: SideId, x0: number, y0: number, x1:
 
 /** One mortar round lands at (x, y): high explosive bursts, smoke lays its cloud. `heAmmo`: an on-map tube's round. */
 function landRound(ctx: SimContext, state: SimState, events: EventSink, fs: FireSupportDef, m: FireMission, x: number, y: number, heAmmo = fs.heAmmo): void {
-  events.emit({ kind: "support.round", tick: state.tick, side: m.side, asset: m.asset ?? "mortar", ammo: m.ammo, x, y, ...(m.method !== undefined ? { method: m.method } : {}) });
+  // (M11.1: an off-map round names its item, for the conservation guard; an on-map tube's round was counted at its shot.)
+  const sec = m.tubes === undefined ? sectionOf(state, m.side, m.asset ?? "mortar") : undefined;
+  const item = sec ? (m.ammo === "he" ? sec.heType : m.ammo === "smoke" ? sec.smokeType : sec.illumType) : undefined;
+  events.emit({ kind: "support.round", tick: state.tick, side: m.side, asset: m.asset ?? "mortar", ammo: m.ammo, x, y, ...(item !== undefined ? { item } : {}), ...(m.method !== undefined ? { method: m.method } : {}) });
   if (m.ammo === "illum") {
     // A flare (M8.4): ejected over the point, it sinks under its parachute while it burns (its light: flares.ts).
     const type = sectionOf(state, m.side, m.asset ?? "mortar")?.illumType ?? fs.illumAmmo;
@@ -535,6 +539,7 @@ function landRound(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
 /** A radio call from the man who called the mission (keys, rule 12). */
 function radio(state: SimState, events: EventSink, m: FireMission, key: string, params: Record<string, string | number> = {}): void {
   const u = state.identity.get(m.caller)?.unit;
+  if (!onAir(state, u)) return; // (M11.6: a flat radio sends nothing)
   events.emit({ kind: "radio", tick: state.tick, side: m.side, from: m.caller, key, params: { callsign: (u !== undefined ? state.unit.get(u)?.callsign : undefined) ?? "", ...params } });
 }
 

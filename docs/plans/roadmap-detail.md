@@ -494,7 +494,8 @@ launcher if sourced. From 41: the GTK's 40 mm GMW on the FLW 200 (a second feed 
 
 ### Phase 6: M11 Logistics
 
-Follows `m11.md`. Minimum set: 43-47 and 52; 48-51 optional. Shared machinery from M10 (carry store, rear points,
+Follows `m11-logistics.md` (written 2026-11-16 with the owner's answers and the measured consumption; slices 43-48
+and 52 there; 49 and 50-51 in two parallel sessions). Minimum set: 43-47 and 52; 48-51 optional. Shared machinery from M10 (carry store, rear points,
 off-map vehicles, rear runs).
 
 **Owner round M11** (three screens; asked after slice 43's measurement):
@@ -534,7 +535,7 @@ AI never strips a defended objective to fetch ammunition.
 **48. M11.5 Re-arming and refuelling** (M, optional). Depends on 47 and 24: crates into stowage, fuel in litres per
 minute, rounds to mortars. Acceptance: conservation includes litres; roster round trip keeps them.
 
-**49. M11.6 Batteries, water and other consumables** (M, optional). Depends on M9: battery charge for radios,
+**49. M11.6 Batteries, water and other consumables** (M, optional). ✅ 2026-11-16 (DECISIONS "M11.6"; smoke and medical resupply left to slices 46-47). Depends on M9: battery charge for radios,
 sights and drones; drone airframes as items; water in long battles; smoke and medical resupply. Acceptance: a
 3-hour night battle shows battery swaps.
 

@@ -22,6 +22,8 @@ export type SimEvent =
   | { kind: "order.hesitating"; tick: number; seq: number; target: EntityId; orderKind: OrderKind; deliverTick: number }
   | { kind: "radio"; tick: number; side: SideId; from: EntityId; key: string; params: Record<string, string | number> }
   | { kind: "unit.arrived"; tick: number; unit: EntityId }
+  /** M11.1: a unit arriving late (a wave) has entered the battle. */
+  | { kind: "unit.entered"; tick: number; unit: EntityId; side: SideId }
   | { kind: "move.noRoute"; tick: number; target: EntityId }
   | {
       kind: "impact"; tick: number; x: number; y: number; z: number;
@@ -116,6 +118,13 @@ export type SimEvent =
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
+  /** M11.6 batteries: the battery in a man's powered device (`device`, an item id) has gone flat (once per battery);
+   *  he changed it (`battery` fitted with `whIn` Wh; the old one went back into his load with `whOut` Wh, 0 if the
+   *  device had none). No radio message: a flat radio sends nothing. */
+  | { kind: "power.flat"; tick: number; soldier: EntityId; device: DefId; side: SideId }
+  | { kind: "power.swapped"; tick: number; soldier: EntityId; device: DefId; battery: DefId; whOut: number; whIn: number }
+  /** M11.6: he drank `ml` millilitres from his canteen (`item`; battles of 2 h or more). */
+  | { kind: "water.drunk"; tick: number; soldier: EntityId; side: SideId; item: DefId; ml: number }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
   /** A leader rallied a man of his unit (morale rework 2026-11-15): his shock eased, a runner stopped. */
   | { kind: "morale.rally"; tick: number; leader: EntityId; soldier: EntityId }
@@ -131,6 +140,14 @@ export type SimEvent =
   | { kind: "captured"; tick: number; soldier: EntityId; side: SideId; by: EntityId }
   | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }
   | { kind: "items.transferred"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number }
+  /** M11.1: items gone from the battle other than by being fired (`count` items of `item` held by `holder`; the
+   *  ammunition in them: `rounds` of `ammo`). The conservation guard reads it (ledger.ts). */
+  | { kind: "items.destroyed"; tick: number; holder: EntityId; item: DefId; count: number; ammo?: DefId; rounds?: number; cause: string }
+  /** M11.1: items that came into the battle from off the map (`count` items of `item` to `holder`; the ammunition in
+   *  them: `rounds` of `ammo`). */
+  | { kind: "items.delivered"; tick: number; holder: EntityId; item: DefId; count: number; ammo?: DefId; rounds?: number }
+  /** M11.1: a man loaded `rounds` loose rounds into a magazine (refillMagazines). */
+  | { kind: "items.refilled"; tick: number; soldier: EntityId; item: DefId; rounds: number }
   | { kind: "action.started"; tick: number; actor: EntityId; action: string; durationTicks: number }
   | { kind: "action.completed"; tick: number; actor: EntityId; action: string }
   | { kind: "action.interrupted"; tick: number; actor: EntityId; action: string; reason: string }
@@ -146,7 +163,7 @@ export type SimEvent =
    *  ("splash"). */
   | { kind: "support.call"; tick: number; side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke" | "illum"; method: "estimate" | "laser" | "registered" | "drone" | "air"; errorM: number; firstS: number; /** M8.4 */ asset?: "artillery"; dangerClose?: true }
   /** M8.6: a round of a fire mission lands (for the review's tally: which asset, which kind). */
-  | { kind: "support.round"; tick: number; side: SideId; asset: "mortar" | "artillery"; ammo: "he" | "smoke" | "illum"; x: number; y: number; /** M9.6: how the mission's target was located. */ method?: "estimate" | "laser" | "registered" | "drone" | "air" }
+  | { kind: "support.round"; tick: number; side: SideId; asset: "mortar" | "artillery"; ammo: "he" | "smoke" | "illum"; x: number; y: number; /** M11.1: an off-map round's item (absent: an on-map tube's round, counted at its shot). */ item?: DefId; /** M9.6: how the mission's target was located. */ method?: "estimate" | "laser" | "registered" | "drone" | "air" }
   /** M8.4: an illumination flare is ejected over (x, y); it burns `burnS` (its light: flares.ts, M9.6). */
   | { kind: "support.illum"; tick: number; x: number; y: number; side: SideId; burnS: number }
   | { kind: "support.shot"; tick: number; side: SideId; caller: EntityId; x: number; y: number; flightS: number }
@@ -155,8 +172,8 @@ export type SimEvent =
    *  a tube fires a round (where from, where it is aimed, which round, seconds of flight). */
   /** M9.4a reconnaissance quadcopters: launched (its operator flies it), landed and recovered by a man, lost (empty
    *  battery, or nobody there when it came home). */
-  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId; /** M9.6: the drone's item type. */ item?: DefId }
-  | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId }
+  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId; /** M9.6: the drone's item type. */ item?: DefId; /** M11.6: its battery's charge at launch, Wh. */ wh?: number }
+  | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId; /** M11.6: its battery's charge at landing, Wh. */ wh?: number }
   | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" | "shot"; /** M9.6: the man whose round brought it down (reason "shot"). */ by?: EntityId }
   | { kind: "mortar.setup"; tick: number; unit: EntityId; readyTick: number }
   | { kind: "mortar.ready"; tick: number; unit: EntityId }
@@ -222,7 +239,7 @@ export type SimEvent =
   /** A crewman took over the seat of a fallen one (M7.2); the casualty stays aboard in the seat he left. */
   | { kind: "vehicle.seatSwap"; tick: number; vehicle: EntityId; seat: number; soldier: EntityId; casualty: EntityId }
   /** A vehicle's smoke dischargers fired (M7.3): the screen's centre. */
-  | { kind: "vehicle.smoke"; tick: number; vehicle: EntityId; x: number; y: number }
+  | { kind: "vehicle.smoke"; tick: number; vehicle: EntityId; x: number; y: number ; /** M11.1: the grenades of the salvo (they left the container at the order). */ item?: DefId; count?: number }
   /** A vehicle station's decision changed (M7.3; debug overlay): its target (if any) and the reasons (string keys). */
   | { kind: "vehicle.decision"; tick: number; vehicle: EntityId; station: number; target: EntityId | null; x: number; y: number; nature: "ap" | "he" | "mg" | "atgm" | null; keys: string[] }
   /** A guided missile's flight ended (owner 2026-11-13): it struck its target vehicle ("hit"), burst elsewhere or

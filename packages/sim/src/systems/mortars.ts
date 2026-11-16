@@ -18,6 +18,7 @@
  * `crewServed` block (a guided missile launch post). Its firing is systems/missile-team.ts; while it guides a
  * missile its men's moves wait until the missile's flight ends.
  */
+import { onAir } from "../comms";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId, type SideId } from "../ids";
@@ -245,7 +246,7 @@ export function mortarSystem(ctx: SimContext, state: SimState, events: EventSink
       ms.state = "ready";
       events.emit({ kind: "mortar.ready", tick: state.tick, unit: id });
       const lead = u.leader ?? u.members[0];
-      if (lead !== undefined) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: lead, key: "radio.mortarReady", params: { callsign: u.callsign } });
+      if (lead !== undefined && onAir(state, id)) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: lead, key: "radio.mortarReady", params: { callsign: u.callsign } });
     }
   }
 }
@@ -286,7 +287,7 @@ function missileTeamState(ctx: SimContext, state: SimState, events: EventSink, i
     mt.state = "ready";
     events.emit({ kind: "missileTeam.ready", tick: state.tick, unit: id });
     const lead = u.leader ?? u.members[0];
-    if (lead !== undefined) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: lead, key: "radio.missileTeamReady", params: { callsign: u.callsign } });
+    if (lead !== undefined && onAir(state, id)) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: lead, key: "radio.missileTeamReady", params: { callsign: u.callsign } });
   }
 }
 

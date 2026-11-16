@@ -28,7 +28,12 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.chargeCapacity !== undefined) d.chargeCapacity = it.chargeCapacity;
       if (it.chargeMassKg !== undefined) d.chargeMassKg = it.chargeMassKg;
       if (it.chargeItem !== undefined) d.chargeItem = it.chargeItem;
+      if (it.chargeKind !== undefined) d.chargeKind = it.chargeKind;
+      if (it.stripperClips === true) d.stripperClips = true;
       if (it.sensor !== undefined) d.sensor = it.sensor;
+      if (it.power !== undefined) d.power = { ...it.power };
+      if (it.water === true) d.water = true;
+      if (it.radio === true) d.radio = true;
       if (it.thermalCover !== undefined) d.thermalCover = it.thermalCover;
       if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;
       if (it.reactive !== undefined) d.reactive = { ...it.reactive };
@@ -202,5 +207,5 @@ export function bodyCatalog(data: DataSet): BodyDef {
   };
   const postures = {} as BodyDef["postures"];
   for (const p of b.postures) postures[p.id] = { heightM: p.heightM, speedFactor: p.speedFactor, muzzleHeightM: p.muzzleHeightM };
-  return { postures, transitions: strip(b.transitions), movement: strip(b.movement), physiology: strip(b.physiology) };
+  return { postures, transitions: strip(b.transitions), movement: strip(b.movement), physiology: noProv(b.physiology) as BodyDef["physiology"] };
 }

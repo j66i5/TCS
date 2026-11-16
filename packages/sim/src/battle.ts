@@ -35,11 +35,16 @@ export interface SoldierRecord {
   /** His shock (fast fear) as it stood, and his strain (slow wear; morale rework 2026-11-15; absent = 0). */
   stress: number;
   strain?: number;
+  /** M11.6: his water (1 = no deficit, 0 = the deficit at which thirst tells fully; absent = 1). */
+  hydration?: number;
   wounds: Wound[];
   /** Blood volume, shock, consciousness... of a man who is already hurt (omitted = healthy, or derived from status). */
   physiology?: Physiology;
   /** Load: counted items (SPEC 4.3 rule 9). */
   load: ItemStack[];
+  /** M11.6: the batteries in his devices went back into `load` after an earlier battle: setup fits his fullest ones as
+   *  they are (absent: a fresh record, whose fitted batteries start partly used; see power.ts `fitBatteries`). */
+  powerFitted?: true;
   /** Outcome status after a battle. "fit" going in. */
   /** "surrendered" / "captured" (M6.6): such a record placed in a battle is a prisoner from the first tick. */
   /** "evacuated" (M10.6a/b): taken off the map by an ambulance, a combat vehicle's rear run, or at the battle's end
@@ -70,6 +75,10 @@ export interface UnitInput {
   /** A unit on foot (M7.2): the `vehicleId` of the vehicle that carries it (its own men; sub-units without a
    *  carrier of their own ride in it too). */
   carrierId?: string;
+  /** M11.1 late arrival (a wave): a top-level unit that enters the battle this many seconds after the start, at its
+   *  men's placements. Until then it is not in the state at all (no system sees it, nothing costs per tick), its side
+   *  is not beaten while it is still to come, and its roster records come out unchanged if it never arrives. */
+  arriveS?: number;
 }
 
 /**
@@ -122,6 +131,9 @@ export interface ForceInput {
   offMap?: { vehicleId: string; kind: OffMapKind }[];
   /** Whether this side attacks or defends (scenario). Optional: absent = not stated. */
   posture?: "attack" | "defend";
+  /** M11.1: crates and cans of this side on the ground (a supply point): each an entity with a place and a container,
+   *  nothing else (slice 45 makes them caches). */
+  caches?: { x: number; y: number; load: ItemStack[] }[];
 }
 
 export interface BattleInput {

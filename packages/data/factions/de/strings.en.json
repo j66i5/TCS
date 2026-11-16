@@ -56,7 +56,7 @@
   "item.de-g28-mag": "G28 magazine",
   "ammo.de-762-dm111": "7.62 mm ball",
   "ammo.de-762-dm21": "7.62 mm tracer",
-  "item.de-water": "Water (2 l)",
+  "item.de-water": "Water",
   "item.de-rations": "Rations (1 day)",
   "item.de-ifak": "First-aid kit pouch",
   "item.de-webbing": "Webbing and pack",
@@ -161,5 +161,13 @@
   "item.de-mg3-rohr": "spare MG3 barrel",
   "vehicle.de.bergepanzer3": "Bergepanzer 3 Büffel",
   "item.de-bueffel-diesel": "Büffel fuel",
-  "role.de.bergemechaniker": "Recovery mechanic"
+  "role.de.bergemechaniker": "Recovery mechanic",
+  "item.de-radio-battery": "Radio battery",
+  "item.de-nvg-battery": "Goggle battery (AA)",
+  "item.de-thermal-battery": "Thermal sight batteries (3x AA)",
+  "item.de-556-bandolier": "5.56 mm bandolier (140, clips)",
+  "item.de-556-can": "5.56 mm ammunition can (840)",
+  "item.de-762-can": "7.62 mm can of linked rounds (200)",
+  "item.de-40mm-crate": "40 mm grenade crate (24)",
+  "item.de-dm51-crate": "Hand grenade crate (20)"
 }

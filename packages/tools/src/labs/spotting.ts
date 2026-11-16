@@ -42,6 +42,13 @@ export interface SpotCase {
 }
 export interface SpotRow extends SpotCase { runs: number; spotted: number; medianS: number | null; within10: number; within30: number }
 
+/** A powered device for a lab man's load (M11.6): the device and one full battery for it (fitted at setup). */
+export function poweredDevice(catalog: Catalog, device: string): SoldierRecord["load"] {
+  const bat = catalog.items[device]?.power?.battery;
+  const cap = bat === undefined ? undefined : catalog.items[bat]?.chargeCapacity;
+  return bat === undefined ? [{ type: device, count: 1 }] : [{ type: device, count: 1 }, { type: bat, count: 1, ...(cap !== undefined ? { charge: cap } : {}) }];
+}
+
 function man(personId: string, weapon: string, mag: string, catalog: Catalog): SoldierRecord {
   return { personId, given: "Lab", family: personId, rank: "r", role: "rifleman", skills: { marksmanship: 0.5 }, weapon, fatigue: 0, stress: 0, wounds: [], status: "fit", load: [{ type: mag, count: 4, charge: catalog.items[mag]?.chargeCapacity ?? 30 }] };
 }
@@ -57,8 +64,9 @@ export function spotCase(catalog: Catalog, c: SpotCase): SpotRow {
     }
     const ox = 20, ty = 100, tx = 20 + c.rangeM;
     const obs = man("obs", c.ironSights ? "ru-ak74m" : "de-g36", c.ironSights ? "ru-ak74-mag" : "de-g36-mag", catalog);
-    if (c.nvg) obs.load.push({ type: "de-nvg", count: 1 });
-    if (c.thermal) obs.load.push({ type: "de-thermal-sight", count: 1 });
+    // (M11.6: with a battery fitted; a flat one would leave him with eye and optic.)
+    if (c.nvg) obs.load.push(...poweredDevice(catalog, "de-nvg"));
+    if (c.thermal) obs.load.push(...poweredDevice(catalog, "de-thermal-sight"));
     const tgt = man("tgt", "ru-ak74m", "ru-ak74-mag", catalog);
     if (c.blanket) tgt.load.push({ type: "ru-thermal-blanket", count: 1 });
     const input: BattleInput = {

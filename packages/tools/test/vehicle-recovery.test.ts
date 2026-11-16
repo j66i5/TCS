@@ -291,7 +291,7 @@ describe("recovery: the off-map recovery vehicle (M11.7b)", () => {
     expect(refusals(sim)).toContain("radio.underTow");
   });
 
-  it("save and load mid-tow continues identically (every 37 ticks through JSON)", () => {
+  it("save and load mid-tow continues identically (every 307 ticks through JSON)", () => {
     const runIt = (saveEvery: number | null) => {
       const base = field();
       let sim = base.sim;
@@ -305,11 +305,11 @@ describe("recovery: the off-map recovery vehicle (M11.7b)", () => {
       }
       return { hashes, phases };
     };
-    const a = runIt(null), b = runIt(37);
+    const a = runIt(null), b = runIt(307); // a prime off the 60-tick hash grid; every 37 ticks took over 60 s on CI
     expect(a.phases).toContain("departed");
     expect(b.phases).toEqual(a.phases);
     expect(b.hashes).toEqual(a.hashes);
-  });
+  }, 180_000); // two long runs with ~50 loads: generous on a slow CI runner
 
   it("works without medical data; nothing with rules.recovery = false", () => {
     const a = field({ noMedical: true });

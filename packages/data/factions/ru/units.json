@@ -160,6 +160,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -169,7 +174,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -202,6 +208,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -233,7 +249,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -266,6 +283,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-pkp"
@@ -305,7 +327,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -338,6 +361,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -378,7 +406,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -411,6 +440,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -450,7 +489,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -483,6 +523,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -527,7 +577,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -560,6 +611,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -572,7 +633,7 @@
         "https://russiandefpolicy.com/2016/09/17/contractees-in-btgs/"
       ],
       "confidence": "low",
-      "note": "Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). Ranks (owner 2026-11-15): contract soldiers (conscripts are not sent into combat); a contract private stays ryadovoy or yefreytor, so most men keep those; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; low). Squad leader serzhant (mladshiy serzhant or serzhant per post), machine gunner yefreytor, the others ryadovoy/yefreytor."
+      "note": "Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). Ranks (owner 2026-11-15): contract soldiers (conscripts are not sent into combat); a contract private stays ryadovoy or yefreytor, so most men keep those; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; low). Squad leader serzhant (mladshiy serzhant or serzhant per post), machine gunner yefreytor, the others ryadovoy/yefreytor. M11.1: riflemen and leaders also carry loose rounds (four 30-round packs, 120) to refill magazines in quiet moments (assumption, low: no source for the carried loose load)."
     },
     {
       "id": "motor-rifle-squad-1",
@@ -602,6 +663,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -611,7 +677,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -644,6 +711,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -675,7 +752,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -708,6 +786,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-pkp"
@@ -747,7 +830,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -780,6 +864,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -820,7 +909,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -853,6 +943,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -892,7 +992,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -925,6 +1026,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -969,7 +1080,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1004,12 +1116,22 @@
               "count": 1
             },
             {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
               "item": "ru-fr-bag",
               "count": 1
             },
             {
               "item": "ru-rescue-blanket",
               "count": 1
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -1022,7 +1144,7 @@
         "https://russiandefpolicy.com/2016/09/17/contractees-in-btgs/"
       ],
       "confidence": "low",
-      "note": "The first squad of a motor-rifle platoon: as motor-rifle-squad, with the platoon's rifleman-medic in place of the rifleman with the GP-25 (M10.1, owner Q-1c). Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low). Ranks (owner 2026-11-15): contract soldiers (conscripts are not sent into combat); a contract private stays ryadovoy or yefreytor, so most men keep those; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; low). The first squad's leader is the deputy platoon commander (starshiy serzhant; battleorder.org BTR company: deputy platoon commander a senior sergeant). The strelok-sanitar a yefreytor with the medical course (low)."
+      "note": "The first squad of a motor-rifle platoon: as motor-rifle-squad, with the platoon's rifleman-medic in place of the rifleman with the GP-25 (M10.1, owner Q-1c). Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low). Ranks (owner 2026-11-15): contract soldiers (conscripts are not sent into combat); a contract private stays ryadovoy or yefreytor, so most men keep those; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; low). The first squad's leader is the deputy platoon commander (starshiy serzhant; battleorder.org BTR company: deputy platoon commander a senior sergeant). The strelok-sanitar a yefreytor with the medical course (low). M11.1: riflemen and leaders also carry loose rounds (four 30-round packs, 120) to refill magazines in quiet moments (assumption, low: no source for the carried loose load)."
     },
     {
       "id": "motor-rifle-platoon",
@@ -1052,6 +1174,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -1061,7 +1188,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1096,8 +1224,18 @@
               "count": 1
             },
             {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
               "item": "ru-thermal-sight",
               "count": 1
+            },
+            {
+              "item": "ru-thermal-battery",
+              "count": 3,
+              "charge": 12
             },
             {
               "item": "ru-quadcopter",
@@ -1107,6 +1245,11 @@
               "item": "ru-drone-battery",
               "count": 3,
               "charge": 77
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -1125,7 +1268,7 @@
         "https://www.battleorder.org/rus-bmp-platoon"
       ],
       "confidence": "low",
-      "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct. M7.2 (owner Q2): three BMP-2 with fixed three-man crews; each squad (its leader included) rides in the back of its own BMP-2, the platoon commander in the back of the first. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M9.2: the platoon commander carries the platoon's thermal weapon sight (research default, low; Ratnik's night optics have limited distribution). M9.4a (owner M9 round): the platoon commander carries and flies the platoon's quadcopter with three batteries (no separate headquarters and no seat left in the first BMP-2 for an operator: game assumption, low, owner to review).",
+      "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct. M7.2 (owner Q2): three BMP-2 with fixed three-man crews; each squad (its leader included) rides in the back of its own BMP-2, the platoon commander in the back of the first. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M9.2: the platoon commander carries the platoon's thermal weapon sight (research default, low; Ratnik's night optics have limited distribution). M9.4a (owner M9 round): the platoon commander carries and flies the platoon's quadcopter with three batteries (no separate headquarters and no seat left in the first BMP-2 for an operator: game assumption, low, owner to review). M11.1: riflemen and leaders also carry loose rounds (four 30-round packs, 120) to refill magazines in quiet moments (assumption, low: no source for the carried loose load).",
       "carriage": [
         {
           "crew": 3,
@@ -1368,7 +1511,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1385,6 +1529,11 @@
             {
               "item": "ru-radio",
               "count": 1
+            },
+            {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "ru-82-smoke",
@@ -1412,7 +1561,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1452,7 +1602,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1492,7 +1643,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1546,7 +1698,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1563,6 +1716,11 @@
             {
               "item": "ru-radio",
               "count": 1
+            },
+            {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "ru-120-smoke",
@@ -1590,7 +1748,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1630,7 +1789,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1670,7 +1830,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1710,7 +1871,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1792,7 +1954,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1809,6 +1972,11 @@
             {
               "item": "ru-radio",
               "count": 1
+            },
+            {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "ru-9m131-round",
@@ -1837,7 +2005,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1882,7 +2051,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1941,7 +2111,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -1958,6 +2129,11 @@
             {
               "item": "ru-radio",
               "count": 1
+            },
+            {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
             },
             {
               "item": "ru-ags-box",
@@ -1986,7 +2162,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2061,7 +2238,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2094,6 +2272,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -2133,7 +2321,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2166,6 +2355,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2201,7 +2395,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2234,6 +2429,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2246,7 +2446,7 @@
         "https://www.thelightningpress.com/russian-deliberate-assault-small-unit-level/"
       ],
       "confidence": "low",
-      "note": "Assault team of an assault group (M7.6d): three men (3-man fire teams: euromaidanpress, medium-low): team leader with AK-74M and GP-25, an RPG-7V gunner with two PG-7VL, a man with the RPO-A (composite, low)."
+      "note": "Assault team of an assault group (M7.6d): three men (3-man fire teams: euromaidanpress, medium-low): team leader with AK-74M and GP-25, an RPG-7V gunner with two PG-7VL, a man with the RPO-A (composite, low). M11.1: riflemen and leaders also carry loose rounds (four 30-round packs, 120) to refill magazines in quiet moments (assumption, low: no source for the carried loose load)."
     },
     {
       "id": "ognevaya-gruppa",
@@ -2281,7 +2481,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2314,6 +2515,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-pkp"
@@ -2350,7 +2556,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2383,6 +2590,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2414,7 +2626,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2447,6 +2660,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-svd"
@@ -2499,7 +2717,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2532,6 +2751,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -2567,7 +2796,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2600,6 +2830,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -2612,7 +2852,7 @@
         "https://www.thelightningpress.com/russian-deliberate-assault-small-unit-level/"
       ],
       "confidence": "low",
-      "note": "Reserve of an assault group (M7.6d): two riflemen with a spare RPO-A each, a PKP belt and a PG-7VL (a reserve section with riflemen and ammunition: euromaidanpress, medium-low; composite, low). The extra AGS box of the plan is not carried: only the AGS team's own men feed its gun."
+      "note": "Reserve of an assault group (M7.6d): two riflemen with a spare RPO-A each, a PKP belt and a PG-7VL (a reserve section with riflemen and ammunition: euromaidanpress, medium-low; composite, low). The extra AGS box of the plan is not carried: only the AGS team's own men feed its gun. M11.1: riflemen and leaders also carry loose rounds (four 30-round packs, 120) to refill magazines in quiet moments (assumption, low: no source for the carried loose load)."
     },
     {
       "id": "shturmovaya-gruppa",
@@ -2650,8 +2890,18 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-thermal-sight",
               "count": 1
+            },
+            {
+              "item": "ru-thermal-battery",
+              "count": 3,
+              "charge": 12
             },
             {
               "item": "ru-helmet",
@@ -2663,7 +2913,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2696,6 +2947,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -2718,6 +2979,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-quadcopter",
               "count": 1
             },
@@ -2736,7 +3002,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -2769,6 +3036,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -2786,7 +3058,7 @@
         "https://www.thelightningpress.com/russian-deliberate-assault-small-unit-level/"
       ],
       "confidence": "low",
-      "note": "Assault group (shturmovaya gruppa, M7.6d): 13 men on foot. A composite of the reported 2023 assault tactics (Pulaski report; euromaidanpress 2023-03-14; thelightningpress: assault platoons of 12-15 in 3-man teams, a command group with a UAV team, a fire-support element, a reserve; medium-low): command (commander with GP-25 and a thermal sight, radio and drone operator with the group's quadcopter), two assault teams (Shturm 1 and 2: GP-25, RPG-7V, RPO-A), a fire team (Ogon: PKP, assistant, SVD), a reserve (Rezerv: two riflemen with spare RPO-A and ammunition). The AGS-30 team (raschet-ags) goes with it as a unit of its own. Loads and ranks are game values (low). Used only by the opt-in assault-group battle."
+      "note": "Assault group (shturmovaya gruppa, M7.6d): 13 men on foot. A composite of the reported 2023 assault tactics (Pulaski report; euromaidanpress 2023-03-14; thelightningpress: assault platoons of 12-15 in 3-man teams, a command group with a UAV team, a fire-support element, a reserve; medium-low): command (commander with GP-25 and a thermal sight, radio and drone operator with the group's quadcopter), two assault teams (Shturm 1 and 2: GP-25, RPG-7V, RPO-A), a fire team (Ogon: PKP, assistant, SVD), a reserve (Rezerv: two riflemen with spare RPO-A and ammunition). The AGS-30 team (raschet-ags) goes with it as a unit of its own. Loads and ranks are game values (low). Used only by the opt-in assault-group battle. M11.1: riflemen and leaders also carry loose rounds (four 30-round packs, 120) to refill magazines in quiet moments (assumption, low: no source for the carried loose load)."
     },
     {
       "id": "t72b3m-ekipazh",
@@ -3085,6 +3357,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -3094,7 +3371,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3127,6 +3405,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -3158,7 +3446,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3191,6 +3480,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-pkp"
@@ -3227,7 +3521,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3260,6 +3555,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -3299,7 +3604,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3332,6 +3638,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-ak74m"
@@ -3372,7 +3683,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3405,6 +3717,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -3444,7 +3766,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3477,6 +3800,16 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -3513,7 +3846,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3546,6 +3880,11 @@
             {
               "item": "ru-nvg",
               "count": 1
+            },
+            {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
             }
           ],
           "weapon": "ru-svd"
@@ -3560,7 +3899,7 @@
         "https://community.battlefront.com/topic/121355-modern-russian-infantry-battalion-structure/"
       ],
       "confidence": "low",
-      "note": "A motor-rifle squad on a BTR (M7.6c): the BMP squad's six dismounts (motor-rifle-squad) plus the assistant machine gunner that BTR and MT-LB platoons add (battleorder.org, search extract, medium): seven, the BTR-82A's seven places. M7.6d: the second GP-25 rifleman is the squad's marksman with the SVD (battleorder says BTR squads typically have one, search extract, medium; a forum claim that the SVDs moved to a brigade marksman company is disputed); six SVD magazines are a game value (low). Loads otherwise as motor-rifle-squad's; the assistant MG gunner carries two PKP belts (game value, low)."
+      "note": "A motor-rifle squad on a BTR (M7.6c): the BMP squad's six dismounts (motor-rifle-squad) plus the assistant machine gunner that BTR and MT-LB platoons add (battleorder.org, search extract, medium): seven, the BTR-82A's seven places. M7.6d: the second GP-25 rifleman is the squad's marksman with the SVD (battleorder says BTR squads typically have one, search extract, medium; a forum claim that the SVDs moved to a brigade marksman company is disputed); six SVD magazines are a game value (low). Loads otherwise as motor-rifle-squad's; the assistant MG gunner carries two PKP belts (game value, low). M11.1: riflemen and leaders also carry loose rounds (four 30-round packs, 120) to refill magazines in quiet moments (assumption, low: no source for the carried loose load)."
     },
     {
       "id": "motor-rifle-platoon-btr",
@@ -3590,6 +3929,11 @@
               "count": 1
             },
             {
+              "item": "ru-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -3599,7 +3943,8 @@
             },
             {
               "item": "ru-water",
-              "count": 1
+              "count": 1,
+              "charge": 2000
             },
             {
               "item": "ru-rations",
@@ -3634,8 +3979,18 @@
               "count": 1
             },
             {
+              "item": "ru-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
               "item": "ru-thermal-sight",
               "count": 1
+            },
+            {
+              "item": "ru-thermal-battery",
+              "count": 3,
+              "charge": 12
             },
             {
               "item": "ru-quadcopter",
@@ -3645,6 +4000,11 @@
               "item": "ru-drone-battery",
               "count": 3,
               "charge": 77
+            },
+            {
+              "item": "ru-545-pack",
+              "count": 4,
+              "charge": 30
             }
           ],
           "weapon": "ru-ak74m"
@@ -3665,7 +4025,7 @@
         "https://community.battlefront.com/topic/121355-modern-russian-infantry-battalion-structure/"
       ],
       "confidence": "low",
-      "note": "Motor-rifle platoon on BTR-82A (M7.6c, slice 41): as motor-rifle-platoon (the platoon commander with the thermal sight and the quadcopter, no separate headquarters) in three BTR-82A. The first squad keeps six men with the platoon's rifleman-medic (binding medical answer) because the platoon commander rides in its BTR (6 + 1 = 7 places); the second and third squads have seven with the assistant machine gunner. 30 men (battleorder.org: about 30, 1 officer + 29; search extract).",
+      "note": "Motor-rifle platoon on BTR-82A (M7.6c, slice 41): as motor-rifle-platoon (the platoon commander with the thermal sight and the quadcopter, no separate headquarters) in three BTR-82A. The first squad keeps six men with the platoon's rifleman-medic (binding medical answer) because the platoon commander rides in its BTR (6 + 1 = 7 places); the second and third squads have seven with the assistant machine gunner. 30 men (battleorder.org: about 30, 1 officer + 29; search extract). M11.1: riflemen and leaders also carry loose rounds (four 30-round packs, 120) to refill magazines in quiet moments (assumption, low: no source for the carried loose load).",
       "carriage": [
         {
           "crew": 3,

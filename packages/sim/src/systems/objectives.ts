@@ -14,6 +14,7 @@ import { isAble, isOut } from "../impair";
 import { isAssetUnit } from "../offmap";
 import { settleBattle } from "./aftercare";
 import { settleVehicles } from "./recovery";
+import { latePending } from "../setup";
 import type { SimState, SimView } from "../state";
 
 export interface SideScore {
@@ -64,7 +65,8 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
     // mounted: ok a side with men only aboard vehicles is not wiped out
     const anyStanding = [...state.identity.entries()].some(([id, i]) => i.side === sd.id && !isAssetUnit(state, i.unit) && standing(state, id));
     const allBroken = tops.length > 0 && tops.every(([, u]) => u.broken);
-    if (!anyStanding || allBroken) defeated.push({ side: sd.id, reason: !anyStanding ? "side-eliminated" : "side-broken" });
+    // (M11.1: a side with a wave still to come is not beaten yet.)
+    if ((!anyStanding || allBroken) && !latePending(ctx, state, sd.id)) defeated.push({ side: sd.id, reason: !anyStanding ? "side-eliminated" : "side-broken" });
   }
   if (defeated.length === 0) return;
   // Both at once: nobody wins by default (the scores decide; a tie is a draw).

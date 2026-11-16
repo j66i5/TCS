@@ -1,6 +1,6 @@
 /**
  * Headless runner: runs one battle as fast as possible and prints the result.
- *   npm run headless -- --scenario demo --seed 1 --seconds 120 [--orders file.json] [--no-ai] [--events] [--no-interiors] [--no-medical] [--no-repair] [--no-recovery]
+ *   npm run headless -- --scenario demo --seed 1 --seconds 120 [--orders file.json] [--no-ai] [--events] [--no-interiors] [--no-medical] [--no-repair] [--no-recovery] [--no-resupply]
  *     [--carriers tracked|wheeled[,tracked|wheeled]] (M7.6c: the mounted platoon scenarios' and `vehicles`' carrier class per side; ignored with a warning elsewhere)
  */
 import { readFileSync } from "node:fs";
@@ -26,6 +26,7 @@ if (args["no-interiors"] !== undefined) input.map = stripInteriors(input.map); /
 if (args["no-medical"] !== undefined) input.rules.medicalCare = false; // M10.2: no care of the wounded
 if (args["no-repair"] !== undefined) input.rules.repair = false; // M11.7a: no field repair by the crews
 if (args["no-recovery"] !== undefined) withoutRecovery(input); // M11.7b: no recovery vehicles (none built)
+if (args["no-resupply"] !== undefined) input.rules.resupply = false; // M11.1: no refilling, no resupply
 if (args["orders"]) input.orders = JSON.parse(readFileSync(args["orders"], "utf8")) as Order[];
 const controllers = args["no-ai"] ? [] : (sc.controllers?.(input) ?? []);
 const printEvents = args["events"] === "true";

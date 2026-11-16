@@ -54,6 +54,16 @@
             {
               "item": "xf-puff",
               "count": 1
+            },
+            {
+              "item": "xf-bandolier",
+              "count": 1,
+              "charge": 60
+            },
+            {
+              "item": "xf-can",
+              "count": 1,
+              "charge": 300
             }
           ],
           "weapon": "xf-blaster"

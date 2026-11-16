@@ -10,7 +10,8 @@ import type { NavGrid, NavSearch, NavStamp } from "./nav";
 import type { InteriorGraph } from "./interior-nav";
 import type { PhysiologyModel } from "./wounds";
 import type { BallisticsCtx, DropTable } from "./ballistics";
-import type { SideId } from "./ids";
+import type { DefId, SideId } from "./ids";
+import type { Placement, UnitInput } from "./battle";
 
 export interface BattleRules {
   /** The battle ends when this much game time has passed. */
@@ -40,6 +41,9 @@ export interface BattleRules {
   /** Recovery vehicles called to tow disabled hulls (M11.7b): false switches it off (`--no-recovery`). Default on
    *  whenever the data has core/repair.json `recovery`. */
   recovery?: boolean;
+  /** M11: resupply (refilling magazines from loose rounds, and every route of slices 44-48); false switches it off
+   *  (`--no-resupply`, comparison batches). Default on. */
+  resupply?: boolean;
 }
 
 /** An area worth holding (M6). */
@@ -94,4 +98,7 @@ export interface SimContext {
   interiorNav?: Record<number, InteriorGraph>;
   /** Does the map have any building interior (M7.5c; derived on first use)? */
   hasInteriors?: boolean;
+  /** M11.1: the top-level units that arrive late (`UnitInput.arriveS`), from the input; never saved (the state's
+   *  `arrived` says which have come). */
+  late: { side: SideId; faction: DefId; unit: UnitInput; tick: number; placements: Map<string, Placement> }[];
 }

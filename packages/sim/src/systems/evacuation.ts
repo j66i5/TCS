@@ -15,6 +15,7 @@
  * (`SoldierState.evacuated`, `medical.evacuated`). One run per hull. A hull that loses its driver or its wheels on the
  * map is stranded ("lost": an ordinary hull from then on). Same rules for every side, player and AI.
  */
+import { onAir } from "../comms";
 import type { SoldierState, VehicleState } from "../components";
 type VehicleClass = "tracked" | "wheeled";
 import type { SimContext } from "../context";
@@ -54,7 +55,7 @@ function speaker(state: SimState, uid: EntityId): EntityId | null {
 
 export function radio(state: SimState, events: EventSink, uid: EntityId, key: string, params: Record<string, string | number> = {}): void {
   const u = state.unit.get(uid), from = speaker(state, uid);
-  if (!u || from === null) return;
+  if (!u || from === null || !onAir(state, uid)) return; // (M11.6: a flat radio sends nothing)
   events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key, params: { callsign: u.callsign, ...params } });
 }
 
@@ -278,6 +279,7 @@ export function evacuationSystem(ctx: SimContext, state: SimState, events: Event
       if (!p || p.kind !== "medical") continue;
       if (waitingAt(state, pid, atNest.get(pid)!).length < E.requestAt) continue;
       if (servingAsset(state, pid) !== null || readyAsset(state, p.side) === null) continue;
+      if (!onAir(state, p.unit)) continue; // (M11.6: the platoon's radios flat: the casualties wait for a radio)
       callAmbulance(ctx, state, events, p.unit, pid, false);
     }
   }

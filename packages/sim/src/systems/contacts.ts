@@ -15,6 +15,7 @@
  * place the flag is created — and passes that news on at once; a report carries it, and nothing clears it
  * while the contact lasts. Who may be fired at is decided on this flag, never on the enemy's real state.
  */
+import { onAir } from "../comms";
 import { isOffMap } from "../offmap";
 import { onRoof, onRoofTop } from "../mount";
 import type { Contact, SoldierState } from "../components";
@@ -130,7 +131,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       if (state.drone.size > 0 && state.drone.has(e.target)) {
         // A drone overhead is no contact (M9.4b); a new one is called out on the radio (his unit, now and then).
         const top = e.firstTick === tick ? topUnit(state, id) : null, u = top === null ? undefined : state.unit.get(top);
-        if (u && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds) && canReport(s)) {
+        if (u && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds) && canReport(s) && onAir(state, state.identity.get(id)?.unit)) {
           u.lastCallTick = tick;
           const ident = state.identity.req(id);
           events.emit({ kind: "radio", tick, side: ident.side, from: id, key: "radio.droneOverhead", params: { callsign: state.unit.get(ident.unit)?.callsign ?? u.callsign } });
@@ -277,7 +278,8 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     }
     // Call-out: a contact new to him, his unit not having called out for a while (not about a man who gave up).
     const u = state.unit.get(top);
-    if (f.isNew && f.c.surrendered !== true && u && !called.has(top) && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds)) {
+    // (M11.6: not while his unit is off the net: a flat radio sends nothing.)
+    if (f.isNew && f.c.surrendered !== true && u && !called.has(top) && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds) && onAir(state, state.identity.get(f.who)?.unit)) {
       called.add(top);
       u.lastCallTick = tick;
       const me = state.transform.req(f.who);
@@ -419,7 +421,7 @@ function droneFeed(ctx: SimContext, state: SimState, events: EventSink, called: 
       }
       // Call-out on the radio: a new enemy, his unit not having called out for a while.
       const u = state.unit.get(top);
-      if (isNew && c.surrendered !== true && u && !called.has(top) && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds)) {
+      if (isNew && c.surrendered !== true && u && !called.has(top) && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds) && onAir(state, state.identity.get(d.operator)?.unit)) {
         called.add(top);
         u.lastCallTick = tick;
         const bx = t.x - ot.x, by = t.y - ot.y;

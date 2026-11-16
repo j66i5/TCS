@@ -60,6 +60,8 @@ export const Streams = {
   repair: "repair",
   /** M11.7b: a recovery vehicle's delay from the call. Created on first use (battles without a call never draw). */
   recovery: "recovery",
+  /** M11.6: the charge of the battery fitted in each powered device at setup. Its own stream, so no other draws move. */
+  power: "power",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

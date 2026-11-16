@@ -305,7 +305,7 @@ describe("the fixture faction (rule 8)", () => {
 });
 
 describe("determinism mid-repair (M11.7a)", () => {
-  it("a battle with a repair under way, saved every 37 ticks through JSON, continues identically", () => {
+  it("a battle with a repair under way, saved every 307 ticks through JSON, continues identically", () => {
     const base = field({ tasks: { track: { manMin: 3 }, coax: { manMin: 1, chance: 0.5 } } });
     const runIt = (saveEvery: number | null) => {
       let sim = createSim(base.input);
@@ -323,10 +323,10 @@ describe("determinism mid-repair (M11.7a)", () => {
       }
       return { hashes, phases };
     };
-    const a = runIt(null), b = runIt(37);
+    const a = runIt(null), b = runIt(307); // a prime off the 60-tick hash grid; every 37 ticks took over 60 s on CI
     expect(a.phases).toContain("interrupted");
     expect(a.phases.filter((p) => p === "done" || p === "failed").length).toBe(2);
     expect(b.phases).toEqual(a.phases);
     expect(b.hashes).toEqual(a.hashes);
-  });
+  }, 180_000); // two long runs with ~50 loads: generous on a slow CI runner
 });

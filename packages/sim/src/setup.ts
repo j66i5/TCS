@@ -9,11 +9,16 @@ import { CREW_STATION_ORDER } from "./mount";
 import { cos, sin } from "./math";
 import type { EntityId, SideId, DefId } from "./ids";
 import { addItems, aglBoxOf, countItems, emptyContainer, removeItems, type ItemStack } from "./items";
+import { fitBatteries, loadWithBatteries } from "./power";
 import { nextNormal, Streams } from "./rng";
 import { MORALE_SOURCES } from "./components";
 import type { Catalog, VehicleDef } from "./catalog";
 import { updateImpairment, rosterStatus } from "./impair";
-import { createState, newEntity, type SimState } from "./state";
+import { createState, newEntity, type SimState, type SimView } from "./state";
+import type { SimContext } from "./context";
+import type { EventSink } from "./events";
+import { TICK_HZ } from "./ids";
+import { ammoOf } from "./ledger";
 import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
 import { OFF_MAP_PARK, parkOffMap } from "./offmap";
@@ -31,7 +36,8 @@ export function buildInitialState(input: BattleInput): SimState {
     // Vehicles first (M7): crews are seated in them as their units are added. (Off-map assets come after every
     // force, M10.6a, so that the entities of the battle itself keep the ids they have without them.)
     const vehicles = addVehicles(state, force, input.catalog, (id) => !offMap.has(id));
-    for (const u of force.units) if (u.vehicleId === undefined || !offMap.has(u.vehicleId)) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
+    // (A unit arriving late, M11.1, enters at its time: arrivalSystem.)
+    for (const u of force.units) if ((u.arriveS ?? 0) <= 0 && (u.vehicleId === undefined || !offMap.has(u.vehicleId))) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
     seatPassengers(state, force, vehicles, input.catalog);
   }
   // Off-map assets (M10.6a): their crews are nobody's to order; they wait at the off-map park until called.
@@ -48,6 +54,17 @@ export function buildInitialState(input: BattleInput): SimState {
       v.offMap = { kind: a.kind, phase: "ready" };
       if (v.unit !== null) state.unit.req(v.unit).asset = a.kind;
       parkOffMap(state, vid);
+    }
+  }
+  // Crates and cans on the ground (M11.1): a place and a container (after everything else, so the other entities keep
+  // their ids).
+  for (const force of input.forces) {
+    for (const cache of force.caches ?? []) {
+      const id = newEntity(state);
+      state.transform.set(id, { x: cache.x, y: cache.y, z: 0, heading: 0 });
+      const c = emptyContainer();
+      for (const st of cache.load) addItems(c, st.type, st.count, st.charge);
+      state.container.set(id, c);
     }
   }
   return state;
@@ -180,7 +197,7 @@ function seatPassengers(state: SimState, force: ForceInput, vehicles: Map<string
   }
 }
 
-function addUnit(
+export function addUnit(
   state: SimState,
   u: UnitInput,
   parent: EntityId | null,
@@ -282,7 +299,7 @@ function addSoldier(
     posture: "standing",
     postureTo: null,
     postureDoneTick: 0,
-    physical: { fatigue: rec.fatigue, heartRateBpm: catalog.body.physiology.hrRestBpm, hydration: 1, winded: false },
+    physical: { fatigue: rec.fatigue, heartRateBpm: catalog.body.physiology.hrRestBpm, hydration: rec.hydration ?? 1, winded: false },
     // His nerve (morale rework): his own steadiness, the same distribution for every side (stream "morale").
     mental: {
       stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady", strain: rec.strain ?? 0,
@@ -317,7 +334,11 @@ function addSoldier(
   updateImpairment(catalog, s);
   state.soldier.set(id, s);
   const c = emptyContainer();
-  for (const st of rec.load) addItems(c, st.type, st.count, st.charge);
+  // (M11.6: a charged item listed without a charge that is not a magazine or belt, a battery or water, comes in full.)
+  for (const st of rec.load) {
+    const d = st.charge === undefined ? catalog.items[st.type] : undefined;
+    addItems(c, st.type, st.count, d !== undefined && d.chargeCapacity !== undefined && d.chargeItem === undefined ? d.chargeCapacity : st.charge);
+  }
   // His identity tag (owner request 2026-11-15; faction data): issued if his record has none.
   const tag = catalog.medical?.down !== undefined ? catalog.factions[faction]?.identityTag : undefined;
   if (tag && catalog.items[tag.item] && countItems(c, tag.item) === 0) addItems(c, tag.item, tag.perMan);
@@ -336,6 +357,8 @@ function addSoldier(
     });
     if (mag && (mag.charge ?? 0) <= 0) addItems(c, mag.type, 1, mag.charge);
   }
+  // M11.6: the batteries in his powered devices (a fresh record's partly used, stream "power").
+  fitBatteries(catalog, state.rng, s, c, state.environment.light, rec.powerFitted === true, state.tick);
   return id;
 }
 
@@ -358,10 +381,14 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     fatigue: s.physical.fatigue,
     stress: s.mental.stress,
     ...(s.mental.strain > 0 ? { strain: s.mental.strain } : {}),
+    ...(s.physical.hydration < 1 ? { hydration: s.physical.hydration } : {}),
     wounds: JSON.parse(JSON.stringify(s.wounds)) as SoldierRecord["wounds"],
     // The magazine in the weapon goes back into the load, so nothing is lost between battles.
     // (M7.6d: so does the box on his team's AGL, if he carries its post.)
-    load: loadWithMagazine(loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null), aglBoxOf(state, id)),
+    // (M11.6: so do the batteries in his devices, at their charge now.)
+    // (M11.6: and a drone still in the air goes into its operator's load, airframe and battery as they are.)
+    load: loadWithAirborne(loadWithBatteries(loadWithMagazine(loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null), aglBoxOf(state, id)), s, state.tick), state, id),
+    ...(s.power !== undefined ? { powerFitted: true as const } : {}),
     ...(w ? { weapon: w.weapon } : {}),
     ...(s.wounds.length > 0 || !s.physiology.alive ? { physiology: { ...s.physiology } } : {}),
     status,
@@ -400,15 +427,50 @@ export function unitsFromState(state: SimState, side: SideId, template: UnitInpu
   const byPerson = new Map<string, EntityId>();
   // mounted: ok roster mapping (every man, aboard or not)
   for (const [id, ident] of state.identity.entries()) if (ident.side === side) byPerson.set(ident.personId, id);
-  const rebuild = (u: UnitInput): UnitInput => ({
+  // (A unit that was still to arrive, M11.1, comes out as it went in.)
+  const rebuild = (u: UnitInput, late: boolean): UnitInput => ({
     ...u,
     members: u.members.map((m) => {
       const id = byPerson.get(m.personId);
-      return id === undefined ? { ...m, status: "missing" as const } : soldierRecordFromState(state, id);
+      return id === undefined ? (late ? m : { ...m, status: "missing" as const }) : soldierRecordFromState(state, id);
     }),
-    subunits: u.subunits.map(rebuild),
+    subunits: u.subunits.map((c) => rebuild(c, late)),
   });
-  return template.map(rebuild);
+  return template.map((u) => rebuild(u, (u.arriveS ?? 0) > 0 && !(state.arrived ?? []).includes(u.key)));
+}
+
+/**
+ * M11.6: whose roster record a drone still in the air at the end goes to: its operator; with none (he was hit, nobody
+ * took the controller over), the first man of its unit still alive in ID order, else its first man. Nobody: null.
+ */
+export function airborneHolder(state: SimState, droneId: EntityId): EntityId | null {
+  const d = state.drone.get(droneId);
+  if (!d) return null;
+  if (d.operator !== null && state.soldier.has(d.operator)) return d.operator;
+  let first: EntityId | null = null, alive: EntityId | null = null;
+  for (const m of state.unit.get(d.unit)?.members ?? []) {
+    const s = state.soldier.get(m);
+    if (!s) continue;
+    if (first === null || m < first) first = m;
+    if (s.physiology.alive && (alive === null || m < alive)) alive = m;
+  }
+  return alive ?? first;
+}
+
+/** M11.6: the stacks of every drone in the air whose holder is man `id` (airframe, battery at its charge) added to a load. */
+function loadWithAirborne(stacks: ItemStack[], state: SimState, id: EntityId): ItemStack[] {
+  if (state.drone.size === 0) return stacks;
+  let added = false;
+  for (const did of state.drone.keys()) {
+    if (airborneHolder(state, did) !== id) continue;
+    for (const st of state.container.get(did)?.stacks ?? []) {
+      const same = stacks.find((x) => x.type === st.type && x.charge === st.charge);
+      if (same) same.count += st.count;
+      else stacks.push({ ...st });
+      added = true;
+    }
+  }
+  return added ? stacks.sort((a, b) => (a.type !== b.type ? (a.type < b.type ? -1 : 1) : (a.charge ?? -1) - (b.charge ?? -1))) : stacks;
 }
 
 function loadWithMagazine(stacks: ItemStack[], mag: { item: DefId; rounds: number } | null): ItemStack[] {
@@ -417,4 +479,30 @@ function loadWithMagazine(stacks: ItemStack[], mag: { item: DefId; rounds: numbe
   if (same) same.count++;
   else stacks.push({ type: mag.item, count: 1, charge: mag.rounds });
   return stacks.sort((a, b) => (a.type !== b.type ? (a.type < b.type ? -1 : 1) : (a.charge ?? -1) - (b.charge ?? -1)));
+}
+
+/**
+ * LATE ARRIVAL (M11.1): once a second, every top-level unit whose time has come enters the battle at its men's
+ * placements (built exactly as at the start; its key goes into `state.arrived`, so a loaded save does not bring it
+ * twice). Called only when the battle has late units.
+ */
+export function arrivalSystem(ctx: SimContext, state: SimState, events: EventSink): void {
+  if (state.tick % TICK_HZ !== 0) return;
+  for (const l of ctx.late) {
+    if (state.tick < l.tick || (state.arrived ?? []).includes(l.unit.key)) continue;
+    const first = state.nextEntityId;
+    const uid = addUnit(state, l.unit, null, l.side, l.faction, l.placements, ctx.catalog, new Map());
+    (state.arrived ??= []).push(l.unit.key);
+    events.emit({ kind: "unit.entered", tick: state.tick, unit: uid, side: l.side });
+    // (What its men carry enters the battle with them: a delivery from off the map, for the conservation guard.)
+    const ids: number[] = [];
+    for (let id = first; id < state.nextEntityId; id++) ids.push(id);
+    const ammo = ammoOf(ctx.catalog, state, ids);
+    for (const k of Object.keys(ammo).sort()) events.emit({ kind: "items.delivered", tick: state.tick, holder: uid, item: k, count: ammo[k]!, ammo: k, rounds: ammo[k]! });
+  }
+}
+
+/** Has this side a unit still to arrive (M11.1)? Such a side is not beaten yet. */
+export function latePending(ctx: SimContext, state: SimView, side: SideId): boolean {
+  return ctx.late.some((l) => l.side === side && !(state.arrived ?? []).includes(l.unit.key));
 }

@@ -49,7 +49,7 @@
   "item.ru-rpg7": "RPG-7V2",
   "ammo.ru-762r-lps": "7.62 mm R ball",
   "ammo.ru-762r-t46": "7.62 mm R tracer",
-  "item.ru-water": "Water (2 l)",
+  "item.ru-water": "Water",
   "item.ru-rations": "Rations (1 day)",
   "item.ru-ifak": "First-aid kit pouch",
   "item.ru-webbing": "Webbing and pack",
@@ -181,5 +181,15 @@
   "item.ru-pkt-stvol": "spare PKT barrel",
   "vehicle.ru.brem1": "BREM-1",
   "item.ru-brem1-diesel": "BREM-1 fuel",
-  "role.ru.slesar-remontnik": "Mechanic"
+  "role.ru.slesar-remontnik": "Mechanic",
+  "item.ru-radio-battery": "Radio battery",
+  "item.ru-nvg-battery": "Goggle battery (AA)",
+  "item.ru-thermal-battery": "Thermal sight batteries (3x AA)",
+  "item.ru-545-pack": "5.45 mm paper pack (30)",
+  "item.ru-545-tin": "5.45 mm sealed tin (1,080)",
+  "item.ru-545-crate": "5.45 mm crate (2 tins, 2,160)",
+  "item.ru-762r-pack": "7.62x54R pack (20)",
+  "item.ru-762r-tin": "7.62x54R sealed tin (440)",
+  "item.ru-vog25-crate": "VOG-25 grenade crate (20)",
+  "item.ru-rgd5-crate": "Hand grenade crate (20)"
 }

@@ -11,13 +11,14 @@
  * (the order, incoming fire near it), then slows to a trickle, then ceases fire and reports. A man stops when
  * only the magazine in his weapon is left. In lulls men swap a partly used magazine for a fuller one.
  */
+import { onAir } from "../comms";
 import { DRONE_SEEN_S, droneInSight, shootAtDrone } from "./drones";
 import { startAction } from "../actions";
 import { aimErrorFactor, fireRateFactor, isCowering } from "./morale";
-import type { Contact, FireTask, WeaponState } from "../components";
+import type { Contact, FireTask, SoldierState, WeaponState } from "../components";
 import { sight } from "../los";
 import type { Posture } from "../orders";
-import { loadKg, postureChangeSeconds, requestPosture } from "./body";
+import { loadKg, postureChangeSeconds, requestPosture, thirstAimFactor } from "./body";
 import type { WeaponDef } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
@@ -74,7 +75,7 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   const mv = state.mover.get(id);
   const onTheMove = task?.onTheMove === true && mv !== undefined && mv.speedMps > 0.2 ? ctx.catalog.behaviour.soldier.assaultFireAimFactor : 1;
   return onTheMove * settle * braced * a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
-    * (1 + a.fatigueK * s.physical.fatigue) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
+    * (1 + a.fatigueK * s.physical.fatigue) * (s.physical.hydration < 1 ? thirstAimFactor(ctx.catalog, s.physical.hydration) : 1) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
     * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim * aimErrorFactor(ctx, s);
 }
 
@@ -385,7 +386,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       if (!w.lowAmmoReported) w.lowAmmoReported = true;
       if (!already && !w.lowAmmoRadioed) {
         w.lowAmmoRadioed = true;
-        events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.lowAmmo", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
+        if (onAir(state, state.identity.req(id).unit)) events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.lowAmmo", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
       }
       // A rifleman keeps that last magazine as a close-defence reserve (package A): he fires it, aimed, only at an
       // enemy close by or assaulting him.
@@ -447,13 +448,14 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
           const u = state.unit.get(top);
           if (u && !u.lineBlockedReported) {
             u.lineBlockedReported = true;
-            events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.noLineOfFire", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
+            if (onAir(state, state.identity.req(id).unit)) events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.noLineOfFire", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
           }
         }
       }
     }
     if (!task.lineClear) continue;
-    const trickle = since > fullTicks;
+    // (M11.1 point 7a: no trickle while he knows an enemy — seen or told of — within trickleKnownS.)
+    const trickle = since > fullTicks && (F.trickleKnownS === undefined || !knowsEnemyWithin(s, tick - secondsToTicks(F.trickleKnownS)));
     const { band, mode, beyond, range } = shotMode(ctx, state, id, task, wd, trickle, reserve);
     if (w.burstLeft <= 0) {
       // (A burst, or a machine gun's: its beaten zone, friendBeyondM past the point, counts too; a single shot: a
@@ -477,10 +479,15 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     } else {
       w.burstLeft = 0;
       // (Into the cover near the point, covering fire: at the sustained rate, `drills.suppressIntervalS`.)
-      const interval0 = trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : band.intervalS;
+      // (M11.1 point 7c: a machine gun fires rapid for the first rapidSeconds of its task, then sustained.)
+      const su = wd.sustained;
+      const susInterval = su === undefined ? 0 : su.rapidIntervalS !== undefined && tick - task.startTick < secondsToTicks(su.rapidSeconds ?? 0) ? su.rapidIntervalS : su.intervalS;
+      const interval0 = trickle ? F.trickleIntervalS : su ? susInterval : band.intervalS;
       // (A drill's covering fire at a point, no enemy named, likewise: before, riflemen ran dry in a long attack.)
       const sustained = task.intoCover === true || (task.suppress === "drill" && task.contact === undefined);
-      const interval = sustained ? Math.max(interval0, ctx.catalog.behaviour.drills.suppressIntervalS) : interval0;
+      // (Fire at a known place, M11.1 point 7b: one shot per suppressKnown.intervalS, a burst per mgIntervalS.)
+      const SK = task.suppress === "known" ? ctx.catalog.behaviour.soldier.suppressKnown : undefined;
+      const interval = SK ? Math.max(interval0, su ? SK.mgIntervalS : SK.intervalS) : sustained ? Math.max(interval0, ctx.catalog.behaviour.drills.suppressIntervalS) : interval0;
       // +-15 % so men do not fire in step.
       // Ammunition discipline of his unit (M5): conserve stretches the pause, maximum shortens it.
       const rule = state.unit.get(state.identity.req(id).unit)?.ammoRule ?? "normal";
@@ -565,4 +572,10 @@ export function incomingFireSystem(ctx: SimContext, state: SimState, events: rea
       task.reasonTick = state.tick;
     }
   }
+}
+
+/** M11.1: does he know an enemy (not down, not given up) whose contact was updated at or after `since`? */
+function knowsEnemyWithin(s: SoldierState, since: number): boolean {
+  for (const c of s.contacts) if (c.tick >= since && c.down !== true && c.surrendered !== true) return true;
+  return false;
 }

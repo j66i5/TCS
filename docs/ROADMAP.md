@@ -397,15 +397,14 @@ back (far casualties now reachable, no reassignment loops, the nest medic re-tag
 commander; numbers there. **M10 is complete** (all slices built, reviewed and fixed; the open targets above wait
 for the owner's numbers answer after playing, not for more building).
 
-- **M11 Logistics** (SPEC 9.2) ⬜
-  - **M11.7a Field repair** ✅ (2026-11-16, roadmap-detail slice 50): crews fix a broken track, a holed wheel side,
-    the coaxial MG and the radio with time and the spare parts aboard (counted items); the men work outside exposed;
-    hits and fire stop the work (progress kept); Repair order button; `npm run lab -- repair`.
-  - **M11.7b Recovery** ✅ (2026-11-16, roadmap-detail slice 51): each side with vehicles has a recovery vehicle
-    off the map (Bergepanzer 3 Büffel, BREM-1; fixture tug); the player's Recover button or the AI commander calls it
-    for an immobilised or abandoned hull; it comes after 10-20 min, waits short of fire, reverses up, hooks up with a
-    man outside, tows the hull off the map at 8 km/h; at the end the hulls left are recovered or captured by the side
-    holding the ground (roster `VehicleRecord.recovery`, `capturedBy`); `lab -- repair` part B.
+- **M11 Logistics** (SPEC 9.2) 🔨 plan written 2026-11-16: `docs/plans/m11-logistics.md` (owner answers, measured
+  consumption, slices 43-48 and 52; 49 and 50-51 in parallel sessions)
+  - ✅ **M11.1 (slice 43)** consumption lab, moveCharge, ledger and conservation guard, packaging, loose rounds,
+    refillMagazines, late arrival and `hold-resupply`, machine-gun rates (DECISIONS "M11.1"; balance points open)
+  - **M11.6 Batteries and water** ✅ 2026-11-16 (slice 49, parallel session): battery slots with lazy drain for radios, goggles
+    and thermal sights, swaps from own spares, flat radios take a unit off the net, flat sights fall back; drone
+    items via transferItems; water in battles of 2 h or more; `lab -- batteries`; review and batch lines. Smoke and
+    medical resupply are left to the resupply slices.
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):
@@ -420,6 +419,14 @@ for the owner's numbers answer after playing, not for more building).
     - *Intelligence*: prisoners questioned by MPs may yield reports on enemy positions (later, with M13
       intelligence hooks); roster: captured men leave the battle as "captured" records for the campaign (M12).
     - *Cost*: guards and escorts are men not fighting, a real tactical trade-off for the player.
+  - **M11.7a Field repair** ✅ (2026-11-16, roadmap-detail slice 50): crews fix a broken track, a holed wheel side,
+    the coaxial MG and the radio with time and the spare parts aboard (counted items); the men work outside exposed;
+    hits and fire stop the work (progress kept); Repair order button; `npm run lab -- repair`.
+  - **M11.7b Recovery** ✅ (2026-11-16, roadmap-detail slice 51): each side with vehicles has a recovery vehicle
+    off the map (Bergepanzer 3 Büffel, BREM-1; fixture tug); the player's Recover button or the AI commander calls it
+    for an immobilised or abandoned hull; it comes after 10-20 min, waits short of fire, reverses up, hooks up with a
+    man outside, tows the hull off the map at 8 km/h; at the end the hulls left are recovered or captured by the side
+    holding the ground (roster `VehicleRecord.recovery`, `capturedBy`); `lab -- repair` part B.
 
 - **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) ⬜
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜

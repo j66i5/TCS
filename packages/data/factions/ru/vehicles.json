@@ -420,6 +420,16 @@
         {
           "item": "ru-pkt-stvol",
           "count": 1
+        },
+        {
+          "item": "ru-545-tin",
+          "count": 1,
+          "charge": 1080
+        },
+        {
+          "item": "ru-762r-tin",
+          "count": 1,
+          "charge": 440
         }
       ],
       "sources": [
@@ -427,7 +437,7 @@
         "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
       ],
       "confidence": "medium",
-      "note": "BMP-2: 3 crew (commander and gunner in the turret, driver in the hull) and 7 passengers (FAS). Swimming is not modelled. Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle. M7.3: 2A42 and PKT, smoke dischargers, seat sights (commander day, gunner day and night). The driver (buttoned up, owner Q5) drives and does not search for the enemy (game value).",
+      "note": "BMP-2: 3 crew (commander and gunner in the turret, driver in the hull) and 7 passengers (FAS). Swimming is not modelled. Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle. M7.3: 2A42 and PKT, smoke dischargers, seat sights (commander day, gunner day and night). The driver (buttoned up, owner Q5) drives and does not search for the enemy (game value). M11.1: also cans of loose rounds for the squad (1 x ru-545-tin, 1 x ru-762r-tin): what is really carried is not sourced (low).",
       "dischargers": {
         "item": "ru-81mm-smoke",
         "perSalvo": 6,
@@ -3626,6 +3636,16 @@
         {
           "item": "ru-pkt-stvol",
           "count": 1
+        },
+        {
+          "item": "ru-545-tin",
+          "count": 1,
+          "charge": 1080
+        },
+        {
+          "item": "ru-762r-tin",
+          "count": 1,
+          "charge": 440
         }
       ],
       "sources": [
@@ -3636,7 +3656,7 @@
         "https://www.globalsecurity.org/military/world/russia/btr-80-specs.htm"
       ],
       "confidence": "medium",
-      "note": "BTR-82A eight-wheeled armoured personnel carrier (M7.6c, slice 41) on the BTR-80 chassis: crew of three (commander, gunner, driver) and seven dismounts (army-technology, ROE, Army Recognition; search extracts only). Infantry stowage as the BMP-2's (game value, low). M7.6d: four SVD magazines stowed for the squad's marksman (game value, low).",
+      "note": "BTR-82A eight-wheeled armoured personnel carrier (M7.6c, slice 41) on the BTR-80 chassis: crew of three (commander, gunner, driver) and seven dismounts (army-technology, ROE, Army Recognition; search extracts only). Infantry stowage as the BMP-2's (game value, low). M7.6d: four SVD magazines stowed for the squad's marksman (game value, low). M11.1: also cans of loose rounds for the squad (1 x ru-545-tin, 1 x ru-762r-tin): what is really carried is not sourced (low).",
       "dischargers": {
         "item": "ru-81mm-smoke",
         "perSalvo": 6,

@@ -97,6 +97,14 @@ export function reviewModel(a: App): AarModel {
         if (rv.found.total > 0) m9.push(s.t("aar.found", { n: rv.found.total, drone: rv.found.byDrone, pct: Math.round((100 * rv.found.byDrone) / rv.found.total) }));
         const calls = (["estimate", "laser", "registered", "drone", "air"] as const).filter((k) => (rv.calls[k] ?? 0) > 0).map((k) => s.t("aar.callsBy", { method: s.t(`support.method.${k}`), n: rv.calls[k] ?? 0 }));
         if (calls.length > 0) m9.push(s.t("aar.calls", { list: calls.join(", ") }));
+        // M11.6: batteries changed and gone flat, time off the net, water drunk (rows only when non-zero).
+        const p = rv.supply;
+        if (p) {
+          const sw = p.swaps.radio + p.swaps.sight + p.swaps.other + p.swaps.drone, fl = p.flat.radio + p.flat.sight + p.flat.other;
+          if (sw + fl > 0) m9.push(s.t("aar.batteries", { radio: p.swaps.radio, sight: p.swaps.sight, other: p.swaps.other, drone: p.swaps.drone, flatRadio: p.flat.radio, flatSight: p.flat.sight, flatOther: p.flat.other }));
+          if (p.offNetS > 0) m9.push(s.t("aar.offNet", { time: dur(p.offNetS) }));
+          if (p.waterMl > 0) m9.push(s.t("aar.water", { litres: (p.waterMl / 1000).toFixed(1) }));
+        }
       }
       return { heading: s.t("aar.sideHead", { side: sideName(a, sd.id), down, total: men.length }), colour: sideColour(a, sd.id), rows: [...vline, ...m9, ...rows.map((r) => r.text), ...spent] };
     }),

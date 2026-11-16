@@ -40,6 +40,9 @@ export interface DroneDef {
   sensors: string[]; footprintM: number; noiseM: number; areaM2: number;
 }
 
+/** M11.6: what a powered device runs on (see ItemTypeDef.power). */
+export interface PowerDef { battery: DefId; hours: number; swapSeconds: number; onBelowLight?: number }
+
 export interface ItemTypeDef {
   id: DefId;
   /** Mass of one item, kg (for a magazine: the empty magazine). */
@@ -52,8 +55,19 @@ export interface ItemTypeDef {
   chargeMassKg?: number;
   /** Which ammunition type the charge consists of (for magazines and belts). */
   chargeItem?: DefId;
+  /** M11.1: the charge's kind when it is not rounds (litres of "diesel", "wh"); moveCharge matches it. */
+  chargeKind?: string;
+  /** M11.1: loose rounds on stripper clips (faster to load into a magazine). */
+  stripperClips?: boolean;
   /** A sensor kind the wearer looks through (core/spotting.json `sensors`). */
   sensor?: string;
+  /** M11.6: a powered device: its battery item (charge in Wh), hours on a full battery (draw = charge / hours, W),
+   *  seconds to change the battery, and for a night device the light below which it is on (absent: always on). */
+  power?: PowerDef;
+  /** M11.6: drinking water (charge in ml). */
+  water?: true;
+  /** M11.6 stage 2: a man-portable radio (comms.ts: a unit is off the net while all its radios are flat). */
+  radio?: true;
   /** Thermal blanket (M9.2): the share of his heat a still man carrying it shows. */
   thermalCover?: number;
   /** M8.2a: a laser rangefinder its carrier locates targets for indirect fire with. */
@@ -212,7 +226,19 @@ export interface BodyDef {
     recoveryPerS: number; hrRestBpm: number; hrMaxBpm: number; hrRiseTauS: number; hrFallTauS: number;
     heatThresholdC: number; heatPerC: number; postureChangeExertion: number; hrExertionWeight: number;
     hrFatigueWeight: number; exhaustedExertionFactor: number;
+    /** M11.6: water (body.ts). Absent: hydration never changes. */
+    hydration?: HydrationDef;
   };
+}
+
+/**
+ * M11.6 water (core/body.json physiology.hydration). `hydration` 1 = no deficit, 0 = a deficit of `deficitMaxL`.
+ * He loses water only in battles of `fromBattleS` or more; the effects start at a deficit of `effectFromL` and are
+ * full at `deficitMaxL`.
+ */
+export interface HydrationDef {
+  fromBattleS: number; lossBaseLph: number; lossExertLph: number; deficitMaxL: number; effectFromL: number;
+  drinkBelow: number; sipMl: number; drinkSuppressionMax: number; fatigueGainK: number; recoveryK: number; aimK: number;
 }
 
 /** Global ballistics parameters (core/ballistics.json). */
@@ -294,7 +320,7 @@ export interface WeaponDef {
   /** Ammunition ID -> muzzle velocity from this weapon, m/s. */
   ammo: Record<DefId, number>;
   /** Machine guns: always fires bursts of this many rounds, this many seconds apart, whatever the range. */
-  sustained?: { burstRounds: number; intervalS: number; recoilFactor: number };
+  sustained?: { burstRounds: number; intervalS: number; recoilFactor: number; /** M11.1: rapid fire at the start of a task. */ rapidIntervalS?: number; rapidSeconds?: number };
 }
 
 /** Aiming error and fire control parameters (core/shooting.json). */
@@ -309,6 +335,8 @@ export interface ShootingDef {
   fire: {
     bands: { maxRangeM: number; mode: "aimed" | "rapid" | "burst"; intervalS: number; burstRounds: number }[];
     fullRateSeconds: number; trickleIntervalS: number; trickleSeconds: number; incomingRadiusM: number;
+    /** M11.1: trickle only when no enemy was known within this many seconds (absent: always). */
+    trickleKnownS?: number;
     topUpBelowFraction: number; incomingReachM: number; topUpAfterSeconds: number; clearStoppageSeconds: number; aimPointHeightM: number; safetyConeDeg: number;
     /** Aim height above the ground at a man seen in each posture (soldier AI package A). */
     aimHeightByPostureM: Record<"standing" | "crouching" | "prone", number>;
@@ -441,6 +469,10 @@ export interface BehaviourDef {
    * order to the same men replaces it. Absent: nobody hesitates.
    */
   hesitation?: { kinds: string[]; shakenShare: number; baseSeconds: number; perSuppressionSeconds: number; maxSeconds: number };
+  /** M11.1: a man refills a spare magazine below `belowFraction` full from loose rounds of its cartridge when he has
+   *  not fired for `quietS`, is not under fire (suppression below `underFireBelow`) and stands still; one round per
+   *  `secondsPerRound` by hand, `secondsPerRoundClips` from stripper clips. Absent: never. */
+  refill?: { belowFraction: number; quietS: number; underFireBelow: number; secondsPerRound: number; secondsPerRoundClips: number };
   surrender: {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     /** Morale rework 2026-11-15: a broken, outflanked unit (not attacking) gives up together with a known enemy this close (absent/0: never). */
@@ -565,6 +597,11 @@ export interface BehaviourDef {
      * Absent or 0: off.
      */
     moveEngageM?: number; pinnedSelfDefenceM?: number; closeThreatM?: number; closeThreatTaskFactor?: number;
+    /** M11.1 (slice 43 point 7b): a halted defender (his side's posture "defend") with no enemy in sight to fire at
+     *  fires at the known place of one he knew within `withinS` (heard, reported or seen and lost), at least `minM`
+     *  off, its place known to within `maxErrM`, within his engage range, no faster than one shot per `intervalS` (a machine gun one burst per
+     *  `mgIntervalS`). Absent: off. */
+    suppressKnown?: { withinS: number; intervalS: number; mgIntervalS: number; minM: number; maxErrM: number };
     friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
     /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
     stepAsideM: number[];
@@ -587,6 +624,10 @@ export interface BehaviourDef {
      *  multiplies it by (1 + spreadPenalty) for each comrade of his unit already firing at that enemy, at most
      *  spreadCap of them. Absent: off. */
     fireDistribution?: { dangerSustained: number; dangerMagnified: number; dangerFiring: number; spreadPenalty: number; spreadCap: number };
+    /** M11.6: a battery fitted at setup starts at a share of full in [installedMin, 1] (stream "power"); in a lull a
+     *  man changes one below swapBelowShare of full for a spare holding at least max(lullSpareShare x full, its charge +
+     *  LULL_MARGIN_SHARE x full) (no ping-pong between part-used batteries). Absent: fitted full, no lull changes. */
+    power?: { installedMin: number; swapBelowShare: number; lullSpareShare: number };
     droneHide?: { triggerM: number; freezeTriggerM: number; freezeSeconds: number; maxFreezeSeconds: number; freezeCooldownSeconds: number; searchM: number; hideSeconds: number; mode: string; moveBeyondM: number };
     /**
      * Leaving a house (M7.5e step "leave", owner 2026-11-14). houseLeave: the rule is on (false = off, for labs).

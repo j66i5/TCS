@@ -3,6 +3,7 @@
  * The app calls `step` as often as real time requires; the headless tools call it as fast as they can.
  */
 import { droneSystem } from "./systems/drones";
+import { powerSystem } from "./systems/power";
 import { lightAt } from "./light";
 import { initMortars, mortarSystem } from "./systems/mortars";
 import { missileTeamSystem } from "./systems/missile-team";
@@ -44,7 +45,7 @@ import { initSupport, supportSystem } from "./systems/support";
 import { spottingSystem } from "./systems/spotting";
 import { contactSystem } from "./systems/contacts";
 import { PHYSIOLOGY_MODELS } from "./wounds";
-import { buildInitialState } from "./setup";
+import { arrivalSystem, buildInitialState } from "./setup";
 import {
   deserializeState, hashState, serializeState, type SerializedState, type SimState,
 } from "./state";
@@ -73,6 +74,10 @@ export function createContext(input: BattleInput): SimContext {
     physiology: PHYSIOLOGY_MODELS[input.rules.physiologyModel] ?? null,
     physiologyParams: { ...input.catalog.wounds.physiology, ...input.catalog.medical?.physiology, ...input.rules.physiologyParams },
     breaches: [], navStamps: [], navStampKey: "",
+    late: input.forces.flatMap((f) => {
+      const placements = new Map(f.placements.map((p) => [p.personId, p]));
+      return f.units.filter((u) => (u.arriveS ?? 0) > 0).map((u) => ({ side: f.side, faction: f.faction, unit: u, tick: secondsToTicks(u.arriveS!), placements }));
+    }),
   };
 }
 
@@ -129,7 +134,9 @@ export function step(sim: Sim): SimEvent[] {
   // Carrying parties (M10.4a): the payload and the other carriers follow the leader's trail; phases, rests, cover.
   carrySystem(ctx, state, events);
   droneSystem(ctx, state, events);
-  physiologySystem(ctx, state);
+  physiologySystem(ctx, state, events);
+  // Batteries (M11.6): once a second per man, staggered (after physiology: the tick's loads are summed by then).
+  powerSystem(ctx, state, events);
   // Vehicle gunnery (M7.3; each returns at once without vehicles): lay the turrets, then fire.
   turretSystem(ctx, state);
   fireSystem(ctx, state, events);
@@ -174,6 +181,8 @@ export function step(sim: Sim): SimEvent[] {
   // Getting in and out of vehicles, seat swaps (M7.2; returns at once without vehicles).
   boardingSystem(ctx, state, events);
   objectiveSystem(ctx, state, events);
+  // Late arrivals (M11.1): a wave enters at its time (once a second; nothing without late units).
+  if (ctx.late.length > 0) arrivalSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 
   state.environment.timeOfDaySeconds += 1 / TICK_HZ;

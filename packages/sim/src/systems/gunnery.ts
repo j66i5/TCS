@@ -929,7 +929,7 @@ function smokeScreen(ctx: SimContext, state: SimState, events: EventSink, vid: E
     addSmoke(ctx, state, x, y, D.cloudRadiusM, D.cloudSeconds, D.cloudTopM ?? 8, 0, ms);
     sx += x; sy += y;
   }
-  events.emit({ kind: "vehicle.smoke", tick: state.tick, vehicle: vid, x: sx / D.perSalvo, y: sy / D.perSalvo });
+  events.emit({ kind: "vehicle.smoke", tick: state.tick, vehicle: vid, x: sx / D.perSalvo, y: sy / D.perSalvo, item: D.item, count: D.perSalvo });
 }
 
 // ---------------------------------------------------------------- ready belts from stowage (owner Q17)

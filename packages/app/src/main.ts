@@ -9,8 +9,8 @@
  * save and load and the debug hooks live in the modules beside this file.
  */
 import { buildAppearance, formatErrors, Strings } from "@tcs/data";
-import { buildScenario, demoBattle, MAP_KINDS, vehicleBattle, withoutRecovery, type MapKind } from "@tcs/scenario";
-import { commanderController, vehicleWanderController, wanderController } from "@tcs/ai";
+import { buildScenario, demoBattle, holdBattle, MAP_KINDS, vehicleBattle, withoutRecovery, type MapKind } from "@tcs/scenario";
+import { commanderController, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
 import {
   DT, environmentAt, isOffMapMan, navFor, newBattleRecord, parseTimeOfDay, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
   type EntityId, type SimEvent,
@@ -71,6 +71,9 @@ async function main(): Promise<void> {
   // ?scenario=vehicles (M7.1c): IFV platoons with their squads on foot; vehicles appear nowhere else yet.
   const input = scenario === "demo"
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
+    : scenario === "hold"
+    // M11.1 ?scenario=hold: hold the village against three waves (60 min); &attacker=blue swaps the sides.
+    ? holdBattle(data, { seed, factions, defender: params.get("attacker") === "blue" ? "red" : "blue", ...(params.get("limit") ? { timeLimitSeconds: limit } : {}) })
     : scenario === "vehicles"
     ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: limit, ...(vp.carriers ? { carriers: vp.carriers } : {}), ...crewParam(params.get("crew")), ...(params.get("recovery") === "1" ? { recovery: true } : {}) })
     : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: limit, ...(withVehicles ? { vehicles: true } : {}), ...(vp.carriers ? { carriers: vp.carriers } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}), ...(params.get("air") ? { airRecon: params.get("air")!.split(",").filter((x) => x === "blue" || x === "red") } : {}), ...tanksParam(params.get("tanks"), params.get("tankCrew")), ...(assault ? { assaultGroup: "red" as const, aglTeams: attacker === "red" ? "attacker" as const : "defender" as const } : {}) });
@@ -84,6 +87,7 @@ async function main(): Promise<void> {
   // ?ai=0: no enemy controller (screenshots: a scene the enemy must not walk into).
   const ai = params.get("ai") === "0" ? [] : scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
+    : scenario === "hold" && input.forces.find((f) => f.side === enemySide)?.posture === "attack" ? [waveCommanders(enemySide, input)]
     : [commanderController(enemySide, input)];
   // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).
   const loaded = loadOrCreate(input, ai, params.get("load") === "1");

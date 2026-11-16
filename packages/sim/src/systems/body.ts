@@ -7,12 +7,14 @@
  * heat speeds the build-up. Heart rate approaches a target set by exertion and fatigue with separate rise and
  * fall time constants. Fatigue slows movement (movement.ts) and later aiming and morale.
  */
-import { footModeOrUndefined } from "../catalog";
+import { footModeOrUndefined, type Catalog, type HydrationDef } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
-import { DT, secondsToTicks, type EntityId } from "../ids";
-import { aglBoxOf, containerMassKg } from "../items";
+import { DT, secondsToTicks, TICK_HZ, type EntityId } from "../ids";
+import { isAble } from "../impair";
+import { aglBoxOf, containerMassKg, drawCharge } from "../items";
 import { clamp, exp } from "../math";
+import { slotsMassKg } from "../power";
 import type { Posture } from "../orders";
 import type { SimState } from "../state";
 
@@ -28,6 +30,8 @@ export function loadKg(ctx: SimContext, state: SimState, id: EntityId): number {
       if (d) kg += d.massKg + w.magazine.rounds * (d.chargeMassKg ?? 0);
     }
   }
+  // M11.6: the batteries in his devices.
+  kg += slotsMassKg(ctx.catalog, state.soldier.get(id));
   // M7.6d: the box on his team's AGL, if he carries the post.
   const box = aglBoxOf(state, id);
   if (box) { const d = ctx.catalog.items[box.item]; if (d) kg += d.massKg + box.rounds * (d.chargeMassKg ?? 0); }
@@ -94,12 +98,36 @@ export function postureSystem(_ctx: SimContext, state: SimState, events: EventSi
   }
 }
 
-/** Physiology step, run every tick: fatigue and heart rate from exertion, load, slope and heat. */
-export function physiologySystem(ctx: SimContext, state: SimState): void {
+/**
+ * M11.6: how far his water deficit has gone into the range where it tells (0 below `effectFromL`, about 2 % of body
+ * mass; 1 at `deficitMaxL`, about 6 %). `hydration` 1 = no deficit, 0 = `deficitMaxL`.
+ */
+export function thirstShare(h: HydrationDef, hydration: number): number {
+  const deficitL = (1 - hydration) * h.deficitMaxL;
+  return deficitL <= h.effectFromL ? 0 : Math.min(1, (deficitL - h.effectFromL) / Math.max(1e-9, h.deficitMaxL - h.effectFromL));
+}
+
+/** M11.6: the aim error factor of his thirst (1 without a water model or a deficit in the range that tells). */
+export function thirstAimFactor(catalog: Catalog, hydration: number): number {
+  const h = catalog.body.physiology.hydration;
+  return h === undefined || hydration >= 1 ? 1 : 1 + h.aimK * thirstShare(h, hydration);
+}
+
+/**
+ * Physiology step, run every tick: fatigue and heart rate from exertion, load, slope and heat.
+ * M11.6 water: in battles of `hydration.fromBattleS` or more he loses water by exertion and heat (`hydration` falls);
+ * once a second (staggered by id) a thirsty man who is able and not under fire sips from his emptiest canteen
+ * (`water.drunk`). A deficit past ~2 % of body mass speeds fatigue, slows recovery and worsens his aim.
+ */
+export function physiologySystem(ctx: SimContext, state: SimState, events?: EventSink): void {
   const p = ctx.catalog.body.physiology;
   const heat = 1 + p.heatPerC * Math.max(0, state.environment.temperatureC - p.heatThresholdC);
   const riseK = 1 - exp(-DT / p.hrRiseTauS), fallK = 1 - exp(-DT / p.hrFallTauS);
-  // mounted: ok fatigue and heart rate recover aboard too
+  const hy = p.hydration;
+  // Water loss only in long battles (owner: water matters only in battles of 2 hours or more); per tick, as a share.
+  const lossK = hy !== undefined && ctx.rules.timeLimitSeconds >= hy.fromBattleS ? (heat * DT) / 3600 / hy.deficitMaxL : 0;
+  const drinkPhase = state.tick % TICK_HZ;
+  // mounted: ok fatigue and heart rate recover aboard too (and he drinks and sweats aboard)
   for (const [id, s] of state.soldier.entries()) {
     if (!s.physiology.alive) continue;
     const m = state.mover.get(id);
@@ -116,10 +144,33 @@ export function physiologySystem(ctx: SimContext, state: SimState): void {
     else if (s.physical.fatigue < mv.runAgainFatigue) s.physical.winded = false;
     if (mode && mode.exertion > mv.hardPaceExertion && s.physical.winded) w = Math.min(w, p.sustainable * p.exhaustedExertionFactor);
     const ph = s.physical;
-    const d = w > p.sustainable ? (w - p.sustainable) * p.fatigueGainPerS * heat : -(p.sustainable - w) * p.recoveryPerS;
+    if (lossK > 0) ph.hydration = Math.max(0, ph.hydration - (hy!.lossBaseLph + hy!.lossExertLph * Math.min(1, w)) * lossK);
+    if (hy !== undefined && ph.hydration < hy.drinkBelow && id % TICK_HZ === drinkPhase) drink(ctx, state, id, hy, events);
+    const thirst = hy !== undefined && ph.hydration < 1 ? thirstShare(hy, ph.hydration) : 0;
+    const d = w > p.sustainable ? (w - p.sustainable) * p.fatigueGainPerS * heat * (thirst > 0 ? 1 + hy!.fatigueGainK * thirst : 1)
+      : -(p.sustainable - w) * p.recoveryPerS * (thirst > 0 ? 1 - hy!.recoveryK * thirst : 1);
     ph.fatigue = clamp(ph.fatigue + d * DT, 0, 1);
     const target = p.hrRestBpm + (p.hrMaxBpm - p.hrRestBpm) * clamp(p.hrExertionWeight * Math.min(1, w) + p.hrFatigueWeight * ph.fatigue, 0, 1);
     ph.heartRateBpm += (target - ph.heartRateBpm) * (target > ph.heartRateBpm ? riseK : fallK);
   }
   clearTickLoads();
+}
+
+/** M11.6: a sip from his emptiest canteen (items flagged `water`, charge in ml), if he is able and not under fire. */
+function drink(ctx: SimContext, state: SimState, id: EntityId, hy: HydrationDef, events: EventSink | undefined): void {
+  const s = state.soldier.get(id)!;
+  if (!isAble(s) || s.mental.suppression > hy.drinkSuppressionMax || state.tick < s.stunnedUntilTick) return;
+  const c = state.container.get(id);
+  if (!c) return;
+  let item: string | undefined, least = Infinity;
+  for (const st of c.stacks) {
+    const ch = st.charge ?? 0;
+    if (ch > 0 && ch < least && ctx.catalog.items[st.type]?.water === true) { least = ch; item = st.type; }
+  }
+  if (item === undefined) return;
+  const ml = drawCharge(c, item, hy.sipMl, "emptiest");
+  if (ml <= 0) return;
+  s.physical.hydration = Math.min(1, s.physical.hydration + ml / 1000 / hy.deficitMaxL);
+  const side = state.identity.get(id)?.side;
+  if (events && side !== undefined) events.emit({ kind: "water.drunk", tick: state.tick, soldier: id, side, item, ml });
 }

@@ -47,5 +47,7 @@
   "role.xf.stoker": "Stoker",
   "item.xf-kit": "fixture tool kit",
   "item.xf-link": "fixture track link",
-  "vehicle.xf.tug": "Tug"
+  "vehicle.xf.tug": "Tug",
+  "item.xf-bandolier": "Bandolier",
+  "item.xf-can": "Can"
 }

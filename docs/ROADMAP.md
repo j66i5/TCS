@@ -399,6 +399,8 @@ for the owner's numbers answer after playing, not for more building).
 
 - **M11 Logistics** (SPEC 9.2) 🔨 plan written 2026-11-16: `docs/plans/m11-logistics.md` (owner answers, measured
   consumption, slices 43-48 and 52; 49 and 50-51 in parallel sessions)
+  - ✅ **M11.1 (slice 43)** consumption lab, moveCharge, ledger and conservation guard, packaging, loose rounds,
+    refillMagazines, late arrival and `hold-resupply`, machine-gun rates (DECISIONS "M11.1"; balance points open)
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

@@ -1,6 +1,6 @@
 # M11 Logistics: build plan
 
-**Progress:** plan written 2026-11-16 (this file); no slice built yet.
+**Progress:** plan written 2026-11-16 (this file); slice 43 built 2026-11-16 (DECISIONS "M11.1": point 7b built but off, late arrival as "not in the state until its time", hold mortar allotment a third).
 
 Owner request: ROADMAP M11 (SPEC 9.2, "ammunition, fuel and equipment are finite and must be moved"). This file
 replaces the short Phase 6 list in `docs/plans/roadmap-detail.md` for the slices of **this chain** (43-48 and 52).

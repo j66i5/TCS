@@ -153,5 +153,10 @@
   "item.de-gmw": "GMW 40 mm (tripod)",
   "weapon.de-gmw-rws": "GMW 40 mm",
   "weapon.de-gmw": "GMW 40 mm (tripod)",
-  "vehicle.de.boxer-gtk-gmw": "GTK Boxer (GMW)"
+  "vehicle.de.boxer-gtk-gmw": "GTK Boxer (GMW)",
+  "item.de-556-bandolier": "5.56 mm bandolier (140, clips)",
+  "item.de-556-can": "5.56 mm ammunition can (840)",
+  "item.de-762-can": "7.62 mm can of linked rounds (200)",
+  "item.de-40mm-crate": "40 mm grenade crate (24)",
+  "item.de-dm51-crate": "Hand grenade crate (20)"
 }

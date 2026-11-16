@@ -44,13 +44,14 @@ describe("scripted shoot-out of the two squads (M2 demonstration)", () => {
     expect(events.filter((e) => e.kind === "explosion").length).toBe(2);
     expect(events.filter((e) => e.kind === "hit").length).toBeGreaterThan(0);
     expect(shots.filter((e) => e.tick > 152 * 60).length).toBe(0);
-    // Rounds gone from weapons and loads = shots fired (grenades are counted separately).
+    // Rounds gone from weapons and loads = shots fired (grenades are counted separately). (M11.1: loose rounds in
+    // packages too: men refill magazines from them.)
     const fresh = createSim(input);
     const rounds = (s: typeof sim) => {
       let n = 0;
       const feeds = new Set(Object.values(input.catalog.weapons).map((w) => w.feed.magazine));
       for (const [, w] of s.state.weapon.entries()) n += w.magazine?.rounds ?? 0;
-      for (const [, c] of s.state.container.entries()) for (const st of c.stacks) if (feeds.has(st.type)) n += st.count * (st.charge ?? 0);
+      for (const [, c] of s.state.container.entries()) for (const st of c.stacks) if (feeds.has(st.type) || input.catalog.items[st.type]?.category === "ammo-package") n += st.count * (st.charge ?? 0);
       return n;
     };
     // (All magazines and belts, whoever carries them: since M4.2 men hand them to each other.)

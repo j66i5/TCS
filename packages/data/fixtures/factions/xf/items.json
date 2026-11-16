@@ -228,6 +228,31 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M7.6a): a reactive tile."
+    },
+    {
+      "id": "xf-bandolier",
+      "nameKey": "item.xf-bandolier",
+      "category": "ammo-package",
+      "massKg": 0.1,
+      "chargeCapacity": 60,
+      "chargeMassKg": 0.012,
+      "chargeItem": "xf-round",
+      "stripperClips": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M11.1): loose rounds on clips."
+    },
+    {
+      "id": "xf-can",
+      "nameKey": "item.xf-can",
+      "category": "ammo-package",
+      "massKg": 1.5,
+      "chargeCapacity": 300,
+      "chargeMassKg": 0.012,
+      "chargeItem": "xf-round",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M11.1): a can of loose rounds."
     }
   ]
 }

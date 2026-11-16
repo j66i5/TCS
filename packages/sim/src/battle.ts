@@ -70,6 +70,10 @@ export interface UnitInput {
   /** A unit on foot (M7.2): the `vehicleId` of the vehicle that carries it (its own men; sub-units without a
    *  carrier of their own ride in it too). */
   carrierId?: string;
+  /** M11.1 late arrival (a wave): a top-level unit that enters the battle this many seconds after the start, at its
+   *  men's placements. Until then it is not in the state at all (no system sees it, nothing costs per tick), its side
+   *  is not beaten while it is still to come, and its roster records come out unchanged if it never arrives. */
+  arriveS?: number;
 }
 
 /**
@@ -121,6 +125,9 @@ export interface ForceInput {
   offMap?: { vehicleId: string; kind: "ambulance" }[];
   /** Whether this side attacks or defends (scenario). Optional: absent = not stated. */
   posture?: "attack" | "defend";
+  /** M11.1: crates and cans of this side on the ground (a supply point): each an entity with a place and a container,
+   *  nothing else (slice 45 makes them caches). */
+  caches?: { x: number; y: number; load: ItemStack[] }[];
 }
 
 export interface BattleInput {

@@ -26,7 +26,7 @@
 import { withDrones } from "./drone";
 import {
   atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
-  type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
+  type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
@@ -279,7 +279,7 @@ function launcherReady(view: SimView, input: BattleInput, m: EntityId): { range:
   return null;
 }
 
-export function commanderController(side: SideId, input: BattleInput): Controller {
+export function commanderController(side: SideId, input: BattleInput, only?: { callsign: string }): Controller {
   const objectives: readonly ObjectiveDef[] = input.rules.objectives;
   const W = input.map.widthM, H = input.map.heightM;
   const force = input.forces.find((f) => f.side === side)!;
@@ -290,8 +290,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
   const fireDelayS = fsDef ? secondsToEffect(fsDef) : 0;
   const walkMode = input.catalog.movementModes["walk"], walkMps = walkMode?.class === "foot" ? walkMode.speedMps : 1.4;
   // Where this side starts (its men's mean position): the way back, and the side the attack comes from.
-  const sx = force.placements.reduce((a, p) => a + p.x, 0) / Math.max(1, force.placements.length);
-  const sy = force.placements.reduce((a, p) => a + p.y, 0) / Math.max(1, force.placements.length);
+  // (M11.1: a commander of one wave — `only` — starts from where that wave's men come in.)
+  const mine = only === undefined ? null : new Set(unitPersons(force.units.find((u) => u.callsign === only.callsign)));
+  const starts = mine === null ? force.placements : force.placements.filter((p) => mine.has(p.personId));
+  const sx = starts.reduce((a, p) => a + p.x, 0) / Math.max(1, starts.length);
+  const sy = starts.reduce((a, p) => a + p.y, 0) / Math.max(1, starts.length);
   const defending = objectives.length > 0 && objectives[0]!.holder === side;
   let mem: Memory = { phase: "start", phaseTick: 0, target: 0, lastFire: -1e9, lastAssault: {}, pulledBack: [], counterTick: -1e9 };
   const every = COMMANDER.stepSeconds * 60;
@@ -767,7 +770,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // (M9.3b: nor a missile team: it is sited and fired below; its men's eyes still count for what the side knows.)
       // (M10.6a: nor an off-map asset's crew: an ambulance is called by the casualties' platoon, never commanded.)
       // (M7.6b: nor a tank section: it is sited and moved below, tanks.ts.)
-      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id) && u.missileTeam === undefined && !isArmourSection(view, ground(), id) && !isAssetUnit(view, id));
+      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id) && u.missileTeam === undefined && !isArmourSection(view, ground(), id) && !isAssetUnit(view, id) && (only === undefined || u.callsign === only.callsign));
       if (tops.length === 0) return out;
       const topIds = tops.map(([id]) => id);
       // Squads on foot and vehicle crews (M7.2), paired by the squad's carrier.
@@ -2019,3 +2022,24 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
 }
 
 function clamp(v: number, max: number): number { return Math.min(Math.max(v, 5), max - 5); }
+
+function unitPersons(u: UnitInput | undefined): string[] {
+  return u === undefined ? [] : [...u.members.map((m) => m.personId), ...u.subunits.flatMap(unitPersons)];
+}
+
+/**
+ * M11.1 (hold-resupply): a side that fights in waves — top-level platoons arriving late (`UnitInput.arriveS`) — gets
+ * one commander per platoon, each planning its own attack from where it comes in, as if it were the only platoon of
+ * the side (losses of an earlier wave do not count against a fresh one). Their memories are saved together.
+ */
+export function waveCommanders(side: SideId, input: BattleInput): Controller {
+  const force = input.forces.find((f) => f.side === side)!;
+  const plats = force.units.filter((u) => u.echelon === "platoon");
+  const subs = plats.map((u) => commanderController(side, input, { callsign: u.callsign }));
+  return {
+    side,
+    think(view, tick) { return subs.flatMap((c) => c.think(view, tick)); },
+    saveState: () => subs.map((c) => c.saveState?.() ?? null),
+    loadState: (d) => { (d as unknown[]).forEach((x, i) => { if (x !== null) subs[i]?.loadState?.(x); }); },
+  };
+}

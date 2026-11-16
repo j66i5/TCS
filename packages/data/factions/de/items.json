@@ -761,6 +761,68 @@
         "aimSeconds": 2,
         "engageRangeM": 1500
       }
+    },
+    {
+      "id": "de-556-bandolier",
+      "nameKey": "item.de-556-bandolier",
+      "category": "ammo-package",
+      "massKg": 0.15,
+      "chargeCapacity": 140,
+      "chargeMassKg": 0.0123,
+      "chargeItem": "de-556-dm11",
+      "stripperClips": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: fourteen 10-round stripper clips in a cloth bandolier (140 rounds): the pattern of 5.56 x 45 mm packaging in seller listings of the military issue (search extracts, plan section 3); Bundeswehr packaging not found, assumed the same. Empty mass (cloth, clips) a game value. A man loads a magazine from it with clips (faster)."
+    },
+    {
+      "id": "de-556-can",
+      "nameKey": "item.de-556-can",
+      "category": "ammo-package",
+      "massKg": 2.4,
+      "chargeCapacity": 840,
+      "chargeMassKg": 0.0123,
+      "chargeItem": "de-556-dm11",
+      "stripperClips": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: six bandoliers (840 rounds) in a metal can (M2A1 pattern, seller listings via search extracts; Bundeswehr use assumed). Can mass about 2.4 kg (derived, game value). Carried forward to a supply point; men refill magazines from it."
+    },
+    {
+      "id": "de-762-can",
+      "nameKey": "item.de-762-can",
+      "category": "ammo-package",
+      "massKg": 1.8,
+      "chargeCapacity": 200,
+      "chargeMassKg": 0.024,
+      "chargeItem": "de-762-dm111",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: a can of 200 linked 7.62 x 51 mm rounds (US M19A1 pattern, about 1.7-1.8 kg empty, search extracts); the MG5 gunner loads 120-round belts, so a can's rounds go to belts out of battle (game). Bundeswehr packaging not found."
+    },
+    {
+      "id": "de-40mm-crate",
+      "nameKey": "item.de-40mm-crate",
+      "category": "ammo-package",
+      "massKg": 4.0,
+      "chargeCapacity": 24,
+      "chargeMassKg": 0.23,
+      "chargeItem": "de-40mm-he",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: a crate of 40 x 46 mm grenades for the AG36; the count per crate was not found (game value). Each round about 0.23 kg as the de-40mm-he round."
+    },
+    {
+      "id": "de-dm51-crate",
+      "nameKey": "item.de-dm51-crate",
+      "category": "ammo-package",
+      "massKg": 5.0,
+      "chargeCapacity": 20,
+      "chargeMassKg": 0.435,
+      "chargeItem": "de-dm51",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: a crate of DM51 hand grenades; the count per crate was not found (game value)."
     }
   ]
 }

@@ -153,6 +153,7 @@ export function nearestSoldier(sim: Sim, x: number, y: number, radius: number, s
   let bestD = Infinity;
   for (const id of ids) {
     if (side !== null && sim.state.identity.get(id)?.side !== side) continue;
+    if (!sim.state.soldier.has(id) && !sim.state.vehicle.has(id)) continue; // (a crate on the ground, M11.1)
     // Men aboard are not tapped (the hull is; tapping it again selects the units riding in it).
     if (sim.state.soldier.get(id)?.mount !== undefined) continue;
     const t = sim.state.transform.req(id);

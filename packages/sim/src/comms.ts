@@ -110,16 +110,16 @@ const NO_RADIO = 0, FLAT = 1, LIVE = 2;
  * Flat radios (M11.6 stage 2). A unit on foot (not a vehicle crew) is on the net while a radio (an item with `radio`)
  * carried by a man of its subtree has power (power.ts: an unpowered radio always has); a unit whose subtree carries no
  * radio is covered by its parent's (walking up); with no radio anywhere up the chain it stays on the net (as before
- * M11.6). A man down or dead still counts as carrying his radio (in this slice). A unit whose alive men all sit in hulls
- * with a working radio stays on the net (the hull radio). Once a second; nothing to do (one pass over the battery
- * slots) while no radio is flat.
+ * M11.6). A radio carried by a dead man or a prisoner does not count (a man down but alive still carries his). A unit
+ * whose alive men all sit in hulls with a working radio stays on the net (the hull radio). Once a second; nothing to do
+ * (one pass over the battery slots) while no radio is flat.
  */
 function radioCoverage(state: SimState, catalog: Catalog): void {
   const tick = state.tick;
   let anyFlat = false;
   // mounted: ok a radio aboard is still carried (only its battery slots are read)
   for (const [, s] of state.soldier.entries()) {
-    if (!s.power) continue;
+    if (!s.power || !s.physiology.alive || s.captive !== null) continue;
     for (const slot of s.power) if (catalog.items[slot.device]?.radio === true && !slotLive(slot, tick)) { anyFlat = true; break; }
     if (anyFlat) break;
   }
@@ -131,6 +131,9 @@ function radioCoverage(state: SimState, catalog: Catalog): void {
     for (const m of u.members) {
       const c = state.container.get(m);
       if (!c) continue;
+      // A dead man's or a prisoner's radio serves nobody (review fix 2026-11-16).
+      const ms = state.soldier.get(m);
+      if (!ms || !ms.physiology.alive || ms.captive !== null) continue;
       for (const st of c.stacks) {
         if (st.count <= 0 || catalog.items[st.type]?.radio !== true) continue;
         cov = deviceLive(catalog, state, m, st.type, tick) ? LIVE : Math.max(cov, FLAT);
@@ -165,14 +168,27 @@ function allAboardHullRadio(state: SimState, catalog: Catalog, members: readonly
   let alive = 0;
   for (const m of members) {
     const s = state.soldier.get(m);
-    if (!s || !s.physiology.alive) continue;
+    if (!s || !s.physiology.alive || s.captive !== null) continue;
     alive++;
     const v = s.mount ? state.vehicle.get(s.mount.vehicle) : undefined;
     if (!v) return false;
     const def = catalog.vehicles[v.def];
-    if (def?.components && compCondition(v, def, "radio") > 0) return false;
+    // A hull without components has a radio that cannot be wrecked; one with a wrecked radio does not help.
+    if (def?.components && compCondition(v, def, "radio") <= 0) return false;
   }
   return alive > 0;
+}
+
+/**
+ * Radio lines that are also battle facts (M11.6 review fix): the battle record turns them into timeline entries or
+ * counts (record.ts: broken, rallied, objective taken; refused fire at protected people), morale reads "radio.broken"
+ * as an effect, labs read them. A unit off the net still "sends" them (the event is the fact, not the message).
+ */
+export const RECORDED_RADIO_KEYS: readonly string[] = ["radio.broken", "radio.rallied", "radio.objectiveTaken", "radio.refuseProtected"];
+
+/** Whether a radio line `key` from unit `uid` goes out: always for a recorded key, else while the unit is on the net. */
+export function sendsRadio(state: SimState, uid: EntityId | null | undefined, key: string): boolean {
+  return RECORDED_RADIO_KEYS.includes(key) || onAir(state, uid);
 }
 
 /** Whether unit `uid` (or a man's unit) is on the net now: its radio lines go out (M11.6). Unknown: false. */

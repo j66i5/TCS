@@ -227,14 +227,14 @@
         "battery": "ru-nvg-battery",
         "hours": 40,
         "swapSeconds": 20,
-        "onBelowLight": 0.3
+        "onBelowLight": 0.5
       },
       "sources": [
         "https://www.atncorp.com/pdf/specsheets/pvs14-3_spec.pdf",
         "https://peo360portfolio.com/product-details/product/175"
       ],
       "confidence": "low",
-      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder. M11.6 power: 40 h on one AA (Russian goggles not found; PVS-14 class 40 h at 20 C, search extracts; low); 20 s to change the cell (inferred, low); switched on below light 0.3 (game value, low). Mass 0.585 kg without the cell (0.6 kg with it, as before)."
+      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder. M11.6 power: 40 h on one AA (Russian goggles not found; PVS-14 class 40 h at 20 C, search extracts; low); 20 s to change the cell (inferred, low); switched on below light 0.5, the night sensor's nightLight, so it is on whenever it helps (review fix 2026-11-16; game value, low). Mass 0.585 kg without the cell (0.6 kg with it, as before)."
     },
     {
       "id": "ru-nvg-battery",
@@ -512,14 +512,13 @@
       "power": {
         "battery": "ru-thermal-battery",
         "hours": 5,
-        "swapSeconds": 15,
-        "onBelowLight": 0.3
+        "swapSeconds": 15
       },
       "sources": [
         "https://www.wikiwand.com/en/articles/Ratnik_(program)"
       ],
       "confidence": "low",
-      "note": "Thermal weapon sight (M9.2): Ratnik lists 1PN140/1PN141 night and thermal sights, and its night-vision parts have very limited distribution (search extracts). Research default, low (owner round M9 screen 3 (a)): one per platoon, with the platoon commander. Mass is a game value. M11.6 power: 5 h (1PN139/1PN140 not found; like AA/CR123 clip-on thermals, 4-6.5 h: inferred, low); 15 s to change the set (inferred, low); switched on below light 0.3 (game value, low). Mass 0.955 kg without the cells (1 kg with them, as before)."
+      "note": "Thermal weapon sight (M9.2): Ratnik lists 1PN140/1PN141 night and thermal sights, and its night-vision parts have very limited distribution (search extracts). Research default, low (owner round M9 screen 3 (a)): one per platoon, with the platoon commander. Mass is a game value. M11.6 power: 5 h (1PN139/1PN140 not found; like AA/CR123 clip-on thermals, 4-6.5 h: inferred, low); 15 s to change the set (inferred, low); always on (it magnifies and sees heat by day too, so it drains by day: review fix 2026-11-16; game value, low). Mass 0.955 kg without the cells (1 kg with them, as before)."
     },
     {
       "id": "ru-thermal-battery",

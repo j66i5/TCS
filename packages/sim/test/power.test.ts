@@ -16,10 +16,10 @@ const catalog: Catalog = {
     rbat: { id: "rbat", massKg: 0.3, category: "battery", chargeCapacity: WH, chargeMassKg: 0 },
     cell: { id: "cell", massKg: 0.015, category: "battery", chargeCapacity: 4, chargeMassKg: 0 },
   },
-  behaviour: { ...testCatalog.behaviour, soldier: { ...testCatalog.behaviour.soldier, power: { installedMin: 0.5, swapBelowShare: 0.1 } } },
+  behaviour: { ...testCatalog.behaviour, soldier: { ...testCatalog.behaviour.soldier, power: { installedMin: 0.5, swapBelowShare: 0.1, lullSpareShare: 0.5 } } },
 };
 /** No changes in a lull: only a flat battery is changed. */
-const flatOnly: Catalog = { ...catalog, behaviour: { ...catalog.behaviour, soldier: { ...catalog.behaviour.soldier, power: { installedMin: 0.5, swapBelowShare: 0 } } } };
+const flatOnly: Catalog = { ...catalog, behaviour: { ...catalog.behaviour, soldier: { ...catalog.behaviour.soldier, power: { installedMin: 0.5, swapBelowShare: 0, lullSpareShare: 0.5 } } } };
 const DRAW = WH / 1; // W
 const TICKS_PER_WH = 3600 * TICK_HZ;
 
@@ -119,6 +119,23 @@ describe("batteries (M11.6)", () => {
     expect(ev.some((e) => e.kind === "power.flat")).toBe(false);
   });
 
+  it("in a lull no ping-pong between part-used batteries: no swap while every spare is under the lull threshold", () => {
+    // A slow radio (0.2 W: 600 s use 0.03 Wh); fitted 0.9 Wh (under swapBelowShare 1 Wh); spares at 0.95, 0.92 and
+    // 3 Wh: none holds lullSpareShare (5 Wh), so none is worth a change (before the fix: a change every few seconds).
+    const slow: Catalog = { ...catalog, items: { ...catalog.items, radio: { ...catalog.items["radio"]!, power: { battery: "rbat", hours: 50, swapSeconds: 2 } } } };
+    const sim = createSim(input([{ type: "radio", count: 1 }, { type: "rbat", count: 1, charge: 4 }, { type: "rbat", count: 1, charge: 0.95 }, { type: "rbat", count: 1, charge: 0.92 }, { type: "rbat", count: 1, charge: 3 }], 1, 700, slow));
+    const s = sim.state.soldier.req(MAN).power![0]!;
+    expect(s.wh0).toBe(4); // the fullest is fitted, then run down:
+    stampSlot(s, 0.9, true, sim.state.tick);
+    const c = sim.state.container.req(MAN);
+    const ev = run(sim, 600 * TICK_HZ);
+    expect(ev.filter((e) => e.kind === "power.swapped" || (e.kind === "action.started" && e.action === "swapBattery"))).toEqual([]);
+    expect(chargeAt(s, sim.state.tick)).toBeGreaterThan(0);
+    // A spare above the threshold is taken.
+    c.stacks.push({ type: "rbat", count: 1, charge: 6 });
+    expect(run(sim, 5 * TICK_HZ).filter((e) => e.kind === "power.swapped")).toHaveLength(1);
+  });
+
   it("a night device is on only below its light threshold (off: no drain)", () => {
     const sim = createSim({ ...input([{ type: "nvg", count: 1 }, { type: "cell", count: 2, charge: 4 }]), environment: { ...defaultEnvironment(), light: 1 } });
     const s = sim.state.soldier.req(MAN).power![0]!;
@@ -127,7 +144,7 @@ describe("batteries (M11.6)", () => {
     const wh0 = s.wh0;
     run(sim, 5 * TICK_HZ);
     expect(chargeAt(s, sim.state.tick)).toBe(wh0);
-    expect(deviceLive(catalog, sim.state, MAN, "nvg", sim.state.tick)).toBe(true);
+    expect(deviceLive(catalog, sim.state, MAN, "nvg", sim.state.tick)).toBe(false); // off: gives nothing (review fix)
     sim.state.environment.light = 0.1;
     run(sim, TICK_HZ);
     expect(s.on).toBe(true);

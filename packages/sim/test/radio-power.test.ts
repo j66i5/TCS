@@ -1,8 +1,8 @@
 /** M11.6 stage 2: a unit whose radios are all flat is off the net (orders, reports, radio lines), until a swap. */
 import { describe, expect, it } from "vitest";
 import {
-  createSim, observersFor, secondsToTicks, simpleComms, step, submitOrder, type BattleInput, type Catalog, type EntityId, type Sim,
-  type SimEvent, type SoldierRecord, type UnitInput,
+  chargeAt, createSim, newReviewTally, observersFor, secondsToTicks, simpleComms, step, submitOrder, tallyReview, TICK_HZ, type BattleInput,
+  type Catalog, type EntityId, type Sim, type SimEvent, type SoldierRecord, type UnitInput,
 } from "../src/index";
 import { rec, team, testCatalog, testInput } from "./helpers";
 
@@ -15,7 +15,7 @@ const catalog: Catalog = {
     rbat: { id: "rbat", massKg: 0.3, category: "battery", chargeCapacity: WH, chargeMassKg: 0 },
   },
   // No swap in a lull (only a flat battery is changed); a fitted battery keeps its listed charge (installedMin 1).
-  behaviour: { ...testCatalog.behaviour, soldier: { ...testCatalog.behaviour.soldier, power: { installedMin: 1, swapBelowShare: 0 } } },
+  behaviour: { ...testCatalog.behaviour, soldier: { ...testCatalog.behaviour.soldier, power: { installedMin: 1, swapBelowShare: 0, lullSpareShare: 0.5 } } },
 };
 /** 0.01 Wh at 10 W: flat after 3.6 s. */
 const ALMOST_FLAT: SoldierRecord["load"] = [{ type: "radio", count: 1 }, { type: "rbat", count: 1, charge: 0.01 }];
@@ -132,5 +132,83 @@ describe("flat radios (M11.6 stage 2)", () => {
     const plain = createSim(input([{ type: "radio", count: 1 }, { type: "rbat", count: 1, charge: WH }]));
     run(plain, 6);
     for (const [, u] of plain.state.unit.entries()) expect(u.comms.link).toBe("radio");
+  });
+
+  // Review fixes (2026-11-16).
+  for (const how of ["dead", "captive"] as const) {
+    it(`a ${how} man's radio is switched off, never reported flat, and covers nobody`, () => {
+      const sim = createSim(input(ALMOST_FLAT));
+      const lead = manOf(sim, "p.0"), s = sim.state.soldier.req(lead);
+      if (how === "dead") { s.physiology.alive = false; s.casualty = "killed"; } else s.captive = { state: "captured", tick: 0 };
+      const slot = s.power![0]!;
+      const ev = run(sim, 10);
+      expect(slot.on).toBe(false);
+      const wh = chargeAt(slot, sim.state.tick);
+      expect(wh).toBeGreaterThan(0); // switched off within a second, before the 3.6 s it had left
+      run(sim, 5);
+      expect(chargeAt(slot, sim.state.tick)).toBe(wh);
+      expect(ev.some((e) => e.kind === "power.flat")).toBe(false);
+      // No live radio carried by a living man in the chain: on the net as before M11.6 (not "off with a flat radio").
+      for (const cs of ["p", "s"]) expect(unitByKey(sim, cs)[1].comms.link).toBe("radio");
+    });
+  }
+
+  it("the review counts no off-net time for a unit with no living man", () => {
+    const sim = createSim(input(ALMOST_FLAT));
+    run(sim, 6);
+    const [, squad] = unitByKey(sim, "s");
+    expect(squad.comms.link).toBe("none");
+    const tally = (): number => {
+      const t = newReviewTally();
+      for (let i = 0; i < 3 * TICK_HZ; i++) { const ev = step(sim); if (squad.comms.link === "none") tallyReview(t, ev, sim.state, sim.ctx.catalog); }
+      return t.sides["blue"]?.supply?.offNetS ?? 0;
+    };
+    expect(tally()).toBeGreaterThan(0);
+    // The squad wiped out (its men dead), still off the net by its parent's flat radio: no more off-net seconds for it.
+    for (const m of squad.members) { const ms = sim.state.soldier.req(m); ms.physiology.alive = false; ms.casualty = "killed"; }
+    const [, platoon] = unitByKey(sim, "p");
+    const t = newReviewTally();
+    for (let i = 0; i < 3 * TICK_HZ; i++) tallyReview(t, step(sim), sim.state, sim.ctx.catalog);
+    expect(squad.comms.link).toBe("none");
+    expect(platoon.comms.link).toBe("none");
+    expect(t.sides["blue"]?.supply?.offNetS).toBe(3); // the platoon headquarters alone, 3 s
+  });
+
+  it("an order to the platoon is not carried out by its squad that is off the net; its other squad does", () => {
+    // p.0 has a live radio; squad "s" has its own radio, flat (no spare); squad "t" has none (covered by p.0's).
+    const base = input([{ type: "radio", count: 1 }, { type: "rbat", count: 1, charge: WH }]);
+    const platoon = base.forces[0]!.units[0]!;
+    const s = platoon.subunits[0]!;
+    s.members[0] = rec("s.0", ALMOST_FLAT);
+    const t = team("t", 2);
+    platoon.subunits.push(t);
+    base.forces[0]!.placements.push(...t.members.map((m, i) => ({ personId: m.personId, x: 60, y: 10 + i * 5, heading: 0 })));
+    const sim = createSim(base);
+    run(sim, 6);
+    const [pid, pu] = unitByKey(sim, "p"), [, su] = unitByKey(sim, "s"), [, tu] = unitByKey(sim, "t");
+    expect(pu.comms.link).toBe("radio");
+    expect(su.comms.link).toBe("none");
+    expect(tu.comms.link).toBe("radio");
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: pid, kind: "posture", posture: "prone" });
+    const ev = run(sim, 8);
+    expect(ev.some((e) => e.kind === "order.delivered" && e.target === pid)).toBe(true);
+    const posture = (pidS: string) => sim.state.soldier.req(manOf(sim, pidS)).homePosture;
+    for (const m of ["p.0", "p.1", "t.0", "t.1"]) expect(posture(m)).toBe("prone");
+    for (const m of ["s.0", "s.1", "s.2"]) expect(posture(m)).not.toBe("prone");
+  });
+
+  it("recorded lines (objective taken, rallied) still go out while off the net", () => {
+    const sim = createSim(input(ALMOST_FLAT));
+    run(sim, 6);
+    const [sid, squad] = unitByKey(sim, "s");
+    expect(squad.comms.link).toBe("none");
+    // An assault the squad's men are already at: taken at once (the drill's end), sent although the radio is flat.
+    const t0 = sim.state.transform.req(squad.members[0]!);
+    squad.drill = { kind: "assault", x: t0.x, y: t0.y, groups: [[...squad.members]], mover: 0, phaseTick: -1, final: true };
+    const ev = run(sim, 30);
+    const blue = ev.filter((e) => e.kind === "radio" && e.side === "blue").map((e) => (e.kind === "radio" ? e.key : ""));
+    expect(blue).toContain("radio.objectiveTaken");
+    expect(blue.every((k) => k === "radio.objectiveTaken" || k === "radio.rallied" || k === "radio.broken")).toBe(true);
+    void sid;
   });
 });

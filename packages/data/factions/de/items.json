@@ -184,7 +184,7 @@
         "battery": "de-nvg-battery",
         "hours": 50,
         "swapSeconds": 20,
-        "onBelowLight": 0.3
+        "onBelowLight": 0.5
       },
       "sources": [
         "https://nv-intl.com/wiki/index.php/Thales_Lucie",
@@ -192,7 +192,7 @@
         "https://peo360portfolio.com/product-details/product/175"
       ],
       "confidence": "low",
-      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder. M11.6 power: 50 h on one AA (Thales Lucie 60 h at 1.5 V, PVS-14 class 40-50 h; search extracts, medium; 50 h chosen, low); 20 s to change the cell (inferred, low); switched on below light 0.3 (the AI's night threshold; game value, low). Mass 0.585 kg without the cell (0.6 kg with it, as before)."
+      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder. M11.6 power: 50 h on one AA (Thales Lucie 60 h at 1.5 V, PVS-14 class 40-50 h; search extracts, medium; 50 h chosen, low); 20 s to change the cell (inferred, low); switched on below light 0.5, the night sensor's nightLight, so it is on whenever it helps (review fix 2026-11-16; game value, low). Mass 0.585 kg without the cell (0.6 kg with it, as before)."
     },
     {
       "id": "de-nvg-battery",
@@ -577,8 +577,7 @@
       "power": {
         "battery": "de-thermal-battery",
         "hours": 7,
-        "swapSeconds": 15,
-        "onBelowLight": 0.3
+        "swapSeconds": 15
       },
       "sources": [
         "https://militaeraktuell.at/deutschland-neue-nachtsichtsysteme-thales/",
@@ -586,7 +585,7 @@
         "https://dam.hensoldt.net/m/8f69bc535373174/original/IRV-MR-English.pdf"
       ],
       "confidence": "low",
-      "note": "Thermal weapon sight (M9.2): IdZ-ES optics include a combined reflex and thermal rifle sight (Thales XTRAIM, search extracts); how many a Gruppe has is not public. Research default, low (owner round M9 screen 3 (a)): one per Schuetzentrupp, with the marksman. Mass is a game value. M11.6 power: 7 h on 3x AA (Hensoldt IRV-MR >= 7 h at 21 C, datasheet search extract, medium); 15 s to change the set (IRV-MR 'quick, blind battery replacement'; seconds inferred, low); switched on below light 0.3 (game value, low). Mass 0.855 kg without the cells (0.9 kg with them, as before)."
+      "note": "Thermal weapon sight (M9.2): IdZ-ES optics include a combined reflex and thermal rifle sight (Thales XTRAIM, search extracts); how many a Gruppe has is not public. Research default, low (owner round M9 screen 3 (a)): one per Schuetzentrupp, with the marksman. Mass is a game value. M11.6 power: 7 h on 3x AA (Hensoldt IRV-MR >= 7 h at 21 C, datasheet search extract, medium); 15 s to change the set (IRV-MR 'quick, blind battery replacement'; seconds inferred, low); always on (it magnifies and sees heat by day too, so it drains by day: review fix 2026-11-16; game value, low). Mass 0.855 kg without the cells (0.9 kg with them, as before)."
     },
     {
       "id": "de-thermal-battery",

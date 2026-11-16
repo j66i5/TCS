@@ -35,8 +35,8 @@ export interface SideReview {
 export type DeviceClass = "radio" | "sight" | "other";
 
 export interface SupplyReview {
-  /** Batteries changed in men's devices (`power.swapped`), and drones relaunched by a man who had brought one back
-   *  (a fresh battery each time). */
+  /** Batteries changed in men's devices (`power.swapped`), and drones relaunched by a man who had brought one back on
+   *  a battery fuller than the one he brought back (by more than RELAUNCH_FRESH_WH). */
   swaps: Record<DeviceClass | "drone", number>;
   /** Device batteries that went flat (`power.flat`); a drone's flat battery is `drones.lostBattery`. */
   flat: Record<DeviceClass, number>;
@@ -44,12 +44,22 @@ export interface SupplyReview {
   offNetS: number;
   /** Water drunk (`water.drunk`), ml. */
   waterMl: number;
-  /** Men who brought a drone back (ascending ids): their next launch is a relaunch on a fresh battery. */
-  recovered: EntityId[];
+  /** Men who brought a drone back since their last launch (id as a key) and the charge of the battery it came back
+   *  with, Wh: their next launch counts as a battery change when its battery is fuller. */
+  recovered: Record<string, number>;
 }
 
 export function newSupplyReview(): SupplyReview {
-  return { swaps: { radio: 0, sight: 0, other: 0, drone: 0 }, flat: { radio: 0, sight: 0, other: 0 }, offNetS: 0, waterMl: 0, recovered: [] };
+  return { swaps: { radio: 0, sight: 0, other: 0, drone: 0 }, flat: { radio: 0, sight: 0, other: 0 }, offNetS: 0, waterMl: 0, recovered: {} };
+}
+
+/** A drone relaunch counts as a battery change only on a battery fuller than the one brought back by more than this, Wh. */
+export const RELAUNCH_FRESH_WH = 0.5;
+
+/** Whether a unit has a man alive and not a prisoner (a unit wiped out or taken is not "off the net"). */
+function hasLiving(view: SimView, members: readonly EntityId[]): boolean {
+  for (const m of members) { const s = view.soldier.get(m); if (s && s.physiology.alive && s.captive === null) return true; }
+  return false;
 }
 
 /** Which kind of device an item is (a radio item, an item with a sensor, else other; unknown without a catalog). */
@@ -92,7 +102,7 @@ export function tallyReview(t: ReviewTally, events: readonly SimEvent[], view: S
       if (u.vehicle !== undefined || u.comms.link !== "none" || u.members.length === 0) continue;
       let aboard = false;
       for (const m of u.members) if (view.soldier.get(m)?.mount !== undefined) { aboard = true; break; }
-      if (!aboard) supply(u.side).offNetS++;
+      if (!aboard && hasLiving(view, u.members)) supply(u.side).offNetS++;
     }
   }
   if (view.environment.sky !== undefined) {
@@ -104,11 +114,15 @@ export function tallyReview(t: ReviewTally, events: readonly SimEvent[], view: S
     switch (e.kind) {
       case "drone.launched": {
         side(e.side).drones.launched++;
-        const r = t.sides[e.side]!.supply?.recovered;
-        if (r !== undefined && r.includes(e.operator)) supply(e.side).swaps.drone++;
+        // A relaunch on a fuller battery than the one he brought back is a battery change (review fix 2026-11-16).
+        const r = t.sides[e.side]!.supply?.recovered, key = String(e.operator), back = r?.[key];
+        if (r !== undefined && back !== undefined) {
+          if (e.wh !== undefined && e.wh > back + RELAUNCH_FRESH_WH) supply(e.side).swaps.drone++;
+          delete r[key];
+        }
         break;
       }
-      case "drone.landed": side(e.side).drones.landed++; addSorted(supply(e.side).recovered, e.by); break;
+      case "drone.landed": side(e.side).drones.landed++; supply(e.side).recovered[String(e.by)] = e.wh ?? 0; break;
       case "power.swapped": { const sd = view.identity.get(e.soldier)?.side; if (sd !== undefined) supply(sd).swaps[deviceClass(catalog, e.device)]++; break; }
       case "power.flat": supply(e.side).flat[deviceClass(catalog, e.device)]++; break;
       case "water.drunk": supply(e.side).waterMl += e.ml; break;

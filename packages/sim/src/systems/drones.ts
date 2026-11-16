@@ -186,7 +186,7 @@ registerActionHandler(LAUNCH_ACTION, {
     const alt = Math.min(def.maxAltitudeM, Math.max(def.minAltitudeM, Number(a.params["alt"])));
     state.drone.set(id, { side, unit: Number(a.params["unit"]), item, operator: actor, mode: "climb", goal: { x: gx, y: gy }, altGoal: alt, homeX: t.x, homeY: t.y, seen: [] });
     startAction(state, events, actor, FLY_ACTION, OPEN_ENDED_TICKS, { drone: id });
-    events.emit({ kind: "drone.launched", tick: state.tick, drone: id, operator: actor, side, item });
+    events.emit({ kind: "drone.launched", tick: state.tick, drone: id, operator: actor, side, item, wh: charge });
     radio(state, events, actor, "radio.droneUp");
   },
 });
@@ -216,6 +216,8 @@ function flying(state: SimState, m: EntityId, id: EntityId): boolean {
 /** Take a drone off the map: recovered into `into`'s load, or lost. */
 function endDrone(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, d: DroneState, into: EntityId | null, reason: "battery" | "noOperator" | "shot" | null): void {
   const box = state.container.get(id);
+  const battery = droneDefOf(ctx, d.item)?.battery;
+  const wh = box?.stacks.find((x) => x.type === battery)?.charge;
   // (M11.6, rule 9: recovered through the one generic transfer; a man's load has no mass limit.)
   if (into !== null && box && state.container.has(into)) {
     for (const st of box.stacks.map((x) => ({ ...x }))) transferItems(ctx.catalog, state.container, { from: id, to: into, type: st.type, count: st.count, ...(st.charge !== undefined ? { charge: st.charge } : {}) });
@@ -225,7 +227,7 @@ function endDrone(ctx: SimContext, state: SimState, events: EventSink, id: Entit
   state.container.delete(id);
   state.transform.delete(id);
   if (into !== null) {
-    events.emit({ kind: "drone.landed", tick: state.tick, drone: id, side: d.side, by: into });
+    events.emit({ kind: "drone.landed", tick: state.tick, drone: id, side: d.side, by: into, ...(wh !== undefined ? { wh } : {}) });
     radio(state, events, into, "radio.droneLanded");
   } else {
     events.emit({ kind: "drone.lost", tick: state.tick, drone: id, side: d.side, reason: reason ?? "noOperator", ...(reason === "shot" && d.hitBy !== undefined ? { by: d.hitBy } : {}) });

@@ -71,14 +71,35 @@ describe("review supply tally (M11.6)", () => {
       { kind: "power.flat", tick: 1, soldier: red, device: sight, side: "red" },
       { kind: "water.drunk", tick: 1, soldier: red, side: "red", item: "w", ml: 250 },
       { kind: "water.drunk", tick: 2, soldier: red, side: "red", item: "w", ml: 50 },
-      { kind: "drone.launched", tick: 3, drone: 900, operator: blue, side: "blue", item: "x" },
-      { kind: "drone.landed", tick: 4, drone: 900, side: "blue", by: blue },
-      { kind: "drone.launched", tick: 5, drone: 901, operator: blue, side: "blue", item: "x" },
+      { kind: "drone.launched", tick: 3, drone: 900, operator: blue, side: "blue", item: "x", wh: 77 },
+      { kind: "drone.landed", tick: 4, drone: 900, side: "blue", by: blue, wh: 12 },
+      { kind: "drone.launched", tick: 5, drone: 901, operator: blue, side: "blue", item: "x", wh: 77 },
     ], sim.state, input.catalog);
     expect(t.sides["blue"]!.supply!.swaps).toEqual({ radio: 1, sight: 1, other: 0, drone: 1 });
     expect(t.sides["red"]!.supply!.flat).toEqual({ radio: 0, sight: 1, other: 0 });
     expect(t.sides["red"]!.supply!.waterMl).toBe(300);
     expect(t.sides["blue"]!.supply!.offNetS).toBe(0);
+  });
+
+  it("a drone relaunch counts as a battery change only on a fuller battery than the one he brought back", () => {
+    const input = batteriesBattle(data, 1, 60, 1);
+    const sim = createSim(input);
+    const ids = [...sim.state.identity.entries()].filter(([, i]) => i.side === "blue");
+    const a = ids[0]![0], b = ids[1]![0];
+    const t = newReviewTally();
+    tallyReview(t, [
+      // a brings one back at 20 Wh and relaunches it on the same battery (nothing fuller left): no change.
+      { kind: "drone.launched", tick: 1, drone: 900, operator: a, side: "blue", wh: 60 },
+      { kind: "drone.landed", tick: 2, drone: 900, side: "blue", by: a, wh: 20 },
+      { kind: "drone.launched", tick: 3, drone: 901, operator: a, side: "blue", wh: 20.3 },
+      // b receives one a flew (landed into his load at 15 Wh) and launches it on a fresh battery: a change.
+      { kind: "drone.landed", tick: 4, drone: 901, side: "blue", by: b, wh: 15 },
+      { kind: "drone.launched", tick: 5, drone: 902, operator: b, side: "blue", wh: 77 },
+      // b's next launch with nothing brought back since: no change (the record is cleared at each launch).
+      { kind: "drone.launched", tick: 6, drone: 903, operator: b, side: "blue", wh: 77 },
+    ], sim.state, input.catalog);
+    expect(t.sides["blue"]!.supply!.swaps.drone).toBe(1);
+    expect(t.sides["blue"]!.supply!.recovered).toEqual({});
   });
 });
 

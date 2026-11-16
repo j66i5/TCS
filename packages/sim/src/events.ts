@@ -162,8 +162,8 @@ export type SimEvent =
    *  a tube fires a round (where from, where it is aimed, which round, seconds of flight). */
   /** M9.4a reconnaissance quadcopters: launched (its operator flies it), landed and recovered by a man, lost (empty
    *  battery, or nobody there when it came home). */
-  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId; /** M9.6: the drone's item type. */ item?: DefId }
-  | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId }
+  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId; /** M9.6: the drone's item type. */ item?: DefId; /** M11.6: its battery's charge at launch, Wh. */ wh?: number }
+  | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId; /** M11.6: its battery's charge at landing, Wh. */ wh?: number }
   | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" | "shot"; /** M9.6: the man whose round brought it down (reason "shot"). */ by?: EntityId }
   | { kind: "mortar.setup"; tick: number; unit: EntityId; readyTick: number }
   | { kind: "mortar.ready"; tick: number; unit: EntityId }

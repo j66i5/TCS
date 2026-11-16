@@ -1,7 +1,7 @@
 /**
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
-import { onAir } from "../comms";
+import { sendsRadio } from "../comms";
 import { droneOrder, droneRiderOf, hasDrone } from "./drones";
 import { callFire } from "./support";
 import { refusesFireAt } from "../protection";
@@ -12,7 +12,7 @@ import { rearRunGate, rearRunOrder } from "./rearrun";
 import { aglOf, crewServedKind, startSetup } from "./mortars";
 import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
-import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
+import { clearDrill, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
 import { clearable, startClear } from "./clear";
 import { freeSpotNear, placeFree, placesTaken } from "./decisions";
 import type { SimContext } from "../context";
@@ -243,7 +243,7 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
     const res = applyOrder(ctx, state, p.order, events);
     if (res === true) screenAfterOrder(ctx, state, p.order, events);
     const ou = state.unit.has(p.order.target) ? p.order.target : state.identity.get(p.order.target)?.unit;
-    if (ou !== undefined) { const mark = (u: EntityId) => { const x = state.unit.get(u); if (!x) return; x.orderTick = state.tick; if (p.order.own !== true) x.children.forEach(mark); }; mark(ou); }
+    if (ou !== undefined) forTree(state, ou, p.order.own === true, (x) => { x.orderTick = state.tick; });
     events.emit({ kind: "order.delivered", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind });
     radioFromTarget(state, p.order.target, res === true ? (p.order.kind === "grenade" && p.order.smoke === true ? "radio.ack.smoke" : `radio.ack.${p.order.kind}`) : res === "unable" ? "radio.unable" : res === false ? "radio.noRoute" : res.unable, events);
     if (res === false) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
@@ -312,7 +312,7 @@ function hesitationTicks(ctx: SimContext, state: SimState, p: PendingOrder): num
     if (state.unit.req(o.target).vehicle !== undefined || (!own && vehicleChildren(state, o.target).length > 0) || hasRiders(ctx, state, o.target, own)) return 0;
   } else if (state.soldier.get(o.target)?.mount !== undefined) return 0;
   // (The same men applyOrder would move: able, not routed, on foot, not busy with a casualty.)
-  const men = (own ? [...state.unit.req(o.target).members].sort((a, b) => a - b) : isUnit ? unitSoldiers(state, o.target) : [o.target]).filter((m) => {
+  const men = (own ? [...state.unit.req(o.target).members].sort((a, b) => a - b) : isUnit ? reachedSoldiers(state, o.target) : [o.target]).filter((m) => {
     const s = state.soldier.get(m);
     return isAble(s) && s!.mental.behaviour !== "routed" && s!.mount === undefined
       && !(isUnit && (s!.intent?.kind === "care" || s!.carrying !== undefined || s!.atNest !== undefined));
@@ -376,7 +376,7 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
   const unitId = state.unit.has(target) ? target : state.identity.get(target)?.unit;
   if (unitId === undefined) return;
   const unit = state.unit.req(unitId);
-  if (!onAir(state, unitId)) return; // (M11.6: a flat radio sends nothing)
+  if (!sendsRadio(state, unitId, key)) return; // (M11.6: a flat radio sends nothing but recorded lines)
   // The leader speaks; if he is down, the first man who still can.
   // mounted: ok the radio reaches every man
   const from = unit.leader !== null && canReport(state.soldier.get(unit.leader)) ? unit.leader : unitSoldiers(state, unitId).find((m) => canReport(state.soldier.get(m)));
@@ -420,7 +420,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     // (M10.5: getting in takes the wounded along, from the Verwundetennest too.)
     if (order.kind === "mount" && isUnit && !own) releaseForBoarding(ctx, state, events, order.target);
     if (own) clearOwn(state, order.target, state.unit.req(order.target).members);
-    else if (isUnit) clearDrills(state, order.target);
+    else if (isUnit) forTree(state, order.target, false, clearDrill);
     else { leaveBoarding(state, order.target); releaseFromParentDrills(state, state.identity.get(order.target)?.unit ?? -1, [order.target]); }
     return boardingOrder(ctx, state, order, events);
   }
@@ -436,7 +436,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     const hostile = order.kind === "fire" || (order.kind === "grenade" && order.smoke !== true) || (order.kind === "callFire" && order.ammo === "he");
     if (hostile) {
       // mounted: ok what men aboard know counts too
-      const men = (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : isUnit ? unitSoldiers(state, order.target) : [order.target])
+      const men = (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : isUnit ? reachedSoldiers(state, order.target) : [order.target])
         .filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed"
           && !(isUnit && order.kind !== "callFire" && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)));
       const named = order.kind === "fire" ? order.contact : undefined;
@@ -453,7 +453,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     const aboard = isUnit ? hasRiders(ctx, state, order.target, own) : state.soldier.get(order.target)?.mount !== undefined;
     if (aboard) {
       if (own) clearOwn(state, order.target, state.unit.req(order.target).members);
-      else if (isUnit) clearDrills(state, order.target);
+      else if (isUnit) forTree(state, order.target, false, clearDrill);
       const res = dismountThen(ctx, state, order) ?? "unable";
       if (res === true) radioFromTarget(state, order.target, "radio.dismountFirst", events);
       return res;
@@ -471,7 +471,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // Men of a broken unit, running back, do not listen (M4.3). Men aboard vehicles ride (M7).
   // A man gone to a wounded comrade (M10.3a) stays with him, and a man carrying one (M10.4a) carries on: orders to
   // his unit pass him by (an order to him alone ends the errand, below).
-  const soldiers = (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined
+  // (M11.6 review fix: men of a sub-unit off the net do not hear an order to a unit above them.)
+  const soldiers = (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : isUnit ? reachedSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined
     && !(isUnit && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)));
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
@@ -488,7 +489,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (!keepsDrill) {
     const ou = isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1;
     if (own) clearOwn(state, ou, soldiers);
-    else if (isUnit) clearDrills(state, ou);
+    else if (isUnit) forTree(state, ou, false, clearDrill);
     releaseFromParentDrills(state, ou, soldiers);
     // (An order to one man takes him out of his own unit's drill too.)
     if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") dropFromDrill(d, new Set([order.target])); }
@@ -745,7 +746,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       if (du === undefined) return "unable";
       endFire(state, order.target, soldiers, "moved", events);
       stopUnit(state, order.target);
-      const groups = drillGroups(state, du);
+      let groups = drillGroups(state, du);
+      // (M11.6 review fix: men of a sub-unit off the net take no part.)
+      if (isUnit && !own) { const heard = new Set(reachedSoldiers(state, du)); groups = groups.map((g) => g.filter((m) => heard.has(m))).filter((g) => g.length > 0); }
       if (groups.length === 0) return "unable";
       state.unit.req(du).drill = order.kind === "assault" && order.building !== undefined
         ? startClear(ctx, state, du, order.building, groups)
@@ -760,7 +763,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // (A unit: its leader first if he is one of the men who can act; one man: only he.)
       // (Men aboard can use the radio too.)
       // mounted: ok a call for fire goes over the radio from inside a vehicle as well
-      const all = isUnit ? (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : unitSoldiers(state, order.target)).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed") : soldiers.length > 0 ? soldiers : [order.target];
+      const all = isUnit ? (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : reachedSoldiers(state, order.target)).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed") : soldiers.length > 0 ? soldiers : [order.target];
       const callers = isUnit && u && u.leader !== null && all.includes(u.leader) ? [u.leader, ...all] : all;
       const cf = callFire(ctx, state, events, order.issuer, callers, order.x, order.y, order.ammo, order.rounds, order.x2 !== undefined && order.y2 !== undefined ? { x2: order.x2, y2: order.y2 } : undefined,
         { ...(order.asset === "artillery" ? { asset: "artillery" as const } : {}), ...(order.fuse ? { fuse: order.fuse } : {}), ...(order.dangerClose ? { dangerClose: true } : {}) });
@@ -785,13 +788,19 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (order.at !== undefined) x.atRule = order.at;
         // (A new fire rule ends an ambush laid, D4b: the player has decided otherwise.)
         if (order.fire !== undefined) delete x.ambush;
-        if (!own) x.children.forEach(set);
+      };
+      const reached = (u: EntityId) => {
+        const x = state.unit.get(u);
+        if (!x) return;
+        // (M11.6 review fix: a sub-unit off the net keeps its rules; its own sub-units on the net hear it.)
+        if (u === ru || x.comms.link !== "none") set(u);
+        if (!own) x.children.forEach(reached);
       };
       // (With `own` too: the sub-units holding the same ambush as the target lose it with it, or they would hold
       // fire for an ambush nobody can spring any more.)
       const laid = ru !== undefined && order.fire !== undefined ? state.unit.get(ru)?.ambush?.root : undefined;
-      if (laid !== undefined) forTree(state, ru!, false, (x) => { if (x.ambush?.root === laid) delete x.ambush; });
-      if (ru !== undefined) set(ru);
+      if (laid !== undefined) forTree(state, ru!, false, (x) => { if (x.ambush?.root === laid) delete x.ambush; }, true);
+      if (ru !== undefined) reached(ru);
       break;
     }
     case "ambush": {
@@ -1046,12 +1055,22 @@ function personalRoute(ctx: SimContext, x: number, y: number, ox: number, oy: nu
   return out;
 }
 
-/** Call `f` on a unit and (unless `own`: its own men only) every unit under it, parents first. */
-function forTree(state: SimState, uid: EntityId, own: boolean, f: (u: Unit, id: EntityId) => void): void {
+/** Call `f` on a unit and (unless `own`: its own men only) every unit under it that the order reaches, parents first. */
+function forTree(state: SimState, uid: EntityId, own: boolean, f: (u: Unit, id: EntityId) => void, everyone = false, root = true): void {
   const u = state.unit.get(uid);
   if (!u) return;
-  f(u, uid);
-  if (!own) for (const c of u.children) forTree(state, c, false, f);
+  // (M11.6 review fix: an order does not reach a sub-unit off the net, unless `everyone`; its own sub-units on the
+  // net still hear it.)
+  if (root || everyone || u.comms.link !== "none") f(u, uid);
+  if (!own) for (const c of u.children) forTree(state, c, false, f, everyone, false);
+}
+
+/** The men an order to unit `uid` reaches (ascending ids): its subtree's, less those of sub-units off the net (M11.6;
+ *  the unit itself was checked when the order came in). */
+function reachedSoldiers(state: SimState, uid: EntityId): EntityId[] {
+  const out: EntityId[] = [];
+  forTree(state, uid, false, (u) => { out.push(...u.members); });
+  return out.sort((a, b) => a - b);
 }
 
 /** End the arcs (D4b) of a unit and (unless `own`) its sub-units; a crew's: of the units of the men it carries. */

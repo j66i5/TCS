@@ -610,8 +610,9 @@ export interface BehaviourDef {
      *  spreadCap of them. Absent: off. */
     fireDistribution?: { dangerSustained: number; dangerMagnified: number; dangerFiring: number; spreadPenalty: number; spreadCap: number };
     /** M11.6: a battery fitted at setup starts at a share of full in [installedMin, 1] (stream "power"); in a lull a
-     *  man changes one below swapBelowShare of full for a fuller spare. Absent: fitted full, no lull changes. */
-    power?: { installedMin: number; swapBelowShare: number };
+     *  man changes one below swapBelowShare of full for a spare holding at least max(lullSpareShare x full, its charge +
+     *  LULL_MARGIN_SHARE x full) (no ping-pong between part-used batteries). Absent: fitted full, no lull changes. */
+    power?: { installedMin: number; swapBelowShare: number; lullSpareShare: number };
     droneHide?: { triggerM: number; freezeTriggerM: number; freezeSeconds: number; maxFreezeSeconds: number; freezeCooldownSeconds: number; searchM: number; hideSeconds: number; mode: string; moveBeyondM: number };
     /**
      * Leaving a house (M7.5e step "leave", owner 2026-11-14). houseLeave: the rule is on (false = off, for labs).

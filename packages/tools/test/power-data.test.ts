@@ -18,7 +18,8 @@ describe("batteries and water in the faction data (M11.6)", () => {
         for (const slot of s.power ?? []) {
           const pw = powerOf(cat, slot.device)!;
           expect(slot.battery).toBe(pw.def.battery);
-          expect(slotLive(slot, 0)).toBe(true);
+          // (By day a night device is off and gives nothing; every other device is on with charge.)
+          expect(slotLive(slot, 0)).toBe(pw.def.onBelowLight === undefined || sim.state.environment.light < pw.def.onBelowLight);
           expect(slot.wh0).toBeGreaterThanOrEqual(pw.capWh * cat.behaviour.soldier.power!.installedMin - 0.01);
           expect(slot.wh0).toBeLessThanOrEqual(pw.capWh);
           devices++;

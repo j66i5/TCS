@@ -3,6 +3,7 @@
  * (a night device only below its `onBelowLight`), a battery that has gone flat is reported once (`power.flat`), and a
  * flat battery, or in a lull one nearly flat, is changed for his fullest spare: the action "swapBattery", which takes
  * the device's `swapSeconds` and changes nothing if it is interrupted. The charge itself is never stepped (power.ts).
+ * A dead man's or a prisoner's devices are switched off.
  */
 import { registerActionHandler, startAction } from "../actions";
 import type { SimContext } from "../context";
@@ -13,6 +14,9 @@ import { addItems, removeItems } from "../items";
 import { chargeAt, fullestSpare, powerOf, settle, stampSlot, wantOn } from "../power";
 import type { SimState } from "../state";
 import { isGuiding } from "./missile-team";
+
+/** A lull change needs a spare holding at least this share of full more than the fitted battery (game value, low). */
+export const LULL_MARGIN_SHARE = 0.25;
 
 /** The action that changes a device's battery. params: { device }. */
 export const SWAP_ACTION = "swapBattery";
@@ -51,10 +55,16 @@ export function powerSystem(ctx: SimContext, state: SimState, events: EventSink)
   for (let id = staggerFirst(tick, TICK_HZ); id < state.nextEntityId; id += TICK_HZ) {
     const s = state.soldier.get(id);
     if (s?.power === undefined) continue;
+    // A dead man's or a prisoner's devices are switched off (no drain, no flat report: review fix 2026-11-16).
+    const out = !s.physiology.alive || s.captive !== null;
     let swap: string | null = null;
     for (const slot of s.power) {
       const pw = powerOf(ctx.catalog, slot.device);
       if (!pw) continue;
+      if (out) {
+        if (slot.on) stampSlot(slot, chargeAt(slot, tick), false, tick);
+        continue;
+      }
       // On or off by the light (night devices): restamp at the change.
       const on = wantOn(pw.def, light);
       if (on !== slot.on) stampSlot(slot, chargeAt(slot, tick), on, tick);
@@ -68,10 +78,13 @@ export function powerSystem(ctx: SimContext, state: SimState, events: EventSink)
       const spare = fullestSpare(state.container.get(id), pw.def.battery);
       if (spare <= 0) continue;
       if (flat) swap = slot.device;
-      else if (P !== undefined && slot.on && spare > chargeAt(slot, tick) && chargeAt(slot, tick) < P.swapBelowShare * pw.capWh
-        && !state.fire.has(id) && (s.mental.behaviour === "steady" || s.mental.behaviour === "cautious")) swap = slot.device;
+      else if (P !== undefined && slot.on && !state.fire.has(id) && (s.mental.behaviour === "steady" || s.mental.behaviour === "cautious")) {
+        // In a lull only for a spare clearly fuller (review fix 2026-11-16: no ping-pong between part-used batteries).
+        const now = chargeAt(slot, tick);
+        if (now < P.swapBelowShare * pw.capWh && spare >= Math.max(P.lullSpareShare * pw.capWh, now + LULL_MARGIN_SHARE * pw.capWh)) swap = slot.device;
+      }
     }
-    if (swap === null || state.action.has(id)) continue;
+    if (swap === null || out || state.action.has(id)) continue;
     if (!isAble(s) || !s.impair.canUseArms || tick < s.stunnedUntilTick || isGuiding(state, id)) continue;
     startAction(state, events, id, SWAP_ACTION, secondsToTicks(powerOf(ctx.catalog, swap)!.def.swapSeconds), { device: swap });
   }

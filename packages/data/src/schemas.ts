@@ -514,8 +514,9 @@ export const BehaviourFile = withProv({
       note: z.string().optional(),
     }).strict().optional(),
     /** M11.6 batteries: a battery fitted in a device at setup starts at a share of full drawn from [installedMin, 1]
-     *  (stream "power"); in a lull a man changes a battery below swapBelowShare of full for a fuller spare. */
-    power: z.object({ installedMin: Num(0, 1), swapBelowShare: Num(0, 1), note: z.string().optional() }).strict().optional(),
+     *  (stream "power"); in a lull a man changes a battery below swapBelowShare of full for a spare holding at least
+     *  max(lullSpareShare x full, its charge + a quarter of full). */
+    power: z.object({ installedMin: Num(0, 1), swapBelowShare: Num(0, 1), lullSpareShare: Num(0, 1), note: z.string().optional() }).strict().optional(),
     droneHide: z.object({ triggerM: Num(0, 3000), freezeTriggerM: Num(0, 3000), freezeSeconds: Num(0, 600), maxFreezeSeconds: Num(0, 3600), freezeCooldownSeconds: Num(0, 3600), searchM: Num(0, 200), hideSeconds: Num(0, 3600), mode: z.string(), moveBeyondM: Num(0, 3000) }).strict().optional(),
     houseLeave: z.boolean(), houseTrapBursts: Num(0, 50), houseTrapSeconds: Num(0, 600), houseHeavyKg: Num(0, 100), houseHeavyCount: Num(0, 10), houseBurstNearM: Num(0, 20),
     houseEnemySeconds: Num(0, 120), houseFightM: Num(0, 50), houseFlankM: Num(0, 2000), houseFlankDeg: Num(0, 180), houseFlankSeconds: Num(0, 120),

@@ -18,7 +18,7 @@
  * Runs every `drills.stepSeconds`; values are data (core/behaviour.json `drills`). Doctrine profiles (M4.4)
  * will vary them by faction.
  */
-import { onAir } from "../comms";
+import { sendsRadio } from "../comms";
 import type { Contact, Drill, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import type { SimContext } from "../context";
@@ -46,8 +46,8 @@ const able = (s: SoldierState | undefined) => isAble(s) && s!.mental.behaviour !
 
 function radio(state: SimState, uid: EntityId, key: string, events: EventSink): void {
   const u = state.unit.req(uid);
-  // (M11.6: a flat radio sends nothing; "radio.broken" is never silenced: morale.ts reads it as a sim effect.)
-  if (key !== "radio.broken" && !onAir(state, uid)) return;
+  // (M11.6: a flat radio sends nothing; recorded lines (broken, rallied, objective taken) always go: comms.ts.)
+  if (!sendsRadio(state, uid, key)) return;
   // mounted: ok the radio reaches every man
   const from = u.leader !== null && canReport(state.soldier.get(u.leader)) ? u.leader : unitSoldiers(state, uid).find((m) => canReport(state.soldier.get(m)));
   if (from !== undefined) events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key, params: { callsign: u.callsign } });
@@ -147,10 +147,15 @@ export function dropFromDrill(d: Drill, set: ReadonlySet<EntityId>): void {
 export function clearDrills(state: SimState, uid: EntityId): void {
   const u = state.unit.get(uid);
   if (!u) return;
+  clearDrill(u);
+  u.children.forEach((c) => clearDrills(state, c));
+}
+
+/** End one unit's drill (not a rout) and its getting in or out (not a bail-out); its sub-units keep theirs. */
+export function clearDrill(u: Unit): void {
   if (u.drill?.kind !== "rout") u.drill = null;
   // Getting in or out (M7.2) is replaced by the new order too (bailing out is not).
   if (u.boarding && u.boarding.kind !== "bailOut") delete u.boarding;
-  u.children.forEach((c) => clearDrills(state, c));
 }
 
 /** A drill value from the unit's doctrine (faction data), else the general default. */

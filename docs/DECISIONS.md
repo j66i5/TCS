@@ -7292,3 +7292,26 @@ Software decisions (owner to review). No data change except two review strings (
 - **Tests:** `packages/tools/test/lab-batteries.test.ts` (the lab compressed 12x: swaps of radios and sights, drone
   relaunches and drinking on both sides; Wh balance within 1e-6, water exact, no battery lost; radios with no spare go
   flat and the review counts flats and time off the net; the tally by kind from synthetic events).
+
+## 2026-11-16 — M11.6 review fixes (goldens regenerated)
+
+- **Lull battery change** (F1/F9): in a lull a man changes a battery below `swapBelowShare` only for a spare holding at
+  least max(`behaviour.soldier.power.lullSpareShare` 0.5 x full, his charge + 0.25 x full) (`LULL_MARGIN_SHARE`;
+  game values, low). Before, a man with only part-used spares swapped back and forth every ~10-20 s. A flat battery is
+  still changed for the fullest spare with charge.
+- **Dead men and prisoners** (F2/F8/F10): their devices are switched off (no drain, no `power.flat`); their radios
+  cover nobody (comms.ts); the review counts off-net seconds only for units with a man alive and not a prisoner.
+- **Hull radio** (F3): the inverted test in `allAboardHullRadio` fixed: men aboard a hull whose radio works stay on the
+  net with their handhelds flat.
+- **Orders to a parent** (F4): an order to a unit does not reach the men, drills, rules or arcs of a sub-unit that is
+  off the net (its own sub-units on the net still hear it). The ambush clean-up still reaches all. Not changed: a
+  parent's orders split to its vehicles, and a cease-fire set on the top unit (read by every man).
+- **Recorded radio lines** (F5): `radio.broken`, `radio.rallied`, `radio.objectiveTaken` and `radio.refuseProtected`
+  go out even from a unit off the net (the record's timeline and conduct counts and the attack lab read them;
+  comms.ts `RECORDED_RADIO_KEYS`).
+- **Night devices** (F6): a device switched off gives nothing. Thermal sights (de, ru) are always on (used by day too,
+  they drain by day); goggles are on below light 0.5, the night sensor's `nightLight` (on whenever they help).
+  Game values, low.
+- **Drone relaunches** (F7): `drone.launched` and `drone.landed` carry the battery's Wh (`wh`); the review counts a
+  relaunch as a battery change only on a battery fuller than the one that man last brought back by more than 0.5 Wh.
+- **Goldens**: catalog fingerprint and state hashes changed (10 goldens; the no-interiors goldens untouched).

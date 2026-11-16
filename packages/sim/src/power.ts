@@ -49,10 +49,10 @@ export function stampSlot(slot: PowerSlot, wh: number, on: boolean, tick: number
   slot.flatTick = on && slot.battery !== null && slot.drawW > 0 ? tick + Math.ceil((wh * TICKS_PER_WH) / slot.drawW) : NEVER_TICK;
 }
 
-/** True when the slot's device has power at `tick` (a battery with charge left; an off device counts by its charge). */
+/** True when the slot's device works at `tick`: switched on, with a battery that has charge left (a device switched
+ *  off gives nothing: review fix 2026-11-16, or a night device off by day would work free). */
 export function slotLive(slot: Readonly<PowerSlot>, tick: number): boolean {
-  if (slot.battery === null) return false;
-  return slot.on ? tick < slot.flatTick : slot.wh0 > 0;
+  return slot.battery !== null && slot.on && tick < slot.flatTick;
 }
 
 /**

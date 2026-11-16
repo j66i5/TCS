@@ -51,7 +51,12 @@ export function ledgerOf(catalog: Catalog, state: SimView): Ledger {
     }
   }
   // mounted: ok every magazine counts, aboard or not
-  for (const [, w] of state.weapon.entries()) if (w.magazine) rounds(w.magazine.item, w.magazine.rounds);
+  for (const [, w] of state.weapon.entries()) {
+    if (w.magazine) { rounds(w.magazine.item, w.magazine.rounds); add(out.items, w.magazine.item, 1); }
+    // (M11.2: a weapon in the hands counts as its item, so a rifle put away or picked up neither appears nor vanishes.)
+    const wi = catalog.weapons[w.weapon]?.weaponItem;
+    if (wi !== undefined) add(out.items, wi, 1);
+  }
   for (const [, v] of state.vehicle.entries()) { // off-map: ok every vehicle's rounds count, on the map or not
     for (const st of v.stations) for (const w of st.weapons) for (const f of w.feeds) rounds(f.item, f.rounds);
     // (A smoke salvo ordered but not yet fired: its grenades left the container at the order, gunnery.ts.)

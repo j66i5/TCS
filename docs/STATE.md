@@ -1,10 +1,21 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.2 (slice 44) built (2026-11-16, branch `claude/m11-logistics`).** From the interrupted WIP branch
+  `claude/m11-wip-44`, reviewed and finished. Quiet, halted squads even out ammunition (belts to the gunner first, then
+  magazines, then loose rounds; `bringAmmo` + `transferItems`); own casualties' ammunition is taken only after
+  treatment (or known dead) by the nearest low man (0 cases before treatment in 20 seeds of each platoon scenario and
+  hold-resupply); the Verwundetennest holds none (handed to a man of the platoon, else a pile 30 m outside: slice 45
+  makes piles caches); "Take enemy kit" on the player's order only (fitting ammunition, else a rifle swap: rifles have
+  `weaponItem`s, the ledger counts a weapon in the hands as its item). Review additions: men walk back to their place
+  after a hand-over or taking; consolidation waits until the squad has stood still 20 s. `lab -- redistribute` 8 of 8.
+  Hold battle: defender wins 2 -> 4 of 6 (13 of 20), median 309 rounds taken from casualties per battle. **Open for the
+  owner:** attacker wins in the foot platoon battles rose (platoon 7 -> 9 of 10, 15 of 20; platoon-ru 9 -> 10, 19 of
+  20). Numbers in DECISIONS "M11.2". Slice 45 (supply points and caches) next.
 - **M11 hold battle: a stronger defence (2026-11-16, branch `claude/m11-logistics`).** Owner: dig the defenders in,
   fewer attacker mortar rounds. New minimal fighting positions (`sim/positions.ts`, data `core/ballistics.json`
   `fightingPosition`, low): a side with `rules.prepared` digs a hole under each man halted outdoors in a window

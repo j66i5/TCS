@@ -17,7 +17,7 @@ import { ambulanceCallerName, droneMode, fmtClock, hqMode, localClock, selectedM
  */
 export function syncOrders(a: App): void {
   const cap = unitCapabilities(a.sim.state, a.input.catalog, a.overlay.selectedUnit, hqMode(a));
-  const key = `${droneMode(a) ? "drone|" : hqMode(a) ? "hq|" : ""}${a.overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}|${cap.canRepair === true}|${cap.canRecover === true}|${cap.recoverLeft ?? 0}`;
+  const key = `${droneMode(a) ? "drone|" : hqMode(a) ? "hq|" : ""}${a.overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}|${cap.canRepair === true}|${cap.canRecover === true}|${cap.recoverLeft ?? 0}|${cap.kitSource ?? ""}`;
   const shownFor = `${selPart(a) ?? ""}${a.overlay.selectedUnit}`;
   if (a.ordersShownFor === shownFor && key === a.ordersKey) return;
   const changedUnit = a.ordersShownFor !== undefined && a.ordersShownFor !== shownFor;

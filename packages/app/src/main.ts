@@ -25,7 +25,7 @@ import { installHooks } from "./hooks";
 import { attachPerfOverlay, FramePerf } from "./perf";
 import { attachKeys } from "./keys";
 import { carriersParam } from "./params";
-import { endPlan, forUnit, goPlan, issue, issueAi, now, setFormation, undoPlanPoint } from "./orders";
+import { endPlan, forUnit, goPlan, issue, issueAi, now, setFormation, takeKit, undoPlanPoint } from "./orders";
 import { refreshTiles, showCard, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
 import { loadOrCreate, reloadSaved, saveNow } from "./save";
@@ -150,6 +150,7 @@ async function main(): Promise<void> {
     onRepair: () => { endPlan(a); orderFor("repair"); },
     // M11.7b: a recovery vehicle for the selected crew's disabled hull (or the one it bailed out of).
     onRecover: () => { endPlan(a); orderFor("callRecovery"); },
+    onTakeKit: () => { endPlan(a); takeKit(a); },
     onNature: (n) => { a.nature = n; },
     onCeaseFire: () => orderFor("ceaseFire"),
     onPace: (m) => { a.pace = m; },

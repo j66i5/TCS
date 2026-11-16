@@ -11,7 +11,7 @@ import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
 import { centredOn, startFollow, stopFollow, viewInsets } from "./camera";
 import { activeMoveOf, placesOf, ridersIn, vehicleClassOf } from "./units";
-import { clearAt, endPlan, facingHandle, fireAtPoint, forUnit, issue, now, occupyOrder, offerSupport, startPlan, SUPPORT_ROUNDS } from "./orders";
+import { clearAt, endPlan, facingHandle, fireAtPoint, forUnit, issue, now, occupyOrder, offerSupport, startPlan, SUPPORT_ROUNDS, takeKit } from "./orders";
 import { select, showCard, syncOrders } from "./panels";
 import { showSpriteSheet } from "./sprite-sheet";
 import { sightView } from "./view";
@@ -95,6 +95,8 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     callRecovery: (vid?: EntityId) => issue(a, { ...to(), kind: "callRecovery", ...(vid !== undefined ? { vehicle: vid } : {}) }),
     hurryRecovery: () => { for (const [, v] of sim.state.vehicle.entries()) if (v.offMap?.kind === "recovery" && v.offMap.phase === "called") v.offMap.enterTick = sim.state.tick; },
     recovery: () => [...sim.state.vehicle.entries()].filter(([, v]) => v.offMap?.kind === "recovery").map(([id, v]) => ({ id, side: v.side, phase: v.offMap!.phase, target: v.offMap!.target ?? null, hook: v.offMap!.hookDoneS ?? 0 })),
+    /** M11.2: "Take enemy kit" for the selected unit (the nearest known enemy casualty or prisoner); the source, or null. */
+    takeKit: () => takeKit(a),
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */
     dismountWounded: () => issue(a, { ...to(), kind: "dismount", wounded: true }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */

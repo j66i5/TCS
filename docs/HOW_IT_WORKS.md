@@ -683,6 +683,44 @@ how much each man carried and fired, how many rounds a minute while in contact (
 last 60 s), how much of the load was gone at 20 minutes and at the end, who ran out of loaded spares or dry and when,
 and how many magazines were refilled. `--conservation` runs the conservation check over every scenario.
 
+## Sharing ammunition out, and taking it from casualties (M11.2)
+
+**Evening out in a quiet squad.** Once nobody has fired on a squad for a minute and it has stood still for 20
+seconds (not on the march), its leader evens out the ammunition
+of the men who can still fight. Belts come first: a machine gunner with fewer than two spare belts gets one from a man
+who carries belts for him. Then magazines: a man with two or more spare magazines more than another gives him one,
+until no two men of the same weapon differ by two or more. Then packages of loose rounds the same way. Each hand-over
+is a man walking over and handing one item across (3 s); at most two hand-overs at a time per squad, and only between
+men within 50 m of each other who are standing still. The man who walked over walks back to where he was (his
+fighting position, his place in the formation) and faces the way he faced. A marksman's magazines fit nobody else's
+rifle, so they stay with him. Fire on the squad stops it.
+
+**Own casualties.** A man who is down for good (dead, unconscious, wounded so badly that he cannot fight, or lying at
+the Verwundetennest) keeps his ammunition until his treatment is done — he has been treated and nothing urgent is
+left — or, if he is dead, until his comrades know he is dead. Never before (the owner's rule), never while someone is
+treating him, checking him, carrying him or on the way to him. Then the nearest man of his squad within 30 m who is
+running low (fewer than three spare magazines, or a gunner short of belts) goes over and takes his magazines, belts,
+loose rounds, grenades and rockets (8 s). If nobody near is low but the squad as a whole is, the man who treated him
+takes them, and then goes back to his place. A wounded man who can still use his arms keeps one full magazine.
+
+**No ammunition at the red cross.** The Verwundetennest holds none (owner): a treated casualty lying there hands his
+to the nearest man of his platoon within 30 m who does not wear the red cross; if nobody is there, it is left in a
+pile 30 m from the nest, towards the platoon (the next step makes such piles into caches the men can use).
+
+**Taking enemy kit (only on the player's order).** "Take enemy kit" appears on the order bar (on a phone under "⋯")
+when the selected squad or man knows of a dead or wounded enemy, or one who has given up, within 150 m. The nearest man
+goes over and takes the ammunition that fits a weapon he carries. If none fits, a rifleman swaps his rifle for the
+enemy's rifle with its magazines; his own rifle goes into his load (every rifle has an item of its own for that, so
+nothing appears or vanishes), and he fires the enemy's rounds from then on. When nothing there fits, the squad says so
+on the radio, as it does when nobody is near enough. The computer commander never gives this order. Taking weapons
+from enemy wounded and prisoners is lawful (disarming them): it is not recorded as a breach.
+
+**Measuring it.** `npm run lab -- redistribute` sets a squad's spare magazines to between none and six per man and
+checks that after a minute of quiet no man is more than one magazine from his squad's average, that the gunner got
+his belts first, and that not a round appeared or vanished. The consumption lab now also reports the rounds taken
+from casualties per battle, and checks that none was ever taken from a living man before his treatment;
+`--no-consolidate` runs the battles without this step for comparison.
+
 ## Grenades
 
 A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one

@@ -431,6 +431,11 @@ function loadFaction(
       if (!ad) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo.${a}`, message: `unknown ammunition '${a}' (known: ${known(pack.ammunition)})`, severity: "error" });
       else if (ad.calibre !== wp.calibre) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo.${a}`, message: `calibre ${ad.calibre} does not fit this ${wp.calibre} weapon`, severity: "error" });
     }
+    if (wp.weaponItem !== undefined) {
+      const wi = pack.items[wp.weaponItem];
+      if (!wi) errors.push({ file: f("weapons.json"), path: `weapons[${i}].weaponItem`, message: `unknown item '${wp.weaponItem}'`, severity: "error" });
+      else if (wi.chargeItem !== undefined || Math.abs(wi.massKg - wp.massKg) > 1e-9) errors.push({ file: f("weapons.json"), path: `weapons[${i}].weaponItem`, message: `item '${wi.id}' must be a plain item of the weapon's mass (${wp.massKg} kg)`, severity: "error" });
+    }
     if (mag && mag.chargeItem !== undefined && !ids.includes(mag.chargeItem)) {
       errors.push({ file: f("weapons.json"), path: `weapons[${i}].feed.magazine`, message: `magazine '${mag.id}' holds '${mag.chargeItem}', which this weapon does not fire`, severity: "error" });
     }

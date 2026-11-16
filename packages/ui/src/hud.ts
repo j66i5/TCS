@@ -62,6 +62,8 @@ export interface HudCallbacks {
   onRepair?(): void;
   /** "Recover" (M11.7b): call a recovery vehicle for the selected crew's disabled hull. */
   onRecover?(): void;
+  /** "Take enemy kit" (M11.2): the selected unit takes the nearest known enemy casualty's or prisoner's kit. */
+  onTakeKit?(): void;
   onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
@@ -388,13 +390,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   repairBtn.hidden = true;
   const recoverBtn = verb("recover", "order.recover", "callRecovery", () => cb.onRecover?.());
   recoverBtn.hidden = true;
+  const takeKitBtn = verb("takeKit", "order.takeKit", "takeKit", () => cb.onTakeKit?.());
+  takeKitBtn.title = s.t("order.takeKitTitle");
+  takeKitBtn.hidden = true;
   mountBtn.hidden = true; dismountBtn.hidden = true; dischargeBtn.hidden = true; natureBtn.hidden = true;
   // Display order in the bar; and the order in which items move behind "⋯" when the strip is too short.
-  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn];
-  const OVERFLOW_FIRST = ["callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
+  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn, takeKitBtn];
+  const OVERFLOW_FIRST = ["takeKit", "callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
   const allButtons = (): HTMLButtonElement[] => [...dock.querySelectorAll("button")];
   orders.append(grip, ...barItems, moreBtn);
-  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
+  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn, takeKitBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
 
   // ---- plan bar (S3: the pace of the next leg is chosen on the unit card)
   const plan = el("div", "hud-plan");
@@ -699,7 +704,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
       haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire;
       for (const b of postureBtns) b.hidden = !set.posture;
-      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true; repairBtn.hidden = set.repair !== true;
+      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true; repairBtn.hidden = set.repair !== true; takeKitBtn.hidden = set.takeKit !== true;
       recoverBtn.hidden = set.recover !== true;
       if (set.recover === true) recoverBtn.title = s.t("order.recoverTitle", { n: set.recoverLeft ?? 0 });
       dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;

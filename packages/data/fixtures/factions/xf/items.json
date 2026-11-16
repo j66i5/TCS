@@ -271,6 +271,15 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M11.1): a can of loose rounds."
+    },
+    {
+      "id": "xf-blaster-carried",
+      "nameKey": "weapon.xf-blaster",
+      "category": "weapon",
+      "massKg": 5,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.2: the rifle as an item, carried slung or in the load instead of in the hands (taking an enemy rifle puts one's own away); the same mass as the weapon entry (weapons.json, its sources)."
     }
   ]
 }

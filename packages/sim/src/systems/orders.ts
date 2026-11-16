@@ -11,6 +11,7 @@ import { callAmbulanceOrder } from "./evacuation";
 import { rearRunGate, rearRunOrder } from "./rearrun";
 import { endRepairByOrder, repairOrder } from "./repair";
 import { callRecoveryOrder, towGate } from "./recovery";
+import { kitSource, takeKitOrder } from "./consolidate";
 import { aglOf, crewServedKind, startSetup } from "./mortars";
 import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
@@ -155,6 +156,11 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "defendArc":
       if (!state.unit.has(o.target)) return "invalid-params";
       return Number.isFinite(o.facing) && Number.isFinite(o.widthRad) && o.widthRad > 0 && o.widthRad <= 2 * PI ? null : "invalid-params";
+    case "takeKit":
+      // (M11.2: men on foot; an enemy casualty or prisoner, or a pile on the ground.)
+      if (state.unit.get(o.target)?.vehicle !== undefined || !Number.isInteger(o.source)) return "invalid-params";
+      if (!ctx.catalog.behaviour.consolidate) return "not-applicable";
+      return kitSource(state, o.issuer, o.source) ? null : "invalid-params";
     case "rearRun":
       // A vehicle crew's hull (M10.6b).
       if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
@@ -411,6 +417,12 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // A combat vehicle's rear run (M10.6b): the hull's own task; an order to a hull away on one is refused, on the map
   // it ends the run.
   if (order.kind === "rearRun") return rearRunOrder(ctx, state, events, order.target);
+  // Take enemy kit (M11.2): one man's errand; nothing else of the unit changes.
+  if (order.kind === "takeKit") {
+    // mounted: ok takeKitOrder sends only men on foot
+    const men = isUnit ? (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : unitSoldiers(state, order.target)) : [order.target];
+    return takeKitOrder(ctx, state, events, men, order.source);
+  }
   const gate = rearRunGate(state, events, order);
   if (gate !== null) return gate;
   // Recovery (M11.7b): a call; orders to a crew on the bar or towed away are refused.
@@ -503,7 +515,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (!keepsDrill) {
     for (const m of soldiers) {
       const ms = state.soldier.get(m);
-      if (ms?.intent?.kind === "takePrisoner" || ms?.intent?.kind === "care") ms.intent = null;
+      if (ms?.intent?.kind === "takePrisoner" || ms?.intent?.kind === "care" || ms?.intent?.kind === "takeAmmo" || ms?.intent?.kind === "takeKit" || (ms?.intent?.kind === "bringAmmo" && ms.intent.consolidate === true)) ms.intent = null;
       if (ms?.carrying !== undefined) leaveCarry(state, m); // an order to him alone takes him out of his carrying party
     }
   }

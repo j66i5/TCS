@@ -405,6 +405,9 @@ for the owner's numbers answer after playing, not for more building).
     and thermal sights, swaps from own spares, flat radios take a unit off the net, flat sights fall back; drone
     items via transferItems; water in battles of 2 h or more; `lab -- batteries`; review and batch lines. Smoke and
     medical resupply are left to the resupply slices.
+  - ✅ **M11.2 (slice 44)** consolidation in quiet squads (belts first, then magazines, then loose rounds), own
+    casualties' ammunition after treatment, none at the Verwundetennest (a pile outside), "Take enemy kit" on the
+    player's order (rifle swap with `weaponItem`), `npm run lab -- redistribute` (DECISIONS "M11.2")
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

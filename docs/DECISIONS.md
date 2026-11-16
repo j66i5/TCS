@@ -7690,3 +7690,75 @@ and windows, cover by walls only), so a minimal **fighting position** was added 
   container misses 6 (smoke 6.3x, bench-vehicles 7.5x, tanks 7.3x; this branch 6.8x, 6.6x, 7.7x); bench-vehicles
   alone, alternating, 4 runs each: main 7.47, 7.61, 7.03, 6.38; this branch 7.06, 6.97, 6.99, 6.51 — noise of a slow
   container (the new per-tick work in battles without positions is one length check per man).
+
+## 2026-11-16 — M11.2 (slice 44): redistribution, own casualties' ammunition, "Take enemy kit" (goldens regenerated)
+Built from the interrupted WIP (`claude/m11-wip-44`, one unchecked commit), reviewed and finished. Owner answers
+(binding): own casualties' ammunition is taken automatically **after** treatment; enemy kit only on the player's order;
+no ammunition at the Verwundetennest. Everything else is a software decision (values low, `core/behaviour.json`
+`consolidate`; search extracts only).
+- **Consolidation** (`sim/systems/consolidate.ts`, each squad looked at once per `stepS` 2 s): a squad not fired on for
+  `quietS` 60 s **and halted for `haltS` 20 s** (all its men on foot without a route; added in review: without it men
+  left a march mid-way and a formation arriving was broken up) evens out: belts first (a gunner below 2 spare belts),
+  then magazines (gap 2), then loose-round packages (gap 2), at most 2 hand-overs at a time, between men within 50 m.
+  A hand-over is the old `bringAmmo` errand ending in the generic `transferItems` action (3 s); marked `consolidate`.
+- **Walking back** (added in review): every man who walked over for a hand-over or a taking walks back to where he
+  stood, faces the way he faced and takes his posture again (`Intent.back`/`returning`, origin x, y, z, heading,
+  posture on the intent; optional fields, no schema bump). Without it men left their fighting positions and
+  formations for good (the hold battle's holes, marker-vs-sim and formation tests failed). A man on his way back may
+  be sent on another hand-over (his first place stays his place); walking back does not take up a hand-over slot.
+- **Own casualties**: dead (known dead where checks exist) or treated with nothing urgent left, nobody treating,
+  checking, carrying or on the way to him: the nearest low man of his squad within 30 m (below 3 spare magazines, a
+  gunner below 2 belts), else the man who treated him if the squad's mean is low, takes magazines, belts, loose rounds,
+  grenades and rockets in 8 s; a man who can still use his arms keeps one (the fullest) magazine. The gate is checked
+  again when the action completes. Event `items.taken` (source casualty/nest, `treated`, `dead`).
+- **The nest holds no ammunition**: a treated casualty lying there hands his to the nearest able man of his platoon
+  within 30 m who wears no red cross; with nobody there it is left as a **pile** (a new entity with a transform and a
+  container, no identity) 30 m from the nest towards the platoon (`items.dropped`); slice 45 makes piles caches. Until
+  then nobody uses a pile on his own (only "Take enemy kit" on an enemy one).
+- **Take enemy kit** (order `takeKit {source}`; the AI never gives it): source an enemy casualty or prisoner, or a pile;
+  the nearest able man on foot within `kitM` 150 m for whom something fits goes (10 s): ammunition that fits his weapon,
+  else a rifleman swaps his rifle for the enemy's with its magazines. Personal rifles got an item each (`weaponItem`:
+  `de-g36-carried`, `ru-ak74m-carried`, `ru-ak12-carried`, fixture `xf-blaster-carried`; mass = the weapon's, loader
+  check); the ledger now counts a weapon in the hands as its item and the magazine in a weapon as an item, so a swap
+  neither creates nor destroys anything. Refusals on the radio (`radio.kitNothing`, `radio.kitFar`). Disarming enemy
+  wounded and prisoners is lawful: no conduct record. Order bar "Take enemy kit" (phone under "⋯") when the selected
+  unit's men know of an enemy casualty or prisoner (contact marked down or surrendered) within 150 m.
+- `rules.resupply === false` (`--no-resupply`) switches all of it off (slices 44-48 are resupply routes); the lab's
+  `--no-consolidate` drops the `consolidate` block for before/after on the same build.
+- **Measured** (scratch runner over `consumptionBattle`, same build; "before" = `--no-consolidate`, which is slice 43 +
+  the stronger hold defence exactly: hold-resupply seeds 1-6 end at the same seconds as in the entry above; "dry" =
+  men whose weapon and spares were empty; attacker wins: blue in platoon and the mounted battles, red in -ru):
+
+  | scenario | seeds x s | before: attacker wins / dry men per battle / hand-overs | after: attacker wins / dry men / hand-overs | rounds taken from casualties per battle (median; takings) | taken before treatment |
+  |---|---|---|---|---|---|
+  | platoon (blue attacks) | 10 x 1200 | 7 / 0.7 / 3.9 | 9 / 0.8 / 21.0 (seeds 11-20: 6 / 0.6 / 17.4) | 0 (28 in 20 seeds) | 0 in 20 seeds |
+  | platoon-ru (red attacks) | 10 x 1200 | 9 / 0.2 / 3.4 | 10 / 0.1 / 11.3 (seeds 11-20: 9) | 0 (12 in 20 seeds) | 0 in 20 seeds |
+  | platoon-vehicles (blue attacks) | 10 x 1200 | 10 / 0.2 / 1.5 | 9 / 0.1 / 6.8 | 0 (22 in 20 seeds) | 0 in 20 seeds |
+  | platoon-ru-vehicles (red attacks) | 10 x 1200 | 1 / 0 / 0.5 | 1 / 0 / 9.6 | 0 (46 in 20 seeds) | 0 in 20 seeds |
+  | hold-resupply (defender wins) | 6 x 3600 | 2 / 0.83 / 4.0 | 4 / 1.17 / 10.7 (20 seeds: 13 of 20) | 309 (460 over 20 seeds; 368 takings) | 0 in 20 seeds |
+  | hold-resupply-ru (defender wins) | 6 x 3600 | 3 / 1.5 / 6.0 | 3 / 2.0 / 20.0 | 329 | 0 |
+  | hold-resupply --no-resupply | 6 x 3600 | ends 3600, 3600, 2599, 537, 2587, 1340 | identical (resupply off switches slice 44 off) | 0 | 0 |
+
+  Hold battle ends after: 3600, 3600, 3600, 1704, 3600, 1426 (before 3600, 3600, 2797, 631, 2728, 1340): the defence
+  lasts longer, mostly because its men even out between waves. Piles left outside the nest: 57 in 20 hold battles, 3-13
+  per 20 platoon battles (nobody uses them until slice 45). Dry men per battle hardly move in the platoon battles (they
+  end before ammunition runs short); in the hold battle more men end dry because more of the battle is fought.
+- **Acceptance**: `lab -- redistribute` met in 8 of 8 trials (no man more than one magazine from the mean of his
+  weapon's men 60 s after the quiet began, belt to the gunner first, ledger exact); takeKit test (German takes an
+  AK-74M and 3 magazines, fires them, conservation exact; refused with `radio.kitNothing`) met; taking before
+  treatment 0 in 20 seeds of each platoon scenario and of hold-resupply: met; median rounds taken reported (above).
+  **Open (balance, owner):** attacker wins in the foot platoon battles rose (platoon 7 -> 9 of seeds 1-10, 15 of 20;
+  platoon-ru 9 -> 10, 19 of 20): above the 2-8 band; the attacker has the quiet moments to even out.
+- Goldens: all changed (catalog fingerprint: new items, `weaponItem`, `consolidate`; behaviour in battles with a quiet
+  squad), `npm run golden:update`; `golden/no-interiors` untouched.
+- Tests: `sim/test/consolidate.test.ts` (evening out, belts first, ledger, walk back, not under fire, save/load
+  mid-hand-over; casualties never before treatment, the man who keeps a magazine, dead men stripped, off with
+  resupply off; takeKit swap and fire, save/load mid-take, only fitting ammunition, refusals);
+  `tools/test/takekit.test.ts` (real data, conservation guard); `tools/test/redistribute.test.ts` (the lab).
+  Screenshots `--scene ui` (7-take-kit, 8-take-kit-going), phone and desktop, looked at.
+- Checks: typecheck, lint, data lint (no errors), `npm test` 1501 pass. `npm run test:perf` alone: 19 of 23; the
+  spotting (7.1x), spotting-with-smoke (7.0x), bench-vehicles (6.5x) and bench-tanks (7.1x) floors (8x) missed. The
+  base 8c330e8 in a scratch worktree, alternating with this branch, those four tests only, alone: spotting base 7.6,
+  7.5 / this 7.6; smoke base 6.6, 7.2 / this 7.6, 7.5; bench-vehicles base 7.3, 7.0 / this 7.5, 7.3; tanks base 8.0
+  / this 7.9: no regression, a slow container (the new per-tick work is one modulo test per unit; a squad is looked at
+  once per 2 s).

@@ -420,11 +420,22 @@ export interface CommState {
  * first responder or medic (else as a comrade).
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone" | "takeAmmo" | "takeKit";
   tick: number;
+  /** takeAmmo (M11.2, systems/consolidate.ts): he goes to the own casualty `target` (treated, or dead) to take his
+   *  ammunition; takeKit: to the enemy casualty, prisoner or pile `target` the player named (order `takeKit`). */
   target?: EntityId;
   /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
   item?: DefId;
+  /** bringAmmo (M11.2): a hand-over of the squad's consolidation (the receiver may still have some). */
+  consolidate?: true;
+  /** bringAmmo (consolidation), takeAmmo, takeKit (M11.2): the hand-over or taking has begun; once it is done he walks
+   *  back to (x, y, z), where he stood when he set out, faces `heading` (rad) and takes `posture` again. */
+  back?: true;
+  /** ... and he is on his way back now (the errand ends when he is there). */
+  returning?: true;
+  heading?: number;
+  posture?: Posture;
   x?: number;
   y?: number;
   /** takePrisoner, care: his height above the ground at (x, y) (his floor; absent = the ground, M7.5 review fix). */
@@ -528,6 +539,9 @@ export interface Unit {
    *  Optional (absent = never). */
   ownFireTick?: number;
   ownContactTick?: number;
+  /** M11.2 (consolidate.ts): since when all of this unit's men on foot have stood still (no route; men on a
+   *  consolidation errand aside). Absent: moving, or not looked at yet. */
+  haltedTick?: number;
   /** Sight realism step 2 (2026-11-15): the last tick a man of this unit (or, on a top unit, of any unit under it)
    *  saw an enemy, not spared, within `drills.reactSeenM` (night: `reactSeenNightM`); and on the man's own unit the
    *  start of that spell of sightings (anew after `decisions.contactLostSeconds` without one): react to contact on

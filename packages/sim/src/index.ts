@@ -75,7 +75,7 @@ export * from "./setup";
 export * from "./sim";
 export * from "./run";
 export { unitSoldiers } from "./systems/orders";
-export { loadKg, postureChangeSeconds, requestPosture } from "./systems/body";
+export { loadKg, postureChangeSeconds, requestPosture, thirstAimFactor, thirstShare } from "./systems/body";
 export * from "./expenditure";
 export * from "./review";
 export { canFight, faceNeed, gunneryAllowed, missileAimPoint, muzzleWorld, stationOperator, visibleAimIndex, weaponOut } from "./systems/gunnery";

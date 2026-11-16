@@ -82,6 +82,12 @@ export const BodyFile = z.object({
     postureChangeExertion: Num(0, 2), hrExertionWeight: Num(0, 1), hrFatigueWeight: Num(0, 1),
     /** An exhausted man on a hard pace works at this fraction of the sustainable rate (so he recovers). */
     exhaustedExertionFactor: Num(0, 1),
+    /** M11.6: water loss and drinking, only in battles of `fromBattleS` or more (absent: hydration never changes). */
+    hydration: withProv({
+      fromBattleS: Num(0, 1e6), lossBaseLph: Num(0, 5), lossExertLph: Num(0, 5), deficitMaxL: Num(0.1, 20),
+      effectFromL: Num(0, 20), drinkBelow: Num(0, 1), sipMl: Num(1, 2000), drinkSuppressionMax: Num(0, 1),
+      fatigueGainK: Num(0, 10), recoveryK: Num(0, 1), aimK: Num(0, 10),
+    }).optional(),
   }),
 }).strict();
 export type BodyT = z.infer<typeof BodyFile>;

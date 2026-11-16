@@ -34,4 +34,13 @@ describe("batteries and water in the faction data (M11.6)", () => {
       expect(water).toBeGreaterThan(0);
     });
   }
+
+  it("the water model is loaded (only for battles of 2 h or more), without provenance keys", () => {
+    const input = buildScenario(data, { kind: "platoon-attack", seed: 1, mapKind: "farmland", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: 60 });
+    const hy = input.catalog.body.physiology.hydration!;
+    expect(hy.fromBattleS).toBe(7200);
+    expect(hy.effectFromL).toBeLessThan(hy.deficitMaxL);
+    expect(Object.keys(hy)).not.toContain("sources");
+    expect(Object.keys(input.catalog.body.physiology)).not.toContain("note");
+  });
 });

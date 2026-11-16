@@ -35,6 +35,8 @@ export interface SoldierRecord {
   /** His shock (fast fear) as it stood, and his strain (slow wear; morale rework 2026-11-15; absent = 0). */
   stress: number;
   strain?: number;
+  /** M11.6: his water (1 = no deficit, 0 = the deficit at which thirst tells fully; absent = 1). */
+  hydration?: number;
   wounds: Wound[];
   /** Blood volume, shock, consciousness... of a man who is already hurt (omitted = healthy, or derived from status). */
   physiology?: Physiology;

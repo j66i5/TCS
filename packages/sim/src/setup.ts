@@ -281,7 +281,7 @@ function addSoldier(
     posture: "standing",
     postureTo: null,
     postureDoneTick: 0,
-    physical: { fatigue: rec.fatigue, heartRateBpm: catalog.body.physiology.hrRestBpm, hydration: 1, winded: false },
+    physical: { fatigue: rec.fatigue, heartRateBpm: catalog.body.physiology.hrRestBpm, hydration: rec.hydration ?? 1, winded: false },
     // His nerve (morale rework): his own steadiness, the same distribution for every side (stream "morale").
     mental: {
       stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady", strain: rec.strain ?? 0,
@@ -363,6 +363,7 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     fatigue: s.physical.fatigue,
     stress: s.mental.stress,
     ...(s.mental.strain > 0 ? { strain: s.mental.strain } : {}),
+    ...(s.physical.hydration < 1 ? { hydration: s.physical.hydration } : {}),
     wounds: JSON.parse(JSON.stringify(s.wounds)) as SoldierRecord["wounds"],
     // The magazine in the weapon goes back into the load, so nothing is lost between battles.
     // (M7.6d: so does the box on his team's AGL, if he carries its post.)

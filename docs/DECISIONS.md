@@ -7231,3 +7231,36 @@ Software decisions (owner to review). No data change; goldens unchanged.
   left, unsettled as on landing): its operator; with none, the first man of its unit still alive (ID order), else its
   first man (`airborneHolder`, setup.ts). Before, an airborne drone vanished from the roster.
 - **Tests:** `packages/tools/test/sight-drone-power.test.ts`.
+
+## 2026-11-16 — M11.6 stage 4: water in battles of 2 hours or more (goldens regenerated)
+
+Software decisions and game values (owner to review); sources in `core/body.json` `physiology.hydration` (search
+extracts only: medium at most).
+
+- **Data:** new optional block `physiology.hydration` in `core/body.json`: `fromBattleS` 7200 (owner: water matters
+  only in battles of 2 h or more), `lossBaseLph` 0.15 (about 3.6 L/day at rest, temperate; USARIEM Montain & Stamm
+  2000, US Army 3-4 L/day: medium), `lossExertLph` 0.8 at full exertion (TB MED 507 0.47-0.95 L/h for easy to hard
+  work: medium), `deficitMaxL` 4.8 (6 % of the 80 kg body = hydration 0), `effectFromL` 1.6 (2 %: Sawka NBK231132,
+  GSSI, PMC8912814: medium), `drinkBelow` 0.85, `sipMl` 250, `drinkSuppressionMax` 0.1, `fatigueGainK` 1.0,
+  `recoveryK` 0.5, `aimK` 0.3 (game values, low). The catalog keeps the block without provenance keys (`noProv`).
+- **Design deviation:** the design's hydration 0 = 3.2 L would never reach its own 6 % full-effect point (4.8 L);
+  hydration 0 is 4.8 L here, so the effect range 2-6 % lies inside the 0..1 scale.
+- **Loss:** in `physiologySystem`, only when `rules.timeLimitSeconds >= fromBattleS`: per tick
+  `(lossBaseLph + lossExertLph x min(1, exertion)) x heat x DT / 3600 / deficitMaxL` off `physical.hydration`
+  (alive men, mounted too). Shorter battles: hydration never falls, so nothing changes (the goldens' event streams are
+  unchanged; only the catalog fingerprint moved).
+- **Drinking:** once a second, staggered by id (`id % 60 == tick % 60`), a man below `drinkBelow` who is able, not
+  stunned and at most `drinkSuppressionMax` suppressed takes a sip from his emptiest water item with charge (items
+  flagged `water`, rule 8): `drawCharge` (new, items.ts: remove one item, add it back at the lower charge; an empty
+  canteen stays a counted item; `drawFuel` in drive.ts now uses it, same result). Instant, no action; event
+  `water.drunk {soldier, side, item, ml}` (integer ml: left + drunk = start, exactly). Drinking is not gated on the
+  battle length, so a man who comes in dry can drink in a short battle.
+- **Effects:** `thirstShare` = 0 up to `effectFromL`, linear to 1 at `deficitMaxL`. Fatigue gain x(1 + fatigueGainK x
+  share), recovery x(1 - recoveryK x share) (body.ts); aim error x(1 + aimK x share) (`thirstAimFactor`, fire.ts).
+  Morale and running follow through fatigue. Water drunk also lowers his load mass (the item's charge mass).
+- **Roster:** optional `SoldierRecord.hydration` out (only below 1) and in (absent = 1).
+- **Tests:** `packages/sim/test/water.test.ts` (no change in a 1200 s battle; drinking emptiest first and exact
+  conservation in a long battle; no water, under fire; effects and none below 2 %; roster round trip);
+  `power-data.test.ts` checks the block is loaded. `npm run golden:update`: the ten goldens with interiors changed
+  (fingerprint only; a headless platoon-vehicles 120 s event stream compared identical before and after).
+

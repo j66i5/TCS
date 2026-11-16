@@ -399,6 +399,10 @@ fits the fullest. Water items have `water: true` and a charge in ml (`chargeCapa
 1]) and `swapBelowShare` (a lull change below that share). A man-portable radio has `radio: true` (M11.6 stage 2): a unit on foot whose radios
 (or, with none of its own, its parent's) are all flat is off the net. A powered item with a `sensor` (goggle, thermal
 sight) gives its sensor only while its battery has charge (stage 3): give lab or test loads a battery with the device.
+Water (stage 4): optional `core/body.json` `physiology.hydration` (`fromBattleS`: men lose water only in battles of at
+least that limit; `lossBaseLph` + `lossExertLph` x exertion, times the heat factor; `deficitMaxL` = hydration 0;
+effects from `effectFromL` to `deficitMaxL`; `drinkBelow`, `sipMl`, `drinkSuppressionMax`; `fatigueGainK`, `recoveryK`,
+`aimK`). Absent: hydration never changes.
 
 ## Guided missiles (M9.3a)
 

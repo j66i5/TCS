@@ -337,6 +337,11 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   0.3; fitted batteries start at 30-100 % of full; lull change below 10 %; water 2000 ml at 0.8 g/ml (canteens folded in).
   Stage 2 (radio silence): should a radio carrier who is down or killed take his unit off the net (now: his radio still
   counts)? Should an order already received when the radio goes flat still arrive (now: yes)?
+  Stage 4 (water, `core/body.json` `physiology.hydration`): loss 0.15 L/h at rest + 0.8 L/h at full exertion (medium,
+  TB MED 507 / USARIEM), only in battles of 2 h or more; effects from a 1.6 L deficit (2 % of 80 kg, medium) to full at
+  4.8 L (6 %); he sips 250 ml when 0.72 L down and not under fire (suppression <= 0.1); at full deficit fatigue builds
+  x2, recovers x0.5, aim error x1.3 (low). Drinking is instant (no action). A man who comes in dry (roster) into a short
+  battle can still drink but loses no more water.
 
 - Sight realism step 3 (2026-11-15, all low; `core/spotting.json` `conceal`, `core/terrain/vegetation.json`): the
   vegetation concealment and backdrop figures, the conspicuity spread (sigma 0.8), the kept-sight decay (5 s, floor

@@ -222,7 +222,19 @@ export interface BodyDef {
     recoveryPerS: number; hrRestBpm: number; hrMaxBpm: number; hrRiseTauS: number; hrFallTauS: number;
     heatThresholdC: number; heatPerC: number; postureChangeExertion: number; hrExertionWeight: number;
     hrFatigueWeight: number; exhaustedExertionFactor: number;
+    /** M11.6: water (body.ts). Absent: hydration never changes. */
+    hydration?: HydrationDef;
   };
+}
+
+/**
+ * M11.6 water (core/body.json physiology.hydration). `hydration` 1 = no deficit, 0 = a deficit of `deficitMaxL`.
+ * He loses water only in battles of `fromBattleS` or more; the effects start at a deficit of `effectFromL` and are
+ * full at `deficitMaxL`.
+ */
+export interface HydrationDef {
+  fromBattleS: number; lossBaseLph: number; lossExertLph: number; deficitMaxL: number; effectFromL: number;
+  drinkBelow: number; sipMl: number; drinkSuppressionMax: number; fatigueGainK: number; recoveryK: number; aimK: number;
 }
 
 /** Global ballistics parameters (core/ballistics.json). */

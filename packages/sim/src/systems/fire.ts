@@ -18,7 +18,7 @@ import { aimErrorFactor, fireRateFactor, isCowering } from "./morale";
 import type { Contact, FireTask, WeaponState } from "../components";
 import { sight } from "../los";
 import type { Posture } from "../orders";
-import { loadKg, postureChangeSeconds, requestPosture } from "./body";
+import { loadKg, postureChangeSeconds, requestPosture, thirstAimFactor } from "./body";
 import type { WeaponDef } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
@@ -75,7 +75,7 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   const mv = state.mover.get(id);
   const onTheMove = task?.onTheMove === true && mv !== undefined && mv.speedMps > 0.2 ? ctx.catalog.behaviour.soldier.assaultFireAimFactor : 1;
   return onTheMove * settle * braced * a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
-    * (1 + a.fatigueK * s.physical.fatigue) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
+    * (1 + a.fatigueK * s.physical.fatigue) * (s.physical.hydration < 1 ? thirstAimFactor(ctx.catalog, s.physical.hydration) : 1) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
     * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim * aimErrorFactor(ctx, s);
 }
 

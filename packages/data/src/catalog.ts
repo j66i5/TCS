@@ -201,5 +201,5 @@ export function bodyCatalog(data: DataSet): BodyDef {
   };
   const postures = {} as BodyDef["postures"];
   for (const p of b.postures) postures[p.id] = { heightM: p.heightM, speedFactor: p.speedFactor, muzzleHeightM: p.muzzleHeightM };
-  return { postures, transitions: strip(b.transitions), movement: strip(b.movement), physiology: strip(b.physiology) };
+  return { postures, transitions: strip(b.transitions), movement: strip(b.movement), physiology: noProv(b.physiology) as BodyDef["physiology"] };
 }

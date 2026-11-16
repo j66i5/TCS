@@ -121,6 +121,8 @@ export type SimEvent =
    *  device had none). No radio message: a flat radio sends nothing. */
   | { kind: "power.flat"; tick: number; soldier: EntityId; device: DefId; side: SideId }
   | { kind: "power.swapped"; tick: number; soldier: EntityId; device: DefId; battery: DefId; whOut: number; whIn: number }
+  /** M11.6: he drank `ml` millilitres from his canteen (`item`; battles of 2 h or more). */
+  | { kind: "water.drunk"; tick: number; soldier: EntityId; side: SideId; item: DefId; ml: number }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
   /** A leader rallied a man of his unit (morale rework 2026-11-15): his shock eased, a runner stopped. */
   | { kind: "morale.rally"; tick: number; leader: EntityId; soldier: EntityId }

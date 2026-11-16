@@ -21,6 +21,7 @@
 import { inArc } from "../arc";
 import { DRONE_SEEN_S } from "./drones";
 import { interruptAction, startAction } from "../actions";
+import { refillDecision } from "./refill";
 import type { Contact, Intent, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import { countItems, type Container } from "../items";
@@ -1276,13 +1277,17 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       // (An ambush not yet sprung, D4b, holds his fire to its range.)
       const beyond = c !== undefined && ((unit.maxEngageM > 0 && hypot2(c.x - me.x, c.y - me.y) > unit.maxEngageM) || (unit.ambush !== undefined && hypot2(c.x - me.x, c.y - me.y) > unit.ambush.rangeM)
         || (c !== undefined && unit.arc !== undefined && !inArc(state, id, me, c.x, c.y)));
-      if (!c || (spared(c) && !breachActive(s, c.target, state.tick)) || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || reach <= 0 || hypot2(c.x - me.x, c.y - me.y) > reach) {
+      // (Fire at a known place, M11.1 point 7b: it lasts while the place is fresh, `suppressKnown.withinS`.)
+      const lostS = task.suppress === "known" ? S.suppressKnown?.withinS ?? D.contactLostSeconds : D.contactLostSeconds;
+      if (!c || (spared(c) && !breachActive(s, c.target, state.tick)) || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(lostS) || reach <= 0 || hypot2(c.x - me.x, c.y - me.y) > reach) {
         state.fire.delete(id);
         if (s.intent?.kind === "engage") s.intent = null;
         // (Lost sight of him: his look for him is due at once, sight realism step 4.)
         if (c && state.tick - c.tick > secondsToTicks(D.contactLostSeconds)) { delete s.peekTick; delete s.windowSwitchTick; }
       } else if (c.kind === "seen" && state.tick - c.tick <= secondsToTicks(D.seenWithinSeconds)) {
         task.reasonTick = state.tick;
+        // (Seen again: aimed fire at him, no longer fire at a place.)
+        if (task.suppress === "known") delete task.suppress;
       }
     }
     // Stale intents (debug overlay): cover reached, or his own fire replaced by an order.
@@ -1377,6 +1382,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
           s.intent = { kind: "engage", tick: state.tick, target: pick.target } satisfies Intent;
         }
       } else if (onMove && current && current.self && pick && current.contact === pick.target) current.onTheMove = true;
+      // ---- no enemy in sight: a defender fires at the known place of one (M11.1 point 7b, suppressive fire)
+      if (halted && !pick && !reserve && !current && unit.ambush === undefined && S.suppressKnown !== undefined && !inDark
+        && state.sides.find((x) => x.id === ident.side)?.posture === "defend") suppressKnown(ctx, state, id, s, range, S.suppressKnown);
       // No enemy on the ground to fire at: an enemy drone he sees close overhead (M9.4b).
       // (Not in self-defence under rule "return": a drone overhead is no enemy close in front of him.)
       if (halted && reach === Infinity && !pick && !reserve && unit.ambush === undefined && state.drone.size > 0 && (!current || current.contact === undefined || !state.drone.has(current.contact))) {
@@ -1392,6 +1400,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     const hidden = hideFromDrone(ctx, state, id, s, ident.unit);
 
     // ---- back to his fire position, look for the enemy, face him (package C)
+    // ---- a quiet moment: he refills an emptied magazine from his loose rounds (M11.1)
+    if (halted && !hidden && !isCowering(s) && !state.action.has(id) && s.postureTo === null && refillDecision(ctx, state, events, id, s)) continue;
     if (halted && !hidden && !isCowering(s) && !state.action.has(id) && s.postureTo === null) postureAndWatch(ctx, state, id, s, ident.unit, every);
 
     // ---- out of spare magazines or belts: a comrade brings one
@@ -1402,4 +1412,26 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     const ovEvery = Math.max(1, secondsToTicks(S.overlapCheckSeconds));
     for (let id = staggerFirst(state.tick, ovEvery); id < state.nextEntityId; id += ovEvery) stepAside(ctx, state, id);
   }
+}
+
+/**
+ * M11.1 (slice 43 point 7b): a defender with no enemy in sight fires at the place of the nearest enemy he knew within
+ * `withinS` (heard, told of, or seen and lost) — suppressive fire at a known position, one aimed shot per
+ * `intervalS` (fire.ts). Not at a place he has no line of fire to (the fire task's own check), not at a man known
+ * to be down, given up or protected, not beyond his engage range nor nearer than `minM`.
+ */
+function suppressKnown(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, range: number, SK: { withinS: number; minM: number; maxErrM: number }): void {
+  const me = state.transform.req(id);
+  let best: Contact | null = null, bd = Infinity;
+  for (const c of s.contacts) {
+    if (c.down === true || c.surrendered === true || spared(c) || c.cls === "vehicle" || c.errM > SK.maxErrM || state.tick - c.tick > secondsToTicks(SK.withinS)) continue;
+    const d = hypot2(c.x - me.x, c.y - me.y);
+    if (d < SK.minM || d > range || d >= bd) continue;
+    if (!inArc(state, id, me, c.x, c.y)) continue;
+    best = c; bd = d;
+  }
+  if (!best || friendInLine(ctx, state, id, best.x, best.y)) return;
+  if (!assignFireTask(ctx, state, id, best.x, best.y, aimHeightAt(ctx, best))) return;
+  const ft = state.fire.get(id)!;
+  ft.contact = best.target; ft.self = true; ft.aimAuto = true; ft.suppress = "known";
 }

@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]` |consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] prints the lab tables and writes them to reports/. */
 import { buildCatalog } from "@tcs/data";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -34,9 +34,15 @@ import { carryLab, carryLabMarkdown } from "../labs/carry";
 import { medevacLab, medevacLabMarkdown } from "../labs/medevac";
 import { breachLab, breachLabMarkdown, chanceTable, protectionLab, protectionLabMarkdown } from "../labs/protection";
 import { batteriesLab, batteriesLabMarkdown } from "../labs/batteries";
-import { loadData } from "../scenarios";
+import { consumptionLab, consumptionOptions } from "../labs/consumption";
+import { loadData, SCENARIOS } from "../scenarios";
 
 const LABS: Record<string, () => string> = {
+  consumption: () => {
+    const o = consumptionOptions(process.argv.slice(3));
+    const names = Object.keys(SCENARIOS).filter((n) => !n.startsWith("hold"));
+    return `# Consumption lab\n\n${consumptionLab(loadData(), loadData(true), o, names)}\n`;
+  },
   movement: () => `# Movement and fatigue lab\n\n${movementLabMarkdown(movementLab(loadData()))}\n`,
   carry: () => `# Carry lab\n\n${carryLabMarkdown(carryLab(loadData()))}\n`,
   medevac: () => { const n = Number(process.argv[3] ?? 10); return `# Medevac lab\n\n${medevacLabMarkdown(medevacLab(loadData(), n), n)}\n`; },
@@ -86,4 +92,5 @@ const md = lab();
 console.log(md);
 const dir = fileURLToPath(new URL("../../../../reports", import.meta.url));
 mkdirSync(dir, { recursive: true });
-writeFileSync(`${dir}/lab-${name}.md`, md);
+// (M11.1: the consumption lab keeps every run: reports/consumption-<stamp>.md.)
+writeFileSync(name === "consumption" ? `${dir}/consumption-${new Date().toISOString().replace(/[:.]/g, "-")}.md` : `${dir}/lab-${name}.md`, md);

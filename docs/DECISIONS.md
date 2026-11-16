@@ -7329,3 +7329,140 @@ Software decisions (owner to review). No data change except two review strings (
 - Left to other slices: smoke and medical resupply (slices 46-47, resupply); handing batteries over between men
   (redistribution, slice 44); vehicle power (hull sights and radios need no batteries); the MELLS launcher's thermal
   weapon sight stays unpowered.
+
+## 2026-11-16 — M11 owner round (2026-11-16)
+The owner's answers for M11 Logistics (binding; plan: `docs/plans/m11-logistics.md`):
+- **Scope: everything** (ammunition, fuel, re-arming, repair, batteries, water). Built in three chains at once: this
+  one (ammunition, resupply, re-arming and refuelling, the AI and the Logistics review page; slices 43-48 and 52),
+  field repair and recovery (slices 50-51, branch `claude/m11-repair`), batteries, water and drone airframes (slice 49,
+  branch `claude/m11-batteries`). The item and transfer machinery stays generic so the other two plug in
+  (`moveCharge`, the ledger, the off-map stock, `OffMapAsset.kind`; plan section 4).
+- **Making logistics felt: both** — a new long (45-60 min) "hold the village" battle in waves (`hold-resupply`) where
+  resupply decides the outcome, and men fire more where that is realistic (measured first; with sources).
+- **Loose rounds:** men carry loose rounds and refill empty magazines in cover when not firing (`refillMagazines`).
+- **Taking kit:** own casualties' ammunition automatically, after treatment; enemy weapons and ammunition only on a
+  player order.
+- **Delivery: all three** — bearers on foot (the M10 carry store), vehicle rear runs, off-map deliveries.
+- **Control:** automatic (squads ask, on the AI and the player side) plus player orders ("set supply point",
+  "resupply at", order a run).
+- **Supply point separate from the Verwundetennest;** no ammunition at the red cross; an ambulance carrying
+  ammunition is a breach of the law of war.
+- **Repair:** crews fix light damage, a recovery vehicle on request (parallel session).
+- **Batteries now; water only in battles of 2 hours or more** (parallel session).
+- **Caches** are legitimate targets; a captured cache becomes the captor's.
+- **Mortar and artillery allotments** are topped up by deliveries.
+- **Military police and prisoners of war:** built at the end of M11, in a separate later workflow.
+
+Measured before planning (6 seeds x 2400 s, both AI commanders, code at 760bdd6; plan section 2): nobody runs short
+today. Most battles end early (platoon-ru 455-1098 s every time), a rifleman fires 0.02-0.84 rounds a minute averaged
+over a battle and a machine gunner 0.06-6, the median rifleman fires none; a side's men use 0-22 % of what they carry;
+at most 7 of 36 German gunner-battles ran out of loaded spare belts; no infantry magazine was taken from vehicle
+stowage. Sources (search extracts only, medium at most): 150 rounds on a Bundeswehr rifleman (5 magazines), MG5
+120-round boxes, PK boxes of 100 and belts of 100/200/250, sustained rates 12-15 (rifle) and about 100 (machine gun)
+a minute, packaging 840 rounds of 5.56 per can (6 bandoliers of 140), 1,080 of 5.45 per tin, 440 of 7.62 x 54R per
+tin. Software decisions in the plan, for the owner to review: medics and first responders never carry ammunition
+(they would lose their protection); this chain owns the state schema bumps 22 and 23; the merge that comes second
+regenerates the goldens. No code or data changed in this entry.
+
+## 2026-11-16 — M11.1 (slice 43): consumption lab, moveCharge and the ledger, packaging, refilling magazines, hold-resupply, men fire a little more (goldens regenerated)
+- **Consumption lab** `npm run lab -- consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation]
+  [--no-resupply]` (`packages/tools/src/labs/consumption.ts`, report `reports/consumption-<stamp>.md`): plan section 2
+  per scenario, side and weapon type, plus rounds per man per minute IN CONTACT (a 5 s sample counts when he fired or
+  had suppression 0.1 or more within the last 60 s), loose rounds, refills, squads with a man out of loaded spares,
+  first machine gun dry. Before any change it reproduces section 2 battle for battle (same lengths, winners and
+  hand-overs, the same fired figures per weapon); the per-man means differ by the population only: the lab leaves out
+  the off-map ambulance crews (6 men a battle on each side who never fire), section 2's script counted them as
+  riflemen (blue rifle men 216 -> 180, mean fired 15 -> 18).
+- **moveCharge** (`items.ts`): charge (rounds, litres, Wh) from one item into another of the same charge kind
+  (`chargeItem` for rounds, new optional `chargeKind` for "diesel", "wh"); splits one item off each stack, conserves
+  exactly, refuses a kind mismatch or a missing item, caps at the taker's capacity and a mass limit. For the
+  batteries and repair sessions too. **Ledger** (`sim/ledger.ts`, pure, tools and tests only): ammunition by id
+  (charge of magazines, belts, packages under their cartridge; whole rounds such as grenades, rockets and bombs;
+  weapons' magazines; vehicles' ready feeds; the AGL box; an off-map mission's rounds already taken; a vehicle smoke
+  salvo ordered but not yet fired), other charge by kind, whole items. **Conservation guard:** for every ammunition
+  id start - end = used + destroyed - delivered from events alone (`shot.fired` with tracers mapped to their belt's
+  cartridge, `grenade.launched`, `vehicle.smoke` and off-map `support.round` now name their item and count,
+  new `items.destroyed` / `items.delivered` with `ammo`/`rounds`; nothing emits those two yet). **Leaks found and
+  fixed:** vehicle smoke salvos (the grenades left the container at the order, the event came later and named no
+  item: 8 x 76 mm and 12 x 81 mm unexplained in platoon-vehicles seed 1), and a late wave's ammunition (it enters
+  the battle: `arrivalSystem` now emits `items.delivered` per ammunition id its men carry; found by the lab's
+  hold-resupply 2 x 1200 s run, 4,260 rounds of 5.45 and more "appearing"). Every scenario exact: `npm test`
+  (conservation.test.ts and conservation-bench.test.ts, 1 seed x 120 s each), and the lab's `--conservation`
+  (every scenario 6 seeds x 300 s, hold-resupply 2 x 1200 s). Fuel burnt, bandages used, reactive tiles fired and
+  drone batteries swapped are counted by the ledger but not guarded (no events for those uses yet).
+- **Packaging data** (add-data-entry; category `ammo-package`; low, the extracts named no page to cite): de-556-bandolier
+  140 (clips), de-556-can 840, de-762-can 200 linked, de-40mm-crate 24, de-dm51-crate 20; ru-545-pack 30, ru-545-tin
+  1,080, ru-545-crate 2,160, ru-762r-pack 20, ru-762r-tin 440, ru-vog25-crate 20, ru-rgd5-crate 20 (crate counts
+  game values); fixture xf-bandolier and xf-can. New item fields `chargeKind`, `stripperClips`. **Loose rounds on the
+  man** (low, owner to confirm): every German rifleman and leader with 5 magazines in the Panzergrenadier and Jaeger
+  squads and platoon HQs one bandolier (140), not the Panzerfaust gunner (his load would pass the 45 kg the load test
+  allows: 46.6 kg); every Russian one with 6 magazines in the motor-rifle squads, platoon
+  HQs and assault groups four packs (120). **Stowage** (low): Puma and GTK Boxers 2 x 840 5.56 + 2 x 200 7.62; BMP-2
+  and BTR-82A 1 tin 5.45 + 1 tin 7.62 x 54R. A crate on the ground: `ForceInput.caches` -> an entity with a transform
+  and a container only.
+- **refillMagazines** (`systems/refill.ts`, decided in the staggered decision step): a spare magazine below
+  `refill.belowFraction` 0.5, loose rounds of its cartridge in an `ammo-package`, no shot for `quietS` 20 s,
+  suppression below 0.1, halted, no action, no posture change, no care/carry/intent but "engage", no ordered fire task;
+  one round per 1.2 s by hand, 0.4 s with clips (low); rounds go in one by one with moveCharge (interrupted: kept).
+  Not for a man of a mortar, missile or AGL team that is set up (at his post: it kept the AGS from firing in a test).
+  Interrupted by any shot of his, suppression, a move, aboard/carrying/an errand, and a fresh reason to fire (a fire
+  task started or renewed after it began: the fire system waits for no action). Never belts (`sustained` weapons).
+  `rules.resupply: false` switches it off (headless and batch `--no-resupply`).
+- **Late arrival** `UnitInput.arriveS` (top-level units): such a unit is NOT in the state until its time (not "off the
+  map like an asset crew" as the plan said: most soldier loops gate on `mount`, not `isOffMapMan`, so an absent unit
+  is the only way no system sees it at no cost). `arrivalSystem` (once a second, only with late units) builds it at
+  its placements with the setup's `addUnit`, records its key in `state.arrived` (new optional field, no schema bump),
+  emits `unit.entered`; a side with a wave still to come is not beaten; a unit that never arrived comes out of the
+  battle unchanged. Tests: absent before, enters once, save/load across the arrival.
+- **hold-resupply** (`holdBattle`; headless `hold-resupply`, `hold-resupply-ru`; app `?scenario=hold`, `&attacker=blue`
+  swaps): the German platoon on foot holds the village centre (main objective at the building nearest the map's
+  centre) and the flank objective; three Russian platoons at 0, 900 and 1,800 s from the east edge, 3,600 s.
+  `waveCommanders` (ai): one commander per wave, each planning from where its wave comes in (losses of an earlier
+  wave do not count against it); memories saved together. Supply point 150 m behind the main objective: per squad one
+  package (the faction's largest up to 1,200 rounds) per cartridge its men fire (DE 3 x 840 + 3 x 200, RU 3 x 1,080
+  + 3 x 440), nobody fetches from it yet. The attacker's mortar allotment is a third of the platoon battle's
+  (`HOLD.attackerMortarShare`): with three waves' worth, and with the full one, wave 1 alone shelled the defence apart
+  (seed 6 over in 662 s, red unhurt). Goldens hold-resupply-s1 and hold-resupply-ru-s1 (300 s, before wave 2).
+- **Men fire more (point 7), each measured alone** (consumption lab, platoon and platoon-ru, 6 seeds x 1200 s; rounds
+  per man per minute in contact, attacker / defender):
+  base (points 3-6 in) platoon DE MG 39.5, rifle 9.7 / RU MG 21.6, rifle 2.6; platoon-ru RU MG 35.9, rifle 10.2 /
+  DE MG 13.0, rifle 5.2.
+  (a) `shooting.fire.trickleKnownS` 60 (the trickle only when no enemy was known in 60 s): DE MG 47.6, rifle 11.2 /
+  RU 14.2, 2.7; RU MG 52.7, rifle 12.7 / DE 7.2, 5.3. **Kept.**
+  (c) machine guns rapid then sustained (`sustained.rapidIntervalS` 1.5 for `rapidSeconds` 30, then `intervalS` 3.0:
+  about 200 then 100 a minute; MG5 and PKP, sources medium): DE MG 47.1 / RU 18.5; RU MG 57.0 / DE 7.2. **Kept.**
+  (b) defenders fire at the known place of an unseen enemy (`soldier.suppressKnown`): RU defenders' rifle 2.6 -> 3.5,
+  DE defenders' MG 13 -> 14, little; in hold-resupply seed 2 the Germans fired 364 rounds at known places without a
+  hit (22 hits without the rule) and lost in 453 s. **Built, switched off** (absent in the data).
+  Final (a + c, consumption lab 6 x 1200 s): attackers DE rifle 10.3, MG 49.8 (platoon), RU rifle 10.4, MG 53.8
+  (platoon-ru), mounted DE rifle 11.4, MG 33.2 — inside the sources' ranges (rifle 4-15, MG 40-120) but the mounted MG;
+  **defenders stay below:** RU rifle 2.2, MG 21 (platoon), DE rifle 5.5, MG 7.4 (platoon-ru), mounted defenders
+  about 1 or less: they fire little because they see little, not because of the rate (owner point open since the
+  plan).
+- **Balance** (batch 10 x 1200 s, seeds 1-10; attacker wins; bands of "Sight realism: review fixes" 2-8):
+  platoon 6 (before) -> 8 (points 3-6) -> 9 (with a + c); platoon-ru 8 -> 9 -> 9; platoon-vehicles 9 -> 9 (was outside);
+  platoon-ru-vehicles 1 -> 2 (now inside). (platoon and platoon-ru 9 at this point; after the late fixes 8 and 8, see below: the top of the band, for the owner.)
+  Most of the shift comes with the loose rounds and refilling (attackers carry and keep more), not with point 7.
+  Casualties blue/red: platoon 9.8/13.2, platoon-ru 14.2/7.1, platoon-vehicles 7.6/25.6, platoon-ru-vehicles 8.6/31.7.
+- **hold-resupply acceptance** (consumption lab, 6 seeds, `--no-resupply`): a defending squad with a man out of loaded
+  spares: first at 1390, -, 1900, 505, 540, - s (median about 1,650 s: **met**, by minute 30); a defending machine gun
+  dry: only seed 5 at 1,470 s (**not met**: median none by minute 45). The German defence often breaks early (seed 6
+  over at 493 s with the Russians nearly unhurt; defender wins 2 of 6 with and without refilling), so the battle often
+  ends before ammunition can run out. Swapped (`hold-resupply-ru`, Russians holding): first squad out 1285, 1600 s in
+  two seeds, a machine gun dry in one (2380 s); defender wins 2 of 6. To fix in later slices: a defence that lasts
+  (sited in houses, or a stronger defender) before resupply can decide; left for the owner.
+- The lab and batch numbers above were taken before three late fixes (the Panzerfaust gunner's bandolier, the posted
+  men, the arrival delivery event); run again after them (final, 10 x 1200 s, seeds 1-10): **platoon 8, platoon-ru 8**
+  (inside the 2-8 band, at its top; base 6 and 8), platoon-vehicles 9 (base 9), platoon-ru-vehicles 2 (base 1);
+  casualties blue/red 11.0/13.0, 14.6/6.1, 7.5/25.4, 9.6/33.2. Conservation `--conservation` for hold-resupply and
+  hold-resupply-ru, 2 seeds x 1200 s (wave 2 arrives at 900 s): exact. `npm run test:perf` alone: 23/23.
+- Tests: `agl-team` "sets up and fires" moved from seed 2 to seed 6 (seed 2's AGS no longer fires within 600 s);
+  `squads` MG gap between bursts > 70 ticks (rapid 1.5 s for the first 30 s); `shootout` counts loose rounds with the
+  magazines; fixture item list with xf-bandolier and xf-can.
+- `npm run golden:update`: the ten goldens changed (data: loose rounds, stowage, rates), two new; `golden/no-interiors`
+  untouched.
+- **Timing (M11.6 against origin/main 760bdd6, run alone back to back on this container):** spotting bench 8.7x / 8.7x,
+  with smoke 8.8x / 8.9x, bench-vehicles 8.1x / 8.8x (main itself measured 7.9x in an earlier run: the floors at 8x
+  are now within noise of main after the line-of-sight work, not because of M11.6; the power system walks a man once a
+  second and a scan checks a powered sensor with one compare). Merged origin/main (M11.1 consumption, assault group,
+  AGL teams) after the review; goldens regenerated; `npm test` 1448 pass.

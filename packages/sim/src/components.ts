@@ -727,7 +727,7 @@ export interface FireTask {
    * line may end in cover up to `drills.suppressShortM` short of the point (he fires into it). A drill's covering
    * fire at a point (no enemy named) is fired at the sustained rate too.
    */
-  suppress?: "order" | "drill";
+  suppress?: "order" | "drill" | "known";
   /** His line reaches only the cover near the point (`suppress`): he fires into it at the sustained rate. */
   intoCover?: true;
   /** Assault fire (package D): he fires while moving (with a heavy aiming penalty), from the posture he moves in. */

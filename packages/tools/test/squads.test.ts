@@ -68,11 +68,12 @@ describe("squads and kit (M2.5)", () => {
     const shots: Extract<SimEvent, { kind: "shot.fired" }>[] = [];
     for (let i = 0; i < 60 * 25; i++) for (const e of step(s2)) if (e.kind === "shot.fired" && e.shooter === gunner) shots.push(e);
     expect(shots.length).toBeGreaterThanOrEqual(30);
-    // Within a burst the shots are a cyclic interval apart (720/min = 5 ticks); between bursts about 2.5 s.
+    // Within a burst the shots are a cyclic interval apart (720/min = 5 ticks); between bursts 1.5 s for the first 30 s
+    // (rapid, M11.1), then 3 s.
     const gaps = shots.slice(1).map((e, i) => e.tick - shots[i]!.tick);
     const bursts = Math.floor(shots.length / 5);
     expect(gaps.filter((g) => g <= 6).length).toBeGreaterThanOrEqual(bursts * 4); // (the last burst may be cut by the clock)
-    expect(Math.min(...gaps.filter((g) => g > 6))).toBeGreaterThan(100);
+    expect(Math.min(...gaps.filter((g) => g > 6))).toBeGreaterThan(70);
     const tracers = shots.filter((e) => e.ammo === "de-762-dm21").length;
     expect(Math.abs(tracers - shots.length / 5)).toBeLessThanOrEqual(1);
     const after = (s2.state.weapon.req(gunner).magazine?.rounds ?? 0) + s2.state.container.req(gunner).stacks.filter((st) => st.type === "de-mg5-belt").reduce((k, st) => k + st.count * (st.charge ?? 0), 0);

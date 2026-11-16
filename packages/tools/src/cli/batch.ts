@@ -22,6 +22,8 @@ const firstSeed = Number(args["seed"] ?? 1);
 const noInteriors = args["no-interiors"] !== undefined;
 /** `--no-medical` (M10.2): care of the wounded switched off (`rules.medicalCare: false`), for comparison batches. */
 const noMedical = args["no-medical"] !== undefined;
+/** `--no-resupply` (M11.1): no refilling of magazines and no resupply route (`rules.resupply: false`). */
+const noResupply = args["no-resupply"] !== undefined;
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
@@ -97,6 +99,7 @@ for (let i = 0; i < runs; i++) {
   if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(args["moon"] ?? 0.5));
   if (noInteriors) input.map = stripInteriors(input.map);
   if (noMedical) input.rules.medicalCare = false;
+  if (noResupply) input.rules.resupply = false;
   const s0 = performance.now();
   // D2: the battle record (`@tcs/sim` record.ts) folds the event stream exactly as the app's review does; the counts
   // below come from it. What it cannot see from events (needs looked at once a second) is kept here.
@@ -263,6 +266,7 @@ const md = [
   "",
   `- Building interiors: ${noInteriors ? "off (--no-interiors)" : "on"}`,
   `- Care of the wounded: ${noMedical ? "off (--no-medical)" : "on"}`,
+  `- Resupply: ${noResupply ? "off (--no-resupply)" : "on"}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   ...(timeOfDay !== null ? [`- Local time at the start: ${args["time"]} (moon ${args["moon"] ?? 0.5}; M9.1, light from the clock)`] : []),
   `- Wall time: ${(totalMs / 1000).toFixed(1)} s total, mean ${mean(rows.map((r) => r.wallMs)).toFixed(1)} ms per battle`,
@@ -389,7 +393,7 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noResupply ? "-no-resupply" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
 console.log(md.split("\n").slice(0, 20).join("\n"));

@@ -217,6 +217,11 @@
               "item": "de-nvg-battery",
               "count": 2,
               "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -543,6 +548,11 @@
               "item": "de-nvg-battery",
               "count": 2,
               "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -650,6 +660,11 @@
             {
               "item": "de-splint",
               "count": 1
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -664,7 +679,7 @@
         "https://www.gesetze-im-internet.de/slv_2021/"
       ],
       "confidence": "low",
-      "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M9.2: the marksman carries the Trupp's thermal weapon sight (research default, low). Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). Truppfuehrer (deputy of the Gruppenfuehrer, who commands the Puma): Stabsunteroffizier (a Bundeswehr podcast names an Oberstabsgefreiter Truppfuehrer). The Einsatzersthelfer B is an experienced Hauptgefreiter (the course builds on Einsatzersthelfer A)."
+      "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M9.2: the marksman carries the Trupp's thermal weapon sight (research default, low). Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). Truppfuehrer (deputy of the Gruppenfuehrer, who commands the Puma): Stabsunteroffizier (a Bundeswehr podcast names an Oberstabsgefreiter Truppfuehrer). The Einsatzersthelfer B is an experienced Hauptgefreiter (the course builds on Einsatzersthelfer A). M11.1: riflemen and leaders (not the Panzerfaust gunner: his load would pass 45 kg) also carry loose rounds (one 140-round bandolier) to refill magazines in quiet moments (assumption, low: no source for the carried loose load)."
     },
     {
       "id": "pzgren-zug",
@@ -751,6 +766,11 @@
               "item": "de-nvg-battery",
               "count": 2,
               "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -843,6 +863,11 @@
               "item": "de-drone-battery",
               "count": 3,
               "charge": 75
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -978,7 +1003,7 @@
         "https://www.gesetze-im-internet.de/slv_2021/"
       ],
       "confidence": "low",
-      "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct. M7.2 (owner Q1): four Pumas; each of the first three carries a squad, the fourth the platoon leader and his radio operator. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). M10.1: a Sanitaeter (medic) with the Zug headquarters (owner Q-1c), riding in the headquarters Puma. D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M10.4a: the Sanitaeter carries a folding litter. M9.4a (owner M9 round): the Funker carries and flies the platoon's reconnaissance quadcopter with three batteries (who flies it: game assumption, low). Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). Zugfuehrer Leutnant (Wikipedia: Leutnant or Oberleutnant, a Hauptfeldwebel in some platoons); Funker and drone operator Stabsgefreiter; the Sanitaeter a Stabsunteroffizier of the medical service (Fachunteroffizier San, low). The fourth Puma has its own crew template (puma-besatzung-zug): its commander is the Zugtruppfuehrer and deputy platoon leader, a Hauptfeldwebel.",
+      "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct. M7.2 (owner Q1): four Pumas; each of the first three carries a squad, the fourth the platoon leader and his radio operator. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). M10.1: a Sanitaeter (medic) with the Zug headquarters (owner Q-1c), riding in the headquarters Puma. D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M10.4a: the Sanitaeter carries a folding litter. M9.4a (owner M9 round): the Funker carries and flies the platoon's reconnaissance quadcopter with three batteries (who flies it: game assumption, low). Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). Zugfuehrer Leutnant (Wikipedia: Leutnant or Oberleutnant, a Hauptfeldwebel in some platoons); Funker and drone operator Stabsgefreiter; the Sanitaeter a Stabsunteroffizier of the medical service (Fachunteroffizier San, low). The fourth Puma has its own crew template (puma-besatzung-zug): its commander is the Zugtruppfuehrer and deputy platoon leader, a Hauptfeldwebel. M11.1: riflemen and leaders (not the Panzerfaust gunner: his load would pass 45 kg) also carry loose rounds (one 140-round bandolier) to refill magazines in quiet moments (assumption, low: no source for the carried loose load).",
       "carriage": [
         {
           "crew": 3,
@@ -2035,6 +2060,11 @@
               "item": "de-nvg-battery",
               "count": 2,
               "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -2188,6 +2218,11 @@
               "item": "de-nvg-battery",
               "count": 2,
               "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -2440,6 +2475,11 @@
               "item": "de-nvg-battery",
               "count": 2,
               "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -2547,6 +2587,11 @@
             {
               "item": "de-splint",
               "count": 1
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -2626,6 +2671,11 @@
               "item": "de-nvg-battery",
               "count": 2,
               "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -2641,7 +2691,7 @@
         "https://www.battleorder.org/post/de-squad26"
       ],
       "confidence": "low",
-      "note": "Dismounted Jaegergruppe of a GTK Boxer (M7.6c, slice 41): eight men, the GTK's eight places behind its two crew (Bundeswehr GTK page: at most ten persons, the rear holding 'one infantry group with weapons and equipment'). No official strength (STAN) was found; the composition is an inference (low) from a Bundeswehr exercise text (a covering group with Panzerfaust and 40 mm, an MG group, an assault group) and the two-man MG5 team (Bundeswehr 'Maschinengewehrschuetze Jaegerkompanie'). G36 rifles: Boxer units lag the Puma units in modernisation (battleorder.org, search extract). One Einsatzersthelfer B per Gruppe (binding medical answer). Loads copied from the Panzergrenadier Schuetzentrupp (game values, low); the Gruppenfuehrer a Feldwebel (he dismounts; the Puma's Gruppenfuehrer commands the vehicle), the rifleman an Obergefreiter."
+      "note": "Dismounted Jaegergruppe of a GTK Boxer (M7.6c, slice 41): eight men, the GTK's eight places behind its two crew (Bundeswehr GTK page: at most ten persons, the rear holding 'one infantry group with weapons and equipment'). No official strength (STAN) was found; the composition is an inference (low) from a Bundeswehr exercise text (a covering group with Panzerfaust and 40 mm, an MG group, an assault group) and the two-man MG5 team (Bundeswehr 'Maschinengewehrschuetze Jaegerkompanie'). G36 rifles: Boxer units lag the Puma units in modernisation (battleorder.org, search extract). One Einsatzersthelfer B per Gruppe (binding medical answer). Loads copied from the Panzergrenadier Schuetzentrupp (game values, low); the Gruppenfuehrer a Feldwebel (he dismounts; the Puma's Gruppenfuehrer commands the vehicle), the rifleman an Obergefreiter. M11.1: riflemen and leaders (not the Panzerfaust gunner: his load would pass 45 kg) also carry loose rounds (one 140-round bandolier) to refill magazines in quiet moments (assumption, low: no source for the carried loose load)."
     },
     {
       "id": "jaeger-zug",
@@ -2728,6 +2778,11 @@
               "item": "de-nvg-battery",
               "count": 2,
               "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -2820,6 +2875,11 @@
               "item": "de-drone-battery",
               "count": 3,
               "charge": 75
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
             }
           ],
           "weapon": "de-g36"
@@ -2958,7 +3018,7 @@
         "https://www.gesetze-im-internet.de/slv_2021/"
       ],
       "confidence": "low",
-      "note": "Jaegerzug in GTK Boxers (M7.6c, slice 41): the Zugtrupp (Zugfuehrer, Funker with the platoon's quadcopter, Sanitaeter with the litter, as the Panzergrenadierzug's) and three Jaegergruppen, in four Boxers: each of the first three carries a Gruppe, the fourth the Zugtrupp (mirrors pzgren-zug; no official table found, the four-vehicle platoon is an inference, low). 35 men. Ranks as the Panzergrenadierzug's. M7.6d: Boxer 1 and Boxer 3 carry the 40 mm GMW, Boxer 2 and the headquarters Boxer 4 the 12.7 mm (the station takes either; the command variant only the 12.7 mm: Bundeswehr GTK page, medium; the two-and-two mix is a game value, low).",
+      "note": "Jaegerzug in GTK Boxers (M7.6c, slice 41): the Zugtrupp (Zugfuehrer, Funker with the platoon's quadcopter, Sanitaeter with the litter, as the Panzergrenadierzug's) and three Jaegergruppen, in four Boxers: each of the first three carries a Gruppe, the fourth the Zugtrupp (mirrors pzgren-zug; no official table found, the four-vehicle platoon is an inference, low). 35 men. Ranks as the Panzergrenadierzug's. M7.6d: Boxer 1 and Boxer 3 carry the 40 mm GMW, Boxer 2 and the headquarters Boxer 4 the 12.7 mm (the station takes either; the command variant only the 12.7 mm: Bundeswehr GTK page, medium; the two-and-two mix is a game value, low). M11.1: riflemen and leaders (not the Panzerfaust gunner: his load would pass 45 kg) also carry loose rounds (one 140-round bandolier) to refill magazines in quiet moments (assumption, low: no source for the carried loose load).",
       "carriage": [
         {
           "crew": 3,

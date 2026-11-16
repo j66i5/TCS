@@ -1,10 +1,25 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.1 (slice 43) built (2026-11-16, branch `claude/m11-logistics`).** Consumption lab (`npm run lab -- consumption`),
+  `moveCharge` and the ledger with a conservation guard (every scenario exact; two leaks fixed: vehicle smoke salvos and a late wave's
+  ammunition, now an `items.delivered` event),
+  packaging data (cans, tins, bandoliers, crates; low), loose rounds on the men, `refillMagazines` in quiet moments,
+  late-arriving units (`UnitInput.arriveS`) and the 60-minute `hold-resupply` battle in three waves (app
+  `?scenario=hold`), machine guns rapid then sustained and no trickle while an enemy is known. Numbers in DECISIONS
+  "M11.1". **Open for the owner:** platoon and platoon-ru attacker wins 8 of 10 (top of the 2-8 band; base 6 and 8;
+  mostly from the loose rounds and refilling); defenders still fire far below the sources (they see little); in hold-resupply the German
+  defence often breaks early, so a defending machine gun runs dry in only 1 of 6 battles without resupply (squads
+  out of loaded spares by minute 30: met); suppressive fire at known places built but off (wasted rounds). Slice 44
+  (redistribution, casualties' ammunition) is next.
+- **M11 Logistics: plan written (2026-11-16, branch `claude/m11-logistics`).** `docs/plans/m11-logistics.md`: the owner's
+  answers (DECISIONS "M11 owner round (2026-11-16)"), the measured consumption (nobody runs short today: battles end
+  early and men fire little), research on loads and packaging (medium at most), and slices 43-48 and 52 for this
+  chain; repair (50-51) and batteries (49) are built in parallel sessions. No code changed yet; slice 43 is next.
 - **Sight realism: review fixes (2026-11-16, branch `claude/sight-realism`).** Men of a set-up mortar or missile team
   stay at their post instead of looking for a lost enemy; a man stands up to look only when there is no fight (else
   he kneels or steps aside) and lies down again afterwards even with no posture of his own; a man crawling, bolting
@@ -346,6 +361,10 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   time off the net, water drunk) and `npm run lab -- batteries` (3 h night patrol, both platoons; `reports/lab-batteries.md`).
   Should the lab's night be static (a defence) instead of a patrol? Static, nobody drinks within 3 h.
 
+- M11.1 (2026-11-16, low): loose rounds carried (DE one 140-round bandolier, RU four 30-round packs), cans in the
+  vehicles (Puma/Boxer 2 x 840 + 2 x 200, BMP-2/BTR-82A one 5.45 and one 7.62 x 54R tin), crate counts of 40 mm and hand
+  grenades, refilling 1.2 s a round by hand and 0.4 s from clips; the attacker wins of platoon and platoon-ru now 8 of
+  10 (top of the band 2-8); suppressive fire at known places (built, off); the hold battle's German defence breaking early.
 - Sight realism step 3 (2026-11-15, all low; `core/spotting.json` `conceal`, `core/terrain/vegetation.json`): the
   vegetation concealment and backdrop figures, the conspicuity spread (sigma 0.8), the kept-sight decay (5 s, floor
   20), the ground clutter for men lying still (250 m), the firing reveal by range (half at 200 m), the dark room (0.25

@@ -494,7 +494,8 @@ launcher if sourced. From 41: the GTK's 40 mm GMW on the FLW 200 (a second feed 
 
 ### Phase 6: M11 Logistics
 
-Follows `m11.md`. Minimum set: 43-47 and 52; 48-51 optional. Shared machinery from M10 (carry store, rear points,
+Follows `m11-logistics.md` (written 2026-11-16 with the owner's answers and the measured consumption; slices 43-48
+and 52 there; 49 and 50-51 in two parallel sessions). Minimum set: 43-47 and 52; 48-51 optional. Shared machinery from M10 (carry store, rear points,
 off-map vehicles, rear runs).
 
 **Owner round M11** (three screens; asked after slice 43's measurement):

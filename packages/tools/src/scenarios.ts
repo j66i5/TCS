@@ -1,7 +1,7 @@
 /** Named scenarios for the headless tools, tests and benchmarks. */
 import { type DataSet, formatErrors, loadDataSet } from "@tcs/data";
-import { allMembers, buildForce, buildScenario, demoBattle, freeSpot, vehicleBattle, type CarrierClass } from "@tcs/scenario";
-import { commanderController, shootoutController, vehicleWanderController, wanderController } from "@tcs/ai";
+import { allMembers, buildForce, buildScenario, demoBattle, freeSpot, holdBattle, vehicleBattle, type CarrierClass } from "@tcs/scenario";
+import { commanderController, shootoutController, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
 import { healthyPhysiology, hypot2, PI, type BattleInput, type Controller, type Order, type UnitInput } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
 import { aglSetup } from "./labs/agl";
@@ -174,6 +174,16 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     description: "M6 first playable: a generated platoon attack against a platoon holding two objectives (village; blue = Germany attacks from the west, red = Russia defends); both commanded by the AI commander.",
     build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
+  "hold-resupply": {
+    description: "M11.1: a German platoon on foot holds the village centre against three Russian platoons coming in waves from the east at 0, 15 and 30 minutes (the attacker's usual mortar allotment); a supply point of cans 150 m behind the village; 60 minutes. The battle where ammunition runs short (`--no-resupply` for comparisons).",
+    build: (data, seed, seconds) => holdBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds }),
+    controllers: (input) => [commanderController("blue", input), waveCommanders("red", input)],
+  },
+  "hold-resupply-ru": {
+    description: "M11.1: hold-resupply with the sides swapped: a Russian platoon holds the village centre against three German platoons in waves from the west.",
+    build: (data, seed, seconds) => holdBattle(data, { seed, factions: ["de", "ru"], defender: "red", timeLimitSeconds: seconds }),
+    controllers: (input) => [waveCommanders("blue", input), commanderController("red", input)],
   },
   "platoon-ru": {
     description: "The same with the sides swapped: Russia (red, east) attacks, Germany (blue, west) defends; farmland.",

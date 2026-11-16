@@ -177,5 +177,12 @@
   "role.ru.uav-operator": "Radio and drone operator",
   "item.ru-radio-battery": "Radio battery",
   "item.ru-nvg-battery": "Goggle battery (AA)",
-  "item.ru-thermal-battery": "Thermal sight batteries (3x AA)"
+  "item.ru-thermal-battery": "Thermal sight batteries (3x AA)",
+  "item.ru-545-pack": "5.45 mm paper pack (30)",
+  "item.ru-545-tin": "5.45 mm sealed tin (1,080)",
+  "item.ru-545-crate": "5.45 mm crate (2 tins, 2,160)",
+  "item.ru-762r-pack": "7.62x54R pack (20)",
+  "item.ru-762r-tin": "7.62x54R sealed tin (440)",
+  "item.ru-vog25-crate": "VOG-25 grenade crate (20)",
+  "item.ru-rgd5-crate": "Hand grenade crate (20)"
 }

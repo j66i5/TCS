@@ -923,6 +923,90 @@
       ],
       "confidence": "medium",
       "note": "The BTR-82A's fuel tanks (M7.6c): the charge is litres of diesel (0.84 kg per litre); 300 L for about 600 km (search extracts; ROE gives 700 km). The tank is part of the hull (mass 0)."
+    },
+    {
+      "id": "ru-545-pack",
+      "nameKey": "item.ru-545-pack",
+      "category": "ammo-package",
+      "massKg": 0.01,
+      "chargeCapacity": 30,
+      "chargeMassKg": 0.0103,
+      "chargeItem": "ru-545-7n10",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: 30 rounds of 5.45 x 39 mm in a paper pack; 1,080 rounds in a sealed tin and two tins in a wooden crate (an Uzbek defence-industry catalogue and sellers, via search extracts; plan section 3). Pack mass a game value. Low: the extracts named no page that could be opened or cited here (medium once a source URL is added)."
+    },
+    {
+      "id": "ru-545-tin",
+      "nameKey": "item.ru-545-tin",
+      "category": "ammo-package",
+      "massKg": 1.2,
+      "chargeCapacity": 1080,
+      "chargeMassKg": 0.0103,
+      "chargeItem": "ru-545-7n10",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: a sealed tin of 1,080 rounds (36 packs of 30); same sources as ru-545-pack. Tin mass a game value. Low: the extracts named no page that could be opened or cited here (medium once a source URL is added)."
+    },
+    {
+      "id": "ru-545-crate",
+      "nameKey": "item.ru-545-crate",
+      "category": "ammo-package",
+      "massKg": 5.0,
+      "chargeCapacity": 2160,
+      "chargeMassKg": 0.0103,
+      "chargeItem": "ru-545-7n10",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: a wooden crate of two sealed tins, 2,160 rounds (same sources as ru-545-pack); crate and tins about 5 kg (game value; rounds about 22 kg). Low: the extracts named no page that could be opened or cited here (medium once a source URL is added)."
+    },
+    {
+      "id": "ru-762r-pack",
+      "nameKey": "item.ru-762r-pack",
+      "category": "ammo-package",
+      "massKg": 0.01,
+      "chargeCapacity": 20,
+      "chargeMassKg": 0.022,
+      "chargeItem": "ru-762r-lps",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: 20 rounds of 7.62 x 54R in a pack; 440 rounds in a sealed tin, two tins in a crate (sellers via search extracts: the packaging pattern). Low: the extracts named no page that could be opened or cited here (medium once a source URL is added)."
+    },
+    {
+      "id": "ru-762r-tin",
+      "nameKey": "item.ru-762r-tin",
+      "category": "ammo-package",
+      "massKg": 1.2,
+      "chargeCapacity": 440,
+      "chargeMassKg": 0.022,
+      "chargeItem": "ru-762r-lps",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: a sealed tin of 440 rounds of 7.62 x 54R (22 packs of 20; sellers via search extracts). PK belts (100/200/250) are loaded from loose rounds out of battle; in battle the gunner uses the belts in their boxes. Low: the extracts named no page that could be opened or cited here (medium once a source URL is added)."
+    },
+    {
+      "id": "ru-vog25-crate",
+      "nameKey": "item.ru-vog25-crate",
+      "category": "ammo-package",
+      "massKg": 4.0,
+      "chargeCapacity": 20,
+      "chargeMassKg": 0.25,
+      "chargeItem": "ru-vog25",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: a crate of VOG-25 grenades for the GP-25; the count per crate was not found (game value)."
+    },
+    {
+      "id": "ru-rgd5-crate",
+      "nameKey": "item.ru-rgd5-crate",
+      "category": "ammo-package",
+      "massKg": 5.0,
+      "chargeCapacity": 20,
+      "chargeMassKg": 0.31,
+      "chargeItem": "ru-rgd5",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.1: a crate of RGD-5 hand grenades; the count per crate was not found (game value)."
     }
   ]
 }

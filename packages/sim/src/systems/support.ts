@@ -509,7 +509,10 @@ function ownMenWithin(state: SimState, side: SideId, x0: number, y0: number, x1:
 
 /** One mortar round lands at (x, y): high explosive bursts, smoke lays its cloud. `heAmmo`: an on-map tube's round. */
 function landRound(ctx: SimContext, state: SimState, events: EventSink, fs: FireSupportDef, m: FireMission, x: number, y: number, heAmmo = fs.heAmmo): void {
-  events.emit({ kind: "support.round", tick: state.tick, side: m.side, asset: m.asset ?? "mortar", ammo: m.ammo, x, y, ...(m.method !== undefined ? { method: m.method } : {}) });
+  // (M11.1: an off-map round names its item, for the conservation guard; an on-map tube's round was counted at its shot.)
+  const sec = m.tubes === undefined ? sectionOf(state, m.side, m.asset ?? "mortar") : undefined;
+  const item = sec ? (m.ammo === "he" ? sec.heType : m.ammo === "smoke" ? sec.smokeType : sec.illumType) : undefined;
+  events.emit({ kind: "support.round", tick: state.tick, side: m.side, asset: m.asset ?? "mortar", ammo: m.ammo, x, y, ...(item !== undefined ? { item } : {}), ...(m.method !== undefined ? { method: m.method } : {}) });
   if (m.ammo === "illum") {
     // A flare (M8.4): ejected over the point, it sinks under its parachute while it burns (its light: flares.ts).
     const type = sectionOf(state, m.side, m.asset ?? "mortar")?.illumType ?? fs.illumAmmo;

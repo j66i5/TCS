@@ -71,6 +71,8 @@ export interface ScenarioDef {
   /** M10.6a: each side gets its faction's ambulances off the map (manifest `ambulance`), called to its platoons'
    *  Verwundetennester. Default true; false: none (comparisons). */
   ambulances?: boolean;
+  /** M11.1 (hold-resupply): the main objective at the building nearest the map's centre (the village centre). */
+  hold?: boolean;
 }
 
 /** Artillery rounds each side may call with `artillery` (M8.4; game values). */
@@ -109,7 +111,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   // Objectives on the defender's side of the map: the main one at a building near its middle, the second at
   // another building (or the ground) on a flank.
   const dx = defender === "red" ? 1 : -1;
-  const mainP = nearBuilding(map, W / 2 + dx * W * 0.2, H / 2, 250);
+  const mainP = def.hold === true ? nearBuilding(map, W / 2, H / 2, 250) : nearBuilding(map, W / 2 + dx * W * 0.2, H / 2, 250);
   let secondP = nearBuilding(map, W / 2 + dx * W * 0.1, H / 2 + (def.seed % 2 === 0 ? 1 : -1) * H * 0.2, 200, [mainP]);
   // The two areas never overlap (their radii are 40 and 30 m): at least 90 m apart.
   if (hypot2(secondP.x - mainP.x, secondP.y - mainP.y) < 90) secondP = { x: mainP.x, y: Math.min(Math.max(mainP.y + (mainP.y < H / 2 ? 1 : -1) * 120, 20), H - 20) };
@@ -477,4 +479,66 @@ function placeVehicles(
     }
   });
   return { records, vehiclePlacements, placements };
+}
+
+/** M11.1 hold-resupply: what the waves and the supply point are (game values). */
+export const HOLD = { waveS: [0, 900, 1800], timeLimitSeconds: 3600, supplyBehindM: 150, canMaxRounds: 1200, attackerMortarShare: 1 / 3 } as const;
+
+export interface HoldDef {
+  seed: number;
+  /** Faction of blue (west) and red (east). */
+  factions: [string, string];
+  /** The side that holds (default blue: the German platoon holds against Russian waves; red: swapped). */
+  defender?: "blue" | "red";
+  timeLimitSeconds?: number;
+  /** When each wave (an attacking platoon) enters, s after the start (default HOLD.waveS). */
+  waveS?: number[];
+}
+
+/**
+ * M11.1 hold-resupply (plan slice 43 point 6): one platoon on foot holds the village centre (main objective) and a
+ * flank (second) against the other side's platoons coming in waves from the far map edge (late arrival,
+ * `UnitInput.arriveS`), with a third of the platoon battle's mortar allotment for the attacker; 60 minutes. The defender has a
+ * supply point 150 m behind the village: per squad one can (tin) of loose rounds for each cartridge its men fire —
+ * the faction's largest ammunition package up to HOLD.canMaxRounds, from the data — as a crate entity on the
+ * ground. Nothing else comes forward in this slice.
+ */
+export function holdBattle(data: DataSet, def: HoldDef): BattleInput {
+  const defender = def.defender ?? "blue";
+  const attacker = defender === "blue" ? "red" : "blue";
+  const waves = def.waveS ?? [...HOLD.waveS];
+  const input = buildScenario(data, {
+    kind: "platoon-attack", seed: def.seed, mapKind: "village", factions: def.factions, attacker, attackerPlatoons: waves.length,
+    timeLimitSeconds: def.timeLimitSeconds ?? HOLD.timeLimitSeconds, hold: true,
+  });
+  const af = input.forces.find((f) => f.side === attacker)!, df = input.forces.find((f) => f.side === defender)!;
+  const plats = af.units.filter((u) => u.echelon === "platoon");
+  plats.forEach((u, k) => { if ((waves[k] ?? 0) > 0) u.arriveS = waves[k]!; });
+  // The attacker's mortar allotment: the platoon battle's spread over the waves (`HOLD.attackerMortarShare` of it),
+  // all available from the start. (Three waves' worth at once, wave 1 shelled the defence to pieces before wave 2
+  // came; with the platoon battle's full allotment it still did in 2 of 3 trial seeds. Each wave's own allotment
+  // arriving with it is for the off-map deliveries of slice 47.)
+  for (const sp of input.rules.support ?? []) if (sp.side === attacker && sp.asset === undefined) { sp.he = Math.round(sp.he * HOLD.attackerMortarShare); sp.smoke = Math.round(sp.smoke * HOLD.attackerMortarShare); }
+  // The supply point: behind the main objective, away from the attack.
+  const main = input.rules.objectives[0]!;
+  const dx = defender === "blue" ? -1 : 1;
+  const W = input.map.widthM;
+  const sx = Math.min(Math.max(main.x + dx * HOLD.supplyBehindM, 20), W - 20);
+  const sp = freeSpot(input.map, input.catalog, sx, main.y);
+  const cat = input.catalog;
+  const packages = Object.values(cat.items).filter((d) => d.category === "ammo-package" && d.id.startsWith(`${df.faction}-`));
+  const loads: { type: string; count: number; charge: number }[] = [];
+  const squads = df.units.flatMap((u) => u.subunits.filter((x) => x.vehicleId === undefined));
+  for (const sq of squads) {
+    const carts = new Set<string>();
+    for (const m of allMembers(sq)) for (const l of m.load) { const ci = cat.items[l.type]?.chargeItem; if (ci !== undefined && cat.items[l.type]?.category === "magazine") carts.add(ci); }
+    for (const c of [...carts].sort()) {
+      const best = packages.filter((d) => d.chargeItem === c && (d.chargeCapacity ?? 0) <= HOLD.canMaxRounds).sort((a, b) => (b.chargeCapacity ?? 0) - (a.chargeCapacity ?? 0) || (a.id < b.id ? -1 : 1))[0];
+      if (best) loads.push({ type: best.id, count: 1, charge: best.chargeCapacity! });
+    }
+  }
+  const merged = new Map<string, { type: string; count: number; charge: number }>();
+  for (const l of loads) { const m = merged.get(l.type); if (m) m.count += l.count; else merged.set(l.type, { ...l }); }
+  df.caches = [{ x: sp.x, y: sp.y, load: [...merged.values()].sort((a, b) => (a.type < b.type ? -1 : 1)) }];
+  return input;
 }

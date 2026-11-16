@@ -69,7 +69,8 @@
       "crouching": 0.6,
       "standing": 1.0
     },
-    "aimUnseenHeightM": 0.3
+    "aimUnseenHeightM": 0.3,
+    "trickleKnownS": 60
   },
   "grenades": {
     "throwRangeM": {

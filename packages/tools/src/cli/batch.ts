@@ -92,6 +92,8 @@ interface Row {
   repair: Record<string, SideRecord["repair"]>;
   /** M11.7b per side: recovery runs and the end settlement of hulls (battle record `recovery`). */
   recovery: Record<string, SideRecord["recovery"]>;
+  /** M11.3-M11.4a per side: caches, men sent to a cache, requests for ammunition, bearer trips (battle record `supply`). */
+  supply: Record<string, SideRecord["supply"]>;
   role1: Record<string, SideRecord["role1"]>;
   settled: Record<string, SideRecord["settled"]>;
   /** Men down (owner request 2026-11-15) per side of the man down: checked, found dead, dead dragged before the
@@ -251,6 +253,7 @@ for (let i = 0; i < runs; i++) {
     rear: perSide((x) => x.rear),
     repair: perSide((x) => x.repair),
     recovery: perSide((x) => x.recovery),
+    supply: perSide((x) => x.supply),
     role1: perSide((x) => x.role1),
     settled: perSide((x) => x.settled),
     down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
@@ -378,6 +381,10 @@ const md = [
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
     const cta = rows.flatMap((r) => r.recovery[s]?.callToArrivalS ?? []).sort((a, b) => a - b);
     return `${s} called ${sum((r) => r.recovery[s]?.called ?? 0)} (by the player ${sum((r) => r.recovery[s]?.ordered ?? 0)}), at the hull ${sum((r) => r.recovery[s]?.arrived ?? 0)} (call to arrival median ${cta.length ? `${cta[Math.floor(cta.length / 2)]} s` : "-"}), towed away ${sum((r) => r.recovery[s]?.towed ?? 0)}, lost ${sum((r) => r.recovery[s]?.lost ?? 0)}, stood down ${sum((r) => r.recovery[s]?.cancelled ?? 0)}; at the end recovered ${sum((r) => r.recovery[s]?.recovered ?? 0)}, captured ${sum((r) => r.recovery[s]?.captured ?? 0)}`;
+  }).join("; ")}`,
+  `- Supply (M11.3-M11.4a, by side, per battle): ${["blue", "red"].map((s) => {
+    const m = (f: (x: NonNullable<SideRecord["supply"]>) => number) => mean(rows.map((r) => { const x = r.supply?.[s]; return x ? f(x) : 0; })).toFixed(1);
+    return `${s} requests for ammunition ${m((x) => x.requests ?? 0)}, bearer trips ${m((x) => x.trips ?? 0)}, rounds brought ${m((x) => x.roundsDelivered ?? 0)}; men sent to a cache ${m((x) => x.sent)}, rounds taken at caches ${m((x) => x.roundsTaken)}; caches captured ${m((x) => x.captured)}, set off ${m((x) => x.cookoffs)}`;
   }).join("; ")}`,
   `- Rear runs and Role 1 (M10.6b, by side): ${["blue", "red"].map((s) => {
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);

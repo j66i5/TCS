@@ -160,6 +160,14 @@ export type SimEvent =
   | { kind: "supply.point"; tick: number; side: SideId; point: EntityId; cache: EntityId; unit: EntityId; x: number; y: number; reason: "sited" | "ordered" | "scenario" }
   /** M11.3: `men` men of `side` sent to cache `cache` for supplies (order `resupplyAt`). */
   | { kind: "supply.resupply"; tick: number; side: SideId; cache: EntityId; men: number }
+  /** M11.4a: a squad asks for ammunition (its able men's rounds as a share of their standard load, %; `pending`: the
+   *  player's rule is "ask", nobody sent yet). */
+  | { kind: "supply.request"; tick: number; side: SideId; unit: EntityId; percent: number; pending?: true }
+  /** M11.4a: bearers sent to a squad from its platoon's supply point (`own`: from the squad itself, "Fetch
+   *  ammunition"); loaded at the point (`rounds` in the crate); the crate delivered beside the squad. */
+  | { kind: "supply.bearers"; tick: number; side: SideId; unit: EntityId; point: EntityId; men: EntityId[]; own?: true }
+  | { kind: "supply.loaded"; tick: number; side: SideId; unit: EntityId; load: EntityId; rounds: number; kg: number }
+  | { kind: "supply.delivered"; tick: number; side: SideId; unit: EntityId; load: EntityId; rounds: number }
   /** M11.3: men of `side` have seen cache `cache` (another side's). */
   | { kind: "cache.seen"; tick: number; cache: EntityId; side: SideId }
   /** M11.3: cache `cache` became `side`'s, taken from `from` with `rounds` rounds of ammunition in it. */

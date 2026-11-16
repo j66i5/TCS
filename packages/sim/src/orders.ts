@@ -58,6 +58,8 @@ export type OrderBody =
     kind: "rules"; fire?: "free" | "return" | "hold"; /** 0 = no limit beyond the weapon's own. */ maxEngageM?: number; onContact?: "ground" | "push" | "back"; ammo?: "conserve" | "normal" | "max";
     /** Anti-tank weapons on their own (M7.4a, SPEC 6.6): at vehicles only, also at positions, or only on order. */
     at?: "vehicles" | "vehiclesAndPositions" | "hold";
+    /** M11.4a: a squad's request for ammunition sends bearers at once ("auto") or waits for the player ("ask"). */
+    supply?: "auto" | "ask";
   }
   /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs.
    *  M7.5e: `building` (a building's id, with an interior) makes it a house clearing: the halves close in by bounds
@@ -136,7 +138,12 @@ export type OrderBody =
   /** Resupply at a cache (M11.3): the target unit's men on foot (or the man) go to own cache `cache` (absent: the
    *  nearest own one within reach that has something for them), take up to their standard load and walk back to
    *  where they stood. Refused on the radio: none in reach, nothing there for them, under fire, already full. */
-  | { kind: "resupplyAt"; cache?: EntityId };
+  | { kind: "resupplyAt"; cache?: EntityId }
+  /** Ammunition bearers for the target squad (M11.4a): two men take a crate from its platoon's supply point to it.
+   *  `own`: "Fetch ammunition", two of the squad's own men go; absent: "Send bearers", the platoon sends them (its
+   *  headquarters first, never a squad in a fight). Refused on the radio: no supply point, nothing there for them,
+   *  nobody free, bearers already coming. */
+  | { kind: "bearers"; own?: boolean };
 
 export type OrderKind = OrderBody["kind"];
 

@@ -53,7 +53,7 @@ export interface SideRecord {
   recovery: { called: number; ordered: number; arrived: number; towed: number; lost: number; cancelled: number; callToArrivalS: number[]; recovered: number; captured: number };
   /** Supply (M11.3): enemy caches captured and the rounds in them, own caches set off and the rounds they lost, men
    *  sent to a cache and the rounds they took there. Optional: records before version 10 have none. */
-  supply?: { captured: number; roundsCaptured: number; cookoffs: number; roundsDestroyed: number; sent: number; roundsTaken: number };
+  supply?: { captured: number; roundsCaptured: number; cookoffs: number; roundsDestroyed: number; sent: number; roundsTaken: number; requests?: number; trips?: number; roundsDelivered?: number };
   /** Guided missiles fired by the side's hulls and how they ended; enemy hulls penetrated by its missiles and by its
    *  shoulder-fired rockets. */
   missiles: { fired: number; hit: number; lost: number; miss: number; penetrated: number; rocketPenetrated: number };
@@ -161,7 +161,7 @@ export function newSideRecord(): SideRecord {
     crews: { reversedOut: 0, fires: 0, firesOut: 0 },
     repair: { started: 0, done: 0, failed: 0, interrupted: 0, parts: 0 },
     recovery: { called: 0, ordered: 0, arrived: 0, towed: 0, lost: 0, cancelled: 0, callToArrivalS: [], recovered: 0, captured: 0 },
-    supply: { captured: 0, roundsCaptured: 0, cookoffs: 0, roundsDestroyed: 0, sent: 0, roundsTaken: 0 },
+    supply: { captured: 0, roundsCaptured: 0, cookoffs: 0, roundsDestroyed: 0, sent: 0, roundsTaken: 0, requests: 0, trips: 0, roundsDelivered: 0 },
     missiles: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 },
     mortar: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 },
     care: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 },
@@ -439,6 +439,10 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
     }
     if (e.kind === "items.destroyed" && e.cause === "cookoff" && e.rounds !== undefined) { const r = side(view.cache.get(e.holder)?.side)?.supply; if (r) r.roundsDestroyed += e.rounds; }
     if (e.kind === "supply.resupply") { const r = side(e.side)?.supply; if (r) r.sent += e.men; }
+    // (M11.4a: requests for ammunition, bearer trips, rounds brought to the squads.)
+    if (e.kind === "supply.request") { const r = side(e.side)?.supply; if (r) r.requests = (r.requests ?? 0) + 1; }
+    if (e.kind === "supply.bearers") { const r = side(e.side)?.supply; if (r) r.trips = (r.trips ?? 0) + 1; }
+    if (e.kind === "supply.delivered") { const r = side(e.side)?.supply; if (r) r.roundsDelivered = (r.roundsDelivered ?? 0) + e.rounds; }
     if (e.kind === "items.taken" && e.source === "cache" && view.cache.has(e.from)) { const r = side(sideOfMan(e.to))?.supply; if (r) r.roundsTaken += e.rounds; }
     if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
       const r = side(view.vehicle.get(e.vehicle)?.side);

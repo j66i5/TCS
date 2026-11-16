@@ -610,6 +610,26 @@ async function supplyScenes(page: Page, name: string, errors: string[], shots: s
     const c = t.caches()[0]; t.knowCache(c.id, "red"); t.reveal(false); t.focus(c.x, c.y, 120); t.stepTicks(1);
     return { cache: t.caches()[0] };`) as () => object);
   await shot("photo-4-enemy-cache");
+  // M11.4a: a squad out of rounds asks (its rule "ask": the card's "Send bearers"), then the bearers carry a crate.
+  await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=photo`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  info["ask"] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state; t.stepTicks(60 * 100);
+    const sq = t.units().filter((u) => u.kind === "infantry")[1]; const cat = t.sim.ctx.catalog; s.unit.get(sq.unit).supplyRule = "ask";
+    for (const m of s.unit.get(sq.unit).members) { for (const st of s.container.get(m).stacks) if (st.charge !== undefined && cat.items[st.type] && (cat.items[st.type].category === "magazine" || cat.items[st.type].category === "ammo-package")) st.charge = 0; const w = s.weapon.get(m); if (w && w.magazine) w.magazine.rounds = 3; }
+    for (let k = 0; k < 10 && !s.unit.get(sq.unit).supplyAsk; k++) t.stepTicks(60);
+    t.select(sq.unit); t.stepTicks(1); const l = s.transform.get(s.unit.get(sq.unit).leader); t.focus(l.x, l.y, 90); t.stepTicks(1);
+    return { squad: sq.callsign, ask: s.unit.get(sq.unit).supplyAsk };`) as () => object);
+  await shot("photo-5-ask");
+  // The Rules panel with its new row "Ammunition requests: send bearers / ask me".
+  await page.click('.hud-card [data-card="rules"]');
+  await shot("photo-5b-rules");
+  await page.click('.hud-card [data-card="rules"]');
+  await page.click('.hud-card [data-card="bearers"]');
+  info["bearers"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+    for (let k = 0; k < 900 && !t.caches().some((c) => c.carried); k++) t.stepTicks(60);
+    t.stepTicks(60 * 25); const c = t.caches().find((x) => x.carried); if (c) t.focusScale(c.x, c.y, 20); t.select(null); t.stepTicks(1);
+    return { crate: c, bearers: [...s.soldier.values()].filter((x) => x.intent && x.intent.kind === "bear").length };`) as () => object);
+  await shot("photo-6-bearers-crate");
   console.log(`${name}: supply scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 

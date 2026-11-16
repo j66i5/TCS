@@ -23,7 +23,7 @@ import { DRONE_SEEN_S } from "./drones";
 import { interruptAction, startAction } from "../actions";
 import { refillDecision } from "./refill";
 import { stepBack, stepTake } from "./consolidate";
-import { stepResupply } from "./supply";
+import { stepBear, stepResupply } from "./supply";
 import type { Contact, Intent, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import { countItems, type Container } from "../items";
@@ -621,7 +621,7 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   for (const g of men) {
     if (g === id) continue;
     const gs = state.soldier.get(g);
-    if (!gs || !isAble(gs) || isCowering(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo" || gs.intent?.kind === "care" || gs.carrying !== undefined) continue;
+    if (!gs || !isAble(gs) || isCowering(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo" || gs.intent?.kind === "care" || gs.intent?.kind === "bear" || gs.carrying !== undefined) continue;
     const n = spareCount(state.container.get(g), type);
     const gw = state.weapon.get(g), own = gw ? ctx.catalog.weapons[gw.weapon]?.feed.magazine === type : false;
     if (n <= (own ? D.keepSpare : 0)) continue;
@@ -913,7 +913,7 @@ function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: Ent
 /** Errands that take a man right up to a comrade on purpose (carrying parties too, M10.4a). */
 function closeErrand(s: SoldierState): boolean {
   const k = s.intent?.kind;
-  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner" || k === "takeAmmo" || k === "takeKit" || k === "resupply" || s.carrying !== undefined;
+  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner" || k === "takeAmmo" || k === "takeKit" || k === "resupply" || k === "bear" || s.carrying !== undefined;
 }
 
 /**
@@ -1266,6 +1266,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     // Taking a casualty's ammunition, or enemy kit on an order (M11.2, consolidate.ts).
     if (s.intent?.kind === "takeAmmo" || s.intent?.kind === "takeKit") { stepTake(ctx, state, events, id); continue; }
     if (s.intent?.kind === "resupply") { stepResupply(ctx, state, events, id); continue; }
+    // An ammunition bearer (M11.4a): to the supply point and back with a crate (the carry system while he carries).
+    if (s.intent?.kind === "bear" && s.carrying === undefined) { stepBear(ctx, state, events, id); continue; }
     if (s.intent?.kind === "fetchAmmo") {
       const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
       if (!wd || s.intent.target === undefined || !stepFetchAmmo(ctx, state, events, id, s.intent.target, wd.feed.magazine, s.intent.tick)) s.intent = null;

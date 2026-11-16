@@ -411,6 +411,10 @@ for the owner's numbers answer after playing, not for more building).
   - ✅ **M11.3 (slice 45)** supply points and caches (`cache` store, schema 23): apart from the Verwundetennest (owner),
     seen, set off by HE and fire (cook-off with bursts, ledger exact), captured (owner), orders `supplyPoint` and
     `resupplyAt`, the AI shells enemy caches, map icons, `lab -- cache`, `bench-caches` (DECISIONS "M11.3")
+  - ✅ **M11.4a (slice 46)** resupply on foot: squads ask (below 40 % or a gunner under one belt), the platoon sends
+    two bearers (headquarters first, never a gunner, leader or medic, never a squad in a fight) with a crate through
+    the carry store; "Fetch ammunition", the card's "Send bearers", the rule "Ammunition requests"; `lab -- resupply`
+    (DECISIONS "M11.4a")
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

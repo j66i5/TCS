@@ -43,4 +43,23 @@ describe("supply points and caches in the interface (M11.3)", () => {
     expect(ordersFor(unitCapabilities(sim.state, cat, squad), cat.movementModes).resupply).toBeUndefined();
     sim.state.container.req(cid).stacks = stacks;
   });
+
+  it("M11.4a: a squad is offered Fetch ammunition while its platoon's point has supplies; a waiting request shows on its card", () => {
+    const cap = unitCapabilities(sim.state, cat, squad);
+    expect(cap.bearers).toBe(true);
+    expect(ordersFor(cap, cat.movementModes).fetchAmmo).toBe(true);
+    expect(cap.supplyAsk).toBeUndefined();
+    sim.state.unit.req(squad).supplyAsk = { tick: 0, pending: true };
+    expect(unitCapabilities(sim.state, cat, squad).supplyAsk).toBe(true);
+    delete sim.state.unit.req(squad).supplyAsk;
+    // A crate in bearers' hands is no source for Resupply.
+    cache.carried = true;
+    expect(supplySourceNear(sim.state, cat, cache.side, unitSoldierIds(sim.state, squad))).toBeNull();
+    delete cache.carried;
+    // The point empty: nothing to fetch.
+    const stacks = sim.state.container.req(cid).stacks;
+    sim.state.container.req(cid).stacks = [];
+    expect(unitCapabilities(sim.state, cat, squad).bearers).toBeUndefined();
+    sim.state.container.req(cid).stacks = stacks;
+  });
 });

@@ -69,6 +69,23 @@ export function resupply(a: App): EntityId | null {
   return src;
 }
 
+/** "Fetch ammunition" (M11.4a) for the selected squad: two of its men bring a crate from the platoon's supply point.
+ *  False when not offered (no supply point with supplies). */
+export function fetchAmmo(a: App): boolean {
+  const uid = a.overlay.selectedUnit;
+  if (uid === null || unitCapabilities(a.sim.state, a.input.catalog, uid, hqMode(a)).bearers !== true) return false;
+  issue(a, { ...now(a, uid), kind: "bearers", own: true });
+  return true;
+}
+
+/** The card's "Send bearers" (M11.4a): the platoon sends two men with a crate to the selected squad. */
+export function sendBearers(a: App): boolean {
+  const uid = a.overlay.selectedUnit;
+  if (uid === null) return false;
+  issue(a, { ...now(a, uid), kind: "bearers" });
+  return true;
+}
+
 /** A planned move for a vehicle: "reverse" legs drive the slowest pace backwards; no formation. */
 export function forUnit(a: App, o: Order): Order {
   const cls = vehicleClassOf(a, o.target);

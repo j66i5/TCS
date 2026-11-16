@@ -7832,3 +7832,94 @@ new `core/supply.json`, low, game values; the cook-off model is the M7.4a light-
   lists updated for "supply".
 - Goldens: all twelve changed (catalog fingerprint, the state's new store, the setup's rear point), `npm run
   golden:update`; `golden/no-interiors` untouched.
+
+## 2026-11-16 — M11.4a (slice 46): resupply on foot — squads ask, bearers carry (goldens regenerated)
+Owner answers (binding): delivery by bearers on foot (the M10 carry store), control automatic plus player orders, no
+ammunition at the red cross. Everything else is a software decision (values in `core/supply.json` `request` and
+`bearers`, low, game values; search extracts only).
+- **A squad asks** (`systems/supply.ts` `requestSystem`, each squad on foot looked at every `request.stepS` 2 s, staggered
+  by id): its able men's rounds for their own weapons (the weapon's magazine, every magazine or belt of its feed, every
+  package of its cartridge) against their standard load (the same, full). Below `below` 40 % or a machine gunner under
+  `beltsBelow` one belt: `radio.ammoRequest` with the percentage, event `supply.request`, at most every `everyS` 120 s,
+  not while bearers are on their way. **Added:** a squad that is quiet (not fired on for `take.underFireS` 15 s), halted
+  and has an own cache within `useM` 60 m with something for its short men (`useMinRounds` 30) sends them to it (the
+  M11.3 `resupplyAt` errand, walk back included) instead of asking; a crate lying beside it stops new requests.
+- **Standing rule** `supply: "auto" | "ask"` (order `rules`, new optional `Unit.supplyRule`; absent = auto; Rules panel row
+  "Ammunition requests: send bearers / ask me"). Auto (the AI always): bearers at once. Ask: `Unit.supplyAsk.pending`,
+  the squad's card shows **Send bearers** (order `bearers`). A refusal is said on the radio by the platoon
+  (`radio.bearersNone`, `radio.supplyEmpty`, `radio.bearersComing`; none without a supply point: the request says enough).
+- **Bearers** (`pickSupplyBearers`): at most two, one per unit: the headquarters' (never its leader), then the asking
+  squad's man nearest the supply point, then a man of another squad; never a machine gunner, a leader, a medic or first
+  responder, a man wearing the emblem (they would lose their protection: plan section 1, for the owner to confirm), a
+  mortar, missile or AGL team's man; never from a unit in a drill (assault, clearing, withdrawal, rout), broken or fired
+  on within `bearers.contactS` 30 s; a squad keeps at least two able men. **Changed in testing:** a man firing on his own
+  (not on an order) may go from the asking squad or the headquarters (in the hold battle every man who could go was
+  engaging on his own between waves, so nobody was ever sent); men of other squads must not be firing. Order `bearers
+  {own: true}` ("Fetch ammunition", order bar, phone under "⋯"): two of the squad's own men, also while it is fighting.
+- **The trip** (Intent `bear`: `target` the point, `squad`, `mate`, `lead`, `load`, `waitTick`; optional fields): walk
+  (not run: the hand calculation stays exact and the men arrive fit to carry) to the point by `routeBetween`; pinned or
+  cowering, a bearer stops and lies down where he is and goes on when it has passed; at the point the lead waits up to
+  `waitMateS` 60 s for his mate, then loads `loadS` 30 s (action `loadSupply`): whole packages and magazines of the
+  cartridges the squad is short of, fullest first, within `crateMaxKg` 40 kg for two men or `maxKg` 25 kg for one, by
+  `transferItems` into a new cache entity marked `carried` (event `supply.loaded`). The crate is the payload of a
+  carry party (`startCarry(..., {cargo: true, method})`, carry methods `crate` (two men) and `load` (one) from
+  `supply.json` `bearers.methods`, looked up by `carryMethodDef` beside the medical ones; the speed is the casualty
+  formula with the crate's mass, 1.15 m/s for these crates; rests; cover with it when fired on — the M10.4a rules). The
+  crate is lifted where the lead stands when within 5 m (a crate against a wall lies off the navigation cells: found in
+  the first hold run, the party never gathered). A party that loses a man ends; the other carries on alone when the
+  crate is within `maxKg`, else leaves it (an ordinary cache). Delivered within `deliverM` 15 m of the squad leader
+  (`supply.delivered`; the carry is re-routed when the squad has moved): the crate lies there as a cache, the squad's
+  short men take from it when quiet (above), the bearers walk back to their places (`bearersBack`). Bearers are out of
+  unit orders like carriers (a unit order no longer takes them off the errand; an order to the man himself does). A
+  carried crate hit by a burst burns like any cache (the bearers drop it); nobody takes from it on the way (`usable`).
+- **Deviations from the plan:** the bearers put the crate down beside the leader instead of handing out man by man
+  (the squad takes from it with the M11.3 errand when quiet); no covered-route choice (`routeBetween` as everywhere);
+  "Bring ammunition to" (an order to the headquarters naming a squad) is the squad card's "Send bearers"; the AI's rule
+  (never strip a defended objective) is the sim's bearer rule, the same for both sides, no extra `ai/src` code.
+- **Record and batch:** `SideRecord.supply` gains `requests`, `trips`, `roundsDelivered` (optional); batch line "Supply
+  (M11.3-M11.4a)". **UI:** "Fetch ammunition" (bar; phone under "⋯"; `orders-for` `bearers` when the platoon's point
+  holds supplies), "Send bearers" on the card while a request waits, the Rules row, a carried crate drawn 16 px above
+  its bearers, man states "carrying ammunition forward" / "loading a crate of ammunition".
+- **Fixed in testing:** a bearer carrying a crate was taken as the giver of a magazine to a comrade out of spares
+  (`shareAmmo`, and the AT round hand-over in launcher.ts) and dropped his errand; givers now skip men with a `bear`
+  intent (found in hold-resupply-ru seed 1: the crate arrived and was never delivered).
+- **Lab** `npm run lab -- resupply [distances]` (supply point 400 m behind; the first squad's spare magazines empty):
+  German platoon: bearers Funker and a grenadier, request 2 s, at the point 321 s, loaded 351 s (19.3 kg, 1,040
+  rounds), delivered 742 s, squad full 804 s; hand calculation 323 walk + 30 load + 390 carry + 62 taking = 804 s:
+  **-0.2 %**. Russian platoon: two senior riflemen, 12.3 kg / 1,080 rounds, measured 812 s vs 814 s: **-0.3 %**.
+  Ledger exact in both (target ±10 %: met).
+- **Measured** (same seeds; base 7d6a531 in a scratch worktree vs this branch; batch 10 x 1200 s; consumption lab 6 x
+  3600 s; defender's men out of loaded spares / dry summed over the 6 battles):
+
+  | scenario | base | this slice | --no-resupply (same build) |
+  |---|---|---|---|
+  | platoon / platoon-ru / platoon-vehicles / platoon-ru-vehicles, attacker wins | 9 / 10 / 9 / 1 | 9 / 10 / 9 / 1, every battle ending at the same second with the same casualties (no supply point: squads only ask; state hashes differ by `supplyAsk`) | - |
+  | hold-resupply (German defence): winners, ends | B B B R R R; 3600, 3600, 3600, 2041, 2657, 1160 | B B B R R R; 3600, 3600, 3600, 1850, 2730, 1160 | B B B R R R; 3600, 3600, 3600, 2571, 2100, 3600 |
+  | hold-resupply: defender out of spares / dry; machine gun first dry (s) | 11 / 2; none | 12 / 2; 3130, 1810 | 22 / 11; 2715, 2700, 2180, 1970 |
+  | hold-resupply-ru (Russian defence): winners, ends | R B B B R B; 3600, 2840, 1778, 2408, 3600, 2727 | R R B R B B; 3600, 3600, 1778, 3600, 3087, 2749 | R R B B B R; 3600, 3600, 1765, 2676, 1259, 3600 |
+  | hold-resupply-ru: defender out of spares / dry; machine gun first dry (s) | 29 / 5; 2850, 1405, 1675, 2580 | 21 / 2; 2850 | 15 / 4; 2980 |
+
+  Bearers (scratch runner over the same 12 battles): the German defence asked 8 times (3 trips, 2 delivered with 1,040
+  rounds each, request to delivery 374-378 s), the Russian 12 times (6 trips, 5 delivered, 440-1,960 rounds,
+  317-688 s); `radio.bearersNone` 11 times; **0 bearers from a unit in an assault or fired on within 30 s** (met); the
+  headquarters never gave a man (the German one is its leader, the Funker flying the drone and the Sanitäter). The
+  attackers (no supply point) asked 12-30 times a battle: radio only. **Acceptance "fewer men dry than without
+  resupply": met** (German 2 vs 11, Russian 2 vs 4). Few requests reach the 40 % mark in the hold battle: the squads'
+  own evening out (M11.2), the casualties' ammunition and the crates within 60 m keep most squads above it; the
+  Russian defence (fewer spares) gains most (machine guns dry in 1 battle instead of 4). Six seeds cannot separate
+  the German defence's two dry machine guns (3130 s, 1810 s) from noise (not traced; the battles diverge from the
+  first request on).
+- Goldens: all twelve changed (catalog fingerprint; `supplyAsk` on squads that asked), `npm run golden:update`;
+  `golden/no-interiors` untouched.
+- Tests: `sim/test/bearers.test.ts` (thresholds: share and gunner; bearers chosen: headquarters then the squad's
+  rifleman nearest the point, never the gunner or a leader, none from a squad fired on, "Fetch ammunition" two of the
+  squad's riflemen; a full trip over 300 m with the ledger exact and the men full afterwards; under fire a bearer lies
+  still and goes on; rule "ask" waits for the order; save/load mid-carry; nothing with resupply off),
+  `tools/test/resupply.test.ts` (the lab within 10 %), `ui/test/supply.test.ts` (Fetch ammunition offered, the card's
+  request, a carried crate no Resupply source). Screenshots `--scene supply` 5 (the card's Send bearers), 5b (Rules
+  row), 6 (a crate on its way), phone and desktop, looked at.
+- **Checks**: typecheck, lint, data lint (no errors), `npm test` 1521 pass. `npm run test:perf` alone (in `npm run check`):
+  22 of 24; the spotting-with-smoke (7.6x) and bench-vehicles (7.7x) floors (8x) missed, as in M11.2 and M11.3. Base
+  7d6a531 in a scratch worktree alternating with this branch, those two tests alone: bench-vehicles base 7.1, 7.9 /
+  this 7.6, 7.6; smoke base 7.5 (and once above 8) / this 7.5 (and once above 8): no regression (the new per-tick work
+  is one modulo test per unit; a squad is looked at once per 2 s; bearers move through the existing carry system).

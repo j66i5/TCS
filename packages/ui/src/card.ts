@@ -227,10 +227,12 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   if (act?.kind === "takeAmmo" || act?.kind === "takeKit") return { key: act.kind };
   // (M11.3: taking supplies at a cache.)
   if (act?.kind === "takeSupply") return { key: "takeSupply" };
+  // (M11.4a: an ammunition bearer loading a crate, carrying it, on his way to the supply point.)
+  if (act?.kind === "loadSupply") return { key: "loadSupply" };
   // Carrying (M10.4a): a drag into cover, any other carry, or walking out wounded.
   if (s.carrying !== undefined && s.carrying !== id) {
     const c = view.carry.get(s.carrying);
-    return { key: c?.purpose === "cover" ? "dragging" : "carrying" };
+    return { key: c?.cargo === true ? "bear" : c?.purpose === "cover" ? "dragging" : "carrying" };
   }
   if (s.carrying === id) return { key: "walkingOut" };
   // Crawling to cover, wounded (owner request 2026-11-15).
@@ -240,7 +242,7 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   if (b === "panicked" && s.mental.flee) return { key: "fleeing" };
   if (b === "panicked" || b === "routed") return { key: b };
   const intent = s.intent?.kind;
-  if (intent === "cover" || intent === "bringAmmo" || intent === "fetchAmmo" || intent === "takePrisoner" || intent === "reposition" || intent === "hideDrone" || intent === "takeAmmo" || intent === "takeKit" || intent === "resupply") return { key: intent };
+  if (intent === "cover" || intent === "bringAmmo" || intent === "fetchAmmo" || intent === "takePrisoner" || intent === "reposition" || intent === "hideDrone" || intent === "takeAmmo" || intent === "takeKit" || intent === "resupply" || intent === "bear") return { key: intent };
   const f = view.fire.get(id);
   if (f) return { key: f.self ? "engaging" : "firing" };
   if (b === "pinned") return { key: "pinned" };
@@ -335,7 +337,7 @@ export function fireChoiceRules(c: FireChoice, now: Pick<UnitRules, "fire" | "am
 export function settleRules(pend: Partial<UnitRules>, now: UnitRules, kind?: string): boolean {
   if (kind === "ambush") delete pend.ambush;
   if (kind === "rules") {
-    delete pend.fire; delete pend.maxEngageM; delete pend.onContact; delete pend.ammo; delete pend.at;
+    delete pend.fire; delete pend.maxEngageM; delete pend.onContact; delete pend.ammo; delete pend.at; delete pend.supply;
     if (pend.ambush === 0) delete pend.ambush;
   }
   for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === (now[k] ?? 0)) delete pend[k];
@@ -349,6 +351,7 @@ export function rulesOrder(base: { tick: number; issuer: string; target: EntityI
   return {
     ...base, kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}),
     ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}), ...(r.at ? { at: r.at } : {}),
+    ...(r.supply ? { supply: r.supply } : {}),
   };
 }
 
@@ -404,6 +407,8 @@ export interface UnitCardModel {
   men: readonly ManRow[];
   /** The vehicle's guns and their rounds (D3); absent or empty: no gun row. */
   guns?: readonly GunRow[];
+  /** M11.4a: the squad asked for ammunition and waits for the player (rule "ask"): the "Send bearers" button. */
+  supplyAsk?: boolean;
 }
 
 export interface UnitCardCallbacks {
@@ -411,6 +416,8 @@ export interface UnitCardCallbacks {
   onFire(choice: FireChoice): void;
   onRules(): void;
   onMan(id: EntityId): void;
+  /** M11.4a: "Send bearers" pressed (the squad's request waiting for the player). */
+  onSendBearers?(): void;
   /** The card grew or shrank (detailed / compact). */
   onResize?(): void;
 }
@@ -479,7 +486,14 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
   rulesBtn.dataset["card"] = "rules";
   rulesBtn.innerHTML = `${icon("rules", 16)}<span>${s.t("order.rules")}</span>`;
   rulesBtn.onclick = () => cb.onRules();
-  head.append(name, badge, men, detailBtn, rulesBtn);
+  // M11.4a: the squad's request for ammunition, waiting for the player (rule "ask").
+  const bearersBtn = h("button", "hud-btn hud-card-btn hud-card-ask");
+  bearersBtn.dataset["card"] = "bearers";
+  bearersBtn.innerHTML = `${icon("resupply", 16)}<span>${s.t("order.sendBearers")}</span>`;
+  bearersBtn.title = `${s.t("card.supplyAsk")}: ${s.t("order.sendBearersTitle")}`;
+  bearersBtn.hidden = true;
+  bearersBtn.onclick = () => cb.onSendBearers?.();
+  head.append(name, badge, men, detailBtn, rulesBtn, bearersBtn);
   const paceRow = h("div", "hud-seg");
   paceRow.dataset["row"] = "pace";
   const fireRow = h("div", "hud-seg");
@@ -532,6 +546,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
       if (!m) return;
       name.textContent = m.callsign;
       badge.hidden = !m.badge; badge.textContent = m.badge ?? "";
+      bearersBtn.hidden = m.supplyAsk !== true;
       men.textContent = `${s.t("side.men", { fit: m.fit, total: m.total })} · ${m.state}`;
       const guns = (m.guns ?? []).map((g) => gunText(s, g));
       const gk = guns.join("\n");

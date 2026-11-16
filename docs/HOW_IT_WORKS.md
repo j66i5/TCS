@@ -766,6 +766,37 @@ crate (tank guns, mortars, 152/155 mm) and compares the data's chance with real 
 checks that the rounds lost match the ledger. `bench-caches` (the bench battle with 20 caches, one shelled) must run
 within 5 % of the bench.
 
+## Resupply on foot: squads ask, bearers carry (M11.4a)
+
+**A squad asks.** Every two seconds each squad on foot looks at its ammunition: the rounds its able men hold for their
+own weapons (in the weapon, in their magazines and belts, in their bandoliers and packs) against their standard load
+(all of those full). Below 40 %, or with its machine gunner under one belt, it radios "running low on ammunition, request
+resupply" (at most every two minutes). If an own crate lies within 60 m with something for it, it asks nobody: when it
+has not been fired on for 15 seconds and stands still, its short men walk over, fill up and walk back to their places.
+
+**The platoon sends bearers.** On a request the platoon sends at most two men from its supply point: first a man of the
+headquarters (never the platoon leader), then the man of the asking squad nearest the supply point, else a man of a squad
+that is not fighting. Never a machine gunner, a leader, a medic or a first responder (medical men doing other work would
+lose their protection: a software decision from the law of war, for the owner to confirm), never a man of a squad in an
+assault, a house clearing, a withdrawal, a rout or fired on in the last 30 seconds (a defended position is not stripped).
+A man firing on his own may still be taken from the asking squad or the headquarters: one rifle less for a few minutes.
+The same rule holds for the computer's side and the player's. The player's standing rule "Ammunition requests" (Rules
+panel) is "send bearers" by default; set to "ask me", the request waits and the squad's card shows **Send bearers**.
+**Fetch ammunition** (order bar; on a phone under "⋯") sends two of the selected squad's own men at any time.
+
+**The trip.** The bearers walk to the supply point (where they are fired on they go down and wait until it is quiet),
+take a crate of whole cans, tins and magazines of what the squad is short of (two men up to 40 kg, one man up to 25 kg;
+half a minute to load) and carry it to the squad leader as a carrying party (the casualty carry of M10.4a with a crate:
+about 1.15 m/s, a rest every 250 m, into cover with it when fired on). The crate in their hands is a cache on the map
+(drawn just above them): a burst can set it off, nobody takes from it on the way. Beside the squad they put it down and
+walk back to their places; the squad's men fill up from it when it is quiet (as with "Resupply"), and what is left stays
+there for later. A bearer who loses his mate carries on alone if the crate is light enough, else leaves it where it is.
+
+**Measuring it.** `npm run lab -- resupply [distances]`: a German and a Russian platoon on open ground with the supply
+point 400 m behind, the first squad's spare magazines empty: request, bearers at the point, loaded, delivered, squad full,
+against a hand calculation (walk there with their load, load, carry back with rests, the men's run to the crate and
+taking). Both within 1 % (target 10 %).
+
 ## Grenades
 
 A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one

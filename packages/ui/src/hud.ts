@@ -37,6 +37,8 @@ export interface UnitRules {
   fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max"; /** Anti-tank weapons on their own (M7.4a). */ at: "vehicles" | "vehiclesAndPositions" | "hold";
   /** The range of an ambush laid and not yet sprung (D4b); 0 or absent: none. */
   ambush?: number;
+  /** M11.4a: a request for ammunition sends bearers at once ("auto") or waits for the player ("ask"). */
+  supply?: "auto" | "ask";
 }
 
 export interface HudCallbacks {
@@ -66,6 +68,9 @@ export interface HudCallbacks {
   onTakeKit?(): void;
   /** "Resupply" (M11.3): the selected unit's men go to the nearest own cache for ammunition. */
   onResupply?(): void;
+  /** M11.4a: "Fetch ammunition" (two of the squad's men bring a crate) and the card's "Send bearers". */
+  onFetchAmmo?(): void;
+  onSendBearers?(): void;
   onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
@@ -399,13 +404,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const resupplyBtn = verb("resupply", "order.resupply", "resupplyAt", () => cb.onResupply?.());
   resupplyBtn.title = s.t("order.resupplyTitle");
   resupplyBtn.hidden = true;
+  const fetchAmmoBtn = verb("resupply", "order.fetchAmmo", "bearers", () => cb.onFetchAmmo?.());
+  fetchAmmoBtn.title = s.t("order.fetchAmmoTitle");
+  fetchAmmoBtn.hidden = true;
   mountBtn.hidden = true; dismountBtn.hidden = true; dischargeBtn.hidden = true; natureBtn.hidden = true;
   // Display order in the bar; and the order in which items move behind "⋯" when the strip is too short.
-  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn];
-  const OVERFLOW_FIRST = ["resupplyAt", "takeKit", "callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
+  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn];
+  const OVERFLOW_FIRST = ["bearers", "resupplyAt", "takeKit", "callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
   const allButtons = (): HTMLButtonElement[] => [...dock.querySelectorAll("button")];
   orders.append(grip, ...barItems, moreBtn);
-  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
+  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
 
   // ---- plan bar (S3: the pace of the next leg is chosen on the unit card)
   const plan = el("div", "hud-plan");
@@ -432,6 +440,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     onFire: (c) => { if (!rules) return; const r = fireChoiceRules(c, rules); rules = { ...rules, ...r }; card.setFire(fireChoice(rules)); cb.onRules(r); },
     onRules: () => toggleRules(),
     onMan: (id) => cb.onInspect?.(id),
+    onSendBearers: () => cb.onSendBearers?.(),
     onResize: () => { if (sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout(); cb.onCardResize?.(); },
   });
   const manBox = createManBox(s, () => cb.onInspect?.(null));
@@ -466,6 +475,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     { key: "onContact", label: "rules.contact", options: [["ground", "rules.contact.ground"], ["push", "rules.contact.push"], ["back", "rules.contact.back"]] },
     { key: "ammo", label: "rules.ammo", options: [["conserve", "rules.ammo.conserve"], ["normal", "rules.ammo.normal"], ["max", "rules.ammo.max"]] },
     { key: "at", label: "rules.at", options: [["vehicles", "rules.at.vehicles"], ["vehiclesAndPositions", "rules.at.vehiclesAndPositions"], ["hold", "rules.at.hold"]] },
+    { key: "supply", label: "rules.supply", options: [["auto", "rules.supply.auto"], ["ask", "rules.supply.ask"]] },
   ];
   const ruleBtns: { key: keyof UnitRules; value: UnitRules[keyof UnitRules]; b: HTMLButtonElement }[] = [];
   panel.append(el("div", "hud-panel-title", s.t("rules.title")), status);
@@ -710,7 +720,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
       haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire;
       for (const b of postureBtns) b.hidden = !set.posture;
-      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true; repairBtn.hidden = set.repair !== true; takeKitBtn.hidden = set.takeKit !== true; resupplyBtn.hidden = set.resupply !== true;
+      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true; repairBtn.hidden = set.repair !== true; takeKitBtn.hidden = set.takeKit !== true; resupplyBtn.hidden = set.resupply !== true; fetchAmmoBtn.hidden = set.fetchAmmo !== true;
       recoverBtn.hidden = set.recover !== true;
       if (set.recover === true) recoverBtn.title = s.t("order.recoverTitle", { n: set.recoverLeft ?? 0 });
       dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;

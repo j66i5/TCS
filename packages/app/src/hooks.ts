@@ -11,7 +11,7 @@ import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
 import { centredOn, startFollow, stopFollow, viewInsets } from "./camera";
 import { activeMoveOf, placesOf, ridersIn, vehicleClassOf } from "./units";
-import { clearAt, endPlan, facingHandle, fireAtPoint, forUnit, issue, now, occupyOrder, offerSupport, resupply, startPlan, SUPPORT_ROUNDS, takeKit } from "./orders";
+import { clearAt, endPlan, facingHandle, fetchAmmo, fireAtPoint, forUnit, issue, now, occupyOrder, offerSupport, resupply, sendBearers, startPlan, SUPPORT_ROUNDS, takeKit } from "./orders";
 import { select, showCard, syncOrders } from "./panels";
 import { showSpriteSheet } from "./sprite-sheet";
 import { sightView } from "./view";
@@ -100,8 +100,10 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     /** M11.3 (screenshots, checks): "Resupply" for the selected unit; the supply point of the selected unit's platoon
      *  at (x, y); the caches on the map; set cache `id` off (a fire beside it); what the side knows of caches. */
     resupply: () => resupply(a),
+    fetchAmmo: () => fetchAmmo(a),
+    sendBearers: () => sendBearers(a),
     supplyPoint: (x: number, y: number) => issue(a, { ...to(), kind: "supplyPoint", x, y }),
-    caches: () => [...sim.state.cache.entries()].map(([id, c]) => ({ id, side: c.side, kind: c.kind, x: sim.state.transform.req(id).x, y: sim.state.transform.req(id).y, stacks: sim.state.container.get(id)?.stacks.length ?? 0, burning: c.cookoff !== undefined, burnt: c.burnt === true, known: c.known ?? [] })),
+    caches: () => [...sim.state.cache.entries()].map(([id, c]) => ({ id, side: c.side, kind: c.kind, x: sim.state.transform.req(id).x, y: sim.state.transform.req(id).y, stacks: sim.state.container.get(id)?.stacks.length ?? 0, burning: c.cookoff !== undefined, burnt: c.burnt === true, known: c.known ?? [], carried: c.carried === true })),
     igniteCache: (id: EntityId) => { const S = a.input.catalog.supply; const c = sim.state.cache.get(id); if (S && c) ignite(sim.ctx, sim.state, new EventSink(), S, id, c, "fire"); },
     knowCache: (id: EntityId, side: string) => { const c = sim.state.cache.get(id); if (c && !(c.known ?? []).includes(side)) c.known = [...(c.known ?? []), side].sort(); },
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */

@@ -42,11 +42,22 @@ const DEFAULTS = { reachM: 2, holdSuppression: 0.3, resumeQuietS: 10, selfDefenc
 const EVAC_RETRY_S = 30;
 /** Carriers who have not gathered after this long give up (s). */
 const GATHER_TIMEOUT_S = 120;
+/** M11.4a: bearers lift a crate within this of the leader where he stands (m; a man takes from a cache within 4.5 m). */
+const CARGO_LIFT_M = 5;
 /** A new trail point when the leader has moved this far (m). */
 const TRAIL_STEP_M = 0.15;
 
 export function carryParams(ctx: SimContext): typeof DEFAULTS {
   return ctx.catalog.medical?.carrying ?? DEFAULTS;
+}
+
+/** A carry method by id: the medical ones (core/medical.json `carry`), else the bearers' (M11.4a, core/supply.json
+ *  `bearers.methods`: `crate`, `load`). */
+export function carryMethodDef(ctx: SimContext, id: DefId): CarryMethodDef | undefined {
+  const m = ctx.catalog.medical?.carry[id];
+  if (m) return m;
+  const B = ctx.catalog.supply?.bearers?.methods;
+  return id === "crate" ? B?.crate : id === "load" ? B?.load : undefined;
 }
 
 /** Who leads a party: the first carrier, or the walking wounded man himself. */
@@ -97,6 +108,8 @@ export interface CarryOptions {
   limitS?: number;
   /** Taken to this rear point (M10.5, the Verwundetennest). */
   point?: EntityId;
+  /** M11.4a: the payload is supplies (a crate) and `method` one of the bearers' methods. */
+  cargo?: boolean;
 }
 
 /**
@@ -104,8 +117,10 @@ export interface CarryOptions {
  * with the litter among them). The party first gathers beside him. Null if no method fits or he is already carried.
  */
 export function startCarry(ctx: SimContext, state: SimState, events: EventSink, payload: EntityId, carriers: readonly EntityId[], dest: { x: number; y: number; z: number }, opts: CarryOptions = {}): Carry | null {
+  if (state.carry.has(payload) || !state.transform.has(payload)) return null;
+  if (opts.cargo === true) return startCargo(ctx, state, events, payload, carriers, dest, opts);
   const C = ctx.catalog.medical?.carry;
-  if (!C || state.carry.has(payload) || !state.transform.has(payload)) return null;
+  if (!C) return null;
   const ps = state.soldier.get(payload);
   // (A dead man may be dragged to cover while his comrades do not know he is dead: owner request 2026-11-15.)
   if (ps && ((!ps.physiology.alive && !(opts.purpose === "cover" && downUnknown(ctx.catalog, ps))) || isMounted(ps) || ps.carrying !== undefined)) return null;
@@ -138,6 +153,29 @@ export function startCarry(ctx: SimContext, state: SimState, events: EventSink, 
   const t = state.transform.req(payload);
   events.emit({ kind: "medical.carried", tick: state.tick, payload, by: carryLeader(c, payload), method, carriers: use.length, phase: "start", distanceM: Math.round(hypot2(dest.x - t.x, dest.y - t.y)) });
   stepParty(ctx, state, events, payload, c); // (gathered already: off at once)
+  return c;
+}
+
+/** M11.4a: bearers carry a crate (`opts.method`: a bearers' method; all the carriers it needs, no gathering wait). */
+function startCargo(ctx: SimContext, state: SimState, events: EventSink, payload: EntityId, carriers: readonly EntityId[], dest: { x: number; y: number; z: number }, opts: CarryOptions): Carry | null {
+  const method = opts.method;
+  const def = method !== undefined ? carryMethodDef(ctx, method) : undefined;
+  const men = carriers.filter((m) => m !== payload && canCarry(state.soldier.get(m)) && state.soldier.get(m)!.carrying === undefined);
+  if (method === undefined || !def || def.carriers < 1 || def.carriers > men.length) return null;
+  const use = men.slice(0, def.carriers);
+  // (He lifts it where he stands: a crate against a wall lies off the navigation cells, out of the gathering reach.)
+  const pt0 = state.transform.req(payload), lt0 = state.transform.req(use[0]!);
+  if (hypot2(pt0.x - lt0.x, pt0.y - lt0.y) <= CARGO_LIFT_M && Math.abs(pt0.z - lt0.z) <= 1.5) { pt0.x = lt0.x; pt0.y = lt0.y; pt0.z = lt0.z; }
+  const massKg = payloadMassKg(ctx, state, payload);
+  const c: Carry = {
+    method, carriers: use, phase: "gather", phaseTick: state.tick, startTick: state.tick, dest: { ...dest }, purpose: "move",
+    massKg, speedMps: carrySpeedMps(ctx, def, massKg), trail: [], sinceRestM: 0, totalM: 0, cargo: true,
+  };
+  state.carry.set(payload, c);
+  for (const m of use) { state.soldier.req(m).carrying = payload; state.fire.delete(m); }
+  const t = state.transform.req(payload);
+  events.emit({ kind: "medical.carried", tick: state.tick, payload, by: use[0]!, method, carriers: use.length, phase: "start", distanceM: Math.round(hypot2(dest.x - t.x, dest.y - t.y)) });
+  stepParty(ctx, state, events, payload, c);
   return c;
 }
 
@@ -356,7 +394,7 @@ function follow(ctx: SimContext, state: SimState, c: Carry, payload: EntityId, d
 
 /** One tick of one party. */
 function stepParty(ctx: SimContext, state: SimState, events: EventSink, payload: EntityId, c: Carry): void {
-  const M = ctx.catalog.medical!, P = carryParams(ctx);
+  const M = ctx.catalog.medical, P = carryParams(ctx);
   const ps = state.soldier.get(payload);
   if (!state.transform.has(payload)) { endCarry(ctx, state, events, payload, "gone"); return; }
   if (ps && !ps.physiology.alive && !(c.purpose === "cover" && downUnknown(ctx.catalog, ps))) {
@@ -366,8 +404,12 @@ function stepParty(ctx: SimContext, state: SimState, events: EventSink, payload:
   }
   if (ps && (isMounted(ps) || ps.captive !== null)) { endCarry(ctx, state, events, payload, "gone"); return; }
   if (c.untilTick !== undefined && state.tick > c.untilTick) { endCarry(ctx, state, events, payload, "gave-up"); return; }
-  let def = M.carry[c.method];
+  let def = carryMethodDef(ctx, c.method);
   if (!def) { endCarry(ctx, state, events, payload, "gone"); return; }
+  // (M11.4a: bearers with a crate who lose a man put it down; their errand carries on with whoever is left.)
+  if (c.cargo === true && c.carriers.some((m) => state.soldier.get(m)?.carrying !== payload || !canCarry(state.soldier.get(m)))) {
+    endCarry(ctx, state, events, payload, "carriers-lost"); return;
+  }
   // A walking wounded man knocked down for a moment (a hit, a blast) waits until he is up again (M10.5).
   if (c.carriers.length === 0 && ps?.carrying === payload && state.tick < ps.stunnedUntilTick && isConscious(ps) && ps.impair.canWalk && ps.captive === null) return;
   // A walking wounded man who can no longer walk, or was ordered elsewhere.
@@ -379,7 +421,7 @@ function stepParty(ctx: SimContext, state: SimState, events: EventSink, payload:
     const litter = itemWithTag(ctx, state, keep, "litter");
     const walks = ps !== undefined && walksSelf(state, payload);
     const method = keep.length > 0 ? chooseCarryMethod(ctx.catalog, keep.length, walks && def.casualtyWalks === true, ps?.impair.move ?? 1, c.phase === "hold" || c.phase === "cover" || c.purpose === "cover", litter !== null) : null;
-    const nd = method !== null ? M.carry[method] : undefined;
+    const nd = method !== null ? M?.carry[method] : undefined;
     if (method === null || !nd || nd.carriers === 0) { c.carriers = keep; endCarry(ctx, state, events, payload, "carriers-lost"); return; }
     const use = keep.slice(0, nd.carriers);
     for (const m of keep) if (!use.includes(m)) leaveCarry(state, m);
@@ -454,7 +496,7 @@ function stepParty(ctx: SimContext, state: SimState, events: EventSink, payload:
       c.fireTick = state.tick;
       const threat = casualtyThreat(state, lead, payload), pt = state.transform.req(payload);
       const lie = ctx.catalog.body.postures.prone.heightM * 0.6;
-      const spot = threat && !coveredFrom(ctx, pt.x, pt.y, threat.x, threat.y, lie, pt.z, threat.z) ? coverSpotNear(ctx, pt.x, pt.y, pt.z, threat, M.care.dragSearchM, M.care.dragMaxM) : null;
+      const spot = threat && !coveredFrom(ctx, pt.x, pt.y, threat.x, threat.y, lie, pt.z, threat.z) ? coverSpotNear(ctx, pt.x, pt.y, pt.z, threat, M?.care.dragSearchM ?? 15, M?.care.dragMaxM ?? 30) : null;
       c.phaseTick = state.tick;
       if (spot) { c.phase = "cover"; setLeg(state, c, lead, spot.leg, def); }
       else { c.phase = "hold"; if (lm) { lm.waypoints = []; lm.speedMps = 0; } }

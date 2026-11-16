@@ -386,6 +386,9 @@ export interface Cache {
   from?: SideId;
   known?: SideId[];
   holdTick?: number;
+  /** M11.4a: a crate on its way to a squad in bearers' hands (a carry party's payload): nobody takes from it on the
+   *  way. Absent: lying on the ground. */
+  carried?: true;
   /** When it was sited (or last moved) and last checked (automatic points). */
   sitedTick: number;
   checkTick: number;
@@ -424,6 +427,9 @@ export interface Carry {
   litter?: { type: DefId; from: EntityId };
   /** Taken to this rear point (M10.5, the Verwundetennest): on arrival he is at it; the bearers go back. */
   point?: EntityId;
+  /** M11.4a: the payload is supplies (a crate, a cache entity) taken to a squad by bearers: no medical bookkeeping;
+   *  carriers lost end the party (the bearers' errand picks it up again). Absent: a casualty. */
+  cargo?: true;
 }
 
 /** A triage tag (M10.3b). */
@@ -452,7 +458,7 @@ export interface CommState {
  * first responder or medic (else as a comrade).
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone" | "takeAmmo" | "takeKit" | "resupply";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone" | "takeAmmo" | "takeKit" | "resupply" | "bear";
   tick: number;
   /** takeAmmo (M11.2, systems/consolidate.ts): he goes to the own casualty `target` (treated, or dead) to take his
    *  ammunition; takeKit: to the enemy casualty, prisoner or pile `target` the player named (order `takeKit`);
@@ -475,6 +481,14 @@ export interface Intent {
   z?: number;
   /** care: he went as the first responder or medic (M10.3a). */
   responder?: true;
+  /** bear (M11.4a, systems/supply.ts): an ammunition bearer: to the supply point `target`, then with a crate (`load`,
+   *  a cache entity) to squad `squad`; his fellow bearer `mate` (absent: alone); `lead`: he loads and leads the carry. */
+  squad?: EntityId;
+  load?: EntityId;
+  mate?: EntityId;
+  lead?: true;
+  /** bear: since when he has waited at the point for his mate. */
+  waitTick?: number;
 }
 
 export interface Contact {
@@ -655,6 +669,13 @@ export interface Unit {
   /** An arc to defend (D4b, `defendArc` order): its men face `facing` (rad) and fire on their own only at enemies
    *  within `halfRad` of it. Absent: none. */
   arc?: { facing: number; halfRad: number };
+  /** M11.4a (systems/supply.ts): the squad's last request for ammunition (`tick`); `pending`: the player's standing
+   *  rule is "ask" and nobody has been sent yet (the card's "Send bearers"); `bearers`: the men on their way to it.
+   *  Absent: it never asked. */
+  supplyAsk?: { tick: number; pending?: true; bearers?: EntityId[] };
+  /** M11.4a standing rule: a squad's request sends bearers at once ("auto") or waits for the player ("ask"). Absent:
+   *  "auto". */
+  supplyRule?: "auto" | "ask";
 }
 
 /**

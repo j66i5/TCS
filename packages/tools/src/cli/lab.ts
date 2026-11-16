@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]|repair [seeds]|batteries [seed] [speedup]|consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-consolidate]|redistribute [trials]|cache [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]|repair [seeds]|batteries [seed] [speedup]|consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-consolidate]|redistribute [trials]|cache [trials]|resupply [distances, e.g. 200,400]` prints the lab tables and writes them to reports/. */
 import { buildCatalog } from "@tcs/data";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,7 @@ import { batteriesLab, batteriesLabMarkdown } from "../labs/batteries";
 import { consumptionLab, consumptionOptions } from "../labs/consumption";
 import { redistributeLab, redistributeLabMarkdown } from "../labs/redistribute";
 import { cacheBurnLab, cacheChanceLab, cacheLabMarkdown } from "../labs/cache";
+import { resupplyLab, resupplyLabMarkdown } from "../labs/resupply";
 import { loadData, SCENARIOS } from "../scenarios";
 
 const LABS: Record<string, () => string> = {
@@ -48,6 +49,7 @@ const LABS: Record<string, () => string> = {
   },
   cache: () => { const n = Number(process.argv[3] ?? 40), d = loadData(); return `# Cache lab (M11.3)\n\n${cacheLabMarkdown(cacheChanceLab(d, n), cacheBurnLab(d), n)}\n`; },
   redistribute: () => `# Redistribution lab (M11.2)\n\n${redistributeLabMarkdown(redistributeLab(loadData(), Number(process.argv[3] ?? 4)))}\n`,
+  resupply: () => `# Resupply lab (M11.4a)\n\n${resupplyLabMarkdown(resupplyLab(loadData(), (process.argv[3] ?? "400").split(",").map(Number)))}\n`,
   movement: () => `# Movement and fatigue lab\n\n${movementLabMarkdown(movementLab(loadData()))}\n`,
   carry: () => `# Carry lab\n\n${carryLabMarkdown(carryLab(loadData()))}\n`,
   medevac: () => { const n = Number(process.argv[3] ?? 10); return `# Medevac lab\n\n${medevacLabMarkdown(medevacLab(loadData(), n), n)}\n`; },

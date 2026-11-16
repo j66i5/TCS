@@ -24,19 +24,40 @@
  *                 loose rounds full — and walk back to where they stood). Refused on the radio: no cache in reach,
  *                 nothing there for them, under fire, already full.
  *
- * Same rules for every side, the player's and the computer's. `rules.resupply === false` switches the orders and the
- * automatic siting off (caches still burn and are captured: they are things on the ground).
+ *   requests      M11.4a (plan slice 46): each squad on foot is looked at every `request.stepS`. Quiet, halted and an own
+ *                 cache within `request.useM` with something for its short men: they go and take (the `resupplyAt`
+ *                 errand). Otherwise, below `request.below` of its standard load (or a machine gunner below
+ *                 `beltsBelow` belts), it radios for ammunition at most every `everyS`; with the standing rule "auto"
+ *                 (the default; the AI's) the platoon sends bearers at once, with "ask" the player decides ("Send
+ *                 bearers" on the squad's card, the order `bearers`).
+ *   bearers       At most two men, one per unit: the headquarters' (never its leader), then the asking squad's man
+ *                 nearest the supply point, then a man of a squad not fighting; never a gunner, a leader, a medic or
+ *                 first responder (they would lose their protection), a crew-served weapon's man; never from a squad
+ *                 in an assault, a clearing, a withdrawal or broken, nor one fired on within `bearers.contactS` (the
+ *                 asking squad and the headquarters may give a man who fires on his own). They walk to the point
+ *                 (taking cover where they are while pinned), load a crate of what the squad is short of (whole
+ *                 packages: `crateMaxKg` for two, `maxKg` for one; `loadS`), carry it to the squad leader with the
+ *                 carry store (methods `crate`, `load`: the M10.4a party rules, cover under fire, rests) and put it
+ *                 down beside him: a cache the squad's men take from when quiet. The crate in their hands is a cache
+ *                 (`carried`): it can be set off, nobody takes from it on the way.
+ *
+ * Same rules for every side, the player's and the computer's. `rules.resupply === false` switches the orders, the
+ * requests, the bearers and the automatic siting off (caches still burn and are captured: they are things on the
+ * ground).
  */
 import { registerActionHandler, startAction } from "../actions";
+import { onAir } from "../comms";
 import type { Cache } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type DefId, type EntityId, type SideId } from "../ids";
 import { isAble } from "../impair";
 import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
-import { addItems, emptyContainer, moveCharge, removeItems, transferItems, type Container, type ItemStack } from "../items";
+import { addItems, containerMassKg, emptyContainer, moveCharge, removeItems, transferItems, type Container, type ItemStack } from "../items";
 import { atan2, cos, hypot2, PI, pow, sin } from "../math";
+import { isResponder } from "../medical";
 import { isMounted } from "../mount";
+import { wearsEmblem } from "../protection";
 import { navCostAt, nearestPassable } from "../nav";
 import { navFor } from "../navctx";
 import { isOffMap } from "../offmap";
@@ -45,9 +66,12 @@ import { nextFloat, nextRange, Streams } from "../rng";
 import { addSmoke } from "../smoke";
 import { newEntity, type SimState } from "../state";
 import { heightAt } from "../terrain";
+import { requestPosture } from "./body";
+import { bearersBack, endCarry, startCarry } from "./carry";
 import { origin, stepBack } from "./consolidate";
 import { coveredFrom } from "./decisions";
 import { detonate } from "./explosions";
+import { isCowering } from "./morale";
 import { nestOf, sitePoint, supplyPointOf, topOf } from "./nest";
 
 type Supply = NonNullable<SimContext["catalog"]["supply"]>;
@@ -188,6 +212,8 @@ export function supplySystem(ctx: SimContext, state: SimState, events: EventSink
 /** One cache's look (every `stepS`). */
 function look(ctx: SimContext, state: SimState, events: EventSink, S: Supply, id: EntityId, c: Cache): void {
   const t = state.transform.req(id);
+  // (M11.4a: a crate whose bearers are all gone — ordered away, hit — lies where it is as an ordinary cache.)
+  if (c.carried === true && !state.carry.has(id) && !bearerHolds(state, id)) delete c.carried;
   const cont = state.container.get(id);
   const full = (cont?.stacks.length ?? 0) > 0;
   // ---- men about it: its own side near, enemies at it, other sides that see it
@@ -336,6 +362,8 @@ export function ignite(ctx: SimContext, state: SimState, events: EventSink, S: S
   const bursts = explosiveIn(ctx, state.container.get(id));
   c.cookoff = { startTick: state.tick, endTick: state.tick + secondsToTicks(dur), nextTick: state.tick + 1, bursts };
   delete c.holdTick;
+  // (A crate set off in bearers' hands: they drop it, M11.4a.)
+  if (c.carried === true) { if (state.carry.has(id)) endCarry(ctx, state, events, id, "gone"); delete c.carried; }
   const t = state.transform.req(id);
   if (S.cookoff.smokeRadiusM > 0) addSmoke(ctx, state, t.x, t.y, S.cookoff.smokeRadiusM, dur, S.cookoff.smokeTopM, dur);
   events.emit({ kind: "cache.cookoff", tick: state.tick, cache: id, side: c.side, cause, bursts, endTick: c.cookoff.endTick });
@@ -455,7 +483,7 @@ function takeSeconds(S: Supply, p: { magRounds: number; bulkRounds: number }): n
 /** Can a cache supply these men (own side, not burning, something in it fits one of them)? */
 function usable(state: SimState, cache: EntityId, side: SideId): boolean {
   const c = state.cache.get(cache);
-  return c !== undefined && c.side === side && c.cookoff === undefined && (state.container.get(cache)?.stacks.length ?? 0) > 0;
+  return c !== undefined && c.side === side && c.cookoff === undefined && c.carried !== true && (state.container.get(cache)?.stacks.length ?? 0) > 0;
 }
 
 /**
@@ -619,5 +647,448 @@ registerActionHandler("takeSupply", {
     const src = Number(a.params["source"]);
     if (takeSupplyCheck(state, actor, src) !== null) return;
     takeSupplies(ctx, state, events, actor, src);
+  },
+});
+
+// ---------------------------------------------------------------- M11.4a: squads ask, bearers carry
+
+/**
+ * A man's rounds for his own weapon now and at his standard load: the magazine in his weapon, every magazine or belt
+ * of its feed and every package of its cartridge he carries (full: their capacities). `belt`: a machine gunner's belt
+ * capacity (0 for anyone else).
+ */
+export function roundsOfMan(ctx: SimContext, state: SimState, id: EntityId): { rounds: number; full: number; belt: number } {
+  const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
+  if (!w || !wd) return { rounds: 0, full: 0, belt: 0 };
+  const feed = wd.feed.magazine, fd = ctx.catalog.items[feed], cart = fd?.chargeItem;
+  let rounds = 0, full = 0;
+  if (w.magazine) { rounds += w.magazine.rounds; full += ctx.catalog.items[w.magazine.item]?.chargeCapacity ?? w.magazine.rounds; }
+  const c = state.container.get(id);
+  if (c) for (const s of c.stacks) {
+    const d = ctx.catalog.items[s.type];
+    if (!d || s.charge === undefined) continue;
+    if (s.type === feed || (cart !== undefined && d.category === "ammo-package" && d.chargeItem === cart)) { rounds += s.charge * s.count; full += (d.chargeCapacity ?? s.charge) * s.count; }
+  }
+  return { rounds, full, belt: wd.sustained !== undefined ? fd?.chargeCapacity ?? 0 : 0 };
+}
+
+/** The squad's able men on foot (its own members, ascending id). */
+function footMen(state: SimState, uid: EntityId): EntityId[] {
+  const out: EntityId[] = [];
+  for (const m of state.unit.get(uid)?.members ?? []) {
+    const s = state.soldier.get(m);
+    if (s && isAble(s) && !isMounted(s) && s.captive === null && s.atNest === undefined) out.push(m);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** A squad's ammunition state: its able men's rounds as a share of their standard load, and a machine gunner below
+ *  `beltsBelow` belts. */
+export function squadAmmo(ctx: SimContext, state: SimState, uid: EntityId): { share: number; gunnerLow: boolean; men: number } {
+  const R = ctx.catalog.supply?.request;
+  let rounds = 0, full = 0, gunnerLow = false;
+  const men = footMen(state, uid);
+  for (const m of men) {
+    const r = roundsOfMan(ctx, state, m);
+    rounds += r.rounds; full += r.full;
+    if (r.belt > 0 && R && r.rounds < R.beltsBelow * r.belt) gunnerLow = true;
+  }
+  return { share: full > 0 ? rounds / full : 1, gunnerLow, men: men.length };
+}
+
+/** Is the squad low enough to ask (`request.below`, or a machine gunner below `beltsBelow` belts)? */
+export function squadLow(ctx: SimContext, state: SimState, uid: EntityId): boolean {
+  const R = ctx.catalog.supply?.request;
+  if (!R) return false;
+  const a = squadAmmo(ctx, state, uid);
+  return a.men > 0 && (a.share < R.below || a.gunnerLow);
+}
+
+/** Can this unit ask for ammunition (a unit on foot under a platoon, not a crew, not an off-map asset)? */
+function asks(u: { parent: EntityId | null; vehicle?: EntityId; asset?: unknown; members: EntityId[] }): boolean {
+  return u.parent !== null && u.vehicle === undefined && u.asset === undefined && u.members.length > 0;
+}
+
+/** Squads each `request.stepS`: take from an own cache close by when quiet, else ask for ammunition when low. */
+export function requestSystem(ctx: SimContext, state: SimState, events: EventSink): void {
+  const S = ctx.catalog.supply, R = S?.request;
+  if (!S || !R || ctx.rules.resupply === false) return;
+  const every = Math.max(1, secondsToTicks(R.stepS));
+  for (const [uid, u] of state.unit.entries()) {
+    if ((state.tick + uid) % every !== 0 || !asks(u)) continue;
+    stepSquad(ctx, state, events, S, uid);
+  }
+}
+
+/** Men free to go to a cache by themselves: nothing else to do, not firing, standing still. */
+function freeForCache(state: SimState, id: EntityId): boolean {
+  const s = state.soldier.get(id);
+  if (!s || s.intent !== null || state.action.has(id) || state.fire.has(id) || s.carrying !== undefined || state.tick < s.stunnedUntilTick) return false;
+  return s.mental.behaviour !== "panicked" && s.mental.behaviour !== "routed" && s.mental.behaviour !== "pinned" && (state.mover.get(id)?.waypoints.length ?? 0) === 0;
+}
+
+/** An own cache on the ground within `request.useM` of the squad's middle with something for its men (nearest). */
+function nearCache(ctx: SimContext, state: SimState, S: Supply, men: readonly EntityId[], side: SideId, minRounds: number): { cache: EntityId; men: EntityId[] } | null {
+  if (men.length === 0 || state.cache.size === 0) return null;
+  let cx = 0, cy = 0;
+  for (const m of men) { const t = state.transform.req(m); cx += t.x; cy += t.y; }
+  cx /= men.length; cy /= men.length;
+  let best: { cache: EntityId; men: EntityId[] } | null = null, bestD = S.request!.useM;
+  for (const [k] of state.cache.entries()) {
+    if (!usable(state, k, side)) continue;
+    const t = state.transform.req(k), d = hypot2(t.x - cx, t.y - cy);
+    if (d > bestD) continue;
+    const want = men.filter((m) => { const p = takePlan(ctx, state, m, k); return p.magRounds + p.bulkRounds >= minRounds; });
+    if (want.length === 0) continue;
+    bestD = d; best = { cache: k, men: want };
+  }
+  return best;
+}
+
+/** One squad's look: an own cache close by (quiet and halted: its short men go and take), else a request. */
+function stepSquad(ctx: SimContext, state: SimState, events: EventSink, S: Supply, uid: EntityId): void {
+  const R = S.request!, u = state.unit.req(uid);
+  const men = footMen(state, uid);
+  if (men.length === 0) return;
+  const quiet = state.tick - (u.ownFireTick ?? -1e9) >= secondsToTicks(S.take.underFireS);
+  if (quiet && !u.moving && u.drill === null) {
+    const near = nearCache(ctx, state, S, men.filter((m) => freeForCache(state, m)), u.side, R.useMinRounds);
+    if (near && resupplyAtOrder(ctx, state, events, near.men, u.side, near.cache) === true) return;
+  }
+  if (state.tick - (u.supplyAsk?.tick ?? -1e9) < secondsToTicks(R.everyS)) return;
+  if (bearersFor(state, uid).length > 0) return; // (they are coming)
+  if (!squadLow(ctx, state, uid)) return;
+  // (A crate beside them with something for them: they take from it when it is quiet; no new trip.)
+  if (nearCache(ctx, state, S, men, u.side, 1) !== null) return;
+  const a = squadAmmo(ctx, state, uid);
+  const top = topOf(state, uid);
+  const rule = u.supplyRule ?? state.unit.get(top)?.supplyRule ?? "auto";
+  u.supplyAsk = { tick: state.tick, ...(rule === "ask" ? { pending: true as const } : {}) };
+  const from = u.leader !== null && men.includes(u.leader) ? u.leader : men[0]!;
+  if (onAir(state, uid)) events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key: "radio.ammoRequest", params: { callsign: u.callsign, percent: Math.round(a.share * 100) } });
+  events.emit({ kind: "supply.request", tick: state.tick, side: u.side, unit: uid, percent: Math.round(a.share * 100), ...(rule === "ask" ? { pending: true as const } : {}) });
+  if (rule === "auto") {
+    const r = sendBearers(ctx, state, events, uid, false);
+    // (Nobody could be sent: the platoon says why; without a supply point the request itself says enough.)
+    const tu = state.unit.get(top);
+    if (r !== true && r.unable !== "radio.bearersNoPoint" && tu && tu.leader !== null && onAir(state, top)) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: tu.leader, key: r.unable, params: { callsign: tu.callsign } });
+  }
+}
+
+/** The men now carrying ammunition to (or on their way to fetch it for) this squad. */
+export function bearersFor(state: SimState, uid: EntityId): EntityId[] {
+  const out: EntityId[] = [];
+  for (const m of state.unit.get(uid)?.supplyAsk?.bearers ?? []) {
+    const s = state.soldier.get(m);
+    if (s && isAble(s) && s.intent?.kind === "bear" && s.intent.squad === uid) out.push(m);
+  }
+  return out;
+}
+
+/** What bearers bring this squad from cache `point`: whole packages and magazines of the cartridges its men are
+ *  short of, the fullest first, while the load stays within `capKg`. */
+export function loadFor(ctx: SimContext, state: SimState, uid: EntityId, point: EntityId, capKg: number): { type: DefId; count: number; charge: number }[] {
+  const k = state.container.get(point);
+  if (!k) return [];
+  const need = new Map<DefId, number>();
+  for (const m of footMen(state, uid)) {
+    const w = state.weapon.get(m), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
+    const cart = wd ? ctx.catalog.items[wd.feed.magazine]?.chargeItem : undefined;
+    if (cart === undefined) continue;
+    const r = roundsOfMan(ctx, state, m);
+    if (r.full > r.rounds) need.set(cart, (need.get(cart) ?? 0) + r.full - r.rounds);
+  }
+  const cands = k.stacks.filter((s) => {
+    const d = ctx.catalog.items[s.type];
+    return s.count > 0 && (s.charge ?? 0) > 0 && d?.chargeItem !== undefined && (d.category === "ammo-package" || d.category === "magazine") && (need.get(d.chargeItem) ?? 0) > 0;
+  }).sort((a, b) => (b.charge ?? 0) - (a.charge ?? 0) || (a.type < b.type ? -1 : a.type > b.type ? 1 : 0));
+  const out: { type: DefId; count: number; charge: number }[] = [];
+  let kg = 0;
+  for (const s of cands) {
+    const d = ctx.catalog.items[s.type]!, cart = d.chargeItem!;
+    const one = d.massKg + (s.charge ?? 0) * (d.chargeMassKg ?? 0);
+    let n = 0;
+    while (n < s.count && (need.get(cart) ?? 0) > 0 && kg + one <= capKg) { n++; kg += one; need.set(cart, (need.get(cart) ?? 0) - (s.charge ?? 0)); }
+    if (n > 0) out.push({ type: s.type, count: n, charge: s.charge! });
+  }
+  return out;
+}
+
+/** Can he be an ammunition bearer: able, free, not a leader, a gunner, a medic or first responder (they would lose
+ *  their protection), not a crew-served weapon's man. `ownFire`: a man firing on his own (not on an order) may go (his
+ *  squad's or the headquarters' man: one rifle less for a few minutes). */
+function bearerOk(ctx: SimContext, state: SimState, id: EntityId, ownFire = false): boolean {
+  const s = state.soldier.get(id);
+  if (!s || !isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.evade !== null || s.captive !== null || state.action.has(id)) return false;
+  const f = state.fire.get(id);
+  if ((s.intent !== null && s.intent.kind !== "cover" && s.intent.kind !== "engage") || (f !== undefined && !(ownFire && f.self === true)) || s.carrying !== undefined || s.atNest !== undefined || state.tick < s.stunnedUntilTick) return false;
+  if (s.mental.behaviour === "panicked" || s.mental.behaviour === "routed" || s.mental.behaviour === "pinned") return false;
+  const uid = state.identity.get(id)?.unit, u = uid !== undefined ? state.unit.get(uid) : undefined;
+  if (!u || u.leader === id || u.mortar !== undefined || u.missileTeam !== undefined || u.vehicle !== undefined) return false;
+  const w = state.weapon.get(id);
+  if (w && ctx.catalog.weapons[w.weapon]?.sustained !== undefined) return false;
+  return !isResponder(ctx.catalog, state, id) && !wearsEmblem(ctx.catalog, state, id);
+}
+
+/** Is this unit fighting (fired on within `bearers.contactS`, in an assault, a house clearing, a withdrawal or a
+ *  rout, broken)? Its men are never taken as bearers by the platoon. */
+function fighting(ctx: SimContext, state: SimState, uid: EntityId): boolean {
+  const u = state.unit.get(uid), B = ctx.catalog.supply?.bearers;
+  if (!u || !B) return true;
+  return u.broken || u.drill !== null || state.tick - (u.ownFireTick ?? -1e9) < secondsToTicks(B.contactS);
+}
+
+/**
+ * The platoon's bearers for squad `uid` (at most two, one per unit): the headquarters' men first, then a man of the
+ * asking squad, then of a squad not fighting; in each unit the man nearest the supply point (its rear). `own`: from the
+ * squad itself only (the player's "Fetch ammunition"; also while it is fighting). A unit keeps at least two able men.
+ */
+export function pickSupplyBearers(ctx: SimContext, state: SimState, uid: EntityId, point: EntityId, own: boolean): EntityId[] {
+  const top = topOf(state, uid), pt = state.transform.req(point);
+  const units: { u: EntityId; rank: number }[] = [];
+  const walk = (x: EntityId) => { const v = state.unit.get(x); if (!v) return; units.push({ u: x, rank: x === top ? 0 : x === uid ? 1 : 2 }); for (const c of v.children) walk(c); };
+  if (own) units.push({ u: uid, rank: 0 }); else walk(top);
+  units.sort((a, b) => a.rank - b.rank || a.u - b.u);
+  const out: EntityId[] = [];
+  for (const { u: x } of units) {
+    if (out.length >= 2) break;
+    if (!own && fighting(ctx, state, x)) continue;
+    const able = footMen(state, x);
+    if (x !== top && able.length <= 2) continue;
+    let best: EntityId | null = null, bestD = Infinity;
+    const ownFire = own || x === uid || x === top;
+    for (const m of able) {
+      if (!bearerOk(ctx, state, m, ownFire)) continue;
+      const t = state.transform.req(m), d = hypot2(t.x - pt.x, t.y - pt.y);
+      if (d < bestD) { bestD = d; best = m; }
+    }
+    if (best !== null) out.push(best);
+    if (own && best !== null) {
+      // (Fetch ammunition: two men of the squad itself when it can spare them.)
+      let second: EntityId | null = null, sd = Infinity;
+      for (const m of able) {
+        if (m === best || !bearerOk(ctx, state, m, true) || able.length <= 3) continue;
+        const t = state.transform.req(m), d = hypot2(t.x - pt.x, t.y - pt.y);
+        if (d < sd) { sd = d; second = m; }
+      }
+      if (second !== null) out.push(second);
+    }
+  }
+  return out;
+}
+
+/**
+ * Send bearers to squad `uid` from its platoon's supply point (the squad's request with the rule "auto", the card's
+ * "Send bearers", the order `bearers`). True, or the radio key of the refusal.
+ */
+export function sendBearers(ctx: SimContext, state: SimState, events: EventSink, uid: EntityId, own: boolean): true | { unable: string } {
+  const S = ctx.catalog.supply, B = S?.bearers;
+  const u = state.unit.get(uid);
+  if (!S || !B || !u || ctx.rules.resupply === false || !asks(u)) return { unable: "radio.unable" };
+  if (bearersFor(state, uid).length > 0) return { unable: "radio.bearersComing" };
+  const top = topOf(state, uid), pid = supplyPointOf(state, top);
+  const point = pid === null ? undefined : state.rear.get(pid)?.cache;
+  if (point === undefined || !state.cache.has(point)) return { unable: "radio.bearersNoPoint" };
+  if (!usable(state, point, u.side) || loadFor(ctx, state, uid, point, B.crateMaxKg).length === 0) return { unable: "radio.supplyEmpty" };
+  const men = pickSupplyBearers(ctx, state, uid, point, own);
+  if (men.length === 0) return { unable: "radio.bearersNone" };
+  for (let i = 0; i < men.length; i++) {
+    const m = men[i]!, s = state.soldier.req(m);
+    const a = state.action.get(m);
+    if (a) { state.action.delete(m); events.emit({ kind: "action.interrupted", tick: state.tick, actor: m, action: a.kind, reason: "order" }); }
+    state.fire.delete(m);
+    const mate = men[1 - i];
+    s.intent = { kind: "bear", tick: state.tick, target: point, squad: uid, ...(mate !== undefined ? { mate } : {}), ...(i === 0 ? { lead: true as const } : {}) };
+    const mv = state.mover.get(m);
+    if (mv) mv.waypoints = [];
+  }
+  u.supplyAsk = { tick: u.supplyAsk?.tick ?? state.tick, bearers: [...men] };
+  events.emit({ kind: "supply.bearers", tick: state.tick, side: u.side, unit: uid, point, men: [...men], ...(own ? { own: true as const } : {}) });
+  const tu = state.unit.get(top);
+  if (tu && onAir(state, top) && tu.leader !== null) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: tu.leader, key: "radio.bearersSent", params: { callsign: tu.callsign, squad: u.callsign } });
+  for (const m of men) stepBear(ctx, state, events, m);
+  return true;
+}
+
+/** Where a crate for squad `uid` is put: beside its leader, else its first able man (his floor's height). */
+function dropSpot(state: SimState, uid: EntityId): { x: number; y: number; z: number } | null {
+  const u = state.unit.get(uid);
+  if (!u) return null;
+  const men = footMen(state, uid);
+  const who = u.leader !== null && men.includes(u.leader) ? u.leader : men[0];
+  if (who === undefined) return null;
+  const t = state.transform.req(who);
+  return { x: t.x, y: t.y, z: t.z };
+}
+
+/** Is a bearer still on his way with this crate? */
+function bearerHolds(state: SimState, load: EntityId): boolean {
+  // mounted: ok (a bearer is never aboard: a mounted man has no errand)
+  for (const [, s] of state.soldier.entries()) if (s.intent?.kind === "bear" && s.intent.load === load && isAble(s)) return true;
+  return false;
+}
+
+/** A crate the bearers put down where it is: an ordinary cache from now on. */
+function putDown(state: SimState, load: EntityId): void {
+  const c = state.cache.get(load);
+  if (c?.carried === true && !state.carry.has(load)) delete c.carried;
+}
+
+/** He gives up his errand (the crate, if he has one, stays where it lies) and goes back to his unit. */
+function quitBear(ctx: SimContext, state: SimState, id: EntityId): void {
+  const s = state.soldier.req(id), it = s.intent;
+  if (it?.kind !== "bear") return;
+  if (it.load !== undefined) {
+    const mate = it.mate !== undefined ? state.soldier.get(it.mate) : undefined;
+    // (His mate still on it: the crate stays his.)
+    if (!(mate && isAble(mate) && mate.intent?.kind === "bear" && mate.intent.load === it.load)) putDown(state, it.load);
+  }
+  s.intent = null;
+  if (isAble(s) && !isMounted(s)) bearersBack(ctx, state, [id]);
+}
+
+/** Is his fellow bearer still on the same errand? */
+function mateOn(state: SimState, it: { mate?: EntityId; squad?: EntityId }): EntityId | null {
+  if (it.mate === undefined) return null;
+  const ms = state.soldier.get(it.mate);
+  return ms && isAble(ms) && ms.intent?.kind === "bear" && ms.intent.squad === it.squad ? it.mate : null;
+}
+
+/** Step an ammunition bearer (the decision step; while he carries, the carry system moves him). */
+export function stepBear(ctx: SimContext, state: SimState, events: EventSink, id: EntityId): void {
+  const S = ctx.catalog.supply, B = S?.bearers;
+  const s = state.soldier.req(id), it = s.intent;
+  if (!it || it.kind !== "bear") return;
+  if (s.carrying !== undefined) return; // (the carry system has him)
+  if (!S || !B || ctx.rules.resupply === false || it.squad === undefined || it.target === undefined || !isAble(s) || isMounted(s)) { quitBear(ctx, state, id); return; }
+  if (state.tick - it.tick > secondsToTicks(B.giveUpS)) { quitBear(ctx, state, id); return; }
+  const side = state.identity.req(id).side;
+  const drop = dropSpot(state, it.squad);
+  if (!drop) { quitBear(ctx, state, id); return; }
+  const me = state.transform.req(id), mv = state.mover.get(id);
+  if (it.load !== undefined) {
+    const lc = state.cache.get(it.load), lt = state.transform.get(it.load);
+    if (!lc || !lt || lc.side !== side || lc.cookoff !== undefined || lc.burnt === true) { quitBear(ctx, state, id); return; }
+    if (state.carry.has(it.load)) return;
+    if (hypot2(lt.x - drop.x, lt.y - drop.y) <= B.deliverM) { deliver(ctx, state, events, id, it.load, it.squad); return; }
+    // The carry stopped short (a man lost, no way, the squad moved on): the lead takes it on.
+    const mate = mateOn(state, it);
+    if (it.lead !== true && mate !== null) return;
+    if (it.lead !== true) s.intent = { ...it, lead: true };
+    if (hypot2(me.x - lt.x, me.y - lt.y) > 3 || Math.abs(me.z - lt.z) > 1.5) {
+      // (Back to the crate first.)
+      const last = mv?.waypoints[mv.waypoints.length - 1];
+      if (mv && !(last && hypot2(last.x - lt.x, last.y - lt.y) < 2)) {
+        const leg = routeBetween(ctx, navFor(ctx, "foot").search, me.x, me.y, lt.x, lt.y, { maxExpansions: 6000, snapCells: 2 }, { sz: me.z, gz: lt.z });
+        if (!leg) { quitBear(ctx, state, id); return; }
+        mv.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" });
+        mv.formation = null; mv.endPosture = "crouching"; mv.endHeading = null;
+      }
+      return;
+    }
+    const mateNear = mate !== null && (() => { const t = state.transform.req(mate); return hypot2(t.x - lt.x, t.y - lt.y) <= 3 && state.soldier.req(mate).carrying === undefined; })();
+    const kg = containerMassKg(ctx.catalog, state.container.req(it.load));
+    const method = mateNear ? "crate" : kg <= B.maxKg ? "load" : null;
+    if (method === null) {
+      // (Too heavy for one man: he waits for his mate, or leaves it.)
+      if (mate !== null) return;
+      quitBear(ctx, state, id); return;
+    }
+    const party = method === "crate" ? [id, mate!] : [id];
+    if (!startCarry(ctx, state, events, it.load, party, drop, { method, cargo: true })) { quitBear(ctx, state, id); return; }
+    return;
+  }
+  // On his way to the supply point.
+  if (!usable(state, it.target, side)) { quitBear(ctx, state, id); return; }
+  // Fired on: he takes cover where he is and goes on once it is quiet (the carry rules, M10.4a).
+  const H = ctx.catalog.medical?.carrying?.holdSuppression ?? 0.3;
+  if (s.mental.suppression >= H || isCowering(s)) {
+    if (mv && mv.waypoints.length > 0) { mv.waypoints = []; mv.speedMps = 0; }
+    if (s.posture !== "prone" && s.postureTo === null) requestPosture(ctx, state, id, "prone");
+    return;
+  }
+  if (state.action.has(id)) return; // (loading)
+  const pt = state.transform.req(it.target);
+  const d = hypot2(me.x - pt.x, me.y - pt.y);
+  if ((d <= 2.0 || (d <= TAKE_REACH_M && (mv?.waypoints.length ?? 0) === 0)) && Math.abs(me.z - pt.z) <= 1.5) {
+    const mate = mateOn(state, it);
+    if (it.lead !== true && mate !== null) return; // (his mate loads)
+    if (mate !== null) {
+      const mt = state.transform.req(mate);
+      const there = hypot2(mt.x - pt.x, mt.y - pt.y) <= TAKE_REACH_M + 0.5;
+      if (!there) {
+        if (it.waitTick === undefined) { s.intent = { ...it, waitTick: state.tick }; return; }
+        if (state.tick - it.waitTick < secondsToTicks(B.waitMateS)) return;
+      }
+    }
+    me.heading = atan2(pt.y - me.y, pt.x - me.x);
+    if (mv) mv.waypoints = [];
+    startAction(state, events, id, "loadSupply", Math.max(1, secondsToTicks(B.loadS)), { source: it.target, squad: it.squad });
+    return;
+  }
+  if (!mv) { quitBear(ctx, state, id); return; }
+  const lastWp = mv.waypoints[mv.waypoints.length - 1];
+  if (lastWp && hypot2(lastWp.x - pt.x, lastWp.y - pt.y) < TAKE_REACH_M) return; // on his way
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, me.x, me.y, pt.x, pt.y, { maxExpansions: 8000, snapCells: 2 }, { sz: me.z, gz: pt.z });
+  if (!leg) { quitBear(ctx, state, id); return; }
+  mv.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" });
+  mv.formation = null; mv.endPosture = "crouching"; mv.endHeading = null;
+}
+
+/** The crate is beside the squad: it lies there as the squad's cache (its men take from it when quiet); the bearers
+ *  go back. */
+function deliver(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, load: EntityId, squad: EntityId): void {
+  const s = state.soldier.req(id), it = s.intent!;
+  const c = state.cache.req(load);
+  delete c.carried;
+  const rounds = roundsInContainer(ctx, state.container.get(load));
+  events.emit({ kind: "supply.delivered", tick: state.tick, side: c.side, unit: squad, load, rounds });
+  const men = [id];
+  const mate = mateOn(state, it);
+  if (mate !== null && state.soldier.req(mate).carrying === undefined) men.push(mate);
+  for (const m of men) state.soldier.req(m).intent = null;
+  const u = state.unit.get(squad);
+  if (u?.supplyAsk?.bearers) { const b = u.supplyAsk.bearers.filter((m) => !men.includes(m)); if (b.length > 0) u.supplyAsk.bearers = b; else delete u.supplyAsk.bearers; }
+  bearersBack(ctx, state, men);
+}
+
+/** At the point, the lead (and his mate if there) beside it, the point usable. */
+function loadSupplyCheck(state: SimState, actor: EntityId, src: EntityId): string | null {
+  const s = state.soldier.get(actor);
+  if (!s || !isAble(s) || !s.impair.canUseArms || isMounted(s) || s.intent?.kind !== "bear") return "unable";
+  const a = state.transform.get(actor), b = state.transform.get(src);
+  if (!a || !b || !usable(state, src, state.identity.req(actor).side)) return "gone";
+  if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) > (TAKE_REACH_M + 0.5) * (TAKE_REACH_M + 0.5) || Math.abs(a.z - b.z) > 1.5) return "out-of-reach";
+  return null;
+}
+
+registerActionHandler("loadSupply", {
+  check(_ctx, state, actor, a) {
+    return loadSupplyCheck(state, actor, Number(a.params["source"]));
+  },
+  complete(ctx, state, actor, a, events) {
+    const src = Number(a.params["source"]);
+    const B = ctx.catalog.supply?.bearers;
+    const s = state.soldier.get(actor), it = s?.intent;
+    if (!B || !s || !it || it.kind !== "bear" || it.squad === undefined || loadSupplyCheck(state, actor, src) !== null) return;
+    const side = state.identity.req(actor).side, pt = state.transform.req(src);
+    const mate = mateOn(state, it);
+    const mateThere = mate !== null && (() => { const t = state.transform.req(mate); return hypot2(t.x - pt.x, t.y - pt.y) <= TAKE_REACH_M + 0.5 && Math.abs(t.z - pt.z) <= 1.5 && state.soldier.req(mate).carrying === undefined; })();
+    const drop = dropSpot(state, it.squad);
+    const items = drop ? loadFor(ctx, state, it.squad, src, mateThere ? B.crateMaxKg : B.maxKg) : [];
+    if (items.length === 0) { quitBear(ctx, state, actor); if (mate !== null) quitBear(ctx, state, mate); return; }
+    const load = newCache(state, side, pt.x, pt.y, [], "cache");
+    state.transform.req(load).z = pt.z;
+    state.cache.req(load).carried = true;
+    for (const st of items) {
+      const r = transferItems(ctx.catalog, state.container, { from: src, to: load, type: st.type, count: st.count, charge: st.charge });
+      if (r.moved > 0) events.emit({ kind: "items.transferred", tick: state.tick, from: src, to: load, item: st.type, count: r.moved });
+    }
+    const k = state.container.req(load);
+    events.emit({ kind: "supply.loaded", tick: state.tick, side, unit: it.squad, load, rounds: roundsInContainer(ctx, k), kg: Math.round(containerMassKg(ctx.catalog, k) * 10) / 10 });
+    s.intent = { ...it, load };
+    if (mate !== null) { const ms = state.soldier.req(mate); ms.intent = { ...ms.intent!, load }; }
+    const party = mateThere ? [actor, mate!] : [actor];
+    if (!startCarry(ctx, state, events, load, party, drop!, { method: mateThere ? "crate" : "load", cargo: true })) putDown(state, load);
   },
 });

@@ -1,10 +1,25 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.4a (slice 46) built (2026-11-16, branch `claude/m11-logistics`).** Resupply on foot: every squad on foot
+  looks at its rounds every 2 s; quiet and halted with an own crate within 60 m, its short men go and fill up; below
+  40 % of its standard load (or a gunner under one belt) it radios for ammunition (at most every 2 min) and its platoon
+  sends up to two bearers (headquarters first, then the asking squad's rear man; never a gunner, leader, medic or first
+  responder, never a squad in a drill or fired on within 30 s) who walk to the supply point, load a crate (40 kg for
+  two, 25 kg for one) and carry it to the squad leader with the carry store (cover when fired on, rests); the crate
+  lies there as a cache the squad takes from. Player: rule "Ammunition requests: send bearers / ask me" (Rules panel),
+  "Send bearers" on the card while a request waits, "Fetch ammunition" (order bar; phone under "⋯"). `lab -- resupply`
+  (400 m: within 1 % of the hand calculation), `--scene supply` shots 5-6. Platoon batches unchanged (no supply
+  point). Hold battle, 6 seeds each way: bearer trips are rare (German defence 3, Russian 6; 0 from a unit in an
+  assault or fired on); defenders' dry men 2 and 2 against 11 and 4 without resupply; the Russian defence's machine
+  guns run dry in 1 battle instead of 4. Deviations: the crate is put down beside the leader (no hand-out walk), no
+  covered-route choice, "Bring ammunition to" is the card's "Send bearers". **Open for the owner:** medics and first
+  responders never carry ammunition (law-of-war reading, software decision); bearers walk rather than run. Numbers
+  in DECISIONS "M11.4a". Slice 47 (vehicle runs and off-map deliveries) next.
 - **M11.3 (slice 45) built (2026-11-16, branch `claude/m11-logistics`).** Supply points and caches: a `cache` store
   (schema 23) for every pile on the ground (the hold battle's crates are the defending platoon's supply point; the
   M11.2 piles outside the nest are caches), kept 50 m apart from the Verwundetennest both ways and no ammunition within

@@ -1167,6 +1167,10 @@ export interface SupplyDef {
   cookoff: { minS: number; maxS: number; stepS: number; maxBurstsPerStep: number; fireM: number; fireChancePerS: number; smokeRadiusM: number; smokeTopM: number };
   take: { baseS: number; bulkSecondsPerRound: number; magSecondsPerRound: number; reachM: number; underFireS: number };
   ai: { heRounds: number; everyS: number; ownClearM: number };
+  /** M11.4a: squads ask for ammunition (absent: they never ask, no bearers). */
+  request?: { stepS: number; below: number; beltsBelow: number; everyS: number; useM: number; useMinRounds: number };
+  /** M11.4a: bearers on foot and their carry methods (keyed `crate`, `load`; looked up beside the medical methods). */
+  bearers?: { maxKg: number; crateMaxKg: number; loadS: number; deliverM: number; waitMateS: number; giveUpS: number; contactS: number; methods: { crate: CarryMethodDef; load: CarryMethodDef } };
 }
 /** Recovery from the rear (core/repair.json `recovery`, M11.7b) without provenance (see the schema). */
 export interface RecoveryDef {

@@ -22,6 +22,8 @@ export interface CacheMarker {
   empty: boolean;
   burning: boolean;
   burnt: boolean;
+  /** M11.4a: in bearers' hands (drawn above them so the men show). */
+  carried?: boolean;
 }
 
 /** The caches side `side` knows of. */
@@ -43,7 +45,7 @@ export function cacheMarkers(view: SimView, catalog: Catalog, side: string): Cac
       cache: id, x: t.x, y: t.y, own, side: c.side, point: c.kind === "point", ...(c.top !== undefined ? { unit: c.top } : {}),
       // (An enemy cache: what the player can tell from afar is that it is there, not how full it is.)
       rounds: own ? rounds : 0, fill: own && cap > 0 ? charge / cap : null, empty: own ? (k?.stacks.length ?? 0) === 0 : false,
-      burning: c.cookoff !== undefined, burnt: c.burnt === true,
+      burning: c.cookoff !== undefined, burnt: c.burnt === true, ...(c.carried === true ? { carried: true } : {}),
     });
   }
   return out;
@@ -73,7 +75,7 @@ export function supplySourceNear(view: SimView, catalog: Catalog, side: string, 
   cx /= n; cy /= n;
   let best: EntityId | null = null, bestD = R;
   for (const [id, c] of view.cache.entries()) {
-    if (c.side !== side || c.cookoff !== undefined || (view.container.get(id)?.stacks.length ?? 0) === 0) continue;
+    if (c.side !== side || c.cookoff !== undefined || c.carried === true || (view.container.get(id)?.stacks.length ?? 0) === 0) continue;
     const t = view.transform.get(id);
     if (!t) continue;
     const d = Math.hypot(t.x - cx, t.y - cy);

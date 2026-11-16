@@ -109,7 +109,7 @@ export interface Overlay {
   /** M11.3: the caches the player's side knows of: its own (a supply point flies a pennant and shows how full its crates
    *  are and the rounds in them), the enemy's its men have seen; empty ones grey; burning ones a burning pile (its
    *  smoke is the state's smoke); burnt out ones charred. `drag`: a supply point being dragged there. */
-  caches?: readonly { x: number; y: number; side: string; own: boolean; point: boolean; rounds: number; fill: number | null; empty: boolean; burning: boolean; burnt: boolean; drag?: { x: number; y: number } | null }[] | null;
+  caches?: readonly { x: number; y: number; side: string; own: boolean; point: boolean; rounds: number; fill: number | null; empty: boolean; burning: boolean; burnt: boolean; carried?: boolean; drag?: { x: number; y: number } | null }[] | null;
   /** After-action heat map (M6): shots as (x, y, side index) triples, men fallen as (x, y, side index). */
   heat?: { shots: readonly number[]; falls: readonly number[] } | null;
   /** The floor shown in buildings (M7.5d floor switch; 0 / absent = ground). Men inside on another floor are
@@ -1281,6 +1281,8 @@ export class BattleRenderer {
     }
     for (const m of overlay.caches ?? []) {
       const s = worldToScreen(c, m.x, m.y);
+      // (M11.4a: a crate in bearers' hands rides above them, so the men carrying it show.)
+      if (m.carried === true) s.y -= 16;
       const colour = m.burnt ? 0x2a2622 : m.empty ? 0x8a8a84 : SIDE_COLOURS[(sideIndex.get(m.side) ?? 0) % SIDE_COLOURS.length]!;
       if (m.drag) {
         const d = worldToScreen(c, m.drag.x, m.drag.y);

@@ -322,7 +322,7 @@ function askForRound(ctx: SimContext, state: SimState, events: EventSink, id: En
   for (const g of men) {
     if (g === id) continue;
     const gs = state.soldier.get(g);
-    if (!gs || !isAble(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo" || gs.intent?.kind === "care" || gs.carrying !== undefined || gs.evade !== null) continue;
+    if (!gs || !isAble(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo" || gs.intent?.kind === "care" || gs.intent?.kind === "bear" || gs.carrying !== undefined || gs.evade !== null) continue;
     if (countItems(state.container.get(g)!, want) === 0) continue;
     // A comrade with a launcher of his own keeps his rounds for it.
     if (launcherRound(ctx, state, g) !== null) continue;

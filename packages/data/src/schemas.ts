@@ -1414,6 +1414,21 @@ export const SupplyFile = z.object({
     /** The computer commander shells an enemy cache its men have seen (high explosive, `heRounds`) at most every
      *  `everyS`, when no own man is within `ownClearM` of it and it has no better target. */
     ai: z.object({ heRounds: z.number().int().min(1).max(24), everyS: Num(0, 36000), ownClearM: Num(0, 2000) }).strict(),
+    /** M11.4a: a squad asks for ammunition (looked at every `stepS`) when its able men hold below `below` of their
+     *  standard load of rounds, or a machine gunner below `beltsBelow` belts; at most every `everyS`. Men short of
+     *  `useMinRounds` take from an own cache within `useM` of the squad themselves when it is quiet. Optional. */
+    request: z.object({ stepS: Num(0.5, 60), below: Num(0, 1), beltsBelow: Num(0, 10), everyS: Num(0, 3600), useM: Num(0, 500), useMinRounds: z.number().int().min(1).max(10000) }).strict().optional(),
+    /** M11.4a bearers: one man carries up to `maxKg`, two a crate of up to `crateMaxKg`; loading at the point takes
+     *  `loadS`; delivered within `deliverM` of the squad's leader; a bearer waits `waitMateS` for his mate at the
+     *  point and gives up after `giveUpS`; a squad fired on within `contactS` gives no bearer. `methods`: the carry
+     *  methods (as core/medical.json `carry`) for a crate (`crate`, two men) and a one-man load (`load`). */
+    bearers: z.object({
+      maxKg: Num(1, 100), crateMaxKg: Num(1, 200), loadS: Num(0, 600), deliverM: Num(1, 100), waitMateS: Num(0, 600), giveUpS: Num(10, 7200), contactS: Num(0, 600),
+      methods: z.object({
+        crate: z.object({ carriers: z.literal(2), speedMps: Num(0.1, 3), enduranceM: Num(1, 10000), restS: Num(0, 600), setupS: Num(0, 600), upright: z.boolean() }).strict(),
+        load: z.object({ carriers: z.literal(1), speedMps: Num(0.1, 3), enduranceM: Num(1, 10000), restS: Num(0, 600), setupS: Num(0, 600), upright: z.boolean() }).strict(),
+      }).strict(),
+    }).strict().optional(),
   }),
 }).strict();
 export type SupplyT = z.infer<typeof SupplyFile>;

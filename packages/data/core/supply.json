@@ -47,8 +47,43 @@
       "everyS": 300,
       "ownClearM": 100
     },
+    "request": {
+      "stepS": 2,
+      "below": 0.4,
+      "beltsBelow": 1,
+      "everyS": 120,
+      "useM": 60,
+      "useMinRounds": 30
+    },
+    "bearers": {
+      "maxKg": 25,
+      "crateMaxKg": 40,
+      "loadS": 30,
+      "deliverM": 15,
+      "waitMateS": 60,
+      "giveUpS": 900,
+      "contactS": 30,
+      "methods": {
+        "crate": {
+          "carriers": 2,
+          "speedMps": 1.0,
+          "enduranceM": 250,
+          "restS": 30,
+          "setupS": 5,
+          "upright": true
+        },
+        "load": {
+          "carriers": 1,
+          "speedMps": 1.0,
+          "enduranceM": 400,
+          "restS": 30,
+          "setupS": 5,
+          "upright": true
+        }
+      }
+    },
     "sources": [],
     "confidence": "low",
-    "note": "M11.3 (plan slice 45): game-design values, no source. Separation from the Verwundetennest and caches as legitimate targets are owner answers (2026-11-16); the 50 m apart and the 15 m clear zone are software choices. Cook-off: a light vehicle's ammunition rack as model (M7.4a); a burst sets a crate off with a chance per kg of filling (a 120 mm round on it about 0.6, a 152/155 mm round 0.9 and destroyed outright), within 5 m x filling^(1/3); a fire burns 30-120 s (plan), rifle rounds burn and pop without fragments (general knowledge, low). Taking at a crate: 0.4 s a round into a magazine (stripper clips and a loader, as refillMagazines with clips), 0.02 s a round of loose clips into a bandolier. Capture after 10 s with an enemy within 10 m and none of its side within 50 m (plan)."
+    "note": "M11.3 (plan slice 45): game-design values, no source. Separation from the Verwundetennest and caches as legitimate targets are owner answers (2026-11-16); the 50 m apart and the 15 m clear zone are software choices. Cook-off: a light vehicle's ammunition rack as model (M7.4a); a burst sets a crate off with a chance per kg of filling (a 120 mm round on it about 0.6, a 152/155 mm round 0.9 and destroyed outright), within 5 m x filling^(1/3); a fire burns 30-120 s (plan), rifle rounds burn and pop without fragments (general knowledge, low). Taking at a crate: 0.4 s a round into a magazine (stripper clips and a loader, as refillMagazines with clips), 0.02 s a round of loose clips into a bandolier. Capture after 10 s with an enemy within 10 m and none of its side within 50 m (plan). M11.4a (plan slice 46): a squad asks for ammunition when its able men hold below `request.below` 40 % of their standard load (every magazine, belt and bandolier full) or a machine gunner below `request.beltsBelow` one belt, at most every `everyS` 120 s, looked at every `stepS` 2 s (plan); men short of `useMinRounds` take from an own cache within `useM` 60 m themselves when quiet. Bearers: two men carry a crate of up to `crateMaxKg` 40 kg (two-hand carry, one each side: a game value; the plan's 25 kg is for one man, `maxKg`), loading `loadS` 30 s at the point; delivered within `deliverM` of the squad's leader; a squad fired on within `contactS` 30 s gives no bearer. Carry methods `crate` and `load`: speeds as the medical two-man carry, scaled by mass as a casualty's (game values, low)."
   }
 }

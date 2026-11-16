@@ -133,8 +133,8 @@ describe("data loader", () => {
     it("loads the Puma, the BMP-2 and the fixture cart", () => {
       const { data, errors } = loadDataSet(read(["core", "factions", "fixtures"]));
       expect(formatErrors(errors.filter((e) => e.severity === "error"))).toBe("");
-      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san", "de-leopard2a7v", "de-boxer-gtk", "de-boxer-gtk-gmw"]);
-      expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2", "ru-bmm", "ru-t90m", "ru-t72b3m", "ru-btr82a"]);
+      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san", "de-leopard2a7v", "de-boxer-gtk", "de-boxer-gtk-gmw", "de-bergepanzer3"]);
+      expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2", "ru-bmm", "ru-t90m", "ru-t72b3m", "ru-btr82a", "ru-brem1"]);
       expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon", "xf-litter-cart", "xf-tortoise", "xf-tug"]);
     });
     it("checks tanks (M7.6a): reactive tiles, autoloader cycle, a round in the breech, the missile range", () => {

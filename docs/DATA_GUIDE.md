@@ -216,6 +216,14 @@ rate per man 1 + `k` x (skill `key` - `ref`), at least `minRate`, the driver x `
 in the workshop per component kind at condition 0 (campaign input). Search extracts only: `"medium"` at most.
 After a change run `npm run lab -- repair`.
 
+Recovery (M11.7b): the optional section `recovery` of `core/repair.json` (without it no recovery vehicle is ever
+called): `delayMinS`-`delayMaxS` (the call to its coming on), `pace` / `nearPace` (movement modes), `approachM` (it
+reverses this last stretch onto its spot), `gapM` (hitch to hull), `standTolM`, `waitShortM` / `hitS` /
+`enemyNearM` / `quietS` / `giveUpS` (it waits short of a hull under fire), `edgeM`, `heldMaxS`, `retryS`,
+`abandonedDays` (workshop days of an abandoned hull without damage). A faction's manifest
+`recovery: { template, count }` names the crew template (its vehicle must have a `recovery` block) generated battles
+put off the map for each side with vehicles of its own.
+
 ## Medical data (M10.1)
 
 `core/medical.json`: `physiology` (rates of the "medical" body model: tension pneumothorax chance, onset and
@@ -466,6 +474,10 @@ metres: `f` forward (+) / back, `r` right (+) / left, `u` up from the ground.
   must be stowed (at least the count one repair uses; the loader checks). Without a `repair` block the crew
   repairs nothing. Research comes from search extracts only: confidence `"medium"` at most (the lint refuses
   `"high"`).
+- Recovery vehicle (M11.7b): `recovery: { towMaxKg, towMaxSpeedKmh, hookUpS, hookUpMen }`: it tows hulls up to that
+  combat mass (heavier: refused), at no more than that speed; `hookUpMen` of its crew (not the driver first) work
+  `hookUpS` outside to hook one up. Recovery vehicles are unarmed in the game (`stations: []`) and have no
+  passenger seats, so they are never a scenario's default crew. Search extracts only: `"medium"` at most.
 - Armour figures from sources in mm RHA are multiplied by `rhaToMildSteel` (core/ballistics.json, 1.25) to the
   mild-steel scale the simulation uses; the `armour-steel` material has the same resistance.
 - Main battle tanks (M7.6a):

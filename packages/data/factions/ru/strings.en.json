@@ -178,5 +178,8 @@
   "item.ru-zip": "crew ZIP tool kit",
   "item.ru-trak-t72": "T-72/T-90 track link",
   "item.ru-trak-bmp": "BMP-2 track link",
-  "item.ru-pkt-stvol": "spare PKT barrel"
+  "item.ru-pkt-stvol": "spare PKT barrel",
+  "vehicle.ru.brem1": "BREM-1",
+  "item.ru-brem1-diesel": "BREM-1 fuel",
+  "role.ru.slesar-remontnik": "Mechanic"
 }

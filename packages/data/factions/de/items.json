@@ -806,6 +806,17 @@
       "sources": [],
       "confidence": "low",
       "note": "M11.7a: a spare barrel for the Leopard 2's coaxial MG3 (mass about 2 kg, memory, low)."
+    },
+    {
+      "id": "de-bueffel-diesel",
+      "nameKey": "item.de-bueffel-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 1200,
+      "chargeMassKg": 0.84,
+      "sources": [],
+      "confidence": "low",
+      "note": "The Bueffel's fuel tanks (M11.7b): litres of diesel (0.84 kg per litre); capacity as the Leopard 2's (game value)."
     }
   ]
 }

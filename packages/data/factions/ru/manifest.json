@@ -17,11 +17,15 @@
     "template": "bmm-ekipazh",
     "count": 2
   },
-  "note": "M10.6a ambulance: two BMM of the battalion medical point (MPB) wait off the map for each generated battle (search extracts: 'battalion: MPB + BMM/MT-LB ambulance on request'; the count is a game value, low).",
+  "note": "M10.6a ambulance: two BMM of the battalion medical point (MPB) wait off the map for each generated battle (search extracts: 'battalion: MPB + BMM/MT-LB ambulance on request'; the count is a game value, low). M11.7b recovery: one BREM-1 of the battalion's repair and evacuation group waits off the map for each generated battle with vehicles (search extracts: battalion repair-evacuation platoon with BREM; the count is a game value, low).",
   "platoonTemplates": {
     "tracked": "motor-rifle-platoon",
     "wheeled": "motor-rifle-platoon-btr"
   },
   "aglTeamTemplate": "raschet-ags",
-  "assaultGroupTemplate": "shturmovaya-gruppa"
+  "assaultGroupTemplate": "shturmovaya-gruppa",
+  "recovery": {
+    "template": "brem1-ekipazh",
+    "count": 1
+  }
 }

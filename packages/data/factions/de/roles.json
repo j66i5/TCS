@@ -210,6 +210,15 @@
       ],
       "confidence": "low",
       "note": "MG5 assistant gunner (M7.6c): the MG5 is worked by a two-man team, gunner and assistant (Bundeswehr 'Maschinengewehrschuetze Jaegerkompanie', search extract, medium); carries belts for the gun (game value, low)."
+    },
+    {
+      "id": "bergemechaniker",
+      "nameKey": "role.de.bergemechaniker",
+      "sources": [
+        "https://www.bundeswehr.de/de/auftrag/einsaetze/missionen/ich-bin-im-einsatz/bergetrupp-einsatz-efp-battlegroup-5202426"
+      ],
+      "confidence": "low",
+      "note": "M11.7b: the recovery mechanic of a Bergepanzer crew (Bergetrupp; search extracts); hooks up the tow."
     }
   ]
 }

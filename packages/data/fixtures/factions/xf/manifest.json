@@ -14,5 +14,9 @@
   "ambulance": {
     "template": "litter-crew",
     "count": 1
+  },
+  "recovery": {
+    "template": "tug-crew",
+    "count": 1
   }
 }

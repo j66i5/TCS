@@ -1471,7 +1471,7 @@
       },
       "sources": [],
       "confidence": "low",
-      "note": "Made-up test fixture (M11.7a): an unarmed tracked tug with tracks and a radio, the fixture target of the field repair tests (and the recovery vehicle of M11.7b).",
+      "note": "Made-up test fixture (M11.7a): an unarmed tracked tug with tracks and a radio, the fixture target of the field repair tests and (M11.7b) the fixture's recovery vehicle.",
       "repair": {
         "tool": "xf-kit",
         "parts": {
@@ -1486,6 +1486,15 @@
         "sources": [],
         "confidence": "low",
         "note": "Made-up test fixture (M11.7a)."
+      },
+      "recovery": {
+        "towMaxKg": 40000,
+        "towMaxSpeedKmh": 8,
+        "hookUpS": 60,
+        "hookUpMen": 1,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M11.7b): tows the tortoise (30 t) and lighter."
       }
     }
   ]

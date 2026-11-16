@@ -158,5 +158,8 @@
   "item.de-kettenglied-leopard2": "Leopard 2 track link",
   "item.de-kettenglied-puma": "Puma track link",
   "item.de-mg5-rohr": "spare MG5 barrel",
-  "item.de-mg3-rohr": "spare MG3 barrel"
+  "item.de-mg3-rohr": "spare MG3 barrel",
+  "vehicle.de.bergepanzer3": "Bergepanzer 3 Büffel",
+  "item.de-bueffel-diesel": "Büffel fuel",
+  "role.de.bergemechaniker": "Recovery mechanic"
 }

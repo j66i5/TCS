@@ -45,12 +45,27 @@ describe("catalog", () => {
     expect(p.drive.steering.kind === "tracked" && p.drive.steering.pivotRateRadS).toBeCloseTo((40 * Math.PI) / 180, 9);
     expect(p.massKg).toBe(43000);
     expect(catalog.vehicles["ru-bmp2"]!.stations[0]!.elevationRad[1]).toBeCloseTo((74 * Math.PI) / 180, 9);
-    expect(Object.keys(catalog.vehicles).sort()).toEqual(["de-boxer-gtk", "de-boxer-gtk-gmw", "de-boxer-san", "de-leopard2a7v", "de-puma", "ru-bmm", "ru-bmp2", "ru-btr82a", "ru-t72b3m", "ru-t90m", "xf-cart", "xf-litter-cart", "xf-tortoise", "xf-tug", "xf-wagon"]);
-    expect(Object.keys(buildCatalog(data, ["de"]).vehicles)).toEqual(["de-boxer-gtk", "de-boxer-gtk-gmw", "de-boxer-san", "de-leopard2a7v", "de-puma"]);
+    expect(Object.keys(catalog.vehicles).sort()).toEqual(["de-bergepanzer3", "de-boxer-gtk", "de-boxer-gtk-gmw", "de-boxer-san", "de-leopard2a7v", "de-puma", "ru-bmm", "ru-bmp2", "ru-brem1", "ru-btr82a", "ru-t72b3m", "ru-t90m", "xf-cart", "xf-litter-cart", "xf-tortoise", "xf-tug", "xf-wagon"]);
+    expect(Object.keys(buildCatalog(data, ["de"]).vehicles)).toEqual(["de-bergepanzer3", "de-boxer-gtk", "de-boxer-gtk-gmw", "de-boxer-san", "de-leopard2a7v", "de-puma"]);
   });
 
   it("one armour scale: rhaToMildSteel equals the armour-steel material's resistance", () => {
     expect(catalog.ballistics.rhaToMildSteel).toBe(catalog.terrain.materials["armour-steel"]!.resistance);
     expect(catalog.terrain.materials["steel"]!.resistance).toBe(1);
+  });
+  it("recovery vehicles (M11.7b): each faction's manifest template crews one; who tows what by mass", () => {
+    for (const f of ["de", "ru", "xf"]) {
+      const m = data.factions[f]!.manifest.recovery!;
+      const vt = data.factions[f]!.units[m.template]!.vehicle!;
+      expect(catalog.vehicles[vt]!.recovery).toBeDefined();
+      expect(catalog.vehicles[vt]!.stations).toEqual([]); // (unarmed in the game, D11)
+    }
+    const tows = (r: string, t: string) => catalog.vehicles[t]!.massKg <= catalog.vehicles[r]!.recovery!.towMaxKg;
+    for (const t of ["de-leopard2a7v", "de-puma", "de-boxer-gtk", "ru-t90m", "ru-bmp2"]) expect(tows("de-bergepanzer3", t)).toBe(true);
+    for (const t of ["ru-t90m", "ru-t72b3m", "ru-bmp2", "ru-btr82a"]) expect(tows("ru-brem1", t)).toBe(true);
+    expect(tows("ru-brem1", "de-leopard2a7v")).toBe(false);
+    expect(tows("xf-tug", "xf-tortoise")).toBe(true);
+    expect(catalog.vehicles["de-bergepanzer3"]!.recovery!.towMaxMps).toBeCloseTo(8 / 3.6, 9);
+    expect(catalog.recovery?.delayMinS).toBeGreaterThan(0);
   });
 });

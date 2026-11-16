@@ -3800,6 +3800,442 @@
         "confidence": "low",
         "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
       }
+    },
+    {
+      "id": "de-bergepanzer3",
+      "nameKey": "vehicle.de.bergepanzer3",
+      "class": "tracked",
+      "body": {
+        "lengthM": 7.7,
+        "widthM": 3.54,
+        "heightM": 2.7,
+        "groundClearanceM": 0.54,
+        "hull": {
+          "f": [
+            -3.85,
+            3.85
+          ],
+          "r": [
+            -1.77,
+            1.77
+          ],
+          "u": [
+            0.54,
+            2.1
+          ]
+        },
+        "trackContactM": 4.95,
+        "trackGaugeM": 3.12,
+        "sources": [
+          "https://www.rheinmetall.com/en/media/stories/2022/30-years-bergepanzer-3-bueffel",
+          "https://army-guide.com/eng/product1442.html",
+          "https://www.czdefence.com/article/buffel-kodiak-and-keiler-ng-combat-force-multipliers-for-heavy-units-based-on-the-leopard-2"
+        ],
+        "confidence": "low",
+        "note": "Leopard 2 hull with the crane and the winch superstructure; no turret (M11.7b). The size is from memory (about 9 x 3.5 x 2.7 m with the dozer blade; not in the search extracts): game values, the hull as the Leopard 2A7V's, narrower, the superstructure up to 2.1 m."
+      },
+      "mass": {
+        "kg": 54300,
+        "sources": [
+          "https://www.rheinmetall.com/en/media/stories/2022/30-years-bergepanzer-3-bueffel",
+          "https://army-guide.com/eng/product1442.html",
+          "https://www.czdefence.com/article/buffel-kodiak-and-keiler-ng-combat-force-multipliers-for-heavy-units-based-on-the-leopard-2"
+        ],
+        "confidence": "low",
+        "note": "About 54 t (from memory, not confirmed by a search extract): game value."
+      },
+      "drive": {
+        "powerKw": 1100,
+        "efficiency": 0.75,
+        "topSpeedKmh": 63,
+        "reverseTopSpeedKmh": 31,
+        "brakeMps2": 6.0,
+        "gears": [
+          {
+            "toKmh": 12
+          },
+          {
+            "toKmh": 24
+          },
+          {
+            "toKmh": 40
+          },
+          {
+            "toKmh": 63
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          },
+          {
+            "toKmh": 31
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 30,
+          "maxLatAccelMps2": 3.5,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.55
+        },
+        "idleKw": 60,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://www.rheinmetall.com/en/media/stories/2022/30-years-bergepanzer-3-bueffel",
+          "https://army-guide.com/eng/product1442.html",
+          "https://www.czdefence.com/article/buffel-kodiak-and-keiler-ng-combat-force-multipliers-for-heavy-units-based-on-the-leopard-2"
+        ],
+        "confidence": "low",
+        "note": "The Leopard 2's MTU MB 873 (1100 kW) on the Leopard 2 chassis (published for the Bueffel, medium); speeds and the other drive values as the Leopard 2A7V's (game values, low)."
+      },
+      "fuel": {
+        "item": "de-bueffel-diesel",
+        "capacityL": 1160
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.8,
+            0.6,
+            1.9
+          ],
+          "part": "hull",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own",
+              "pos": [
+                0.8,
+                0.6,
+                2.6
+              ]
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.9,
+            0.5,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "mech",
+          "station": "loader",
+          "pos": [
+            0.8,
+            -0.6,
+            1.9
+          ],
+          "part": "hull",
+          "hatch": true
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            0.5,
+            2.1
+          ],
+          [
+            0.5,
+            -2.1
+          ]
+        ],
+        "openSeconds": 2,
+        "mountSecondsPerMan": 6,
+        "dismountSecondsPerMan": 4,
+        "bailOutSeconds": 8,
+        "seatSwapSeconds": 30,
+        "loadCasualtySeconds": 60,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values (M11.7b): no ramp; the crew gets in and out through the hatches."
+      },
+      "stations": [],
+      "stowed": [
+        {
+          "item": "de-leopard-extinguisher",
+          "count": 2
+        },
+        {
+          "item": "de-bordwerkzeug",
+          "count": 1
+        },
+        {
+          "item": "de-kettenglied-leopard2",
+          "count": 4
+        }
+      ],
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "composite",
+            "thicknessMm": 300,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "composite",
+            "thicknessMm": 100,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 40,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values (M11.7b): the Leopard 2 hull's plates without the tank's heavy front module (front 300 mm of composite); armour is classified."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.8,
+                -1.6
+              ],
+              "r": [
+                -1.4,
+                1.4
+              ],
+              "u": [
+                0.6,
+                1.8
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.8,
+                -3.0
+              ],
+              "r": [
+                -1.5,
+                1.5
+              ],
+              "u": [
+                0.6,
+                1.4
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.8,
+                3.8
+              ],
+              "r": [
+                -1.88,
+                -1.45
+              ],
+              "u": [
+                0.54,
+                1.2
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.8,
+                3.8
+              ],
+              "r": [
+                1.45,
+                1.88
+              ],
+              "u": [
+                0.54,
+                1.2
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                2.0,
+                3.6
+              ],
+              "r": [
+                1.1,
+                1.8
+              ],
+              "u": [
+                0.8,
+                1.7
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.15
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                0.2,
+                0.8
+              ],
+              "r": [
+                0.2,
+                0.9
+              ],
+              "u": [
+                1.4,
+                1.9
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.0,
+                1.4
+              ],
+              "r": [
+                -0.5,
+                0.5
+              ],
+              "u": [
+                0.6,
+                1.0
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values (M11.7b): the Leopard 2 hull's engine, transmission, tracks and fuel; radio and extinguisher boxes placed by the game."
+      },
+      "extinguisher": {
+        "item": "de-leopard-extinguisher",
+        "chance": 0.6,
+        "delaySeconds": 1,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: automatic fire suppression (charges, delay and chance are not published)."
+      },
+      "signature": {
+        "sizeFactor": 1.05,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 400,
+        "noiseMovingM": 1200,
+        "aimPoints": [
+          [
+            0.3,
+            0,
+            1.3
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a Leopard 2 hull with a superstructure (size 1.05); type known within 1.5 km."
+      },
+      "repair": {
+        "tool": "de-bordwerkzeug",
+        "parts": {
+          "track": [
+            {
+              "item": "de-kettenglied-leopard2",
+              "count": 2
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair as on the Leopard 2 (same tracks): game values, low."
+      },
+      "recovery": {
+        "towMaxKg": 70000,
+        "towMaxSpeedKmh": 8,
+        "hookUpS": 120,
+        "hookUpMen": 1,
+        "sources": [
+          "https://www.rheinmetall.com/en/media/stories/2022/30-years-bergepanzer-3-bueffel",
+          "https://army-guide.com/eng/product1442.html",
+          "https://www.czdefence.com/article/buffel-kodiak-and-keiler-ng-combat-force-multipliers-for-heavy-units-based-on-the-leopard-2",
+          "https://recoveryvehicles.tpub.com/TM-9-2350-292-10/css/TM-9-2350-292-10_123.htm",
+          "https://euro-sd.com/2020/02/articles/16071/wisent-2-when-armoured-vehicles-require-assistance/"
+        ],
+        "confidence": "low",
+        "note": "M11.7b: tows up to 70 t (MLC 70; search extracts: 'tows 62 t / MLC 70', the A2 'recovers up to 60 t, MLC 80'; in service it tows the Leopard 2, 64 t: so 70 t, medium for the practice, low for the figure). Tow speed 8 km/h on a rigid bar across country (US recovery manuals: cable 8-16 km/h, bar up to 25 km/h on roads; low). Hook-up 120 s by one man outside (a rigid bar on the Leopard 2 hitch; the WiSENT-type combat recovery hitch needs no man outside at all; research 2-5 min with dismounts: game value, low)."
+      },
+      "sources": [
+        "https://www.rheinmetall.com/en/media/stories/2022/30-years-bergepanzer-3-bueffel",
+        "https://army-guide.com/eng/product1442.html",
+        "https://www.czdefence.com/article/buffel-kodiak-and-keiler-ng-combat-force-multipliers-for-heavy-units-based-on-the-leopard-2"
+      ],
+      "confidence": "low",
+      "note": "Bergepanzer 3 Bueffel (M11.7b): the Bundeswehr's armoured recovery vehicle on the Leopard 2 chassis (crane 30 t, main winch 35 t, dozer blade; search extracts, medium). Unarmed in the game (its MG3 is left out, D11): an off-map asset called from the battalion's recovery troop (Bergetrupp Kette), outside the side's strength. Crew of three: two in peacetime plus a seat (search extracts); the game fills the third seat (low)."
     }
   ]
 }

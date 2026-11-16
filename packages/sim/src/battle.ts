@@ -11,7 +11,7 @@ import type { BattleRules } from "./context";
 import type { Environment } from "./environment";
 import type { BattleEndReason, SimEvent, SimEventKind } from "./events";
 import type { DefId, SideId } from "./ids";
-import type { VehicleStatus } from "./components";
+import type { OffMapKind, VehicleRecovery, VehicleStatus } from "./components";
 import type { ItemStack } from "./items";
 import type { MapDef } from "./map";
 import type { Order } from "./orders";
@@ -100,9 +100,10 @@ export interface VehicleRecord {
   /** Condition of each component (omitted = all 1). */
   components?: number[];
   status?: VehicleStatus;
-  /** Reserved: the side holding it (campaign). */
+  /** The side holding it (M11.7b: written at the end for a hull left on ground the enemy holds). */
   capturedBy?: SideId | null;
-  recovery?: null;
+  /** How it was recovered (M11.7b): towed off the map, recovered or captured at the end, lost. Null/absent: nothing. */
+  recovery?: VehicleRecovery | null;
 }
 
 export interface Placement {
@@ -127,7 +128,7 @@ export interface ForceInput {
   vehiclePlacements?: { vehicleId: string; x: number; y: number; heading: number }[];
   /** Off-map assets (M10.6a): vehicles of `vehicles` (with their crews) that start off the map and come on only when
    *  called (an ambulance). They need no placement. */
-  offMap?: { vehicleId: string; kind: "ambulance" }[];
+  offMap?: { vehicleId: string; kind: OffMapKind }[];
   /** Whether this side attacks or defends (scenario). Optional: absent = not stated. */
   posture?: "attack" | "defend";
   /** M11.1: crates and cans of this side on the ground (a supply point): each an entity with a place and a container,
@@ -163,7 +164,9 @@ export interface SideResult {
    *  `diedOfWoundsTick`; not in `killed`, which counts the men killed in the battle). Absent: none. */
   diedOfWounds?: number;
   /** Vehicles (M7): how many started and how they ended; absent for a force without vehicles. */
-  vehicles?: { start: number; ok: number; immobilised: number; disarmed: number; abandoned: number; destroyed: number; captured: number };
+  vehicles?: { start: number; ok: number; immobilised: number; disarmed: number; abandoned: number; destroyed: number; captured: number;
+    /** M11.7b (absent: none): towed off the map in the battle; recovered by the own side at the end. */
+    towed?: number; recovered?: number };
 }
 
 export interface BattleResult {

@@ -2,7 +2,7 @@
  * The HUD's panels from the state (from the `main.ts` split, D2): the order bar, the unit sidebar and card, the
  * rules panel's status text and the score line. All read-only; all text from the string table.
  */
-import { atRuleOf, fuelLitres, isOut, launcherOf, aglRoundsLeft, mortarTeams, teamRounds, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
+import { atRuleOf, fuelLitres, isOut, launcherOf, aglRoundsLeft, mortarTeams, teamRounds, navFor, repairWorkers, supportLeft, ticksToSeconds, vehicleItems, workRate, type EntityId } from "@tcs/sim";
 import { shownCallsigns } from "@tcs/render";
 import { endPlan } from "./orders";
 import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleGuns, woundedRows, settleRules, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
@@ -17,7 +17,7 @@ import { ambulanceCallerName, droneMode, fmtClock, hqMode, localClock, selectedM
  */
 export function syncOrders(a: App): void {
   const cap = unitCapabilities(a.sim.state, a.input.catalog, a.overlay.selectedUnit, hqMode(a));
-  const key = `${droneMode(a) ? "drone|" : hqMode(a) ? "hq|" : ""}${a.overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}`;
+  const key = `${droneMode(a) ? "drone|" : hqMode(a) ? "hq|" : ""}${a.overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}|${cap.canRepair === true}|${cap.canRecover === true}|${cap.recoverLeft ?? 0}`;
   const shownFor = `${selPart(a) ?? ""}${a.overlay.selectedUnit}`;
   if (a.ordersShownFor === shownFor && key === a.ordersKey) return;
   const changedUnit = a.ordersShownFor !== undefined && a.ordersShownFor !== shownFor;
@@ -102,6 +102,48 @@ export function settlePendingRules(a: App, uid: EntityId, kind?: string): void {
   if (now === null || !settleRules(pend, now, kind)) a.pendingRules.delete(uid);
 }
 
+/**
+ * Field repair lines of a vehicle's card (M11.7a): the task under way (share done, minutes left, "paused" while the
+ * men are not at it), the spares aboard (tool kit and parts its tasks use), parts beyond the crew. "" without
+ * repair data.
+ */
+function repairLines(a: App, vid: EntityId): string {
+  const st = a.sim.state, cat = a.input.catalog, t = a.strings.t.bind(a.strings);
+  const v = st.vehicle.get(vid), def = v ? cat.vehicles[v.def] : undefined;
+  if (!v || !def?.repair || !def.components || cat.repair === undefined) return "";
+  let out = "";
+  const rep = v.repair;
+  if (rep) {
+    const kind = def.components[rep.comp]?.kind ?? "";
+    const men = repairWorkers(st, vid, v);
+    let rate = 0;
+    for (const k of men) rate += workRate(cat, st.soldier.get(v.seats[k]!), def.seats[k]!.station);
+    if (rate <= 0) rate = cat.repair.tasks[kind as keyof typeof cat.repair.tasks]?.men ?? 1;
+    out += `\n${t("status.vehicle.repair", { part: t(`vehicle.comp.${kind}`), pct: Math.floor((100 * rep.doneManS) / rep.needManS), min: Math.max(1, Math.ceil((rep.needManS - rep.doneManS) / rate / 60)), paused: rep.working ? "" : t("status.vehicle.repairPaused") })}`;
+  }
+  const items = [...new Set([...(def.repair.tool !== undefined ? [def.repair.tool] : []), ...Object.values(def.repair.parts).flatMap((ps) => (ps ?? []).map((p) => p.item))])];
+  if (items.length > 0) out += `\n${t("status.vehicle.spares", { list: items.map((it) => `${t(`item.${it}`, {}, v.faction)} ${vehicleItems(st, vid, it)}`).join(", ") })}`;
+  for (const k of v.repairBeyond ?? []) out += `\n${t("status.vehicle.beyond", { part: t(`vehicle.comp.${def.components[k]?.kind ?? ""}`) })}`;
+  return out;
+}
+
+/** The recovery line of a vehicle's card (M11.7b): a recovery vehicle called for it (minutes to come), coming,
+ *  waiting short of fire, hooking up (share), the hull under tow or towed away. "" otherwise. */
+function recoveryLine(a: App, vid: EntityId): string {
+  const st = a.sim.state, t = a.strings.t.bind(a.strings);
+  const v = st.vehicle.get(vid);
+  if (!v) return "";
+  if (v.towAway === true) return `\n${t("status.vehicle.recovery.towed")}`;
+  const r = v.recoveryBy !== undefined ? st.vehicle.get(v.recoveryBy) : undefined, o = r?.offMap;
+  if (!r || !o) return "";
+  if (v.towedBy !== undefined || o.phase === "towing") return `\n${t("status.vehicle.recovery.towing")}`;
+  if (o.phase === "called") return `\n${t("status.vehicle.recovery.called", { min: Math.max(1, Math.ceil(ticksToSeconds((o.enterTick ?? st.tick) - st.tick) / 60)) })}`;
+  if (o.phase === "inbound") return `\n${t("status.vehicle.recovery.inbound")}`;
+  if (o.phase === "waiting") return `\n${t("status.vehicle.recovery.waiting")}`;
+  if (o.phase === "hookUp") { const need = a.input.catalog.vehicles[r.def]?.recovery?.hookUpS ?? 1; return `\n${t("status.vehicle.recovery.hookUp", { pct: Math.min(100, Math.floor((100 * (o.hookDoneS ?? 0)) / need)) })}`; }
+  return "";
+}
+
 /** The selected unit's rules and state for the rules panel. */
 export function showUnit(a: App): void {
   const uid = a.overlay.selectedUnit, st = a.sim.state, t = a.strings.t.bind(a.strings), cat = a.input.catalog;
@@ -127,6 +169,8 @@ export function showUnit(a: App): void {
         parts: def.components.map((c, k) => ({ c, x: veh.comp[k] ?? 1 })).filter((p) => p.x < 1).map((p) => `${t(`vehicle.comp.${p.c.kind}`)} ${Math.round(p.x * 100)} %`).join(", ") || t("status.vehicle.partsOk"),
         ext: def.extinguisher ? vehicleItems(st, vid, def.extinguisher.item) : 0,
       })}` : "")
+      + repairLines(a, vid)
+      + recoveryLine(a, vid)
       + (veh.crewReaction !== null ? `\n${t("status.vehicle.reaction", { reaction: t(`reaction.${veh.crewReaction}`), why: veh.reactionWhy.map((k) => t(k)).join(", ") })}` : "");
     settlePendingRules(a, uid);
     a.hud.setUnit({ ...rulesNow(a, uid)!, ...(a.pendingRules.get(uid) ?? {}) }, status);

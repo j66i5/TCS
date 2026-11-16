@@ -1022,6 +1022,10 @@ export interface Catalog {
   fingerprint: string;
   /** Medical data (core/medical.json, M10.1); absent in data sets without it (old tests). */
   medical?: MedicalDef;
+  /** Field repair (core/repair.json, M11.7a); absent: crews repair nothing (old tests, data sets without it). */
+  repair?: RepairDef;
+  /** Recovery from the rear (core/repair.json `recovery`, M11.7b); absent: no recovery vehicle is ever called. */
+  recovery?: RecoveryDef;
   items: Record<DefId, ItemTypeDef>;
   movementModes: Record<DefId, MovementModeDef>;
   qualities: Record<DefId, QualityDef>;
@@ -1111,6 +1115,29 @@ export interface VehicleDef {
   laserWarner?: boolean;
   /** An ambulance (M10.6-data): patient layouts (alternatives) and the protective emblem. Behaviour: M10.6a. */
   ambulance?: { layouts: { lying: number; sitting: number; lyingOutside: number }[]; marked: boolean };
+  /** Field repair (M11.7a): the crew's tool kit (must be in the container, not used up) and the parts each task
+   *  uses up. Absent: its crew repairs nothing. */
+  repair?: { tool?: DefId; parts: Partial<Record<ComponentKind, { item: DefId; count: number }[]>> };
+  /** A recovery vehicle (M11.7b): tows hulls up to `towMaxKg` at no more than `towMaxMps`; `hookUpMen` work `hookUpS`
+   *  outside to hook one up. Absent: it tows nothing. */
+  recovery?: { towMaxKg: number; towMaxMps: number; hookUpS: number; hookUpMen: number };
+}
+
+/** One field repair task (core/repair.json, M11.7a). */
+export interface RepairTaskDef { outside: boolean; men: number; manMin: number; minCondition: number; restoreTo: number; chance: number }
+/** Field repair (core/repair.json `repair`, M11.7a) without provenance. */
+export interface RepairDef {
+  stepS: number; quietS: number; underFireS: number; enemyNearM: number; suppressionStop: number; orderHitS: number;
+  skill: { key: string; k: number; ref: number; driverFactor: number; minRate: number };
+  order: ComponentKind[];
+  tasks: Partial<Record<ComponentKind, RepairTaskDef>>;
+  workshopDays: Partial<Record<ComponentKind, number>>;
+}
+/** Recovery from the rear (core/repair.json `recovery`, M11.7b) without provenance (see the schema). */
+export interface RecoveryDef {
+  delayMinS: number; delayMaxS: number; pace: DefId; nearPace: DefId; approachM: number; gapM: number; standTolM: number;
+  waitShortM: number; hitS: number; enemyNearM: number; quietS: number; giveUpS: number; edgeM: number; heldMaxS: number; retryS: number;
+  abandonedDays: number;
 }
 
 export interface VehiclePlate { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; material: DefId; thicknessMm: number; slopeDeg: number }

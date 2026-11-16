@@ -1179,6 +1179,54 @@ gives half power; a damaged track pulls less. The vehicle's panel lists every da
 better than BMP-2; a fire in the ammunition is twice as hard to put out). If it fails and a charge is left, it
 tries again a moment later; with none left — or with the extinguisher wrecked — the crew gets out as before.
 
+**Field repair (M11.7a).** A crew fixes light damage itself, with time and the parts its hull carries: a **broken
+track** (two spare track links of the eight-odd stowed on a tank or IFV, back to 80 %: the hull drives again), a
+**holed wheel side** of an 8x8 (no part: run-flat inserts and tyre pressure; back to 50 %, the hull limps), the
+**coaxial machine gun** (a spare barrel; it works six times in ten) and the **radio** (no part; five times in ten:
+often the set itself is beyond them). Everything else — engine, gearbox, gun, turret drive, stabiliser, sights,
+ammunition, fuel — needs a recovery vehicle or the workshop; a failed repair leaves that part "beyond the crew" for
+the battle, and a track is not worth fixing while the engine is dead. The crew starts on its own when it is quiet:
+the hull halted and not burning, not hit for a minute, its men not under fire for 20 seconds and, for work
+outside, no enemy known within 300 m. The driver (the mechanic) and the loader or gunner get out to the damaged
+side and kneel there: they are men in the open, seen, shot at and hurt like anyone on foot; the commander stays at
+his post. Inside work (coax, radio) keeps a man under armour but away from his gun. A track takes two men about
+45 minutes (a seasoned crew 38, a green one 50), a wheel side 20 minutes with two men or 36 with a GTK's driver
+alone, the coax about 11 and the radio about 17. A hit on the hull, fire on the men outside, a fire, bailing out or
+driving off stops the work; what is done stays done, the parts stay aboard until the end, and the crew goes back
+to it after another quiet minute. The **Repair** button (behind "⋯" on a phone) starts it at once without the
+quiet minute (not within 10 seconds of a hit); a move order ends it. The vehicle's card shows the repair ("repairing
+the track: 40 %, about 25 min"), the spares aboard and what is beyond the crew; the radio reports start, stop, end
+and failure. `--no-repair` (headless, batch) and `?repair=0` switch it off; `npm run lab -- repair` measures every
+hull and task.
+
+**Recovery (M11.7b).** What the crew cannot fix can be towed away. Each side that has vehicles in a generated battle
+has one **recovery vehicle** waiting behind the map: the German **Bergepanzer 3 Büffel** (a Leopard 2 hull with crane
+and winch; it tows anything up to 70 t, the Leopard 2A7V too) and the Russian **BREM-1** (a T-72 hull; up to 50 t:
+T-90M, T-72B3M, BMP-2, BTR-82A — a Leopard 2 is too heavy for it). They are unarmed in the game and, like the
+ambulances, not part of the side's strength. Select a crew whose hull is **immobilised or abandoned** (or the crew
+that bailed out of it) and press **Recover** (a tow hook; behind "⋯" on a phone; the tooltip says how many are
+left): the recovery vehicle comes onto the map after 10 to 20 minutes, at the edge behind the hull, drives to it and
+reverses the last 25 m up to it. It does not drive into a fight: while the hull has been hit in the last two minutes
+or an enemy is known within 300 m of it, it waits about 300 m short until it has been quiet for a minute, and after
+ten minutes of waiting in all it goes back. At the hull the passengers get out (the crew stays aboard: the driver
+steers the towed hull; the wounded stay aboard and are evacuated with it), and one man of the Büffel's crew (two of
+the BREM-1's) goes out behind his vehicle to hook up the tow bar — two minutes for the Büffel, four for the BREM-1 —
+exposed like any man on foot; a hit on the recovery vehicle or fire on its men stops him until it is quiet again.
+Then it tows the hull back to where it came on at no more than 8 km/h (the hull follows on the bar, its guns silent)
+and both leave the map: the hull is **towed away** — out of this battle, but saved for the next (its crew with it).
+Orders to a hull on the bar or towed away are refused. If the recovery vehicle itself is knocked out or loses its
+driver, the tow drops where it is. One call per hull; a hull that drives again (repaired meanwhile) or is destroyed
+before it comes stands the call down. The AI commander calls one for its own hulls that are abandoned or immobilised
+with nothing the crew can fix, when it is quiet there and there is time left — never for a stranded tank whose gun
+still works while the enemy is within a kilometre (it fights on as a pillbox). The vehicle's card shows "recovery
+vehicle on its way, about 12 min", "waiting, the hull is under fire", "hooking up: 40 %", "under tow"; the tile says
+"under tow". **At the end of the battle** every damaged, immobilised or abandoned hull still on the map is settled
+like the wounded: the side holding the ground there (more able men within 150 m, else the nearest) recovers it, or
+the enemy **captures** it; a hull that still drives with its crew is never captured; a destroyed one is lost. The
+roster record (`VehicleRecord.recovery`) carries towed / recovered / captured / lost and the workshop days its damage
+will take (campaign). `--no-recovery` (headless, batch) and `?recovery=0` leave the recovery vehicles out;
+`npm run lab -- repair` (part B) measures delay, drive, hook-up and tow for every hull.
+
 **Crews that back off.** A crew whose vehicle can still drive decides once a second whether to fight on or to
 **reverse out**. Since the owner's change of 13 November ("make armour not back out of every fight") it backs off
 only when it has really been hurt or really cannot defend itself: when it has been penetrated, when its weapons are

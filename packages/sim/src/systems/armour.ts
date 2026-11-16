@@ -483,7 +483,18 @@ function crewCanAct(state: SimState, v: VehicleState, def: VehicleDef): boolean 
   return false;
 }
 
-/** Immobilised / disarmed from the components (never back to ok in battle). */
+/**
+ * The status again after a field repair (M11.7a): an immobilised hull that can move again is "ok", or "disarmed" if
+ * its guns are out; a disarmed hull with a gun again is "ok". Only a repair calls it (a lab target frozen as
+ * "immobilised" with every component whole is never repaired). Returns whether the status changed.
+ */
+export function recomputeStatus(v: VehicleState, def: VehicleDef): boolean {
+  if (v.status === "immobilised" && mobile(v, def)) { v.status = gunWorks(v, def) ? "ok" : "disarmed"; return true; }
+  if (v.status === "disarmed" && gunWorks(v, def)) { v.status = "ok"; return true; }
+  return false;
+}
+
+/** Immobilised / disarmed from the components (back to ok only by a field repair, M11.7a `recomputeStatus`). */
 function updateStatus(_ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef): void {
   if (v.status === "destroyed" || v.status === "abandoned") return;
   if (!mobile(v, def) && v.status !== "immobilised") {

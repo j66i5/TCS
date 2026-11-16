@@ -309,6 +309,31 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M10.6a): the litter cart's crew, called from off the map."
+    },
+    {
+      "id": "tug-crew",
+      "echelon": "vehicle",
+      "callsign": "Tug {n}",
+      "leaderIndex": 0,
+      "vehicle": "xf-tug",
+      "members": [
+        {
+          "role": "boss",
+          "rank": "boss",
+          "seat": "cmd",
+          "load": []
+        },
+        {
+          "role": "carter",
+          "rank": "private",
+          "seat": "drv",
+          "load": []
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M11.7a): the tug's two crew (commander, driver)."
     }
   ]
 }

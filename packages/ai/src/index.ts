@@ -70,3 +70,4 @@ export * from "./commander";
 export { DRONE, droneUse, withDrones } from "./drone";
 export * from "./siting";
 export * from "./tanks";
+export { RECOVERY_AI, recoveryCalls, type RecoveryMemory } from "./recovery";

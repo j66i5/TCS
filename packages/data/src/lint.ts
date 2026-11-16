@@ -43,8 +43,17 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
   // Medical data (M10.1): researched from search extracts only (web pages cannot be opened here), so nothing in it
   // may claim more than "medium" confidence.
   const notHigh = (file: string, path: string, p: Prov) => {
-    if (p.confidence === "high") errors.push({ file, path, message: "medical data comes from search extracts only: confidence 'medium' at most", severity: "error" });
+    if (p.confidence === "high") errors.push({ file, path, message: "medical and repair data come from search extracts only: confidence 'medium' at most", severity: "error" });
   };
+  // Field repair (M11.7a): search extracts only.
+  if (data.repair) { check("core/repair.json", "repair", data.repair.repair, false); notHigh("core/repair.json", "repair", data.repair.repair); }
+  // Recovery (M11.7b): search extracts only.
+  if (data.repair?.recovery) {
+    const R = data.repair.recovery;
+    check("core/repair.json", "recovery", R, false); notHigh("core/repair.json", "recovery", R);
+    if (R.delayMinS > R.delayMaxS) errors.push({ file: "core/repair.json", path: "recovery.delayMinS", message: "delayMinS above delayMaxS", severity: "error" });
+    for (const k of ["pace", "nearPace"] as const) if (!data.movementModes[R[k]]) errors.push({ file: "core/repair.json", path: `recovery.${k}`, message: `unknown movement mode '${R[k]}'`, severity: "error" });
+  }
   if (data.medical) {
     const m = data.medical, f = "core/medical.json";
     for (const [k, b] of [["physiology", m.physiology], ["levels", m.levels], ["chain", m.chain], ["protection", m.protection], ["triage", m.triage]] as const) { check(f, k, b, false); notHigh(f, k, b); }
@@ -85,6 +94,12 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
       const vt = pack.units[amb.template]?.vehicle;
       if (vt === undefined || pack.vehicles[vt]?.ambulance === undefined) errors.push({ file: `${d}/manifest.json`, path: "ambulance.template", message: `'${amb.template}' is not the crew of an ambulance`, severity: "error" });
     }
+    // Recovery vehicles off the map (M11.7b): the template must crew a recovery vehicle (search extracts only).
+    const rec = pack.manifest.recovery;
+    if (rec) {
+      const vt = pack.units[rec.template]?.vehicle;
+      if (vt === undefined || pack.vehicles[vt]?.recovery === undefined) errors.push({ file: `${d}/manifest.json`, path: "recovery.template", message: `'${rec.template}' is not the crew of a recovery vehicle`, severity: "error" });
+    }
     check(`${d}/names.json`, "names", pack.names, fx);
     check(`${d}/doctrine.json`, "doctrine", pack.doctrine, fx);
     Object.values(pack.ranks).forEach((x) => check(`${d}/ranks.json`, x.id, x, fx));
@@ -101,6 +116,15 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
       // M7.6a: the armour and the components carry their own provenance (game values, mostly low).
       if (v.armour) check(`${d}/vehicles.json`, `${v.id}.armour`, v.armour, fx);
       if (v.components) check(`${d}/vehicles.json`, `${v.id}.components`, v.components, fx);
+      // M11.7a: repair data comes from search extracts only (confidence 'medium' at most).
+      if (v.recovery) {
+        check(`${d}/vehicles.json`, `${v.id}.recovery`, v.recovery, fx); notHigh(`${d}/vehicles.json`, `${v.id}.recovery`, v.recovery);
+        if (v.recovery.hookUpMen > v.seats.filter((q) => q.station !== "passenger").length) errors.push({ file: `${d}/vehicles.json`, path: `${v.id}.recovery.hookUpMen`, message: "more men to hook up than crew seats", severity: "error" });
+      }
+      if (v.repair) {
+        check(`${d}/vehicles.json`, `${v.id}.repair`, v.repair, fx); notHigh(`${d}/vehicles.json`, `${v.id}.repair`, v.repair);
+        for (const k of Object.keys(v.repair.parts)) if (data.repair && data.repair.repair.tasks[k as keyof typeof data.repair.repair.tasks] === undefined) errors.push({ file: `${d}/vehicles.json`, path: `${v.id}.repair.parts.${k}`, message: `no crew task '${k}' in core/repair.json`, severity: "error" });
+      }
       const kwPerT = v.drive.powerKw / (v.mass.kg / 1000);
       if (kwPerT < 8 || kwPerT > 40) errors.push({ file: `${d}/vehicles.json`, path: v.id, message: `${kwPerT.toFixed(1)} kW/t is outside the plausible 8-40 kW/t`, severity: "warning" });
     }

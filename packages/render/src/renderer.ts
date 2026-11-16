@@ -5,7 +5,7 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import { DT, flareBurning, flareLitRadius, floorAtZ, heightAt, isOffMap, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
+import { DT, flareBurning, flareLitRadius, floorAtZ, heightAt, isOffMap, isOutside, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
 import { BufferImageSource, Sprite, Texture, TilingSprite } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
@@ -706,7 +706,9 @@ export class BattleRenderer {
     for (const [id, ident] of state.identity.entries()) {
       const foe = fog && ident.side !== overlay.playerSide;
       if (foe && !inSight!.has(id)) continue;
-      if (state.soldier.get(id)?.mount !== undefined) continue; // men aboard are inside their vehicle (drawn with it)
+      // mounted: ok — men aboard are inside their vehicle (drawn with it); a crewman outside it (M9.3a roof, M11.7a
+      // repair) is drawn as a man on foot where he is.
+      if (state.soldier.get(id)?.mount !== undefined && !isOutside(state, id)) continue;
       let p = this.pos(state, id, alpha);
       const t = state.transform.req(id);
       const role = this.carryRoles.get(id);

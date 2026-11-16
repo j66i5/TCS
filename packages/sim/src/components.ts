@@ -551,7 +551,7 @@ export interface Unit {
   carrier?: EntityId;
   /** The crew of an off-map asset (M10.6a: an ambulance called from the rear): no commander, AI or player orders it;
    *  it counts in no side's strength. Absent: an ordinary unit. */
-  asset?: "ambulance";
+  asset?: OffMapKind;
   /** Getting in or out of a vehicle (M7.2); not a drill. */
   boarding?: Boarding;
   /**
@@ -776,6 +776,8 @@ export interface DriveState {
   progressX: number; progressY: number; progressTick: number;
   yieldTo: EntityId | null; yieldSinceTick: number;
   crossing: { obstacle: number; part: number; untilTick: number; capMps: number } | null;
+  /** M11.7b: a recovery vehicle towing a hull drives no faster than this (m/s). Absent: no cap. */
+  towCapMps?: number;
   /** Sub-litre remainder of fuel burnt but not yet taken from the tank item (the litres are its charge). */
   fuelAccL: number;
   /** Last pose hidden from known threats (reverse-out target, M7.4b). */
@@ -923,7 +925,25 @@ export interface VehicleState {
   hatches: "closed";
   /** Active protection (M7.4b, fixture): when it can engage again; charges are container items only. */
   aps: { nextReadyTick: number } | null;
-  recovery: { state: "none" } | null;
+  /** How the hull was recovered (M11.7b): towed off the map in the battle, or settled at its end (recovered by its own
+   *  side, captured, lost). Null: nothing happened to it (intact, or fixed in the field). Roster output. */
+  recovery: VehicleRecovery | null;
+  /** M11.7b: the recovery vehicle called for this hull (from the call until the run ends; the hull is no wreck in
+   *  the navigation grids meanwhile). Absent: none. */
+  recoveryBy?: EntityId;
+  /** M11.7b: hooked up and towed by this recovery vehicle (it skips its own drive; its pose follows the hitch). */
+  towedBy?: EntityId;
+  /** M11.7b: towed off the map (it and its crew aboard are off the map for good, `isOffMap`). */
+  towAway?: true;
+  /**
+   * Field repair (M11.7a): the crew's task on component `comp` — man-seconds of work needed and done, who ordered it
+   * (`ordered`: the player's `repair` order: no waiting for the quiet period), when it started and last had men at
+   * it; `working` while men are at it, `stopWhy` the reason the last of them stopped. Kept while interrupted (the
+   * progress stays); removed when done, failed or no longer needed. Absent: no repair.
+   */
+  repair?: RepairState;
+  /** Components that failed a repair this battle (M11.7a): beyond the crew. Absent: none. */
+  repairBeyond?: number[];
   /** Reserved: the side holding an abandoned hull (campaign). */
   capturedBy: SideId | null;
   /**
@@ -938,6 +958,20 @@ export interface VehicleState {
   rearRun?: RearRun;
   /** A rear run was cancelled (M10.6b): none starts on its own again before this tick. Absent: no wait. */
   rearRunRetryTick?: number;
+}
+
+/** The kinds of off-map asset (M10.6a ambulance, M11.7b recovery vehicle). */
+export type OffMapKind = "ambulance" | "recovery";
+
+/** A hull's recovery state (M11.7b, roster `VehicleRecord.recovery`): `towed` off the map by a recovery vehicle,
+ *  `recovered` by its own side at the end (held ground), `captured` by the enemy holding the ground, `lost`
+ *  (destroyed); `tick` when; `repairDays` workshop days (campaign input). */
+export interface VehicleRecovery { state: "towed" | "recovered" | "captured" | "lost"; tick: number; repairDays?: number }
+
+/** A crew's field repair in progress (M11.7a, `VehicleState.repair`). */
+export interface RepairState {
+  comp: number; needManS: number; doneManS: number; startTick: number; lastWorkTick: number; working: boolean;
+  ordered?: true; stopWhy?: string;
 }
 
 /**
@@ -975,8 +1009,21 @@ export interface RearRun {
  * hull from then on). Off the map: ready, called, away.
  */
 export interface OffMapAsset {
-  kind: "ambulance";
-  phase: "ready" | "called" | "inbound" | "loading" | "outbound" | "away" | "lost";
+  kind: OffMapKind;
+  /** M11.7b recovery adds `waiting` (short of a hull under fire), `hookUp` (its men outside hooking it up) and
+   *  `towing` (driving off the map with it). */
+  phase: "ready" | "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "waiting" | "hookUp" | "towing";
+  /** M11.7b: the hull a recovery vehicle was called for. */
+  target?: EntityId;
+  /** M11.7b: hook-up work done (s, at full crew), when it began waiting short, the last tick its target was not
+   *  quiet, whether the towed hull hangs on by its rear, and the bar length (hitch to the towed hull's centre, m). */
+  hookDoneS?: number;
+  waitTick?: number;
+  /** M11.7b: seconds a recovery vehicle has waited short of its hull so far (it gives up after `giveUpS` in all). */
+  waitedS?: number;
+  noisyTick?: number;
+  towRear?: boolean;
+  towLenM?: number;
   /** The rear point it was called to (a Verwundetennest), and the top unit that called (the nest's platoon). */
   point?: EntityId;
   unit?: EntityId;

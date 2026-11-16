@@ -258,6 +258,17 @@
       ],
       "confidence": "low",
       "note": "Radio and drone operator of an assault group's command (M7.6d; the reported assault company has a UAV team: euromaidanpress, medium-low; one man with the group's quadcopter is a game value, low)."
+    },
+    {
+      "id": "slesar-remontnik",
+      "nameKey": "role.ru.slesar-remontnik",
+      "sources": [
+        "https://www.militaryperiscope.com/weapons/ground-combat-vehicles/combat-support/brem-1-armored-recovery-and-repair-vehicle/",
+        "https://test.russellphillips.uk/the-soviet-brem-1-armoured-recovery-vehicle/",
+        "https://deagel.com/Armies/BREM-1/a002877"
+      ],
+      "confidence": "low",
+      "note": "M11.7b: the BREM-1's mechanic (crew of three: commander, driver, mechanic; search extracts); hooks up the tow."
     }
   ]
 }

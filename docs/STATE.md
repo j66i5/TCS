@@ -1,10 +1,30 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.7b Recovery (2026-11-16, branch `claude/medical-ambulance-smoke`, roadmap-detail slice 51).** Each side with
+  vehicles has a recovery vehicle off the map (Bergepanzer 3 Büffel: tows up to 70 t; BREM-1: up to 50 t, refuses a
+  Leopard 2; fixture `xf-tug`). The player's Recover button (selected crew's immobilised or abandoned hull) or the AI
+  commander (hopeless hulls, when quiet) calls it: it comes after 10-20 min, waits 300 m short while the hull is
+  under fire, reverses up, a man hooks up outside (2 / 4 min), tows the hull off the map at 8 km/h; the hull is
+  towed away with its crew (roster `recovery: towed`). At the end the damaged hulls left are recovered or captured
+  by the side holding the ground (`VehicleRecord.recovery`, `capturedBy`). `lab -- repair` part B, `--no-recovery`,
+  `?recovery=0|1`, `--scene recovery`. Goldens: event streams with the recovery vehicles stripped are main's (plus
+  the end settlement); with them, the mounted battles diverge from the id shift of later entities only. Decisions
+  in DECISIONS "M11.7b" (software decisions, owner to review). Next: M11.8 or the logistics slices (other session).
+- **M11.7a Field repair (2026-11-16, branch `claude/medical-ambulance-smoke`, roadmap-detail slice 50).** Crews fix
+  light damage themselves with time and the spare parts aboard (counted items): a broken track (two links, two men
+  outside, about 45 min), a holed 8x8 wheel side (no part, 20 min, a GTK's driver alone 36), the coax (spare barrel,
+  11 min, works 6 in 10), the radio (17 min, 5 in 10). They start when the hull is quiet (no hit 60 s, crew not
+  under fire 20 s, no enemy known within 300 m for outside work); the men outside are exposed like men on foot;
+  hits, fire, a move stop the work, progress kept. Repair button (skips the quiet minute), card lines, tile, review
+  row, `npm run lab -- repair`, `--no-repair`, `?repair=0`, `--scene repair`. Goldens: event streams unchanged,
+  fingerprint only. All decisions "software decision, not asked; owner to review" (DECISIONS "M11.7a"). Slice 51
+  M11.7b recovery built next (above).
+  Open: track repairs rarely finish in 20-minute battles (owner question below).
 - **M11.1 (slice 43) built (2026-11-16, branch `claude/m11-logistics`).** Consumption lab (`npm run lab -- consumption`),
   `moveCharge` and the ledger with a conservation guard (every scenario exact; two leaks fixed: vehicle smoke salvos and a late wave's
   ammunition, now an `items.delivered` event),
@@ -345,6 +365,25 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- M11.7b recovery (2026-11-16; new data low unless noted: `de-bergepanzer3` (body, mass 54.3 t, drive, armour,
+  components, the third crewman), `ru-brem1` (body, drive 618 kW, armour, components; mass 41 t and crew of three
+  medium), their `recovery` blocks (tow limits 70 t / 50 t, 8 km/h, hook-up 120 s by one man / 240 s by two), the
+  roles `bergemechaniker` and `slesar-remontnik`, the fuel items, core/repair.json `recovery` (delay 600-1200 s,
+  approach 25 m, gap 1.5 m, wait 300 m short while hit within 120 s or an enemy within 300 m, quiet 60 s, give up
+  after 600 s waiting, abandoned hull 0.5 workshop days), one recovery vehicle per side (manifest count)).
+  Questions: one recovery vehicle per battle enough (the BREM-L / BREM-K of BMP and BTR battalions, Bergepanzer 2,
+  Boxer recovery module later)? Unarmed in game (their MG left out)? Who calls: only the player and the AI
+  commander, never automatically? Towed to the entry edge (no on-map collection point)? Crew rides along with the
+  towed hull, passengers get out first? At the end, hulls on ground the enemy holds are captured (with a damaged
+  hull that still drives never captured)? A towed hull still costs its score points this battle?
+- M11.7a field repair (2026-11-16, all low, `core/repair.json`, vehicles' `repair` blocks): task times (track 90,
+  wheels 40, coax 10, radio 15 man-minutes), restore levels (track 0.8, wheels 0.5), chances (coax 0.6, radio 0.5),
+  the quiet rule (60 s, 20 s, 300 m), the work rate (experience, driver x1.25), part masses (track links 30/20/17/8
+  kg, barrels 2-3 kg, tool kits 40 kg). Timing: a track takes about 45 minutes, so in a 20-minute battle it is
+  almost never fixed — keep realistic / compress repair times / only coax and radio in battle? Who works (driver
+  and loader/gunner outside, commander stays), abandoned hulls not repaired in battle, coax parts used even when
+  the repair fails.
 
 - M11.6 batteries and water (2026-11-16, low unless noted; DECISIONS "M11.6 stage 1"): radio pack 30 Wh / 0.35 kg,
   DE radio 6 h (medium), RU radio 8 h, goggle cell 4 Wh, DE goggle 50 h, RU 40 h, thermal set 12 Wh, DE thermal 7 h

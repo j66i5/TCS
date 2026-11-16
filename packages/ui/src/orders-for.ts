@@ -5,7 +5,7 @@
  * `ordersFor` turns it into the bar. Nothing selected: every button shown greyed (`none`). Pure: tested
  * without a DOM.
  */
-import { isAble, isOut, supportLeft, type Catalog, type EntityId, type SimView } from "@tcs/sim";
+import { isAble, isOffMap, isOut, repairTaskFor, supportLeft, type Catalog, type EntityId, type SimView } from "@tcs/sim";
 import type { OrderMode } from "./hud";
 
 export type Nature = "ap" | "he" | "mg";
@@ -32,6 +32,12 @@ export interface OrderSet {
   natures?: Nature[];
   /** "Take wounded back" (M10.6b, owner Q-9): a combat vehicle's rear run. Absent: not offered. */
   rearRun?: boolean;
+  /** "Repair" (M11.7a): the crew has a field repair it can do now (not already at it). Absent: not offered. */
+  repair?: boolean;
+  /** "Recover" (M11.7b): call a recovery vehicle for the crew's disabled hull (or the hull it bailed out of); `recoverLeft`
+   *  recovery vehicles still wait. Absent: not offered. */
+  recover?: boolean;
+  recoverLeft?: number;
 }
 
 /** What the selected unit can do about vehicles now (M7.2). */
@@ -69,6 +75,12 @@ export interface UnitCapabilities {
   own?: boolean;
   /** A combat vehicle that can take wounded back (M10.6b): the battle has rear runs, it is on the map, not on one. */
   canRearRun?: boolean;
+  /** The crew can start a field repair now (M11.7a): a task with its parts aboard, not already working at it. */
+  canRepair?: boolean;
+  /** A recovery vehicle can be called for this crew's hull (M11.7b): immobilised or abandoned, none coming yet, one
+   *  waiting (`recoverLeft`). */
+  canRecover?: boolean;
+  recoverLeft?: number;
 }
 
 const NONE: UnitCapabilities = { kind: "none", vehicleClass: null, ableMen: 0, hasLauncherRounds: false, handGrenades: 0, rifleGrenades: 0, smokeGrenades: 0, supportHe: 0, supportSmoke: 0, canMount: false, canDismount: false, passengers: 0, hasSmokeDischargers: false, natures: [] };
@@ -124,6 +136,8 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     out.passengers = veh.seats.filter((o, i) => o !== null && vdef.seats[i]?.station === "passenger").length;
     out.hasSmokeDischargers = vdef.dischargers !== undefined && countIn(view, u.vehicle, vdef.dischargers.item) > 0;
     if (catalog.medical?.rearRun !== undefined && veh.offMap === undefined && veh.rearRun === undefined && (veh.status === "ok" || veh.status === "disarmed")) out.canRearRun = true;
+    if (catalog.repair !== undefined && veh.offMap === undefined && veh.rearRun === undefined && veh.repair?.working !== true && veh.fire === null && (veh.status !== "abandoned" && veh.status !== "destroyed")
+      && typeof repairTaskFor(catalog, view, u.vehicle, veh, vdef) !== "string") out.canRepair = true;
     // The natures its guns offer: a coaxial machine gun "mg"; a cannon "ap" / "he" by the feed's round.
     const set = new Set<Nature>();
     vdef.stations.forEach((st, si) => st.weapons.forEach((w, wi) => {
@@ -138,8 +152,11 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
       for (const f of w.feeds) { const r = catalog.items[f.item]?.chargeItem; set.add(r !== undefined && catalog.ammo[r]?.explosive !== undefined ? "he" : "ap"); }
     }));
     out.natures = (["ap", "he", "mg"] as const).filter((n) => set.has(n));
+    recoverable(view, catalog, u.side, veh, out);
     return out;
   }
+  // (M11.7b: a crew that bailed out can still call a recovery vehicle for the hull it left.)
+  if (u.exVehicle !== undefined) recoverable(view, catalog, u.side, view.vehicle.get(u.exVehicle), out);
   out.kind = "group";
   out.onFoot = 0;
   for (const m of own ? u.members : unitSoldierIds(view, unitId)) {
@@ -163,6 +180,16 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
   if (out.ableMen === 1) out.kind = "man";
   if (out.ableMen === 0) out.kind = "none"; // nobody left to take an order
   return out;
+}
+
+/** M11.7b: can a recovery vehicle be called for this hull now (disabled, not burning, none coming, one waiting)? */
+function recoverable(view: SimView, catalog: Catalog, side: string, v: ReturnType<SimView["vehicle"]["get"]>, out: UnitCapabilities): void {
+  if (catalog.recovery === undefined || !v || v.offMap !== undefined || isOffMap(v) || v.recoveryBy !== undefined || v.fire !== null) return;
+  if (v.status !== "immobilised" && v.status !== "abandoned") return;
+  let left = 0;
+  for (const [, x] of view.vehicle.entries()) if (x.side === side && x.offMap?.kind === "recovery" && x.offMap.phase === "ready") left++;
+  if (left === 0) return;
+  out.canRecover = true; out.recoverLeft = left;
 }
 
 export const FOOT_PACES = ["walk", "run", "sneak", "crawl"];
@@ -210,6 +237,8 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     o.nature = cap.natures.length > 1;
     if (cap.hasLauncherRounds) o.modes = [...o.modes, "antitank"];
     if (cap.canRearRun) o.rearRun = true;
+    if (cap.canRepair) o.repair = true;
+    if (cap.canRecover) { o.recover = true; o.recoverLeft = cap.recoverLeft ?? 0; }
     return o;
   }
   const grenades = cap.handGrenades + cap.rifleGrenades;
@@ -225,7 +254,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
   }
   if (cap.kind === "man") {
-    return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
+    return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.canRecover ? { recover: true, recoverLeft: cap.recoverLeft ?? 0 } : {}) };
   }
   // (Slice s0-clear: Clear a house — a squad's drill, never a single man's.)
   const m: OrderMode[] = ["move", "assault", "withdraw", "occupy", "clear", "fire"];
@@ -239,7 +268,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
   // (D4b: Defend arc — a unit on foot faces a sector and fires on its own only into it; not offered while all its
   // men are aboard: the sim would answer "unable" for a platoon whose squads ride.)
   if (onFoot(cap)) m.push("arc");
-  return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
+  return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.canRecover ? { recover: true, recoverLeft: cap.recoverLeft ?? 0 } : {}) };
 }
 
 /** Has the unit able men on foot (D4b)? */

@@ -35,6 +35,12 @@ export interface BattleRules {
   /** Care of the wounded (M10.2 on): false switches it off (`--no-medical`, comparison batches). Default on
    *  whenever the data has core/medical.json. */
   medicalCare?: boolean;
+  /** Field repair by crews (M11.7a): false switches it off (`--no-repair`, labs holding a target still). Default on
+   *  whenever the data has core/repair.json. */
+  repair?: boolean;
+  /** Recovery vehicles called to tow disabled hulls (M11.7b): false switches it off (`--no-recovery`). Default on
+   *  whenever the data has core/repair.json `recovery`. */
+  recovery?: boolean;
   /** M11: resupply (refilling magazines from loose rounds, and every route of slices 44-48); false switches it off
    *  (`--no-resupply`, comparison batches). Default on. */
   resupply?: boolean;

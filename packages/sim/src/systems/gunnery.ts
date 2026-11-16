@@ -38,7 +38,7 @@ import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin, sqrt, wrapAngle } from "../math";
-import { compCondition, fireTop, occupant, onRoof, vehicleItems } from "../mount";
+import { compCondition, fireTop, occupant, onRoof, REPAIR_INSIDE, vehicleItems } from "../mount";
 import { reactiveAdd, tileFor } from "../tiles";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -69,14 +69,15 @@ export function fireAndForget(kind: string | undefined): boolean {
 
 /** Can this vehicle still fight (not knocked out, abandoned or destroyed)? */
 export function canFight(v: VehicleState): boolean {
-  return v.status === "ok" || v.status === "immobilised";
+  // (M11.7b: not on a recovery vehicle's tow bar.)
+  return (v.status === "ok" || v.status === "immobilised") && v.towedBy === undefined;
 }
 
 /** The man who works this station now: its operator if able, else the commander if the station allows it. */
 export function stationOperator(state: SimState, v: VehicleState, def: VehicleDef, si: number): EntityId | null {
   const sn = def.stations[si]!;
-  // (M9.3a: a man out on the roof reloading works no station.)
-  const fit = (id: EntityId | null) => { const s = id === null ? undefined : state.soldier.get(id); return s !== undefined && isAble(s) && s.impair.canFight && !onRoof(state, id!); };
+  // (M9.3a: a man out on the roof reloading works no station; M11.7a: nor one at a repair, outside or inside.)
+  const fit = (id: EntityId | null) => { const s = id === null ? undefined : state.soldier.get(id); return s !== undefined && isAble(s) && s.impair.canFight && !onRoof(state, id!) && !(state.action.size > 0 && state.action.get(id!)?.kind === REPAIR_INSIDE); };
   const op = occupant(v, def, sn.operator);
   if (fit(op)) return op;
   if (sn.commanderOverride) { const c = occupant(v, def, "commander"); if (fit(c)) return c; }

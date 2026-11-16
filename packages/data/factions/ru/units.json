@@ -4047,6 +4047,86 @@
           ]
         }
       ]
+    },
+    {
+      "id": "brem1-ekipazh",
+      "echelon": "vehicle",
+      "callsign": "BREM {n}",
+      "leaderIndex": 0,
+      "vehicle": "ru-brem1",
+      "subunits": [],
+      "members": [
+        {
+          "role": "komandir-mashiny",
+          "rank": "mladshiy-serzhant",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "mekhanik-voditel",
+          "rank": "yefreytor",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "slesar-remontnik",
+          "rank": "yefreytor",
+          "seat": "mech",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "sources": [
+        "https://www.militaryperiscope.com/weapons/ground-combat-vehicles/combat-support/brem-1-armored-recovery-and-repair-vehicle/",
+        "https://test.russellphillips.uk/the-soviet-brem-1-armoured-recovery-vehicle/",
+        "https://deagel.com/Armies/BREM-1/a002877"
+      ],
+      "confidence": "low",
+      "note": "BREM-1 crew (M11.7b): commander, driver-mechanic and a mechanic (search extracts: crew of three; medium for the crew, ranks and loads game values). Not in any platoon: the recovery vehicle comes from off the map."
     }
   ]
 }

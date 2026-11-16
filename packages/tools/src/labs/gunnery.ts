@@ -19,8 +19,9 @@ interface Layout {
 }
 
 /** A one-vehicle-a-side battle on a flat 2400 x 1200 m field, laid out as asked. */
-export function duel(data: DataSet, factions: [string, string], lay: Layout, squadTemplates?: [string, string], mapWidthM = 2400, crewTemplates?: [string, string]): BattleInput {
-  const input = vehicleBattle(data, { seed: 3, factions, vehiclesPerPlatoon: 1, mapWidthM, mapHeightM: 1200, timeLimitSeconds: 3600, ...(squadTemplates ? { squadTemplates } : {}), ...(crewTemplates ? { crewTemplates } : {}) });
+export function duel(data: DataSet, factions: [string, string], lay: Layout, squadTemplates?: [string, string], mapWidthM = 2400, crewTemplates?: [string, string], recovery = false): BattleInput {
+  // (M11.7b: `recovery`: each side also has its recovery vehicles off the map.)
+  const input = vehicleBattle(data, { seed: 3, factions, vehiclesPerPlatoon: 1, mapWidthM, mapHeightM: 1200, timeLimitSeconds: 3600, ...(squadTemplates ? { squadTemplates } : {}), ...(crewTemplates ? { crewTemplates } : {}), ...(recovery ? { recovery } : {}) });
   input.forces.forEach((f, s) => {
     const p = s === 0 ? lay.blue : lay.red;
     for (const vp of f.vehiclePlacements ?? []) { vp.x = p.x; vp.y = p.y; vp.heading = p.heading; }
@@ -56,6 +57,7 @@ function holdAll(sim: Sim): void {
  */
 function stillTarget(input: BattleInput): BattleInput {
   for (const rec of input.forces[1]!.vehicles ?? []) rec.status = "immobilised";
+  input.rules.repair = false; // (M11.7a: the frozen target is never repaired)
   return input;
 }
 

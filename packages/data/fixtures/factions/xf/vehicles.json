@@ -682,7 +682,12 @@
         "note": "Made-up test fixture."
       },
       "stations": [],
-      "stowed": [],
+      "stowed": [
+        {
+          "item": "xf-kit",
+          "count": 1
+        }
+      ],
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M10.6-data): an unarmed, marked ambulance cart with wheel components, for the tests only.",
@@ -752,6 +757,15 @@
         "sources": [],
         "confidence": "low",
         "note": "Made-up test fixture."
+      },
+      "repair": {
+        "tool": "xf-kit",
+        "parts": {
+          "wheels": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
       }
     },
     {
@@ -1185,6 +1199,303 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M7.6a): a turreted tracked tank with a loader and reactive tiles, for the tests only."
+    },
+    {
+      "id": "xf-tug",
+      "nameKey": "vehicle.xf.tug",
+      "class": "tracked",
+      "body": {
+        "lengthM": 6.0,
+        "widthM": 3.4,
+        "heightM": 1.8,
+        "groundClearanceM": 0.4,
+        "hull": {
+          "f": [
+            -3.0,
+            3.0
+          ],
+          "r": [
+            -1.7,
+            1.7
+          ],
+          "u": [
+            0.4,
+            1.6
+          ]
+        },
+        "trackContactM": 4.0,
+        "trackGaugeM": 2.6,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M7.6a)."
+      },
+      "mass": {
+        "kg": 20000,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M11.7a)."
+      },
+      "drive": {
+        "powerKw": 400,
+        "efficiency": 0.75,
+        "topSpeedKmh": 50,
+        "reverseTopSpeedKmh": 15,
+        "brakeMps2": 5,
+        "gears": [
+          {
+            "toKmh": 15
+          },
+          {
+            "toKmh": 30
+          },
+          {
+            "toKmh": 50
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 15
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 25,
+          "maxLatAccelMps2": 3,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.5
+        },
+        "idleKw": 20,
+        "litresPerKwh": 0.3,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M7.6a)."
+      },
+      "fuel": {
+        "item": "xf-hay",
+        "capacityL": 100
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.5,
+            0.6,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.2,
+            0,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": true
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            0.5,
+            2.0
+          ],
+          [
+            0.5,
+            -2.0
+          ]
+        ],
+        "openSeconds": 2,
+        "mountSecondsPerMan": 5,
+        "dismountSecondsPerMan": 3,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 20,
+        "loadCasualtySeconds": 40,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M7.6a)."
+      },
+      "stations": [],
+      "stowed": [
+        {
+          "item": "xf-kit",
+          "count": 1
+        },
+        {
+          "item": "xf-link",
+          "count": 4
+        }
+      ],
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "composite-heavy",
+            "thicknessMm": 300,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 15,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M11.7a)."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2.9,
+                -1.2
+              ],
+              "r": [
+                -1.0,
+                1.0
+              ],
+              "u": [
+                0.5,
+                1.5
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.0,
+                3.0
+              ],
+              "r": [
+                -1.7,
+                -1.2
+              ],
+              "u": [
+                0.0,
+                0.9
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.0,
+                3.0
+              ],
+              "r": [
+                1.2,
+                1.7
+              ],
+              "u": [
+                0.0,
+                0.9
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                0.0,
+                0.6
+              ],
+              "r": [
+                0.2,
+                0.8
+              ],
+              "u": [
+                1.0,
+                1.5
+              ]
+            },
+            "toughnessMm": 5,
+            "absorbMm": 2
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M11.7a)."
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M11.7a): an unarmed tracked tug with tracks and a radio, the fixture target of the field repair tests and (M11.7b) the fixture's recovery vehicle.",
+      "repair": {
+        "tool": "xf-kit",
+        "parts": {
+          "track": [
+            {
+              "item": "xf-link",
+              "count": 2
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M11.7a)."
+      },
+      "recovery": {
+        "towMaxKg": 40000,
+        "towMaxSpeedKmh": 8,
+        "hookUpS": 60,
+        "hookUpMen": 1,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M11.7b): tows the tortoise (30 t) and lighter."
+      }
     }
   ]
 }

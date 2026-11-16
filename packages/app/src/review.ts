@@ -82,6 +82,12 @@ export function reviewModel(a: App): AarModel {
       // Vehicles (M7.4a): lost and immobilised.
       const vs = [...st.vehicle.values()].filter((v) => v.side === sd.id && v.offMap === undefined);
       const vline = vs.length > 0 ? [s.t("aar.vehicles", { side: sideName(a, sd.id), lost: vs.filter((v) => v.status === "destroyed" || v.status === "abandoned").length, immobilised: vs.filter((v) => v.status === "immobilised").length, start: vs.length })] : [];
+      // M11.7a: field repairs (a row only when a crew started one).
+      const rp = record.sides[sd.id]?.repair;
+      if (rp && rp.started > 0) vline.push(s.t("aar.vehicles.repair", { done: rp.done, failed: rp.failed, stopped: rp.interrupted, parts: rp.parts }));
+      // M11.7b: recovery (a row only when one was called or a hull was settled at the end).
+      const rcv = record.sides[sd.id]?.recovery;
+      if (rcv && rcv.called + rcv.recovered + rcv.captured > 0) vline.push(s.t("aar.vehicles.recovery", { called: rcv.called, towed: rcv.towed, recovered: rcv.recovered, captured: rcv.captured, lost: rcv.lost }));
       // M9.6: drones, enemies found, fire missions by location method (rows only when non-zero).
       const rv = record.review.sides[sd.id], m9: string[] = [];
       if (rv) {

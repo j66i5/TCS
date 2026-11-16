@@ -24,6 +24,7 @@ import { evadeSystem, grenadeReactionSystem } from "./systems/grenades";
 import { projectileSystem } from "./systems/ballistics";
 import { missileSystem } from "./systems/missiles";
 import { crewReactionSystem, vehicleDamageSystem } from "./systems/armour";
+import { repairSystem } from "./systems/repair";
 import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
@@ -35,6 +36,7 @@ import { nestSystem } from "./systems/nest";
 import { evacuationSystem } from "./systems/evacuation";
 import { settleBattle } from "./systems/aftercare";
 import { rearRunSystem } from "./systems/rearrun";
+import { recoverySystem, settleVehicles, towSystem } from "./systems/recovery";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
@@ -125,6 +127,8 @@ export function step(sim: Sim): SimEvent[] {
   evadeSystem(ctx, state, events);
   // Vehicles (M7): drive, then the men aboard move with their seats.
   vehicleDriveSystem(ctx, state, events);
+  // Towed hulls follow their recovery vehicles' hitches (M11.7b; nothing without a tow).
+  towSystem(ctx, state);
   vehicleSyncSystem(ctx, state);
   movementSystem(ctx, state, events);
   // Carrying parties (M10.4a): the payload and the other carriers follow the leader's trail; phases, rests, cover.
@@ -155,6 +159,8 @@ export function step(sim: Sim): SimEvent[] {
   moraleSystem(ctx, state, events, events.events);
   // Crews decide to fight on or reverse out of reach (M7.4b; returns at once without vehicles).
   crewReactionSystem(ctx, state, events);
+  // Field repair by the crews (M11.7a; once a second, returns at once without core/repair.json or damage).
+  repairSystem(ctx, state, events);
   spottingSystem(ctx, state, events);
   contactSystem(ctx, state, events);
   // Surrender (M6.6): after contacts (what he knows is fresh), before any decision, drill or objective check.
@@ -165,6 +171,8 @@ export function step(sim: Sim): SimEvent[] {
   evacuationSystem(ctx, state, events);
   // Combat vehicles' rear runs (M10.6b): after the ambulances (a nest an ambulance serves needs no hull).
   rearRunSystem(ctx, state, events);
+  // Recovery vehicles' runs (M11.7b; once a second, returns at once without a run).
+  recoverySystem(ctx, state, events);
   // Ambushes (D4b): sprung before the decisions, so the men open fire at once.
   ambushSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
@@ -188,6 +196,7 @@ export function step(sim: Sim): SimEvent[] {
     state.ended = { tick: state.tick, reason: "time-limit" };
     events.emit({ kind: "battle.ended", tick: state.tick, reason: "time-limit" });
     settleBattle(ctx, state, events);
+    settleVehicles(ctx, state, events);
   }
   return events.events;
 }

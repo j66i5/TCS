@@ -12,7 +12,7 @@
  *
  * Randomness comes from the "ballistics" stream. No allocation per projectile; one event per impact.
  */
-import { onRoof } from "../mount";
+import { onRoof, onRoofTop } from "../mount";
 import { addSuppression } from "./morale";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -153,7 +153,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       SG.side[n] = sc; SG.sup[n] = 0; SG.fx[n] = 0; SG.fy[n] = 0;
       SG.id[n] = id; SG.x[n] = t.x; SG.y[n] = t.y; SG.gz[n] = hAt(map, t.x, t.y) + t.z;
       SG.cf[n] = cosine(t.heading); SG.sf[n] = sine(t.heading);
-      SG.posture[n] = roof || s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
+      SG.posture[n] = (roof && onRoofTop(state, id)) || s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
       let c = (t.x * invBm) | 0, r = (t.y * invBm) | 0;
       if (c < 0) c = 0; if (r < 0) r = 0; if (c >= bcols) c = bcols - 1; if (r >= brows) r = brows - 1;
       const home = r * bcols + c;

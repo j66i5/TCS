@@ -119,6 +119,22 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     expect(unitCapabilities(s2.state, cat, uid).kind).toBe("none");
   });
 
+  it("M11.7b: Recover is offered for an immobilised or abandoned hull while a recovery vehicle waits, not for a fit one", () => {
+    const sim2 = fresh();
+    const uid = blueCrew(sim2), vid = sim2.state.unit.req(uid).vehicle!;
+    expect(unitCapabilities(sim2.state, cat, uid).canRecover).toBeUndefined();
+    sim2.state.vehicle.req(vid).status = "immobilised";
+    const cap = unitCapabilities(sim2.state, cat, uid);
+    expect(cap.canRecover).toBe(true);
+    expect(cap.recoverLeft).toBe(1);
+    const o = ordersFor(cap, modes);
+    expect(o.recover).toBe(true);
+    expect(o.recoverLeft).toBe(1);
+    // One already called for it: not again.
+    sim2.state.vehicle.req(vid).recoveryBy = 999;
+    expect(unitCapabilities(sim2.state, cat, uid).canRecover).toBeUndefined();
+  });
+
   it("is pure: reading capabilities does not change the state hash", async () => {
     const { simHash } = await import("@tcs/sim");
     const s2 = fresh();

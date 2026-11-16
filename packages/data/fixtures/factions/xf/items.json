@@ -230,6 +230,24 @@
       "note": "Made-up test fixture (M7.6a): a reactive tile."
     },
     {
+      "id": "xf-kit",
+      "nameKey": "item.xf-kit",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M11.7a): the crew's tool kit."
+    },
+    {
+      "id": "xf-link",
+      "nameKey": "item.xf-link",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M11.7a): a track link."
+    },
+    {
       "id": "xf-bandolier",
       "nameKey": "item.xf-bandolier",
       "category": "ammo-package",

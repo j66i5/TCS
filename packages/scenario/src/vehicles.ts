@@ -6,10 +6,10 @@
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
-  buildNavGrid, flatMap, nearestPassable, PI,
+  buildNavGrid, flatMap, nearestPassable, newVehicleRecord, PI,
   type BattleInput, type ForceInput, type MapDef, type NavGrid, type Placement, type UnitInput, type VehicleRecord,
 } from "@tcs/sim";
-import { allMembers, buildForce } from "./forces";
+import { allMembers, buildForce, buildForceWithVehicles } from "./forces";
 import { defaultRules, freeSpot, SIDES } from "./demo";
 import { generateMap, type MapKind } from "./mapgen/index";
 
@@ -31,6 +31,42 @@ export interface VehicleBattleOptions {
   mapWidthM?: number;
   mapHeightM?: number;
   timeLimitSeconds?: number;
+  /** M11.7b: each side also gets its faction's recovery vehicles off the map (manifest `recovery`). Default false. */
+  recovery?: boolean;
+}
+
+/**
+ * The battle without recovery vehicles (M11.7b, `--no-recovery`): their crews, hulls and off-map entries taken out of
+ * every force, and `rules.recovery` off. They come after every other entity, so nothing else changes its id.
+ */
+export function withoutRecovery(input: BattleInput): BattleInput {
+  for (const f of input.forces) {
+    const ids = new Set((f.offMap ?? []).filter((a) => a.kind === "recovery").map((a) => a.vehicleId));
+    if (ids.size === 0) continue;
+    f.offMap = f.offMap!.filter((a) => !ids.has(a.vehicleId));
+    f.vehicles = f.vehicles?.filter((r) => !ids.has(r.vehicleId));
+    f.units = f.units.filter((u) => u.vehicleId === undefined || !ids.has(u.vehicleId));
+  }
+  input.rules.recovery = false;
+  return input;
+}
+
+/**
+ * Recovery vehicles off the map (M11.7b): the faction manifest's `recovery` crews and hulls (fresh roster records),
+ * appended to the force as off-map assets waiting to be called. Nothing without a manifest entry.
+ */
+export function addRecoveryAssets(data: DataSet, catalog: BattleInput["catalog"], force: ForceInput, seed: number): void {
+  const rcv = data.factions[force.faction]?.manifest.recovery;
+  const vtype = rcv ? data.factions[force.faction]!.units[rcv.template]?.vehicle : undefined;
+  const def = vtype === undefined ? undefined : catalog.vehicles[vtype];
+  if (!rcv || !def) return;
+  for (let k = 0; k < rcv.count; k++) {
+    const crew = buildForceWithVehicles(data, { faction: force.faction, template: rcv.template, seed: seed + k, keyPrefix: `${force.side}-rcv${k + 1}`, number: k + 1 }).unit;
+    crew.vehicleId = crew.key;
+    force.units.push(crew);
+    (force.vehicles ??= []).push(newVehicleRecord(catalog, vtype!, crew.key));
+    (force.offMap ??= []).push({ vehicleId: crew.key, kind: "recovery" });
+  }
 }
 
 /** Carrier class of a generated platoon (M7.6c): which of the manifest's `platoonTemplates` a battle uses. */
@@ -129,7 +165,9 @@ export function vehicleBattle(data: DataSet, opts: VehicleBattleOptions): Battle
       }
       units.push({ key, callsign: `${p + 1}`, echelon: "platoon", leaderIndex: -1, members: [], subunits });
     }
-    return { side, faction, units, placements, vehicles, vehiclePlacements };
+    const force: ForceInput = { side, faction, units, placements, vehicles, vehiclePlacements };
+    if (opts.recovery === true) addRecoveryAssets(data, catalog, force, opts.seed * 47 + s * 19);
+    return force;
   });
   return { map, catalog, forces, rules: defaultRules(opts.timeLimitSeconds ?? 600), seed: opts.seed, orders: [] };
 }

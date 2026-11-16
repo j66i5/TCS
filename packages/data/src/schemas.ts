@@ -839,6 +839,9 @@ export const FactionManifest = withProv({
   /** Ambulances off the map (M10.6a): generated battles give each side `count` of this crew template's vehicle
    *  (a template with `vehicle`, an ambulance), waiting at the rear to be called. */
   ambulance: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
+  /** Recovery vehicles off the map (M11.7b): generated battles give each side with vehicles of its own `count` of
+   *  this crew template's vehicle (a template with `vehicle`, a recovery vehicle), waiting at the rear to be called. */
+  recovery: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -1124,7 +1127,18 @@ export const VehicleSchema = withProv({
   }).optional(),
   /** M9.3a: a laser warning receiver: the crew notices a beam-riding missile aimed at it. */
   laserWarner: z.boolean().optional(),
-  recovery: z.null().optional(),
+  /** Field repair (M11.7a): the crew's tool kit (an item of the container that must be there, not used up) and the
+   *  parts each repair task of core/repair.json uses up (counted items of the container; none listed = no parts).
+   *  Absent: its crew repairs nothing. */
+  repair: withProv({
+    tool: Id.optional(),
+    parts: z.partialRecord(z.enum(COMPONENT_KINDS), z.array(z.object({ item: Id, count: z.number().int().min(1).max(20) }).strict())),
+  }).optional(),
+  /** A recovery vehicle (M11.7b): it tows hulls up to `towMaxKg` combat mass, at no more than `towMaxSpeedKmh`;
+   *  `hookUpMen` of its crew work `hookUpS` outside to hook a hull up. Absent: it tows nothing. */
+  recovery: withProv({
+    towMaxKg: Num(1000, 200000), towMaxSpeedKmh: Num(1, 60), hookUpS: Num(1, 3600), hookUpMen: z.number().int().min(1).max(4),
+  }).optional(),
 });
 export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();
 export type VehicleT = z.infer<typeof VehicleSchema>;
@@ -1320,3 +1334,39 @@ export const CoreAppearanceFile = z.object({
 }).strict();
 export type FactionAppearanceT = z.infer<typeof FactionAppearanceFile>;
 export type CoreAppearanceT = z.infer<typeof CoreAppearanceFile>;
+
+/** One field repair task (M11.7a): a crew fixes a component of this kind when its condition is below `restoreTo`
+ *  and at least `minCondition`; `men` work at it (outside the hull or inside), `manMin` man-minutes of work at a
+ *  work rate of 1; done, it is back at `restoreTo` with `chance` (else beyond the crew). */
+const RepairTask = z.object({
+  outside: z.boolean(), men: z.number().int().min(1).max(4), manMin: Num(0.1, 6000), minCondition: Num(0, 1), restoreTo: Num(0.01, 1), chance: Num(0, 1),
+}).strict();
+/** core/repair.json (M11.7a field repair; optional file). */
+export const RepairFile = z.object({
+  repair: withProv({
+    /** How often the drill looks (s); quiet: no hit for `quietS`, its crew not under fire for `underFireS`, for an
+     *  outside task no enemy known within `enemyNearM`; a worker suppressed above `suppressionStop` stops; a player's
+     *  order is refused within `orderHitS` of a hit. */
+    stepS: Num(0.1, 60), quietS: Num(0, 3600), underFireS: Num(0, 3600), enemyNearM: Num(0, 5000), suppressionStop: Num(0, 1), orderHitS: Num(0, 600),
+    /** A man's work rate: 1 + k * (skill - ref), the driver's seat (the mechanic) times `driverFactor`. */
+    skill: z.object({ key: z.enum(SKILL_KEYS), k: Num(0, 5), ref: Num(0, 1), driverFactor: Num(0.1, 5), minRate: Num(0.05, 1) }).strict(),
+    /** The order the tasks are done in (the first damaged kind of this list first). */
+    order: z.array(z.enum(COMPONENT_KINDS)).min(1),
+    tasks: z.partialRecord(z.enum(COMPONENT_KINDS), RepairTask),
+    /** Workshop days per component kind at condition 0 (campaign input, M11.7b settlement). */
+    workshopDays: z.partialRecord(z.enum(COMPONENT_KINDS), Num(0, 365)),
+  }),
+  /** Recovery from the rear (M11.7b): a call brings the side's next recovery vehicle onto the map after a delay
+   *  between `delayMinS` and `delayMaxS`; it drives (at `pace`, the last stretch at `nearPace`) to `approachM` short of
+   *  the hull and reverses up to it (stops within `standTolM` of its spot, its hitch `gapM` from the hull); it waits
+   *  `waitShortM` short while the hull was hit within `hitS` or an enemy is known within `enemyNearM` of it, until
+   *  quiet for `quietS`, and gives up after `giveUpS`; it is off the map within `edgeM` of where it came on, or after
+   *  `heldMaxS` held up on its way back; a route not found is tried again after `retryS`. `abandonedDays`: workshop
+   *  days of an abandoned hull without damage (campaign input). Optional section. */
+  recovery: withProv({
+    delayMinS: Num(0, 36000), delayMaxS: Num(0, 36000), pace: Id, nearPace: Id, approachM: Num(5, 200), gapM: Num(0, 10), standTolM: Num(1, 30),
+    waitShortM: Num(0, 2000), hitS: Num(0, 3600), enemyNearM: Num(0, 5000), quietS: Num(0, 3600), giveUpS: Num(0, 36000), edgeM: Num(1, 200),
+    heldMaxS: Num(0, 36000), retryS: Num(1, 600), abandonedDays: Num(0, 365),
+  }).optional(),
+}).strict();
+export type RepairT = z.infer<typeof RepairFile>;

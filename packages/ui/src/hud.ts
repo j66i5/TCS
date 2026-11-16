@@ -58,6 +58,10 @@ export interface HudCallbacks {
   onDischarge(): void;
   /** "Take wounded back" (M10.6b): the selected vehicle's rear run. */
   onRearRun?(): void;
+  /** "Repair" (M11.7a): the selected vehicle's crew starts its field repair now. */
+  onRepair?(): void;
+  /** "Recover" (M11.7b): call a recovery vehicle for the selected crew's disabled hull. */
+  onRecover?(): void;
   onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
@@ -379,13 +383,18 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const rearRunBtn = verb("rearRun", "order.rearRun", "rearRun", () => cb.onRearRun?.());
   rearRunBtn.title = s.t("order.rearRunTitle");
   rearRunBtn.hidden = true;
+  const repairBtn = verb("repair", "order.repair", "repair", () => cb.onRepair?.());
+  repairBtn.title = s.t("order.repairTitle");
+  repairBtn.hidden = true;
+  const recoverBtn = verb("recover", "order.recover", "callRecovery", () => cb.onRecover?.());
+  recoverBtn.hidden = true;
   mountBtn.hidden = true; dismountBtn.hidden = true; dischargeBtn.hidden = true; natureBtn.hidden = true;
   // Display order in the bar; and the order in which items move behind "⋯" when the strip is too short.
-  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn];
-  const OVERFLOW_FIRST = ["rearRun", "mount", "dismount", "halt"];
+  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn];
+  const OVERFLOW_FIRST = ["callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
   const allButtons = (): HTMLButtonElement[] => [...dock.querySelectorAll("button")];
   orders.append(grip, ...barItems, moreBtn);
-  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
+  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
 
   // ---- plan bar (S3: the pace of the next leg is chosen on the unit card)
   const plan = el("div", "hud-plan");
@@ -690,7 +699,9 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
       haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire;
       for (const b of postureBtns) b.hidden = !set.posture;
-      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true;
+      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true; repairBtn.hidden = set.repair !== true;
+      recoverBtn.hidden = set.recover !== true;
+      if (set.recover === true) recoverBtn.title = s.t("order.recoverTitle", { n: set.recoverLeft ?? 0 });
       dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;
       // A group shows while one of its modes is offered; its caret while its tray has more than the button itself.
       for (const g of groups) {

@@ -410,6 +410,18 @@
           "charge": 1
         },
         {
+          "item": "ru-zip",
+          "count": 1
+        },
+        {
+          "item": "ru-trak-bmp",
+          "count": 4
+        },
+        {
+          "item": "ru-pkt-stvol",
+          "count": 1
+        },
+        {
           "item": "ru-545-tin",
           "count": 1,
           "charge": 1080
@@ -869,6 +881,27 @@
         "sources": [],
         "confidence": "low",
         "note": "Game values: the BMP-2 carries a fire-extinguishing system (search extracts); its charges, delay and chance are not published. Lower than the Puma's: fuel in the rear doors and between the seats (owner: the BMP-2 burns easily)."
+      },
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "track": [
+            {
+              "item": "ru-trak-bmp",
+              "count": 2
+            }
+          ],
+          "coax": [
+            {
+              "item": "ru-pkt-stvol",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
       }
     },
     {
@@ -1116,6 +1149,10 @@
         {
           "item": "ru-bmm-extinguisher",
           "count": 2
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
         }
       ],
       "signature": {
@@ -1372,7 +1409,17 @@
         "https://en.wikipedia.org/wiki/BTR-80"
       ],
       "confidence": "medium",
-      "note": "BMM armoured medical vehicle on the BTR-80 (M10.6-data): the first Russian wheeled vehicle. Crew of three: driver, commander and a medic (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places inside. No weapon station (the BTR-80 turret is removed). Ambulance behaviour comes with M10.6a."
+      "note": "BMM armoured medical vehicle on the BTR-80 (M10.6-data): the first Russian wheeled vehicle. Crew of three: driver, commander and a medic (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places inside. No weapon station (the BTR-80 turret is removed). Ambulance behaviour comes with M10.6a.",
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "wheels": [],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
+      }
     },
     {
       "id": "ru-t90m",
@@ -1750,6 +1797,18 @@
         {
           "item": "ru-relikt-hull-side",
           "count": 12
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        },
+        {
+          "item": "ru-trak-t72",
+          "count": 4
+        },
+        {
+          "item": "ru-pkt-stvol",
+          "count": 1
         }
       ],
       "dischargers": {
@@ -2262,7 +2321,28 @@
         "https://www.armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-90m-model-2017-mbt-main-battle-tank-technical-data-sheet"
       ],
       "confidence": "medium",
-      "note": "T-90M Proryv main battle tank (M7.6a): 3 crew (driver front centre, gunner turret left, commander turret right), carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, 43 rounds in all (40 in another source), Sosna-U and PK-PAN thermal sights, Relikt, 2A46M-5, Refleks-M. Game values (low): armour, tiles, components, stowage split, reload 7 s, signature. Laser warner (low: a Shtora-type warning set reported)."
+      "note": "T-90M Proryv main battle tank (M7.6a): 3 crew (driver front centre, gunner turret left, commander turret right), carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, 43 rounds in all (40 in another source), Sosna-U and PK-PAN thermal sights, Relikt, 2A46M-5, Refleks-M. Game values (low): armour, tiles, components, stowage split, reload 7 s, signature. Laser warner (low: a Shtora-type warning set reported).",
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "track": [
+            {
+              "item": "ru-trak-t72",
+              "count": 2
+            }
+          ],
+          "coax": [
+            {
+              "item": "ru-pkt-stvol",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
+      }
     },
     {
       "id": "ru-t72b3m",
@@ -2625,6 +2705,18 @@
         {
           "item": "ru-relikt-hull-side",
           "count": 12
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        },
+        {
+          "item": "ru-trak-t72",
+          "count": 4
+        },
+        {
+          "item": "ru-pkt-stvol",
+          "count": 1
         }
       ],
       "dischargers": {
@@ -3110,7 +3202,28 @@
         "https://defense-update.com/?p=155195"
       ],
       "confidence": "medium",
-      "note": "T-72B3M (T-72B3 obr. 2016) main battle tank (M7.6a): 3 crew, carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, Sosna-U, Relikt on the glacis and skirts, Kontakt-5 on the turret. Game values (low): armour, tiles, components, 40 rounds in all (38-45 in the sources), reload 7.5 s, signature. 3BM42 is the carousel round here (low: the B3M's newer autoloader may take 3BM59/60). No laser warner (not found). No turret bustle rack."
+      "note": "T-72B3M (T-72B3 obr. 2016) main battle tank (M7.6a): 3 crew, carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, Sosna-U, Relikt on the glacis and skirts, Kontakt-5 on the turret. Game values (low): armour, tiles, components, 40 rounds in all (38-45 in the sources), reload 7.5 s, signature. 3BM42 is the carousel round here (low: the B3M's newer autoloader may take 3BM59/60). No laser warner (not found). No turret bustle rack.",
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "track": [
+            {
+              "item": "ru-trak-t72",
+              "count": 2
+            }
+          ],
+          "coax": [
+            {
+              "item": "ru-pkt-stvol",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
+      }
     },
     {
       "id": "ru-btr82a",
@@ -3515,6 +3628,14 @@
         {
           "item": "ru-bmm-extinguisher",
           "count": 2
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        },
+        {
+          "item": "ru-pkt-stvol",
+          "count": 1
         },
         {
           "item": "ru-545-tin",
@@ -3962,7 +4083,465 @@
         "sources": [],
         "confidence": "low",
         "note": "Game values as the BMP-2's and the BMM's."
+      },
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "wheels": [],
+          "coax": [
+            {
+              "item": "ru-pkt-stvol",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
       }
+    },
+    {
+      "id": "ru-brem1",
+      "nameKey": "vehicle.ru.brem1",
+      "class": "tracked",
+      "body": {
+        "lengthM": 6.9,
+        "widthM": 3.46,
+        "heightM": 2.4,
+        "groundClearanceM": 0.47,
+        "hull": {
+          "f": [
+            -3.45,
+            3.45
+          ],
+          "r": [
+            -1.73,
+            1.73
+          ],
+          "u": [
+            0.47,
+            2.0
+          ]
+        },
+        "trackContactM": 4.27,
+        "trackGaugeM": 2.79,
+        "sources": [
+          "https://www.militaryperiscope.com/weapons/ground-combat-vehicles/combat-support/brem-1-armored-recovery-and-repair-vehicle/",
+          "https://test.russellphillips.uk/the-soviet-brem-1-armoured-recovery-vehicle/",
+          "https://deagel.com/Armies/BREM-1/a002877"
+        ],
+        "confidence": "low",
+        "note": "T-72 hull with the crane, the winch and the cargo platform (M11.7b); no turret. Size from the T-72 hull (game values), the superstructure up to 2.0 m."
+      },
+      "mass": {
+        "kg": 41000,
+        "sources": [
+          "https://www.militaryperiscope.com/weapons/ground-combat-vehicles/combat-support/brem-1-armored-recovery-and-repair-vehicle/",
+          "https://test.russellphillips.uk/the-soviet-brem-1-armoured-recovery-vehicle/",
+          "https://deagel.com/Armies/BREM-1/a002877"
+        ],
+        "confidence": "medium",
+        "note": "41 t (search extracts)."
+      },
+      "drive": {
+        "powerKw": 618,
+        "efficiency": 0.75,
+        "topSpeedKmh": 60,
+        "reverseTopSpeedKmh": 4.2,
+        "brakeMps2": 6.0,
+        "gears": [
+          {
+            "toKmh": 7
+          },
+          {
+            "toKmh": 13
+          },
+          {
+            "toKmh": 19
+          },
+          {
+            "toKmh": 27
+          },
+          {
+            "toKmh": 36
+          },
+          {
+            "toKmh": 48
+          },
+          {
+            "toKmh": 60
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 4.2
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 20,
+          "maxLatAccelMps2": 3.5,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.6
+        },
+        "idleKw": 50,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://www.militaryperiscope.com/weapons/ground-combat-vehicles/combat-support/brem-1-armored-recovery-and-repair-vehicle/",
+          "https://test.russellphillips.uk/the-soviet-brem-1-armoured-recovery-vehicle/",
+          "https://deagel.com/Armies/BREM-1/a002877"
+        ],
+        "confidence": "low",
+        "note": "V-84 engine, 840 hp (618 kW; from memory, low); the other drive values as the T-72B3M's (game values)."
+      },
+      "fuel": {
+        "item": "ru-brem1-diesel",
+        "capacityL": 1200
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.6,
+            0.6,
+            1.8
+          ],
+          "part": "hull",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own",
+              "pos": [
+                0.6,
+                0.6,
+                2.5
+              ]
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.6,
+            0,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "mech",
+          "station": "loader",
+          "pos": [
+            0.6,
+            -0.6,
+            1.8
+          ],
+          "part": "hull",
+          "hatch": true
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            0.5,
+            2.045
+          ],
+          [
+            0.5,
+            -2.045
+          ]
+        ],
+        "openSeconds": 2,
+        "mountSecondsPerMan": 6,
+        "dismountSecondsPerMan": 4,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 30,
+        "loadCasualtySeconds": 60,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values (M11.7b): no ramp; the crew gets in and out through the hatches."
+      },
+      "stations": [],
+      "stowed": [
+        {
+          "item": "ru-tank-extinguisher",
+          "count": 2
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        },
+        {
+          "item": "ru-trak-t72",
+          "count": 4
+        }
+      ],
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "composite-cast",
+            "thicknessMm": 300,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 80,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 40,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values (M11.7b): the T-72 hull's plates, a thinner front (300 mm cast composite equivalent; no reactive tiles)."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                -1.5
+              ],
+              "r": [
+                -1.4,
+                1.4
+              ],
+              "u": [
+                0.55,
+                1.5
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                -2.8
+              ],
+              "r": [
+                -1.6,
+                1.6
+              ],
+              "u": [
+                0.55,
+                1.3
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                3.4
+              ],
+              "r": [
+                -1.8,
+                -1.4
+              ],
+              "u": [
+                0.47,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                3.4
+              ],
+              "r": [
+                1.4,
+                1.8
+              ],
+              "u": [
+                0.47,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.5,
+                3.3
+              ],
+              "r": [
+                0.6,
+                1.7
+              ],
+              "u": [
+                0.6,
+                1.5
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.3
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.0,
+                1.4
+              ],
+              "r": [
+                -0.5,
+                0.5
+              ],
+              "u": [
+                0.5,
+                0.9
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                0.0,
+                0.6
+              ],
+              "r": [
+                0.2,
+                0.9
+              ],
+              "u": [
+                1.3,
+                1.8
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values (M11.7b): the T-72 hull's engine, transmission, tracks, fuel and extinguisher; the radio box placed by the game."
+      },
+      "extinguisher": {
+        "item": "ru-tank-extinguisher",
+        "chance": 0.5,
+        "delaySeconds": 1.5,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: automatic fire suppression (charges, delay and chance are not published)."
+      },
+      "signature": {
+        "sizeFactor": 0.95,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 400,
+        "noiseMovingM": 1200,
+        "aimPoints": [
+          [
+            0,
+            0,
+            1.2
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a low T-72 hull with a superstructure; type known within 1.5 km."
+      },
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "track": [
+            {
+              "item": "ru-trak-t72",
+              "count": 2
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair as on the T-72 (same tracks): game values, low."
+      },
+      "recovery": {
+        "towMaxKg": 50000,
+        "towMaxSpeedKmh": 8,
+        "hookUpS": 240,
+        "hookUpMen": 2,
+        "sources": [
+          "https://www.militaryperiscope.com/weapons/ground-combat-vehicles/combat-support/brem-1-armored-recovery-and-repair-vehicle/",
+          "https://test.russellphillips.uk/the-soviet-brem-1-armoured-recovery-vehicle/",
+          "https://deagel.com/Armies/BREM-1/a002877",
+          "https://recoveryvehicles.tpub.com/TM-9-2350-292-10/css/TM-9-2350-292-10_123.htm",
+          "https://euro-sd.com/2020/02/articles/16071/wisent-2-when-armoured-vehicles-require-assistance/"
+        ],
+        "confidence": "low",
+        "note": "M11.7b: tows T-72 and T-90 class hulls and lighter, up to 50 t (search extracts: winch 25 t, up to 100 t with snatch blocks; 'BREM-1/1M tows T-72/T-90, a Leopard 2 marginal': 50 t, low). A Leopard 2 (64 t) is refused. Tow speed 8 km/h across country (low). Hook-up 240 s by two men outside (tow bar and cables; research 2-5 min with dismounts: game value, low)."
+      },
+      "sources": [
+        "https://www.militaryperiscope.com/weapons/ground-combat-vehicles/combat-support/brem-1-armored-recovery-and-repair-vehicle/",
+        "https://test.russellphillips.uk/the-soviet-brem-1-armoured-recovery-vehicle/",
+        "https://deagel.com/Armies/BREM-1/a002877"
+      ],
+      "confidence": "medium",
+      "note": "BREM-1 (M11.7b): armoured recovery vehicle on the T-72 chassis (winch 25 t, crane, dozer blade; crew 3: commander, driver, mechanic; search extracts, medium). Unarmed in the game (its machine gun is left out, D11): an off-map asset called from the battalion's repair and evacuation group, outside the side's strength. The BREM-L / BREM-K of the BMP and BTR battalions are later data."
     }
   ]
 }

@@ -7136,6 +7136,142 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   (5.6 s of 24 s, 700 000 sight calls in 84 runs; now about 1.6 s in 40). `npm run test:perf` alone: 23/23.
 - `npm run golden:update`: the ten goldens with interiors changed (intended); `golden/no-interiors` untouched.
 
+## 2026-11-16 — M11.7a Field repair (roadmap-detail slice 50; goldens regenerated for the fingerprint only)
+Owner M11 round: "crews fix light damage with parts and time". The owner could not be reached: every choice below
+is a **software decision, not asked; owner to review** (plan m11r, amendments applied).
+- **A crew drill in the sim, the same for both sides (D1).** `systems/repair.ts` once a second after the crews'
+  reactions: a damaged hull with its crew aboard, halted, not burning and quiet (no hit for 60 s, its own crew unit
+  not under fire for 20 s, for work outside no enemy known to its side within 300 m) starts its next task; the
+  player's `repair` order skips the 60 s and the 300 m (not a hit within 10 s, not fire on the crew). Rejected: an
+  AI-only decision (the player's crews would never repair on their own).
+- **What a crew fixes (D2, B1)**: per component kind, in data (`core/repair.json`, new optional file, gated like
+  medical; not behaviour.json and not a logistics file): track (2 men outside, 90 man-min, back to 0.8, two spare
+  links), wheels of an 8x8 (2 men outside, 40 man-min, back to 0.5 = limping, no part: run-flat inserts and tyre
+  pressure, BTR-82A drives on holed tyres, research medium/low), coax (1 man inside, 10 man-min, spare barrel, works
+  with chance 0.6) and radio (1 man inside, 15 man-min, no part, 0.5). A task applies only below its restore level
+  (a track at 0.85 is left alone); a mobility task is skipped while an engine or transmission kill the crew cannot
+  fix is present (`beyondCrew`). Everything else is recovery or workshop work. Order: mobility first, then coax,
+  radio. All values low (forum figures; Bundeswehr "Funken, Fahren, Feuern" adapted).
+- **Who works (D3, A4, B2)**: outside the driver (the mechanic, work x1.25), then the loader, then the gunner; the
+  commander stays at his post; inside the loader, gunner, commander, driver. Only free, able men (no man busy with
+  another action is taken; he joins when free). A GTK Boxer (two crew seats) sends its driver alone: a wheel side
+  36 min instead of about 20. Work rate 1 + 0.5 x (experience - 0.5), at least 0.25 (D5: no new skill).
+- **Where the men are (D3, A5, A6, C2)**: they keep their seats (no getOut, no exVehicle, no boarding edits) but are
+  outside: `onRoof` now covers the actions `reloadOutside`, `repairOutside` and the reserved `hookUp` (alias
+  `isOutside`); `onRoofTop` (the M9.3a reloader alone) stands on the hull. A repairer is placed on the ground beside
+  the damaged side (the component box's `r` sign), the other side or behind the hull if that spot is indoors, facing
+  it, crouching: a target, a body for bullets and fragments, listed in the enemy's knowledge, off his station
+  (gunnery's `fit`; an inside repairer too). The renderer now draws men aboard but outside as men on foot, both
+  looks (also the M9.3a roof reloader, not drawn before). Rejected: a real dismount and remount (no remount path).
+- **Parts (D4, rule 9)**: counted items in the hull's container, used up with `removeItems` when the task ends
+  (success or a failed coax), never before; an interrupted task keeps its parts and progress. A task needs all its
+  parts and the crew's tool kit (`repair.tool`, not used up). New items: de-bordwerkzeug, de-kettenglied-leopard2,
+  de-kettenglied-puma, de-mg5-rohr, de-mg3-rohr, ru-zip, ru-trak-t72, ru-trak-bmp, ru-pkt-stvol; fixture xf-kit,
+  xf-link. Stowed: tool kit on every combat hull and ambulance, 4 links and a coax barrel on each tracked hull with
+  a coax, a barrel on the BTR-82A. A vehicle's `repair { tool, parts }` block lists the tasks its crew can do (the
+  plan's `repairParts`/`repairTool`, merged into one block with provenance). No ledger event exists yet (slice 43):
+  `vehicle.repair {phase: "done"|"failed", parts}` carries what was used, for a later ledger to fold.
+- **Stops (D6)**: a hit on the hull, fire on the crew or suppression above 0.5 (outside), a fire, the bail-out,
+  the hull moving, a move order (the men back in). Progress kept; it resumes after the quiet period. A failed roll
+  (D8, `Streams.repair`, drawn only for a chance below 1) leaves the part `repairBeyond`, no retry.
+- **Status (recomputeStatus)**: immobilised and mobile again -> ok, or disarmed if its guns are out; disarmed with a
+  gun again -> ok. Only a repair calls it, so lab targets frozen "immobilised" with all parts whole never change;
+  the labs that freeze hulls (gunnery, missile, missile-team, agl) also set `rules.repair = false`.
+- **Abandoned hulls (D7)** are not repaired in battle (no remount path; recovery in slice 51 can tow them).
+- **AI**: no move order to a crew at a repair unless the platoon assaults or withdraws; an immobilised hull with
+  under 300 s of work left for two men is not counted lost. **UI**: Repair verb (spanner, first behind "⋯"), the
+  card's repair line (share, minutes, paused), spares and parts beyond the crew, the tile "repairing", a review row;
+  radio parameters named `...Key` are shown in words. `--no-repair` (headless, batch), `?repair=0`.
+- **Fixture (A1)**: xf-tortoise has no track, so a new unarmed fixture `xf-tug` (tracks, radio, crew of two,
+  `tug-crew`) is the fixture's track target (and the recovery vehicle of slice 51); the litter cart repairs wheels.
+- **No state schema bump** (all fields optional: `VehicleState.repair`, `repairBeyond`); record version 7 -> 8
+  (`SideRecord.repair`).
+- **Lab** (`npm run lab -- repair`, regular crew unless noted): track 44.4 min with two men (conscript 50.0, veteran
+  38.1), wheels 19.8 (GTK driver alone 35.6), coax 11.1, radio 16.7; every row within one drill step of the man-minutes
+  over the work rates; a hit half-way: stopped, resumed after 60 s, total = expected + 60 s; over 10 seeds coax
+  worked 7/10 (chance 0.6), radio 6/10 (0.5) on every hull (one draw per run: the same seeds give the same rolls).
+- **Test runs**: `npm run check` alone: everything green except one timing test (the parked-hulls variant, 1.38 > 1.35,
+  the known noisy one); `npm run test:perf` alone twice: once a different timing test (smoke spotting bench), once
+  23/23. Then `npm run check` again alone: all green (1371 tests, perf 23/23, data lint no errors).
+- **Timing question for the owner (B12)**: a track takes about 45 minutes, so in the generated 20-minute battles a
+  track is almost never fixed (radio and coax often are). Kept realistic; options: keep / compress repair times by a
+  factor / only coax and radio in battle.
+- **Goldens**: with the data and the sim changes every golden's event stream and order stream is unchanged (dumped
+  and compared before and after); the hashes change only through the catalog fingerprint and the parts stowed in
+  every hull's container. `npm run golden:update` for that; `golden/no-interiors` untouched.
+- **Batches** (10 x 1200 s, seeds 1-10, repair on / `--no-repair`): platoon-vehicles and platoon-ru-vehicles
+  identical (no repair started: their immobilised hulls are abandoned or the battle ends first); platoon-vehicles-
+  tanks-both 5 repairs started (blue 4, red 1), none finished before the end; winners 9/1 both ways, casualties blue
+  13.2 / 13.5, red 30.1 / 30.7. Headless platoon-vehicles seed 1, 600 s: event stream with repair on = main's.
+- **Performance** (one at a time, idle machine, main 760bdd6 checked out in place for the base): headless
+  platoon-vehicles seed 1 600 s base 32x/31x, now 33x/33x; bench-vehicles seed 1 120 s base 12x/12x, now 13x/13x
+  (floor 8x). The drill runs once a second and looks only at damaged hulls.
+- **Render check** (`--scene look`, main's renderer against this one): every pixel difference also appears between
+  two runs of the same build (HUD clock and list timing, photo tiles), none on the map from the change; men outside
+  their hull are new pixels only where someone is outside (`--scene repair`, `--scene missile`).
+
+## 2026-11-16 — M11.7b Recovery (roadmap-detail slice 51; goldens regenerated: fingerprint and the recovery vehicles off the map)
+Owner M11 round: "a recovery vehicle can be requested to tow a disabled vehicle"; caches are legitimate targets and
+capturable (so hulls too); reuse the M10 off-map machinery. The owner could not be reached: every choice below is a
+**software decision, not asked; owner to review** (plan m11r §1 D10-D21, §3.4, amendments applied).
+- **One recovery vehicle per side with vehicles (D10, D11)**: German Bergepanzer 3 Büffel (Leopard 2 chassis; tows up
+  to 70 t: everything here incl. the Leopard 2A7V, 64 t), Russian BREM-1 (T-72 chassis, 41 t, crew of three; tows up
+  to 50 t: T-90M, T-72B3M, BMP-2, BTR-82A; a Leopard 2 is refused as too heavy), fixture `xf-tug` (40 t; tows the
+  tortoise). Manifest `recovery: { template, count: 1 }`, vehicle block `recovery { towMaxKg, towMaxSpeedKmh,
+  hookUpS, hookUpMen }`. Unarmed in the game (their MG left out, `stations: []`), no passenger seats (never a
+  scenario's default crew), an off-map asset outside the side's strength exactly like the ambulances (`Unit.asset =
+  "recovery"`, `OffMapKind`). Only sides with vehicles of their own get one (infantry battles unchanged). Data from
+  search extracts: Büffel size, mass 54.3 t and the third crewman low; BREM-1 mass and crew medium, the rest low.
+  BREM-K / BREM-L, Bergepanzer 2 / WiSENT, Boxer recovery module: later data.
+- **Who calls (D12)**: the player's `callRecovery` order (Recover button with a tow hook, behind "⋯" on a phone,
+  tooltip with the count left; the selected crew's hull, or the hull a bailed-out crew left) and the AI commander
+  (ai/recovery.ts, every 10 s: abandoned, or immobilised with nothing its crew can repair; not hit for 120 s, no
+  enemy its men know within 500 m, one that can tow it waiting, time left for the delay plus 2 min; never for an
+  immobilised hull whose gun works while the enemy is known within 1 km — a pillbox; one call per hull). No
+  automatic sim call (unlike ambulances): a stranded tank that still fights is never dragged out without its
+  commander's say. Refusals with radio reasons: none left, too heavy, already coming, not needed (it still drives,
+  is destroyed or burning), no way in.
+- **The run (D13-D17, A7, A8, B5)**: delay 600-1200 s drawn from a new stream `Streams.recovery` (battles without a
+  call never draw); it comes on at the edge behind the hull (`entryPoint` with the tracked grid; the crew's platoon,
+  else the crew that bailed out, else the caller), drives at the `walk` pace (as the ambulances; not `driveTo`, which
+  needs medical data: it works without core/medical.json) to a point 25 m short and reverses onto its spot, the
+  hitch 1.5 m from the hull (within 6 m). From the call the hull has `recoveryBy`: no wreck stamp in the nav grids
+  (one re-derive at the call, one at the end) and the pair never block each other (corridor, hull overlap, escape).
+  It does not drive into fire (D16): while the hull was hit within 120 s or an enemy is known to its side within
+  300 m of it, it halts about 300 m short (radio once), goes on after a quiet minute, gives up after 600 s of
+  waiting in all. A hull that drives again (repaired) or is destroyed before it arrives stands the call down.
+- **Hook-up (D14, D15)**: the hull's able passengers get out (`getOut`, round the exits); its crew stays aboard (the
+  driver steers a towed hull) and its wounded stay aboard; any field repair on it ends. `hookUpMen` of the recovery
+  crew (the mechanic first, the driver last) work outside at the hitch (action `hookUp`, the reserved OUTSIDE_ACTIONS
+  kind: exposed like men on foot, crouching, behind the hull) for `hookUpS`: Büffel one man 120 s, BREM-1 two men
+  240 s, tug one man 60 s (research: 2-5 min with dismounts; low). A hit on the recovery vehicle, fire on its crew or
+  suppression stops them (progress kept); they go out again after a quiet minute.
+- **The tow**: a rigid bar: each tick after the drive (`towSystem`) the towed hull's centre stays at the hook-up
+  distance from the hitch and points at it (towed backward when its rear was the nearer end): no snap. It skips its
+  own drive, its guns hold fire (`canFight`), orders to its crew are refused (`towGate`: "under tow", "towed away";
+  fire discipline excepted; a mount onto a hull being hooked up too). The recovery vehicle drives back to where it
+  came on, no faster than 8 km/h (`DriveState.towCapMps`; research: cable 8-16 km/h, bar to 25 km/h on roads; low).
+  The towed hull is not checked against buildings (it follows the recovery vehicle's route; accepted). Within 20 m
+  of the edge, or after `heldMaxS` 900 s held up on the way (ambulance precedent: it leaves from where it is), both
+  leave: the hull is `towAway` (`isOffMap` true for good), its living wounded evacuated, its crew with it,
+  `recovery: { state: "towed", tick, repairDays }`. A recovery vehicle that cannot drive any more is lost: the tow
+  drops where it is, the hull is an ordinary wreck again.
+- **End of battle (D18, D19, A3)**: `settleVehicles` next to `settleBattle` at both ends (time limit, side broken or
+  eliminated): every hull of a force still on the map that is damaged, immobilised or abandoned is `recovered` by
+  its own side if that side holds the ground there (more able men within the medical `holdM` 150 m, else the
+  nearest able man's — `holderAt`, now exported), else `captured` (`capturedBy` written; `SideResult.vehicles.
+  captured` counts it); a hull that still drives with its crew is never captured (recovered if damaged); destroyed:
+  `lost`. `repairDays` = Σ workshopDays[kind] × (1 - condition) (+0.5 for an abandoned hull without damage;
+  campaign input, low). Battles stopped by a tick limit settle nothing (as the wounded). `VehicleRecord.recovery`
+  round-trips through runBattle (in: kept on the state; out: written when set); `SideResult.vehicles` gains
+  `towed`, `recovered`. A hull towed away still costs its score points this battle (B8: lost for this battle).
+- **No state schema bump** (all fields optional; `VehicleState.recovery` widened from the reserved `{state: "none"}`,
+  always null before); battle record version 8 -> 9 (`SideRecord.recovery`); events `vehicle.recovery`,
+  `vehicle.settled`; review row "Recovery: ..."; card lines (on its way, waiting, hooking up %, under tow, towed
+  away); tile "under tow"; batch line "Recovery (M11.7b, by side)". Flags: `--no-recovery` (headless, batch) and
+  `?recovery=0` build no recovery vehicles (`withoutRecovery`: they come after every other entity, so the battle
+  is the one without them); `?recovery=1` gives the vehicles scenario its recovery vehicles; `?ai=0` (screenshots)
+  runs no enemy controller.
 ## 2026-11-16 — M11.6 stage 1: batteries and water as counted, charged items; battery slots, lazy drain, swaps (goldens regenerated)
 
 Software decisions (owner to review); design in the slice notes. No effects of a flat device yet (radio silence and
@@ -7475,3 +7611,24 @@ migration; M11.1's `arrived` is optional). RNG streams and events do not overlap
 One real clash fixed: a unit arriving late (M11.1 waves) had its batteries stamped at tick 0, so its radios and goggles
 drained from the start of the battle while it was not yet there; `fitBatteries` now takes the tick he enters at
 (`state.tick`). `npm run golden:update`: every golden unchanged.
+
+## 2026-11-16 — Merged main (M11.1 consumption, M11.6 batteries and water) into M11.7 repair and recovery; goldens regenerated
+
+- Conflicts resolved keeping both sides: RNG streams `repair`, `recovery` and `power`; rules `repair`, `recovery` and
+  `resupply`; scenario options `recovery` and `hold`; headless and batch take `--no-repair`, `--no-recovery` and
+  `--no-resupply`; labs `repair`, `batteries` and `consumption` all registered; data files unioned (repair parts and
+  tool kits stowed next to the ammunition cans and tins; the fixture's item list has both `xf-kit`/`xf-link` and
+  `xf-bandolier`/`xf-can`, its vehicles `xf-tug`). Schema: only M11.6 bumped the state (22, one migration); M11.7's
+  fields are optional and its record bump (9) stands. Repair parts and the recovery vehicles' fuel are not
+  ammunition, so the conservation guard (ammunition only) is unaffected; a hull towed away stays in the state, so
+  its rounds still count.
+- CI on the branch head 3d43627 had failed (push and pull_request runs): the two determinism tests that save and
+  load through JSON every 37 ticks (mid-tow, mid-repair) took 67 s and 74 s on the runner against vitest's 60 s
+  limit (about 400 loads each). They now save every 307 ticks (a prime off the 60-tick hash grid, about 50 loads,
+  still through every phase) with a 180 s limit.
+- `npm run golden:update`: the ten goldens and the two hold-resupply goldens changed (both sides' data in one
+  catalog); `golden/no-interiors` untouched.
+- Tests: typecheck, lint, data lint (no errors), `npm test` 1480 pass. `npm run test:perf` alone: 20 of 23; the
+  spotting-with-smoke and bench-vehicles floors (8x) missed on this container, but origin/main a7aa754 run alone
+  back to back in the same container misses them by the same amount (smoke 7.2x / 7.2x vs merged 7.7x / 7.5x;
+  bench-vehicles 7.7x vs 7.9x / 7.5x): the container is slower today, not the merge.

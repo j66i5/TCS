@@ -1,0 +1,106 @@
+{
+  "repair": {
+    "stepS": 1,
+    "quietS": 60,
+    "underFireS": 20,
+    "enemyNearM": 300,
+    "suppressionStop": 0.5,
+    "orderHitS": 10,
+    "skill": {
+      "key": "experience",
+      "k": 0.5,
+      "ref": 0.5,
+      "driverFactor": 1.25,
+      "minRate": 0.25
+    },
+    "order": [
+      "track",
+      "wheels",
+      "coax",
+      "radio"
+    ],
+    "tasks": {
+      "track": {
+        "outside": true,
+        "men": 2,
+        "manMin": 90,
+        "minCondition": 0,
+        "restoreTo": 0.8,
+        "chance": 1
+      },
+      "wheels": {
+        "outside": true,
+        "men": 2,
+        "manMin": 40,
+        "minCondition": 0,
+        "restoreTo": 0.5,
+        "chance": 1
+      },
+      "coax": {
+        "outside": false,
+        "men": 1,
+        "manMin": 10,
+        "minCondition": 0,
+        "restoreTo": 1,
+        "chance": 0.6
+      },
+      "radio": {
+        "outside": false,
+        "men": 1,
+        "manMin": 15,
+        "minCondition": 0,
+        "restoreTo": 1,
+        "chance": 0.5
+      }
+    },
+    "workshopDays": {
+      "engine": 6,
+      "transmission": 5,
+      "track": 1,
+      "wheels": 1,
+      "gun": 8,
+      "turret-drive": 4,
+      "stabiliser": 3,
+      "sights": 3,
+      "radio": 1,
+      "coax": 1,
+      "dischargers": 1,
+      "extinguisher": 1,
+      "ammo": 4,
+      "fuel": 3
+    },
+    "sources": [
+      "https://hmvf.co.uk/topic/15239-solo-track-bashing/",
+      "https://forums.kitmaker.net/t/m1-abrams-changing-track-video/9305",
+      "https://www.kolesa.ru/article/testdrajv-btr82a-8-koles-gneva-2015-09-14",
+      "https://www.bundeswehr.de/de/meldungen/reparieren-nacht-zurueck-gefecht-schnelle-schadensbeseitigung-5602330"
+    ],
+    "confidence": "low",
+    "note": "Field repair by the crew (M11.7a; research 2026-11-16 from search extracts only, no authoritative timetable found). Crews fix only light damage: a broken track with two spare links (forums: about 1.5 h for a broken track, a complete track change 1 h 20 with 5-6 men: 90 man-minutes here, two men, restored to 0.8), a holed wheel side on an 8x8 (Boxer run-flat inserts and tyre pressure control, BTR-82A drives on holed tyres: no part, 40 man-minutes, back to 0.5 = limping), the coaxial machine gun (spare barrel, 10 min, works with chance 0.6) and the radio (15 min, chance 0.5: a damaged set is often beyond the crew). Everything else (engine, transmission, gun, turret drive, stabiliser, sights, ammunition, fuel) is recovery or workshop work. Order of the tasks: mobility first (Bundeswehr 'Funken, Fahren, Feuern' adapted: a mobile hull can get out). Quiet before work: no hit for 60 s, the crew not under fire for 20 s, no enemy known within 300 m for work outside the hull (game values). Work rate per man 1 + 0.5 x (experience - 0.5), the driver (the mechanic) x1.25, at least 0.25. Workshop days at condition 0 per component kind: campaign input for the settlement of M11.7b (game values). All values low."
+  },
+  "recovery": {
+    "delayMinS": 600,
+    "delayMaxS": 1200,
+    "pace": "walk",
+    "nearPace": "walk",
+    "approachM": 25,
+    "gapM": 1.5,
+    "standTolM": 6,
+    "waitShortM": 300,
+    "hitS": 120,
+    "enemyNearM": 300,
+    "quietS": 60,
+    "giveUpS": 600,
+    "edgeM": 20,
+    "heldMaxS": 900,
+    "retryS": 30,
+    "abandonedDays": 0.5,
+    "sources": [
+      "https://www.bundeswehr.de/de/auftrag/verteidigung/-instandsetzung-efp-battlegroup-5069844",
+      "https://www.bundeswehr.de/de/auftrag/verteidigung/boxer-bergung-efp-litauen-5504870",
+      "https://en.defence-ua.com/news/ukraines_225th_regiment_spends_nine_hours_evacuating_drone_damaged_t_72_tank_video-20164.html"
+    ],
+    "confidence": "low",
+    "note": "Recovery from the rear (M11.7b; search extracts only, no published call-to-arrival time). The delay 600-1200 s plus the drive (research: 10-20 min, a recovery troop on standby; low). It drives at the 'walk' pace (as the ambulances) and reverses the last approachM 25 m onto its spot, the hitch gapM 1.5 m from the hull (a rigid tow bar), within standTolM 6 m. It does not drive into fire: while the hull was hit within hitS 120 s or an enemy is known within enemyNearM 300 m of it, it waits waitShortM 300 m short, until quiet for quietS 60 s, and goes back after giveUpS 600 s of waiting. Off the map within edgeM 20 m of where it came on, or after heldMaxS 900 s held up on its way back; routes tried again after retryS 30 s. An abandoned hull without damage costs abandonedDays 0.5 workshop days (checks, refit). All game values, low."
+  }
+}

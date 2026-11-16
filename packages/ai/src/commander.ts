@@ -30,6 +30,7 @@ import {
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
+import { recoveryCalls } from "./recovery";
 
 export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new assault by a squad pinned, broken or with morale below this. */ assaultMinMorale: 0.45, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20, houseResiteSeconds: 30,
   // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
@@ -157,6 +158,8 @@ interface Memory extends TanksMemory {
   /** M7.4b: crews that bailed out and were sent back; anti-tank tasks: the last look, each gunner's last shot
    *  order, and the men sent after a vehicle (target, since when). */
   sentBack?: number[]; lastAt?: number; atShot?: Record<string, number>; hunt?: Record<string, [number, number]>;
+  /** M11.7b: hulls a recovery vehicle was called for, and the last look (recovery.ts). */
+  recoveryCalled?: number[]; lastRecoveryLook?: number;
   /** Infantry attack (balance pass 2026-11-13): when each squad was last sent on toward its place; the assault
    *  position (bearing off the line of advance, rad); squads that have reached it (or stopped trying). */
   resumeAt?: Record<string, number>; resumeN?: Record<string, number>; flank?: number; closed?: number[]; closedAt?: Record<string, number>; maxRate?: number[]; lastBlind?: number;
@@ -762,9 +765,18 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const onRun = (target: EntityId, kind: unknown) => {
         const u = view.unit.get(target);
         const vid = u?.vehicle ?? (kind === "mount" ? u?.carrier : undefined);
-        return vid !== undefined && view.vehicle.get(vid)?.rearRun !== undefined;
+        const v = vid === undefined ? undefined : view.vehicle.get(vid);
+        // (M11.7b: nor to the crew of a hull on a recovery vehicle's tow bar or towed away, nor "mount" onto one.)
+        return v !== undefined && (v.rearRun !== undefined || v.towedBy !== undefined || v.towAway === true);
       };
-      const order = (target: EntityId, body: Record<string, unknown>) => { if (!committed(view.soldier.get(target) as SoldierState | undefined) && !onRun(target, body["kind"])) out.push({ tick, issuer: side, target, ...body } as Order); };
+      // (M11.7a: nor a move to a crew at a field repair, unless the platoon assaults or withdraws: then the move, the
+      // commander's choice, ends the repair.)
+      const repairing = (target: EntityId, kind: unknown) => {
+        if (kind !== "move" || mem.phase === "assault" || mem.phase === "withdraw") return false;
+        const vid = view.unit.get(target)?.vehicle;
+        return vid !== undefined && view.vehicle.get(vid)?.repair?.working === true;
+      };
+      const order = (target: EntityId, body: Record<string, unknown>) => { if (!committed(view.soldier.get(target) as SoldierState | undefined) && !onRun(target, body["kind"]) && !repairing(target, body["kind"])) out.push({ tick, issuer: side, target, ...body } as Order); };
       // Every platoon of the side (the attacker may have two): their squads and their own men.
       // (M8.3a: a mortar section fires missions; it is not a platoon to manoeuvre.)
       // (M9.3b: nor a missile team: it is sited and fired below; its men's eyes still count for what the side knows.)
@@ -861,7 +873,11 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
         const ownFoot = all.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined; }).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
         return tankSections({ view, tick, side, ctx: ground(), objectives, mem, order, defending, ux, uy, phase: mem.phase, phaseTick: mem.phaseTick, remounting: mem.remount?.length ?? 0, ownFoot, back: backOf, reverseHoldSeconds: COMMANDER.reverseOutHoldSeconds });
       };
-      const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || v.status === "immobilised").length;
+      // (M11.7a: an immobilised hull whose crew is at a repair with under 300 s of work left for two men is not lost.)
+      const fixing = (v: (typeof ownVehicles)[number]) => v.repair?.working === true && (v.repair.needManS - v.repair.doneManS) / 2 < 300;
+      const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || (v.status === "immobilised" && !fixing(v))).length;
+      // M11.7b: a recovery vehicle for a hull out of the fight for good, when it is quiet there (recovery.ts).
+      for (const o of recoveryCalls(view, ground(), side, tick, mem, () => all.flatMap((m) => known(m)), caller)) out.push(o);
       mem.sentBack ??= [];
       // (M7.6b review fix: the tank sections' crews that bailed out too.)
       const tankBailed = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ground(), id)).flatMap(([, u]) => u.children).filter((c) => view.unit.get(c)?.exVehicle !== undefined).sort((a, b) => a - b);

@@ -3044,6 +3044,84 @@
           "hq": true
         }
       ]
+    },
+    {
+      "id": "bergepanzer3-besatzung",
+      "echelon": "vehicle",
+      "callsign": "Berge {n}",
+      "leaderIndex": 0,
+      "vehicle": "de-bergepanzer3",
+      "subunits": [],
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "feldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "bergemechaniker",
+          "rank": "stabsunteroffizier",
+          "seat": "mech",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "sources": [
+        "https://www.bundeswehr.de/de/auftrag/einsaetze/missionen/ich-bin-im-einsatz/bergetrupp-einsatz-efp-battlegroup-5202426"
+      ],
+      "confidence": "low",
+      "note": "Bueffel crew (M11.7b): commander, driver and a recovery mechanic (Bergetrupp of NCOs, search extracts; the third man fills the extra seat: game value). Ranks typical, not sourced; loads as the tank crews'. Not in any platoon: the recovery vehicle comes from off the map."
     }
   ]
 }

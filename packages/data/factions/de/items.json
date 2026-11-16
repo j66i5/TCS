@@ -823,6 +823,18 @@
       "sources": [],
       "confidence": "low",
       "note": "M11.1: a crate of DM51 hand grenades; the count per crate was not found (game value)."
+    },
+    {
+      "id": "de-g36-carried",
+      "nameKey": "weapon.de-g36",
+      "category": "weapon",
+      "massKg": 3.63,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_G36",
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/gewehr-g36"
+      ],
+      "confidence": "medium",
+      "note": "M11.2: the rifle as an item, carried slung or in the load instead of in the hands (taking an enemy rifle puts one's own away); the same mass as the weapon entry (weapons.json, its sources)."
     }
   ]
 }

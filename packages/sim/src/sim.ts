@@ -34,6 +34,7 @@ import { nestSystem } from "./systems/nest";
 import { evacuationSystem } from "./systems/evacuation";
 import { settleBattle } from "./systems/aftercare";
 import { rearRunSystem } from "./systems/rearrun";
+import { consolidateSystem } from "./systems/consolidate";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
@@ -162,6 +163,8 @@ export function step(sim: Sim): SimEvent[] {
   evacuationSystem(ctx, state, events);
   // Combat vehicles' rear runs (M10.6b): after the ambulances (a nest an ambulance serves needs no hull).
   rearRunSystem(ctx, state, events);
+  // Redistribution in quiet squads, own casualties' ammunition after treatment, none left at the nest (M11.2).
+  consolidateSystem(ctx, state, events);
   // Ambushes (D4b): sprung before the decisions, so the men open fire at once.
   ambushSystem(ctx, state, events);
   decisionSystem(ctx, state, events);

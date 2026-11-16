@@ -32,6 +32,8 @@ export interface OrderSet {
   natures?: Nature[];
   /** "Take wounded back" (M10.6b, owner Q-9): a combat vehicle's rear run. Absent: not offered. */
   rearRun?: boolean;
+  /** "Take enemy kit" (M11.2): a known enemy casualty or prisoner is near enough. Absent: not offered. */
+  takeKit?: boolean;
 }
 
 /** What the selected unit can do about vehicles now (M7.2). */
@@ -69,6 +71,9 @@ export interface UnitCapabilities {
   own?: boolean;
   /** A combat vehicle that can take wounded back (M10.6b): the battle has rear runs, it is on the map, not on one. */
   canRearRun?: boolean;
+  /** M11.2: the nearest enemy casualty or prisoner the unit's men know of (their contacts marked down or given up)
+   *  within `consolidate.kitM` of one of its able men on foot: the source of a "Take enemy kit" order. */
+  kitSource?: EntityId;
 }
 
 const NONE: UnitCapabilities = { kind: "none", vehicleClass: null, ableMen: 0, hasLauncherRounds: false, handGrenades: 0, rifleGrenades: 0, smokeGrenades: 0, supportHe: 0, supportSmoke: 0, canMount: false, canDismount: false, passengers: 0, hasSmokeDischargers: false, natures: [] };
@@ -160,9 +165,33 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
       else if (d.launcher !== undefined && countIn(view, m, d.launcher) > 0) out.rifleGrenades += st.count;
     }
   }
+  const kit = kitSourceNear(view, catalog, own ? [...u.members] : unitSoldierIds(view, unitId));
+  if (kit !== null) out.kitSource = kit;
   if (out.ableMen === 1) out.kind = "man";
   if (out.ableMen === 0) out.kind = "none"; // nobody left to take an order
   return out;
+}
+
+/**
+ * The enemy casualty or prisoner nearest to these men that one of them knows of (M11.2: his contact marked down or
+ * given up; the player's knowledge, never the enemy's real state) within `consolidate.kitM` of an able man on foot,
+ * or null.
+ */
+export function kitSourceNear(view: SimView, catalog: Catalog, men: readonly EntityId[]): EntityId | null {
+  const R = catalog.behaviour.consolidate?.kitM;
+  if (R === undefined) return null;
+  let best: EntityId | null = null, bestD = R * R;
+  for (const m of men) {
+    const s = view.soldier.get(m), t = view.transform.get(m);
+    if (!s || !t || !isAble(s) || s.mount !== undefined) continue;
+    for (const c of s.contacts) {
+      if (c.down !== true && c.surrendered !== true) continue;
+      if (!view.container.has(c.target)) continue;
+      const d = (c.x - t.x) * (c.x - t.x) + (c.y - t.y) * (c.y - t.y);
+      if (d < bestD || (d === bestD && best !== null && c.target < best)) { bestD = d; best = c.target; }
+    }
+  }
+  return best;
 }
 
 export const FOOT_PACES = ["walk", "run", "sneak", "crawl"];
@@ -222,10 +251,10 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     if (cap.smokeGrenades > 0) m.push("smoke");
     if (cap.supportHe > 0 || cap.supportSmoke > 0) m.push("support");
     if (onFoot(cap)) m.push("arc"); // (D4b: Defend arc, a unit's; not for men all aboard)
-    return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
+    return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.kitSource !== undefined ? { takeKit: true } : {}) };
   }
   if (cap.kind === "man") {
-    return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
+    return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.kitSource !== undefined ? { takeKit: true } : {}) };
   }
   // (Slice s0-clear: Clear a house — a squad's drill, never a single man's.)
   const m: OrderMode[] = ["move", "assault", "withdraw", "occupy", "clear", "fire"];
@@ -239,7 +268,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
   // (D4b: Defend arc — a unit on foot faces a sector and fires on its own only into it; not offered while all its
   // men are aboard: the sim would answer "unable" for a platoon whose squads ride.)
   if (onFoot(cap)) m.push("arc");
-  return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
+  return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.kitSource !== undefined ? { takeKit: true } : {}) };
 }
 
 /** Has the unit able men on foot (D4b)? */

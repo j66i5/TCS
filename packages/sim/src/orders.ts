@@ -116,7 +116,12 @@ export type OrderBody =
   /** Defend an arc (D4b, SPEC 6.6): the men on foot of the unit and its sub-units stop, face `facing` (rad) and
    *  open fire on their own only at enemies within `widthRad / 2` either side of it; the next move, assault,
    *  withdrawal or occupation ends the arc. */
-  | { kind: "defendArc"; facing: number; widthRad: number };
+  | { kind: "defendArc"; facing: number; widthRad: number }
+  /** Take enemy kit (M11.2, owner: on a player order only; the AI never gives it): the nearest able man of the target
+   *  unit (or the man) goes to `source` — an enemy casualty or prisoner, or a pile of ammunition on the ground — and
+   *  takes the ammunition that fits a weapon he carries; if none fits, he swaps his rifle for the enemy's rifle with its
+   *  magazines (his own goes into his load). Refused on the radio when nothing fits or nobody is near. */
+  | { kind: "takeKit"; source: EntityId };
 
 export type OrderKind = OrderBody["kind"];
 

@@ -407,11 +407,15 @@ export interface CommState {
  * first responder or medic (else as a comrade).
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone" | "takeAmmo" | "takeKit";
   tick: number;
+  /** takeAmmo (M11.2, systems/consolidate.ts): he goes to the own casualty `target` (treated, or dead) to take his
+   *  ammunition; takeKit: to the enemy casualty, prisoner or pile `target` the player named (order `takeKit`). */
   target?: EntityId;
   /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
   item?: DefId;
+  /** bringAmmo (M11.2): a hand-over of the squad's consolidation (the receiver may still have some). */
+  consolidate?: true;
   x?: number;
   y?: number;
   /** takePrisoner, care: his height above the ground at (x, y) (his floor; absent = the ground, M7.5 review fix). */

@@ -401,6 +401,9 @@ for the owner's numbers answer after playing, not for more building).
   consumption, slices 43-48 and 52; 49 and 50-51 in parallel sessions)
   - ✅ **M11.1 (slice 43)** consumption lab, moveCharge, ledger and conservation guard, packaging, loose rounds,
     refillMagazines, late arrival and `hold-resupply`, machine-gun rates (DECISIONS "M11.1"; balance points open)
+  - ✅ **M11.2 (slice 44)** consolidation in quiet squads (belts first, then magazines, then loose rounds), own
+    casualties' ammunition after treatment, none at the Verwundetennest (a pile outside), "Take enemy kit" on the
+    player's order (rifle swap with `weaponItem`), `npm run lab -- redistribute` (DECISIONS "M11.2")
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

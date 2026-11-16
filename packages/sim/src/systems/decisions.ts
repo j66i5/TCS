@@ -22,6 +22,7 @@ import { inArc } from "../arc";
 import { DRONE_SEEN_S } from "./drones";
 import { interruptAction, startAction } from "../actions";
 import { refillDecision } from "./refill";
+import { stepTake } from "./consolidate";
 import type { Contact, Intent, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import { countItems, type Container } from "../items";
@@ -627,20 +628,22 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   stepBringAmmo(ctx, state, events, giver);
 }
 
-/** The giver: walk over, then hand the magazine or belt over. */
-function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: EntityId): void {
+/** The giver: walk over, then hand the magazine or belt over. (M11.2: also a consolidation hand-over, consolidate.ts.) */
+export function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: EntityId): void {
   const gs = state.soldier.req(g), it = gs.intent!;
   const to = it.target!;
   const rs = state.soldier.get(to), rw = state.weapon.get(to), wd = rw ? ctx.catalog.weapons[rw.weapon] : undefined;
   // What he brings: an anti-tank round (M7.4a: counted as items, he has none left), else the receiver's magazine.
   const item = it.item ?? wd?.feed.magazine;
   const has = (c: Container | undefined) => (it.item !== undefined ? (c ? countItems(c, it.item) : 0) : spareCount(c, item ?? ""));
-  if (!rs || !isAble(rs) || item === undefined || state.tick - it.tick > 60 * TICK_HZ || has(state.container.get(to)) > 0 || (it.item !== undefined && has(state.container.get(g)) === 0)) { gs.intent = null; return; }
+  // (A consolidation hand-over, M11.2: the receiver may still have some; it ends when the giver has none left.)
+  const ends = it.consolidate === true ? spareCount(state.container.get(g), item ?? "") === 0 : has(state.container.get(to)) > 0 || (it.item !== undefined && has(state.container.get(g)) === 0);
+  if (!rs || !isAble(rs) || item === undefined || state.tick - it.tick > 60 * TICK_HZ || ends) { gs.intent = null; return; }
   if (state.action.has(g)) return;
   const a = state.transform.req(g), b = state.transform.req(to);
   const d = hypot2(a.x - b.x, a.y - b.y);
   if (d <= 2.4) {
-    startAction(state, events, g, "transferItems", secondsToTicks(ctx.catalog.behaviour.decisions.passSeconds), { to, item, count: 1 });
+    startAction(state, events, g, "transferItems", secondsToTicks(ctx.catalog.behaviour.decisions.passSeconds), it.consolidate === true ? { to, item, count: 1, c: 1 } : { to, item, count: 1 });
     gs.intent = null;
     return;
   }
@@ -902,7 +905,7 @@ function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: Ent
 /** Errands that take a man right up to a comrade on purpose (carrying parties too, M10.4a). */
 function closeErrand(s: SoldierState): boolean {
   const k = s.intent?.kind;
-  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner" || s.carrying !== undefined;
+  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner" || k === "takeAmmo" || k === "takeKit" || s.carrying !== undefined;
 }
 
 /**
@@ -1252,6 +1255,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       if (s.intent?.kind === "care" && state.fire.get(id)?.self === true) state.fire.delete(id);
     }
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
+    // Taking a casualty's ammunition, or enemy kit on an order (M11.2, consolidate.ts).
+    if (s.intent?.kind === "takeAmmo" || s.intent?.kind === "takeKit") { stepTake(ctx, state, events, id); continue; }
     if (s.intent?.kind === "fetchAmmo") {
       const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
       if (!wd || s.intent.target === undefined || !stepFetchAmmo(ctx, state, events, id, s.intent.target, wd.feed.magazine, s.intent.tick)) s.intent = null;

@@ -119,7 +119,23 @@ async function uiScenes(page: Page, name: string, errors: string[], shots: strin
   await shot("5-mid-distance");
   await page.evaluate(new Function(`const t = globalThis.__tcs; t.focus(globalThis.__c.x, globalThis.__c.y, 2600); t.stepTicks(1);`) as () => void);
   await shot("6-overview");
-  console.log(`${name}: ui scene squad ${JSON.stringify(sq)}; vehicle ${JSON.stringify(veh)}; insets ${JSON.stringify(ins)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+  // M11.2 "Take enemy kit": a dead enemy lies 15 m in front of the squad, which knows he is down; the squad selected,
+  // the order bar shows the button (phone: under "⋯", opened); then the order given and a man on his way.
+  const kit = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; const uid = ${JSON.stringify((sq as { unit: number }).unit)};
+    const u = s.unit.get(uid); const lead = u.leader ?? u.members[0]; const lp = s.transform.get(lead);
+    const foe = [...s.identity.entries()].find(([id, i]) => i.side === "red" && s.weapon.has(id) && !s.soldier.get(id).mount)[0];
+    const fp = s.transform.get(foe); fp.x = lp.x + 15; fp.y = lp.y; fp.z = 0;
+    const fs = s.soldier.get(foe); fs.physiology.alive = false; fs.casualty = "killed"; fs.physiology.consciousness = 0; fs.posture = "prone";
+    for (const m of u.members) { const ms = s.soldier.get(m); ms.contacts = ms.contacts.filter((c) => c.target !== foe); ms.contacts.push({ target: foe, x: fp.x, y: fp.y, errM: 1, kind: "seen", tick: s.tick, reportedTick: s.tick, down: true }); }
+    t.dock(innerWidth > innerHeight ? "right" : "bottom"); t.select(null); t.select(uid); t.focus(lp.x + 7, lp.y, 60); t.stepTicks(1);
+    return { foe, set: t.orderSet() };`) as () => object);
+  if (name === "phone" && await page.isVisible(".hud-orders .hud-more-btn")) await page.click(".hud-orders .hud-more-btn");
+  await shot("7-take-kit");
+  if (name === "phone" && await page.isVisible(".hud-orders .hud-more-btn")) await page.click(".hud-orders .hud-more-btn");
+  const took = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; const src = t.takeKit(); t.stepTicks(60 * 4);
+    return { src, going: [...s.soldier.entries()].filter(([, x]) => x.intent && x.intent.kind === "takeKit").map(([id]) => id) };`) as () => object);
+  await shot("8-take-kit-going");
+  console.log(`${name}: ui scene squad ${JSON.stringify(sq)}; vehicle ${JSON.stringify(veh)}; insets ${JSON.stringify(ins)}; kit ${JSON.stringify(kit)} ${JSON.stringify(took)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**

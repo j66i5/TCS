@@ -536,5 +536,25 @@
     "underFireBelow": 0.1,
     "secondsPerRound": 1.2,
     "secondsPerRoundClips": 0.4
+  },
+  "consolidate": {
+    "quietS": 60,
+    "stepS": 2,
+    "maxParallel": 2,
+    "rangeM": 50,
+    "beltsMin": 2,
+    "magGap": 2,
+    "packageGap": 2,
+    "casualtyM": 30,
+    "lowMags": 3,
+    "takeS": 8,
+    "leaveMags": 1,
+    "nestHandM": 30,
+    "nestCacheM": 30,
+    "kitM": 150,
+    "kitS": 10,
+    "note": "M11.2 (slice 44; game values, low; the owner's answers 2026-11-16 'taking kit' and 'no ammunition at the red cross'). Consolidation (the 'redistribute ammunition' step of consolidation and reorganisation in infantry manuals; search extracts only, no figures): a squad not fired on for 60 s evens out its able men's ammunition, looked at every 2 s, at most 2 hand-overs at once, between men within 50 m: belts first (a machine gunner below 2 spare belts gets one from a man carrying belts), then magazines (no man 2 or more spare magazines above another), then packages of loose rounds (2 or more). Own casualties: once treated (a treatment done and nothing more the line can do) or dead, the nearest able man of his squad within 30 m who is low (below 3 spare magazines, or a gunner's belts), else the man who treated him if the squad's mean is below 3, takes his magazines, belts, loose rounds, grenades and rockets in 8 s, leaving a man who can still use his arms 1 magazine. At the Verwundetennest the nearest able man of his platoon within 30 m (not a man with the red cross) takes it, else it is left in a pile 30 m from the nest. 'Take enemy kit' (player order only): a man within 150 m goes and takes it in 10 s.",
+    "sources": [],
+    "confidence": "low"
   }
 }

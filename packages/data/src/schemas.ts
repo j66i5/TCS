@@ -256,6 +256,8 @@ export const WeaponSchema = withProv({
     /** M11.1 (point 7c): rapid fire for the first `rapidSeconds` of a fire task, a burst every `rapidIntervalS`. */
     rapidIntervalS: Num(0.1, 60).optional(), rapidSeconds: Num(0, 600).optional(),
   }).strict().optional(),
+  /** M11.2: the item this weapon becomes when carried, not held (items.json, the same mass). */
+  weaponItem: Id.optional(),
 });
 export const WeaponsFile = z.object({ weapons: z.array(WeaponSchema) }).strict();
 export type BallisticsT = z.infer<typeof BallisticsFile>;
@@ -542,6 +544,13 @@ export const BehaviourFile = withProv({
   /** M11.1: refilling magazines from loose rounds in quiet moments. See BehaviourDef.refill. */
   refill: z.object({
     belowFraction: Num(0, 1), quietS: Num(0, 600), underFireBelow: Num(0, 1), secondsPerRound: Num(0.05, 10), secondsPerRoundClips: Num(0.05, 10),
+  }).strict().optional(),
+  /** M11.2: redistribution in a squad and taking ammunition from casualties and the enemy. See BehaviourDef.consolidate. */
+  consolidate: z.object({
+    quietS: Num(0, 3600), stepS: Num(0.5, 60), maxParallel: z.number().int().min(1).max(10), rangeM: Num(1, 500), beltsMin: z.number().int().min(0).max(20),
+    magGap: z.number().int().min(2).max(20), packageGap: z.number().int().min(2).max(20), casualtyM: Num(1, 500), lowMags: z.number().int().min(0).max(20),
+    takeS: Num(0.5, 120), leaveMags: z.number().int().min(0).max(10), nestHandM: Num(1, 500), nestCacheM: Num(1, 500), kitM: Num(1, 2000), kitS: Num(0.5, 120),
+    note: z.string().optional(), sources: z.array(z.string()).optional(), confidence: z.enum(["high", "medium", "low"]).optional(),
   }).strict().optional(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;

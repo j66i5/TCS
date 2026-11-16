@@ -9,7 +9,7 @@ import {
 import { worldToScreen } from "@tcs/render";
 import {
   addPoint, centreOf, facingHandleAt, inPlacePoint, losPreview, modeAfterOrder, newPlan, ordersFor, paceToWaypoint,
-  planToOrder, playerOrder, shapeOf, slotSpan, turnFormation, undoPoint, type Eye, type LosLine, type Plan, type PlanKind,
+  planToOrder, playerOrder, shapeOf, slotSpan, turnFormation, undoPoint, unitCapabilities, type Eye, type LosLine, type Plan, type PlanKind,
 } from "@tcs/ui";
 import type { App, Pt } from "./app";
 import { activeMoveOf, hqMode, inMap, markerFor, unitCentre, unitMen, unitPlaces, selectedMen, slotsOf, vehicleClassOf } from "./units";
@@ -45,6 +45,17 @@ export function issue(a: App, order: Order): void {
 /** An order for the selected unit now (`kind` and its fields). */
 export function now(a: App, target: EntityId): { tick: number; issuer: string; target: EntityId } {
   return { tick: a.sim.state.tick, issuer: a.playerSide, target };
+}
+
+/** "Take enemy kit" (M11.2) for the selected unit: the nearest enemy casualty or prisoner its men know of. The source
+ *  ordered, or null (nothing known near: the button is not shown then). */
+export function takeKit(a: App): EntityId | null {
+  const uid = a.overlay.selectedUnit;
+  if (uid === null) return null;
+  const src = unitCapabilities(a.sim.state, a.input.catalog, uid, hqMode(a)).kitSource;
+  if (src === undefined) return null;
+  issue(a, { ...now(a, uid), kind: "takeKit", source: src });
+  return src;
 }
 
 /** A planned move for a vehicle: "reverse" legs drive the slowest pace backwards; no formation. */

@@ -11,7 +11,7 @@ import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
 import { centredOn, startFollow, stopFollow, viewInsets } from "./camera";
 import { activeMoveOf, placesOf, ridersIn, vehicleClassOf } from "./units";
-import { clearAt, endPlan, facingHandle, fireAtPoint, forUnit, issue, now, occupyOrder, offerSupport, startPlan, SUPPORT_ROUNDS } from "./orders";
+import { clearAt, endPlan, facingHandle, fireAtPoint, forUnit, issue, now, occupyOrder, offerSupport, startPlan, SUPPORT_ROUNDS, takeKit } from "./orders";
 import { select, showCard, syncOrders } from "./panels";
 import { showSpriteSheet } from "./sprite-sheet";
 import { sightView } from "./view";
@@ -79,6 +79,8 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     mount: () => issue(a, { ...to(), kind: "mount" }),
     dismount: () => issue(a, { ...to(), kind: "dismount" }),
     rearRun: () => issue(a, { ...to(), kind: "rearRun" }),
+    /** M11.2: "Take enemy kit" for the selected unit (the nearest known enemy casualty or prisoner); the source, or null. */
+    takeKit: () => takeKit(a),
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */
     dismountWounded: () => issue(a, { ...to(), kind: "dismount", wounded: true }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */

@@ -26,6 +26,8 @@ const P: Record<string, string> = {
   dismount: `<path d="M3.5 11.5v5h13v-5"/><path d="M10 12V3"/><path d="M6.5 6.5L10 3l3.5 3.5"/>`,
   // (M10.6b "take wounded back": a cross with an arrow going back.)
   rearRun: `<path d="M7 3.5h3v3h3v3h-3v3H7v-3H4v-3h3z"/><path d="M17 15.5H6"/><path d="M8.5 13 6 15.5 8.5 18"/>`,
+  // (M11.2 "take enemy kit": a magazine and a hand picking it up.)
+  takeKit: `<path d="M8 3h4l1 7H7z"/><path d="M7.5 7h5"/><path d="M3 14.5h4.5l2 1.5h4.5c1 0 1 1.5 0 1.5H9"/><path d="M14 16l3-2c.8-.5 1.6.4 1 1.1L15 18H6"/>`,
   // (D4b "defend arc": a sector opening from a man.)
   arc: `<circle cx="10" cy="16" r="1.6"/><path d="M10 16L4 6M10 16l6-10"/><path d="M4 6q6-4 12 0"/>`,
   ceaseFire: `<circle cx="10" cy="10" r="5"/><path d="M10 2v4M10 14v4M2 10h4M14 10h4"/><path d="M4 16L16 4" stroke-width="2.2"/>`,

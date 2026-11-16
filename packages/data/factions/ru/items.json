@@ -942,6 +942,30 @@
       "sources": [],
       "confidence": "low",
       "note": "M11.1: a crate of RGD-5 hand grenades; the count per crate was not found (game value)."
+    },
+    {
+      "id": "ru-ak74m-carried",
+      "nameKey": "weapon.ru-ak74m",
+      "category": "weapon",
+      "massKg": 3.4,
+      "sources": [
+        "https://www.army-technology.com/projects/ak-74m-assault-rifle-russian-army-military/",
+        "https://structure.mil.ru/structure/forces/ground/weapons/arma/more.htm?id=10344196@morfMilitaryModel"
+      ],
+      "confidence": "medium",
+      "note": "M11.2: the rifle as an item, carried slung or in the load instead of in the hands (taking an enemy rifle puts one's own away); the same mass as the weapon entry (weapons.json, its sources)."
+    },
+    {
+      "id": "ru-ak12-carried",
+      "nameKey": "weapon.ru-ak12",
+      "category": "weapon",
+      "massKg": 3.5,
+      "sources": [
+        "https://modernfirearms.net/en/assault-rifles/ak-12-ak-15-eng/",
+        "https://en.wikipedia.org/wiki/AK-12"
+      ],
+      "confidence": "medium",
+      "note": "M11.2: the rifle as an item, carried slung or in the load instead of in the hands (taking an enemy rifle puts one's own away); the same mass as the weapon entry (weapons.json, its sources)."
     }
   ]
 }

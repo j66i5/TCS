@@ -141,6 +141,15 @@ export type SimEvent =
   | { kind: "items.delivered"; tick: number; holder: EntityId; item: DefId; count: number; ammo?: DefId; rounds?: number }
   /** M11.1: a man loaded `rounds` loose rounds into a magazine (refillMagazines). */
   | { kind: "items.refilled"; tick: number; soldier: EntityId; item: DefId; rounds: number }
+  /** M11.2: `to` took `count` of `item` (with `rounds` of ammunition in them) from `from`: an own casualty
+   *  ("casualty"; `treated`: he had been treated, else he was dead), at the Verwundetennest ("nest"), an enemy
+   *  casualty or prisoner ("enemy") or a pile on the ground ("cache"). */
+  | { kind: "items.taken"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number; rounds: number; source: "casualty" | "nest" | "enemy" | "cache"; treated?: boolean; dead?: boolean }
+  /** M11.2: nobody to take a casualty's ammunition at the Verwundetennest: it was left as a pile (`cache`, a new entity
+   *  with a container) at (x, y). */
+  | { kind: "items.dropped"; tick: number; from: EntityId; cache: EntityId; x: number; y: number }
+  /** M11.2 (takeKit): `soldier` took `weapon` from `from` and carries his own `put` as an item. */
+  | { kind: "weapon.swapped"; tick: number; soldier: EntityId; from: EntityId; weapon: DefId; put: DefId }
   | { kind: "action.started"; tick: number; actor: EntityId; action: string; durationTicks: number }
   | { kind: "action.completed"; tick: number; actor: EntityId; action: string }
   | { kind: "action.interrupted"; tick: number; actor: EntityId; action: string; reason: string }

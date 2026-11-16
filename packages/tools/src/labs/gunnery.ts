@@ -56,6 +56,7 @@ function holdAll(sim: Sim): void {
  */
 function stillTarget(input: BattleInput): BattleInput {
   for (const rec of input.forces[1]!.vehicles ?? []) rec.status = "immobilised";
+  input.rules.repair = false; // (M11.7a: the frozen target is never repaired)
   return input;
 }
 

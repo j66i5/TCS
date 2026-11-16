@@ -7,7 +7,7 @@ import type { SoldierState, VehicleState } from "./components";
 import type { DefId, EntityId, SideId } from "./ids";
 import { isAble } from "./impair";
 import { countItems } from "./items";
-import type { SimState } from "./state";
+import type { SimState, SimView } from "./state";
 import { unitSoldiers } from "./systems/orders";
 
 /** Crew seat order: a crew unit's members take the crew seats in this order unless a placement names a seat. */
@@ -15,9 +15,29 @@ export const CREW_STATION_ORDER: readonly StationKind[] = ["commander", "gunner"
 
 /** The action of a crewman out on his vehicle's roof (M9.3a: reloading a launcher from outside). */
 export const ROOF_ACTION = "reloadOutside";
+/** M11.7a: a crewman repairing his hull from outside (a track, a wheel side), on the ground beside it. */
+export const REPAIR_OUTSIDE = "repairOutside";
+/** M11.7a: a crewman repairing inside the hull (coax, radio): under armour, but off his station. */
+export const REPAIR_INSIDE = "repairInside";
+/** M11.7b (reserved): a recovery crewman outside hooking up a tow. */
+export const HOOK_UP = "hookUp";
+/** Actions of a man who keeps his seat but is outside the hull: exposed like a man on foot (M9.3a, M11.7a). */
+export const OUTSIDE_ACTIONS: readonly string[] = [ROOF_ACTION, REPAIR_OUTSIDE, HOOK_UP];
 
-/** Is this man aboard but out on the roof (M9.3a)? Then he is a target and a body like a man on foot. */
-export function onRoof(state: SimState, id: EntityId): boolean {
+/**
+ * Is this man aboard but outside the hull: out on the roof reloading (M9.3a), or beside it repairing or hooking up
+ * (M11.7a/b)? Then he is a target and a body like a man on foot. (The name stays from M9.3a; `isOutside` is the
+ * same test.)
+ */
+export function onRoof(state: SimState | SimView, id: EntityId): boolean {
+  if (state.action.size === 0) return false;
+  const k = state.action.get(id)?.kind;
+  return k === ROOF_ACTION || k === REPAIR_OUTSIDE || k === HOOK_UP;
+}
+/** Aboard but outside (M11.7a: render and UI draw him as a man on foot). */
+export const isOutside = onRoof;
+/** Standing on top of his hull (M9.3a): only the roof reloader; a man beside it is on the ground. */
+export function onRoofTop(state: SimState | SimView, id: EntityId): boolean {
   return state.action.size > 0 && state.action.get(id)?.kind === ROOF_ACTION;
 }
 

@@ -21,7 +21,8 @@ import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
 import { addItems, removeItems } from "../items";
 import { atan, atan2, clamp, cos, hypot2, PI, sin, sqrt, tan, wrapAngle } from "../math";
-import { compCondition, hasDriver, onRoof } from "../mount";
+import { compCondition, hasDriver, onRoof, onRoofTop } from "../mount";
+import { outsideSpot } from "../repair";
 import type { SimState } from "../state";
 import type { Order, Waypoint } from "../orders";
 import { findPath, type NavStamp } from "../nav";
@@ -721,7 +722,10 @@ export function vehicleSyncSystem(ctx: SimContext, state: SimState): void {
       const [x, y, z] = seatWorld(def, i, t.x, t.y, t.heading);
       mt.x = x; mt.y = y; mt.z = z; mt.heading = t.heading;
       // (M9.3a: out on the roof reloading: standing on top of the hull, or of the turret if it has one, over his seat.)
-      if (state.action.size > 0 && onRoof(state, sid)) mt.z = def.body.turret ? Math.max(def.body.hull.u[1], def.body.turret.u[1]) : def.body.hull.u[1];
+      if (state.action.size > 0 && onRoof(state, sid)) {
+        if (onRoofTop(state, sid)) mt.z = def.body.turret ? Math.max(def.body.hull.u[1], def.body.turret.u[1]) : def.body.hull.u[1];
+        else outsideSpot(ctx, state, sid, def, t, mt); // (M11.7a: on the ground beside the hull, working at it)
+      }
     }
   }
   rebuildVehicleGrid(ctx, state);

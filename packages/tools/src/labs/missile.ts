@@ -36,6 +36,7 @@ export function missileSetup(data: DataSet, rangeM: number, aspect: "front" | "s
   input.seed = seed;
   const ti = K.shooter === "red" ? 0 : 1;
   for (const rec of input.forces[ti]!.vehicles ?? []) rec.status = "immobilised"; // the target stays where it is
+  input.rules.repair = false; // (M11.7a: and is not repaired)
   const sim = createSim(input);
   const shooter = [...sim.state.vehicle.entries()].find(([, v]) => v.side === K.shooter)![0];
   const target = [...sim.state.vehicle.entries()].find(([, v]) => v.side !== K.shooter)![0];

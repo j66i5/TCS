@@ -9,7 +9,7 @@
  * Text is never put in events. Radio messages carry a string-table key and parameters, so the UI can
  * render them in any language and in the faction's own phrasing (SPEC 4.3 rule 12).
  */
-import type { Behaviour, SurrenderReason } from "./components";
+import type { Behaviour, SurrenderReason, VehicleStatus } from "./components";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { OrderKind, OrderRejectReason } from "./orders";
 import type { BodyZone, WoundMechanism } from "./wounds";
@@ -188,6 +188,14 @@ export type SimEvent =
   | { kind: "vehicle.reaction"; tick: number; vehicle: EntityId; reaction: "reverseOut" | "continue" | "bailOut"; keys: string[] }
   /** A vehicle can no longer move ("immobilised") or fire ("disarmed") (M7.4a). */
   | { kind: "vehicle.status"; tick: number; vehicle: EntityId; status: "immobilised" | "disarmed" }
+  /** Field repair (M11.7a): a crew started, stopped (`why`: hit, underFire, moving, burning, bailOut, unable,
+   *  ordered), resumed, finished (`status` afterwards; `parts` used up) or failed (beyond the crew) a repair of
+   *  component `component` (kind `part`); `etaS`: work left at the start (s). */
+  | {
+      kind: "vehicle.repair"; tick: number; vehicle: EntityId; component: number; part: string;
+      phase: "started" | "interrupted" | "resumed" | "done" | "failed"; why?: string; status?: VehicleStatus; etaS?: number; ordered?: true;
+      parts?: { item: DefId; count: number }[];
+    }
   /** A vehicle is destroyed (M7.4a): its ammunition blew up, or it burnt out. */
   | { kind: "vehicle.destroyed"; tick: number; vehicle: EntityId; cause: "cookOff" | "burnt" }
   /** Its crew (and passengers) bailed out, or its crew is out of action (M7.4a, owner Q14/Q15). */

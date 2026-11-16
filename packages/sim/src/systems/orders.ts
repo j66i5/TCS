@@ -8,6 +8,7 @@ import { leaveCarry } from "./carry";
 import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
 import { callAmbulanceOrder } from "./evacuation";
 import { rearRunGate, rearRunOrder } from "./rearrun";
+import { endRepairByOrder, repairOrder } from "./repair";
 import { aglOf, crewServedKind, startSetup } from "./mortars";
 import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
@@ -156,6 +157,10 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       // A vehicle crew's hull (M10.6b).
       if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
       return ctx.catalog.medical?.nest && ctx.catalog.medical.rearRun ? null : "not-applicable";
+    case "repair":
+      // A vehicle crew's hull (M11.7a).
+      if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
+      return ctx.catalog.repair !== undefined && ctx.rules.repair !== false ? null : "not-applicable";
   }
 }
 
@@ -400,6 +405,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "rearRun") return rearRunOrder(ctx, state, events, order.target);
   const gate = rearRunGate(state, events, order);
   if (gate !== null) return gate;
+  // Field repair (M11.7a): the crew's own task on its hull.
+  if (order.kind === "repair") return repairOrder(ctx, state, events, state.unit.req(order.target).vehicle!);
   // (D4b: a halt, getting in or out, or a move of the vehicle that carries them ends an arc they were defending.)
   if (isUnit && (order.kind === "halt" || order.kind === "mount" || order.kind === "dismount" || order.kind === "move")) clearArcs(state, order.target, own);
   // A reconnaissance quadcopter (M9.4a): its own business; nobody gets out, nothing else of the unit changes.
@@ -425,7 +432,11 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // A vehicle crew: move and halt drive the vehicle; rules and cease-fire as for any unit.
   const crewOf = isUnit ? state.unit.req(order.target).vehicle : undefined;
   if (crewOf !== undefined && order.kind === "ceaseFire") { stationCeaseFire(state, order.target, events); return true; }
-  if (crewOf !== undefined && order.kind !== "rules" && order.kind !== "ambush") return vehicleOrder(ctx, state, order, crewOf);
+  if (crewOf !== undefined && order.kind !== "rules" && order.kind !== "ambush") {
+    const res = vehicleOrder(ctx, state, order, crewOf);
+    if (order.kind === "move" && res === true) endRepairByOrder(state, events, crewOf); // (M11.7a: the men back in)
+    return res;
+  }
   // Owner Q-7 (M10.7a): fire, a grenade or a fire mission at a recognised medic, ambulance, carrying party or
   // Verwundetennest is refused, and a refused order changes nothing: no drill, errand or carrying party ends, nobody
   // gets out (review fix). What men aboard know counts too.

@@ -21,6 +21,7 @@ export function aglSetup(data: DataSet, fac: AglTeamFaction, rangeM: number, see
   const input = duel(data, ["de", "ru"], { blue: { x: 30, y: 30, heading: 0 }, red: { x: W - 30, y: 1150, heading: Math.PI } }, undefined, W);
   input.seed = seed;
   for (const f of input.forces) for (const rec of f.vehicles ?? []) rec.status = "immobilised";
+  input.rules.repair = false; // (M11.7a: the frozen hulls stay as they are: no crew out repairing)
   const own = input.forces[fac === "de" ? 0 : 1]!, enemy = input.forces[fac === "de" ? 1 : 0]!;
   const crewIds = new Set(enemy.units.flatMap((u) => u.subunits).filter((u) => u.vehicleId !== undefined).flatMap((u) => u.members.map((m) => m.personId)));
   let k = 0;

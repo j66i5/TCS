@@ -16,7 +16,7 @@
  * while the contact lasts. Who may be fired at is decided on this flag, never on the enemy's real state.
  */
 import { isOffMap } from "../offmap";
-import { onRoof } from "../mount";
+import { onRoof, onRoofTop } from "../mount";
 import type { Contact, SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
@@ -154,7 +154,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       if (t.z > 0 && (ts?.mount === undefined || roof)) c.z = t.z;
       // A man on foot: the posture he is seen in (what the shooter aims at, package A).
       if (ts !== undefined && ts.mount === undefined) c.posture = ts.posture;
-      else if (roof) c.posture = "standing";
+      else if (roof) c.posture = onRoofTop(state, e.target) ? "standing" : ts!.posture; // (M11.7a: beside the hull, as he is)
       // A vehicle (M7.3): its heading and movement; its type once within the range it can be told at (owner Q6).
       const veh = state.vehicle.size > 0 ? state.vehicle.get(e.target) : undefined;
       if (veh) {

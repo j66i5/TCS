@@ -23,6 +23,7 @@ import { evadeSystem, grenadeReactionSystem } from "./systems/grenades";
 import { projectileSystem } from "./systems/ballistics";
 import { missileSystem } from "./systems/missiles";
 import { crewReactionSystem, vehicleDamageSystem } from "./systems/armour";
+import { repairSystem } from "./systems/repair";
 import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
@@ -148,6 +149,8 @@ export function step(sim: Sim): SimEvent[] {
   moraleSystem(ctx, state, events, events.events);
   // Crews decide to fight on or reverse out of reach (M7.4b; returns at once without vehicles).
   crewReactionSystem(ctx, state, events);
+  // Field repair by the crews (M11.7a; once a second, returns at once without core/repair.json or damage).
+  repairSystem(ctx, state, events);
   spottingSystem(ctx, state, events);
   contactSystem(ctx, state, events);
   // Surrender (M6.6): after contacts (what he knows is fresh), before any decision, drill or objective check.

@@ -17,7 +17,7 @@ import type { SimView } from "./state";
 import { newReviewTally, tallyReview, type ReviewTally } from "./review";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 7;
+export const RECORD_VERSION = 8;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -46,6 +46,8 @@ export interface SideRecord {
   firstDismountTick: number | null;
   /** Crews (M7.4b): reversed out, fires started, fires put out. */
   crews: { reversedOut: number; fires: number; firesOut: number };
+  /** Field repair (M11.7a): tasks started, finished, failed (beyond the crew), stopped (each time), parts used. */
+  repair: { started: number; done: number; failed: number; interrupted: number; parts: number };
   /** Guided missiles fired by the side's hulls and how they ended; enemy hulls penetrated by its missiles and by its
    *  shoulder-fired rockets. */
   missiles: { fired: number; hit: number; lost: number; miss: number; penetrated: number; rocketPenetrated: number };
@@ -151,6 +153,7 @@ export function newSideRecord(): SideRecord {
   return {
     firstDismountTick: null,
     crews: { reversedOut: 0, fires: 0, firesOut: 0 },
+    repair: { started: 0, done: 0, failed: 0, interrupted: 0, parts: 0 },
     missiles: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 },
     mortar: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 },
     care: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 },
@@ -383,6 +386,18 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       const r = side(enemyOf(view.vehicle.get(e.vehicle)?.side));
       if (r && am?.guided !== undefined) r.missiles.penetrated++;
       else if (r && am?.delivery?.method === "direct") r.missiles.rocketPenetrated++;
+    }
+    // Field repair (M11.7a): counts per side; a repair finished or failed goes on the timeline.
+    if (e.kind === "vehicle.repair") {
+      const v = view.vehicle.get(e.vehicle), r = side(v?.side);
+      if (r) {
+        if (e.phase === "started") r.repair.started++; else if (e.phase === "done") r.repair.done++; else if (e.phase === "failed") r.repair.failed++; else if (e.phase === "interrupted") r.repair.interrupted++;
+        for (const p of e.parts ?? []) r.repair.parts += p.count;
+      }
+      if (v && (e.phase === "done" || e.phase === "failed")) {
+        const name = v.unit !== null ? view.unit.get(v.unit)?.callsign ?? v.vehicleId : v.vehicleId;
+        rec.timeline.push({ tick: e.tick, side: v.side, key: e.phase === "done" ? "aar.vehicle.repaired" : "aar.vehicle.repairFailed", vehicle: name });
+      }
     }
     if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
       const r = side(view.vehicle.get(e.vehicle)?.side);

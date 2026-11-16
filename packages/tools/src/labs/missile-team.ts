@@ -25,6 +25,7 @@ export function teamSetup(data: DataSet, rangeM: number, seed: number, o: Opts =
   const input = duel(data, ["de", fac], { blue: tgt, red: { x: W - 30, y: 1150, heading: Math.PI } }, fac === "xf" ? ["pzgren-schuetzentrupp", "porter-gang"] : undefined, W, fac === "xf" ? ["puma-besatzung", "wagon-crew"] : undefined);
   input.seed = seed;
   if (!o.crossing && !o.free) for (const rec of input.forces[0]!.vehicles ?? []) rec.status = "immobilised";
+  input.rules.repair = false; // (M11.7a: the target crew does not get out to repair)
   const red = input.forces[1]!;
   const tpl = data.factions[fac]!.manifest.missileTeamTemplate!;
   const team = buildForce(data, { faction: fac, template: tpl, seed: seed * 7 + 1, keyPrefix: "red-a", number: 1 });

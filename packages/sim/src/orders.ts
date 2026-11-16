@@ -109,6 +109,9 @@ export type OrderBody =
   /** Evacuate with this vehicle (M10.6b, owner Q-9): the target crew's hull takes the casualties at its platoon's
    *  Verwundetennest (or the wounded aboard) off the map, then comes back. */
   | { kind: "rearRun" }
+  /** Repair the hull now (M11.7a): the target crew starts its next field repair task at once, without waiting for
+   *  the quiet period (not within seconds of a hit, not while burning). A move order ends it (progress kept). */
+  | { kind: "repair" }
   /** Lay an ambush (D4b, SPEC 6.6): the unit and its sub-units (vehicle crews too) hold their fire until an enemy
    *  comes within `rangeM` of one of their men, one of them fires, or they come under fire; then the ambush is
    *  sprung for all of them and they fire at will. */

@@ -34,6 +34,9 @@ export interface BattleRules {
   /** Care of the wounded (M10.2 on): false switches it off (`--no-medical`, comparison batches). Default on
    *  whenever the data has core/medical.json. */
   medicalCare?: boolean;
+  /** Field repair by crews (M11.7a): false switches it off (`--no-repair`, labs holding a target still). Default on
+   *  whenever the data has core/repair.json. */
+  repair?: boolean;
 }
 
 /** An area worth holding (M6). */

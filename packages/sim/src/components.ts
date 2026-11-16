@@ -911,6 +911,15 @@ export interface VehicleState {
   /** Active protection (M7.4b, fixture): when it can engage again; charges are container items only. */
   aps: { nextReadyTick: number } | null;
   recovery: { state: "none" } | null;
+  /**
+   * Field repair (M11.7a): the crew's task on component `comp` — man-seconds of work needed and done, who ordered it
+   * (`ordered`: the player's `repair` order: no waiting for the quiet period), when it started and last had men at
+   * it; `working` while men are at it, `stopWhy` the reason the last of them stopped. Kept while interrupted (the
+   * progress stays); removed when done, failed or no longer needed. Absent: no repair.
+   */
+  repair?: RepairState;
+  /** Components that failed a repair this battle (M11.7a): beyond the crew. Absent: none. */
+  repairBeyond?: number[];
   /** Reserved: the side holding an abandoned hull (campaign). */
   capturedBy: SideId | null;
   /**
@@ -925,6 +934,12 @@ export interface VehicleState {
   rearRun?: RearRun;
   /** A rear run was cancelled (M10.6b): none starts on its own again before this tick. Absent: no wait. */
   rearRunRetryTick?: number;
+}
+
+/** A crew's field repair in progress (M11.7a, `VehicleState.repair`). */
+export interface RepairState {
+  comp: number; needManS: number; doneManS: number; startTick: number; lastWorkTick: number; working: boolean;
+  ordered?: true; stopWhy?: string;
 }
 
 /**

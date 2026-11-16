@@ -122,7 +122,8 @@ function tryStart(ctx: SimContext, state: SimState, events: EventSink, vid: Enti
   }
   const seats = freeRepairMen(state, v, def, pick.task.outside, pick.task.men);
   if (seats.length === 0) { if (ordered && !v.repair) v.repair = newRepair(state, pick, true); return "busy"; }
-  const resumed = v.repair !== undefined;
+  // (Resumed: work had been done on it. A task an order set aside for want of a free man starts here.)
+  const resumed = v.repair !== undefined && v.repair.doneManS > 0;
   const rep = v.repair ??= newRepair(state, pick, isOrdered);
   if (ordered) rep.ordered = true;
   rep.working = true; rep.lastWorkTick = tick; delete rep.stopWhy;

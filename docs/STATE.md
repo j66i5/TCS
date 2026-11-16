@@ -1,10 +1,20 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (M11.7a field repair; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.7a Field repair (2026-11-16, branch `claude/medical-ambulance-smoke`, roadmap-detail slice 50).** Crews fix
+  light damage themselves with time and the spare parts aboard (counted items): a broken track (two links, two men
+  outside, about 45 min), a holed 8x8 wheel side (no part, 20 min, a GTK's driver alone 36), the coax (spare barrel,
+  11 min, works 6 in 10), the radio (17 min, 5 in 10). They start when the hull is quiet (no hit 60 s, crew not
+  under fire 20 s, no enemy known within 300 m for outside work); the men outside are exposed like men on foot;
+  hits, fire, a move stop the work, progress kept. Repair button (skips the quiet minute), card lines, tile, review
+  row, `npm run lab -- repair`, `--no-repair`, `?repair=0`, `--scene repair`. Goldens: event streams unchanged,
+  fingerprint only. All decisions "software decision, not asked; owner to review" (DECISIONS "M11.7a"). Next:
+  slice 51 M11.7b recovery (off-map recovery vehicle, towing, roster status; plan m11r §3.4, §14 steps 5-10).
+  Open: track repairs rarely finish in 20-minute battles (owner question below).
 - **Sight realism: review fixes (2026-11-16, branch `claude/sight-realism`).** Men of a set-up mortar or missile team
   stay at their post instead of looking for a lost enemy; a man stands up to look only when there is no fight (else
   he kneels or steps aside) and lies down again afterwards even with no posture of his own; a man crawling, bolting
@@ -330,6 +340,14 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- M11.7a field repair (2026-11-16, all low, `core/repair.json`, vehicles' `repair` blocks): task times (track 90,
+  wheels 40, coax 10, radio 15 man-minutes), restore levels (track 0.8, wheels 0.5), chances (coax 0.6, radio 0.5),
+  the quiet rule (60 s, 20 s, 300 m), the work rate (experience, driver x1.25), part masses (track links 30/20/17/8
+  kg, barrels 2-3 kg, tool kits 40 kg). Timing: a track takes about 45 minutes, so in a 20-minute battle it is
+  almost never fixed — keep realistic / compress repair times / only coax and radio in battle? Who works (driver
+  and loader/gunner outside, commander stays), abandoned hulls not repaired in battle, coax parts used even when
+  the repair fails.
 
 - Sight realism step 3 (2026-11-15, all low; `core/spotting.json` `conceal`, `core/terrain/vegetation.json`): the
   vegetation concealment and backdrop figures, the conspicuity spread (sigma 0.8), the kept-sight decay (5 s, floor

@@ -491,6 +491,12 @@ export const BehaviourFile = withProv({
     crawlMode: z.string(), crawlSearchM: Num(0, 50), crawlSearchFarM: Num(0, 50), crawlRetrySeconds: Num(0, 600), minSpacingM: Num(0, 50),
     beatenNoticeM: Num(0, 500), beatenRadiusM: Num(0, 500), beatenMemorySeconds: Num(0, 3600), beatenMoveM: Num(0, 500), beatenHouseM: Num(0, 500), beatenOpenExposure: Num(0, 1),
     riseBelowSuppression: Num(0, 1), lookEverySeconds: Num(0.5, 60), faceEnemy: z.boolean(), rearWatchMinMen: z.number().int().min(0).max(50),
+    /** Sight realism step 4. See BehaviourDef.soldier.peek / windowSwitch. */
+    peek: z.object({
+      afterSeconds: Num(0, 600), standSeconds: Num(0, 60), everySeconds: Num(0.5, 600), contactSeconds: Num(0, 600), contactErrM: Num(0, 500),
+      sidestepM: z.array(Num(-20, 20)).max(12), mode: z.string(), uprightMode: z.string(),
+    }).strict().optional(),
+    windowSwitch: z.object({ afterSeconds: Num(0, 600), everySeconds: Num(0.5, 600), mode: z.string(), routeCandidates: z.number().int().min(1).max(20) }).strict().optional(),
     atMoveM: Num(0, 200), atMoveMinRangeM: Num(0, 1000), atMoveRetrySeconds: Num(0, 600), atContactSeconds: Num(0, 600),
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
     moveEngageM: Num(0, 500).optional(), pinnedSelfDefenceM: Num(0, 500).optional(), closeThreatM: Num(0, 500).optional(), closeThreatTaskFactor: Num(1, 100).optional(),

@@ -200,6 +200,17 @@ export interface SoldierState {
    * back along their flight, and the tick. Absent until a round has passed close to him.
    */
   fireFrom?: { dx: number; dy: number; tick: number };
+  /** Sight realism step 4: the last tick he saw an enemy man or vehicle with his own eyes (not a drone); absent: never. */
+  sawEnemyTick?: number;
+  /** Sight realism step 4: the tick of his last look for an enemy he lost (a peek); absent: none in this spell. */
+  peekTick?: number;
+  /** Sight realism step 4: he stands to look until this tick, then takes his fire position's posture again. */
+  peekUntilTick?: number;
+  /** Sight realism step 4: where his looks in this blind spell started (side-steps are measured from here, so he does
+   *  not drift); cleared when he sees the enemy again or his unit gets an order. */
+  peekHome?: { x: number; y: number };
+  /** Sight realism step 4: the tick he last moved to another window to see an enemy he lost; absent: never. */
+  windowSwitchTick?: number;
   /** Last tick he threw a hand grenade on his own (soldier AI package D); absent: never. */
   grenadeTick?: number;
   /** M9.3b: the tick he last launched a guided missile from a tripod (the launch shows him); absent: never. */

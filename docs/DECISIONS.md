@@ -6934,3 +6934,65 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   bound is now the 180 s cap; it was 150 s).
 - New `SoldierState` fields optional, no schema bump. Goldens regenerated (intended; `npm run golden:update`, 10
   files); `golden/no-interiors` untouched.
+
+## 2026-11-15 — Sight realism, step 4 of 5: a man who has lost a known enemy looks for him (goldens regenerated)
+- **What changed** (owner request "make the line of sight more realistic", second complaint: men do not move to see a
+  known enemy again; plan step "peek"; values in `core/behaviour.json` `soldier.peek` and `soldier.windowSwitch`;
+  game values, low confidence: individual movement techniques (observe from a new position, move to a firing point
+  with a view) from search extracts of FM 3-21.8-style manuals only, no page opened):
+  - New optional `SoldierState.sawEnemyTick` (set in spotting.ts whenever he sees, or keeps seeing, an enemy man or
+    vehicle; not drones, not reports), `peekTick`, `peekUntilTick`, `peekHome`, `windowSwitchTick`. No schema bump.
+  - Peek ladder outdoors (`lookForLost` in decisions.ts, from `postureAndWatch`): a halted man, not pinned, no fire
+    task, who knows an enemy man (seen or reported within 60 s, at most 20 m off, within his engage range) and has seen
+    no enemy for 4 s; his unit has no ambush, no arc, no cease-fire, not rule "hold", not moving, not in a drill. Once
+    every 15 s: he turns to him (out of a fight only within 90 degrees of his facing: the player's laid-out facing
+    stands, `marker-vs-sim` test); if he has a line already he only watches; else kneels if that clears it; else
+    stands for 3 s (no suppression at all) and goes back to his posture; else moves 2/4/6 m across the line (from
+    `peekHome`, where this blind spell's looks began) to the least exposed spot (`exposureAt`) from which he or a
+    kneeling man would see him, crawling if he lies, walking otherwise, and takes his posture there. When his own fire
+    stops because he lost sight (`contactLostSeconds`), the look is due at once. An order to his unit clears `peekHome`.
+  - Change of window indoors (`windowSwitch`; `windowWithView` in occupy.ts): after 6 s without seeing an enemy, at most
+    every 20 s, a window of his house that no comrade holds or is going to (any floor) and that sees the contact
+    (visibility 0.1 or more), of the 3 nearest the shortest route (`routeBetween` with heights, `routeWaypoints`), at a
+    run, with the window's posture as his new home posture.
+  - The drills' covering side-step now walks its spots through `forEachSidestep` (new `systems/peek.ts`, `lineFor`
+    moved there); that refactor was committed alone first (afe00fa) and every golden replayed bit-identically.
+  - Lab `reacquire`: a blind spell now runs through a man's own looks (posture changes, his own short moves) and ends
+    when he sees an enemy again, forgets him, fires or his unit moves (`TCS_REACQUIRE_STEP1=1` gives step 1's
+    definition, where a look ended the spell and so could never count as a re-acquisition); new table "Looking for a
+    lost enemy": man-s standing or moving to look, and men down within 2 s of it.
+- **Plan deviations:** the turn toward him (not in the plan) is the rung that helped most (without it platoon defence
+  blind-idle/sighted 2.16, with it 1.74); a man who has a line already does not rise; the stand needs suppression 0;
+  everySeconds stays 15 (6 s gave no clear gain: 1.57 vs 1.59 blind-idle/sighted). The contact's drift (1 m/s) makes
+  it more than 20 m uncertain about 18 s after it was last refreshed, so a lost man gets one or two looks per spell.
+- **Before -> after** (reacquire lab, seeds 1-3, new episode definition; "before" = afe00fa, the step 3 behaviour):
+  - platoon defence: blind-idle/sighted 2.39 -> 1.74; blind-idle share 19.2 -> 20.2 %; re-acquisition 11.0 -> 13.1 %
+    (target 20 %: not met); fully blind squad-time 23.9 -> 15.2 %, longest 370 -> 232 s, squad episodes over 30 s 5.0
+    -> 5.3 per battle; median blind spell with the enemy still within 10 m of the known spot 3 -> 2 s.
+  - platoon attack 0.15 -> 0.24 (1.0 -> 1.4 % of man-time), re-acquisition 9.8 -> 8.4 %; platoon-ru defence 0.03 ->
+    0.12, re-acquisition 20.7 -> 52.8 %; platoon-ru attack 13.0 -> 17.9 %.
+  - village-occupy s1 attackers blind-idle share 21.1 -> 3.8 % (step 1 baseline 52 %; target under 15 %: met);
+    re-acquisition (s1-3) 11.1 -> 50.0 %. Defenders indoor blind-idle s1 379 -> 634 man-s (step 1 baseline 1272;
+    target under 380: not met). Why: the windows that see the enemy are all held by comrades or are where a comrade is
+    going (scratch count over s1: every free window that saw the contact was the end of a comrade's way); the window
+    change found no window in s1-3 (switching it off gives the same table), and the attackers, who now look too, are
+    seen and lost more often (defenders' sighted man-s 225 -> 303).
+  - Median blind spell with the enemy still near the known spot: 2-11 s in every scenario (target under 15 s: met).
+  - Men down within 2 s of standing up to look: 1 in 9 battles (platoon defence; 117 man-s standing to look in all);
+    within 2 s of moving to look: 6 (2083 man-s). Engage and spotting labs: identical tables before and after.
+- **Batches** (10 x 1200 s, seeds 1-10; step 3 -> step 4): platoon attacker wins 8 -> 6, casualties blue/red 12.2/11.0
+  -> 13.6/12.4, mean duration 967 -> 980 s; platoon-ru 8 -> 10, 13.3/7.4 -> 12.8/6.1, 888 -> 807 s; platoon-vehicles
+  9 -> 9, 9.9/24.2 -> 8.2/25.5, 888 -> 887 s; platoon-ru-vehicles 1 -> 2, 7.6/36.0 -> 9.7/32.4, 1091 -> 939 s.
+  platoon-ru at 10 of 10 is outside the 2-8 band; seeds 11-20 give 9 of 10 both before and after (20 seeds: 17 ->
+  19), platoon 11-20 5 -> 6. Defenders' losses over the four 56.1 -> 60.4 (+8 %; platoon-ru-vehicles alone 7.6 -> 9.7,
+  +28 %, two men). Platoon breaks (step 1's script): battles with a platoon break 27 -> 33 of 40 (the broken side lost
+  in 32); seeds 11-20 of platoon and platoon-ru 12 -> 17 of 20; battles ended by a break 1 -> 2 of 40. More breaks,
+  not explained yet (open).
+- **Performance:** headless wall time, seed 1, before -> after: bench 120 s 6.7/6.8 -> 6.5/7.1 s, village-occupy 900 s
+  2.8/2.8 -> 3.0/3.5 s, bench-vehicles 120 s 10.6/10.2 -> 11.2/10.9 s (two runs each). The new work runs per decision
+  step and only for a blind man whose look is due (every 15 s), the window search only for an indoor blind man every
+  20 s.
+- **Tests:** new `sim/test/peek.test.ts` (sawEnemyTick; stand up behind a 1.3 m wall and lie down again; a few metres
+  aside behind a 2.5 m wall, not closer, back in his posture; nothing under rule hold; `windowWithView` picks the
+  window that sees and skips one a comrade holds). Goldens regenerated (intended; `npm run golden:update`, 10 files);
+  `golden/no-interiors` untouched.

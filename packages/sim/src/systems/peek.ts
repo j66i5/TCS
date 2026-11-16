@@ -30,11 +30,13 @@ export function lineFor(ctx: SimContext, state: SimState, m: EntityId, x: number
 /**
  * Calls `visit(x, y)` for each free spot `offsets` metres to his side (right of the line to `at` for a positive
  * offset), in that order, until `visit` returns true. Returns whether one did. Nothing for a man indoors or up a
- * floor, or one standing on `at`.
+ * floor, or one standing on `at`. `origin`: measured from there instead of from where he is (a man's own looks keep
+ * to the place they started from).
  */
-export function forEachSidestep(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }, offsets: readonly number[], visit: (x: number, y: number) => boolean): boolean {
-  const t = state.transform.req(m);
-  if (t.z > 0 || indoorAt(ctx, t.x, t.y) >= 0) return false;
+export function forEachSidestep(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }, offsets: readonly number[], visit: (x: number, y: number) => boolean, origin?: { x: number; y: number }): boolean {
+  const t0 = state.transform.req(m);
+  if (t0.z > 0 || indoorAt(ctx, t0.x, t0.y) >= 0) return false;
+  const t = origin ?? t0;
   const L = hypot2(at.x - t.x, at.y - t.y);
   if (L < 1) return false;
   const px = -(at.y - t.y) / L, py = (at.x - t.x) / L;

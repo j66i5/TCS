@@ -712,6 +712,26 @@ cannot see him and do nothing about it ("blind and idle"), whether a small peek 
 him, squads that are blind as a whole, and men who have an enemy in clear view in front of them within 100 m and
 have not fired for over 5 s, with the reason.
 
+**Looking for an enemy he has lost (sight realism step 4, 2026-11-15).** A man who knows roughly where an enemy is
+(seen or reported in the last minute, to within 20 m) but has not seen any enemy for 4 s no longer just lies there.
+Once every 15 s, if he is halted, not pinned and not firing, and his squad is not lying in ambush, holding a sector,
+under a cease-fire or "hold fire" rule, moving or in a drill, he looks for him: he turns toward him (out of a fight — his platoon not fired on in the last 30 s — only if that is within 90 degrees of the way he was told to face); if the ground,
+a wall or the plants in between hide the enemy from where he lies, he rises to his knees if that would let him see;
+else he stands up for 3 s (only if no fire is coming near him) and goes down again; else he moves a few metres to
+the side — 2, 4 or 6 m across the line to the enemy, never closer to him, at a crawl if he was lying, on ground he
+can walk on, clear of his comrades — to the spot from which he would see the enemy that is least exposed, and takes
+his posture there. The side-steps are measured from where his first look started, so he does not wander off; his
+squad's next order puts him where it wants him. When his own fire stops because he has lost sight of the man he was
+shooting at, the look starts at once. Indoors, a man at a window who has seen no enemy for 6 s moves (at a run,
+along the rooms and stairs) to another window of his house that looks onto the enemy and that no comrade holds or
+is on his way to, the nearest by the way there, at most once every 20 s. A man still cannot see through crops: when
+nothing near him shows the enemy (most of the time in an attack through fields), he waits, and finding the enemy
+again is the squad's work (step 5). The labs: `npm run lab -- reacquire` counts the man-seconds spent standing up
+or moving to look, and the men hit while doing it; its blind spells now run through a man's own looks and end only
+when he sees an enemy again, forgets him, fires or his squad moves. (Code: `lookForLost` and `windowSwitch` in
+`sim/src/systems/decisions.ts`, `forEachSidestep` in `systems/peek.ts`, shared with the drills' side-step,
+`windowWithView` in `systems/occupy.ts`; values `behaviour.soldier.peek` and `windowSwitch`.)
+
 ## Under fire
 
 Every enemy round that cracks past a man within about 4 m — or strikes near him — **suppresses** him a little

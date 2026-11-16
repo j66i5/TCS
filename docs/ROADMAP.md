@@ -171,8 +171,9 @@ Men see enemies too easily through bushes and crops, at long range and lying sti
 sometimes not shot at, and men do not move to see a known enemy again. Five steps: (1) ✅ measuring tools and the
 before numbers (labs `engage`, `reacquire`, sight realism rows in `spotting`; DECISIONS "Sight realism: baseline");
 (2) ✅ prompt fire at a close enemy in front; (3) ✅ hidden men stay hidden (vegetation, blending in, stillness, ground
-clutter far off, quieter crawling and firing at range, dark rooms; DECISIONS "Sight realism, step 3"); (4-5) men and
-squads moving to see a known enemy again.
+clutter far off, quieter crawling and firing at range, dark rooms; DECISIONS "Sight realism, step 3"); (4) ✅ a man
+who has lost a known enemy looks for him: turns, kneels, stands up for a moment or moves a few metres aside;
+indoors, another window (DECISIONS "Sight realism, step 4"); (5) squads moving to see a known enemy again.
 
 ## Stage B — combined arms and the modern layer
 - **M7 Vehicles** — drive model, crews, armour, components, IFVs and carriers, mount/dismount, shoulder-fired

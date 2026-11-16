@@ -203,6 +203,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       if (state.smoke.length > 0) vis *= smokeTransmission(state, smokePhysics(ctx.catalog), ot.x, ot.y, ez, tg.x, tg.y, tg.z);
       if (vis < D.minVisibility) vis = 0;
       if (u >= 1 - exp(-rate * vis * scanS)) continue;
+      os.sawEnemyTick = tick; // (step 4: when he last saw an enemy)
       if (idx >= 0) { os.seen[idx]!.lastTick = tick; continue; }
       if (far >= 0) os.seen.splice(far, 1);
       os.seen.push({ target: tg.id, firstTick: tick, lastTick: tick });
@@ -225,7 +226,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
           if (sn.thermal === true && f > SENSOR_HEAT) SENSOR_HEAT = f;
         }
         return sensor * (lk <= front ? 1 : lk <= side ? D.sideFactor : D.rearFactor);
-      }, () => 1, own, vtargets, VEHICLE_SCAN_EVERY * scanS, Math.min(state.environment.visibilityM, D.maxRangeM)); // a man's eyes reach as far for a hull as for a man
+      }, () => 1, own, vtargets, VEHICLE_SCAN_EVERY * scanS, Math.min(state.environment.visibilityM, D.maxRangeM), os); // a man's eyes reach as far for a hull as for a man
     }
     // Enemy drones overhead (M9.4b): on the same slower schedule as vehicles.
     if (state.drone.size > 0 && (oid + Math.floor(tick / every)) % VEHICLE_SCAN_EVERY === 0) {
@@ -653,7 +654,7 @@ function scanVehicles(
   ctx: SimContext, state: SimState, events: EventSink, oid: EntityId, side: string, seen: { target: EntityId; firstTick: number; lastTick: number }[],
   eye: { x: number; y: number; z: number; own: EntityId },
   sensorAt: (dist: number, bearing: number, flash: number, heat: number) => number, smokeAt: (dist: number, bearing: number, conv: number, ms: number, flash: number, heat: number) => number,
-  own: number, vts: readonly VehTarget[], scanS: number, rangeCap = Infinity,
+  own: number, vts: readonly VehTarget[], scanS: number, rangeCap = Infinity, os?: SoldierState,
 ): void {
   const D = ctx.catalog.spotting, V = D.vehicles, tick = state.tick;
   // A man takes a careful look at no more than one vehicle new to him per scan (cost bound with many hulls).
@@ -703,6 +704,7 @@ function scanVehicles(
     }
     if (vis < D.minVisibility) vis = 0;
     if (u >= 1 - exp(-rate * vis * scanS)) continue;
+    if (os) os.sawEnemyTick = tick; // (step 4: when he last saw an enemy)
     if (idx >= 0) { seen[idx]!.lastTick = tick; continue; }
     seen.push({ target: tg.id, firstTick: tick, lastTick: tick });
     seen.sort((a, b) => a.target - b.target);
@@ -806,6 +808,7 @@ function crewScan(
     }
     if (vv < D.minVisibility) vv = 0;
     if (u >= 1 - exp(-rate * vv * scanS)) continue;
+    os.sawEnemyTick = tick; // (step 4: when he last saw an enemy)
     if (idx >= 0) { os.seen[idx]!.lastTick = tick; continue; }
     if (far >= 0) os.seen.splice(far, 1);
     os.seen.push({ target: tg.id, firstTick: tick, lastTick: tick });
@@ -816,5 +819,5 @@ function crewScan(
   scanVehicles(ctx, state, events, oid, side, os.seen, { x: ex, y: ey, z: ez, own: os.mount!.vehicle },
     (dist, bearing, flash, heat) => sensorAt(dist, bearing, 1, 1, flash, heat),
     (dist, bearing, conv, ms, flash, heat) => { const b = sensorAt(dist, bearing, 1, 1, flash, heat); return b > 0 ? sensorAt(dist, bearing, conv, ms, flash, heat) / b : 0; },
-    own, vts, scanS, maxR);
+    own, vts, scanS, maxR, os);
 }

@@ -1,10 +1,20 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-15 (sight realism step 4; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Sight realism, step 4 of 5: a man who has lost a known enemy looks for him (2026-11-15, branch
+  `claude/sight-realism`).** After 4 s without seeing any enemy, a halted man who is not pinned or firing turns to the
+  enemy he knows, kneels or stands up for 3 s if that would show him, else moves 2-6 m aside to the least exposed spot
+  that does (once every 15 s; not in an ambush, a held sector, a cease-fire or "hold fire"); indoors, a man moves to
+  another free window of his house that sees the enemy (every 20 s at most). The drills' side-step shares the new
+  `systems/peek.ts`. Platoon defence blind-idle to sighted 2.39 -> 1.74, fully blind squad-time 23.9 -> 15.2 %;
+  village attackers blind-idle 21 -> 4 %; engage and spotting labs unchanged. Numbers in DECISIONS "Sight realism,
+  step 4". Open: platoon defence re-acquisition 13 % (goal 20 %: the attackers lie in crops that nothing near shows);
+  village defenders still blind at windows (the windows that see are all manned); platoon breaks up (27 -> 33 of 40);
+  platoon-ru attack 10 of 10 (seeds 11-20: 9 of 10, as before). Step 5 (squads moving to see) is next.
 - **Sight realism, step 3 of 5: hidden men stay hidden (2026-11-15, branch `claude/sight-realism`).** Crops, grass,
   scrub and trees hide a man behind them about four times as well as before (cover seeking keeps the old figures, and
   so do thermal sights); a man holding still among plants or in a room blends in (each man a little better or worse,

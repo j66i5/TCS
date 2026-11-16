@@ -28,6 +28,8 @@ const ATTACKER: Record<string, string> = { platoon: "blue", "platoon-ru": "red",
 /** Battle length by scenario (village-occupy is the audit's 900 s). */
 const DEFAULT_SECONDS: Record<string, number> = { platoon: 1200, "platoon-ru": 1200, "village-occupy": 900 };
 
+/** Step 4: an episode spans the man's own looks (posture, a few steps, another window); false: the step 1 definition. */
+const PEEK_SPANS = process.env.TCS_REACQUIRE_STEP1 !== "1";
 const HZ = 60, LOST_MIN_S = 3, KNOWN_MAX_S = 60, KNOWN_ERR_M = 20, BLIND_RANGE_M = 300, VIS_PEEK = 0.1;
 const ENGAGE_RANGE_M = 100, ENGAGE_VIS = 0.5, FRONT_RAD = (60 * Math.PI) / 180, NO_SHOT_S = 5, SEEN_WITHIN_S = 2;
 
@@ -51,6 +53,8 @@ export interface SideStats {
   /** Sighting census (step 3): ranges (m) of new sightings by this side's men on foot of enemy men lying still in the
    *  open (prone, slower than 0.2 m/s, no shot for 2 s, no vegetation in his cell, not in a house). */
   proneOpenSightingsM: number[];
+  /** Step 4: man-s standing up to look / moving aside to look (sampled), and men who went down within 2 s of it. */
+  peekStandS: number; peekMoveS: number; downPeekStand: number; downPeekMove: number;
 }
 export interface BattleStats { scenario: string; seed: number; seconds: number; end: string; attack: SideStats; defence: SideStats }
 
@@ -58,7 +62,7 @@ function newSide(): SideStats {
   return {
     manS: 0, sightedS: 0, blindS: 0, blindIdleS: 0, blindMovingS: 0, blindIdlePinned: 0, blindIdleIndoor: 0, blindIdleProne: 0,
     peek: { visibleNow: 0, kneel: 0, stand: 0, sidestep: 0, none: 0 }, indoorOtherWindow: 0, episodes: [], endBy: {}, stayEpisodes: [],
-    squadS: 0, squadBlindS: 0, squadEpisodes: [], exposureS: 0, proneOpenSightingsM: [],
+    squadS: 0, squadBlindS: 0, squadEpisodes: [], exposureS: 0, proneOpenSightingsM: [], peekStandS: 0, peekMoveS: 0, downPeekStand: 0, downPeekMove: 0,
     notEngaged: { carrying: 0, care: 0, pinned: 0, rule: 0, moving: 0, "drill or ordered task": 0, other: 0 },
   };
 }
@@ -114,7 +118,7 @@ export function reacquireBattle(scenario: string, seed: number, seconds: number)
   const input = sc.build(data, seed, seconds);
   const attacker = ATTACKER[scenario] ?? "blue";
   const stats = { attack: newSide(), defence: newSide() };
-  const men = new Map<EntityId, { prev?: { x: number; y: number; p: string }; run: number; stay: boolean }>();
+  const men = new Map<EntityId, { prev?: { x: number; y: number; p: string }; run: number; stay: boolean; looked?: boolean; peekAt?: number; peekKind?: "stand" | "move" }>();
   const squadRun = new Map<EntityId, number>(), squadSide = new Map<EntityId, "attack" | "defence">();
   const spotted: { observer: EntityId; target: EntityId; rangeM: number }[] = [];
   const res = runBattle(input, {
@@ -175,7 +179,12 @@ export function reacquireBattle(scenario: string, seed: number, seconds: number)
           }
         }
         // ---- 1. a known but unseen enemy
+        // (Step 4: a man who went down within 2 s of standing up or stepping aside to look.)
+        const r0 = men.get(id);
+        if (!isAble(s) && r0 !== undefined && st.tick - (r0.peekAt ?? -1e9) <= 2 * HZ) { if (r0.peekKind === "stand") A.downPeekStand++; else A.downPeekMove++; }
         if (!isAble(s) || s.mount !== undefined || s.mental.behaviour === "routed" || s.mental.flee !== null || s.carrying !== undefined) { men.delete(id); continue; }
+        if (s.peekUntilTick !== undefined && s.peekUntilTick > st.tick) { A.peekStandS++; const r1 = men.get(id) ?? { run: 0, stay: true }; r1.peekAt = st.tick; r1.peekKind = "stand"; men.set(id, r1); }
+        else if ((s.peekHome !== undefined || st.tick - (s.windowSwitchTick ?? -1e9) <= 10 * HZ) && (st.mover.get(id)?.waypoints.length ?? 0) > 0) { A.peekMoveS++; const r1 = men.get(id) ?? { run: 0, stay: true }; r1.peekAt = st.tick; r1.peekKind = "move"; men.set(id, r1); }
         A.manS++;
         let lastSelf = -1e9;
         for (const e of s.seen) if (st.soldier.has(e.target) && e.lastTick > lastSelf) lastSelf = e.lastTick;
@@ -202,14 +211,22 @@ export function reacquireBattle(scenario: string, seed: number, seconds: number)
         rec.prev = { x: t.x, y: t.y, p: s.posture };
         const end = (how: string) => {
           if (rec!.run > 0) { A.episodes.push(rec!.run); A.endBy[how] = (A.endBy[how] ?? 0) + 1; if (rec!.stay) A.stayEpisodes.push(rec!.run); }
-          rec!.run = 0; rec!.stay = true;
+          rec!.run = 0; rec!.stay = true; rec!.looked = false;
         };
         if (!sees && lost && st.tick - lastSelf < LOST_MIN_S * HZ) lost = null;
         if (sees || !lost) { end(sees ? "seen again" : "forgot"); continue; }
         si.anyLost = true;
         A.blindS++;
-        if (moving || stepped) { A.blindMovingS++; end(st.unit.get(idn.unit)?.moving || st.unit.get(sq)?.moving || st.unit.get(sq)?.drill ? "unit moved" : "own move"); continue; }
-        if (firing || changedPosture || st.action.has(id) || s.postureTo !== null || s.evade !== null) { end(firing ? "fired" : changedPosture || s.postureTo !== null ? "posture" : "other"); continue; }
+        // (Step 4: his own look — a change of posture, a few steps aside, a move to another window — is part of the
+        // episode, which goes on until he sees the enemy again, forgets him, fires or his unit moves.)
+        if (moving || stepped) {
+          A.blindMovingS++;
+          const unitMoved = st.unit.get(idn.unit)?.moving || st.unit.get(sq)?.moving || st.unit.get(sq)?.drill;
+          if (unitMoved || !PEEK_SPANS) end(unitMoved ? "unit moved" : "own move"); else { rec.run++; rec.looked = true; }
+          continue;
+        }
+        if (firing || st.action.has(id) || s.evade !== null) { end(firing ? "fired" : "other"); continue; }
+        if (changedPosture || s.postureTo !== null) { if (PEEK_SPANS) { rec.run++; rec.looked = true; } else end("posture"); continue; }
         // blind and idle
         rec.run++;
         A.blindIdleS++;
@@ -296,6 +313,7 @@ export function sumSides(ss: readonly SideStats[]): SideStats {
     t.exposureS += s.exposureS;
     for (const k of NOT_ENGAGED_CAUSES) t.notEngaged[k] += s.notEngaged[k];
     t.proneOpenSightingsM.push(...s.proneOpenSightingsM);
+    t.peekStandS += s.peekStandS; t.peekMoveS += s.peekMoveS; t.downPeekStand += s.downPeekStand; t.downPeekMove += s.downPeekMove;
   }
   return t;
 }
@@ -356,5 +374,11 @@ export function reacquireLabMarkdown(rows: BattleStats[]): string {
     for (const side of ["defence", "attack"] as const) csRow(sc, side, sumSides(rs.map((r) => r[side])));
   }
   csRow("all", "both", sumSides(rows.flatMap((r) => [r.attack, r.defence])));
+  out.push("", "### Looking for a lost enemy (step 4)", "", "Sampled man-s standing up to look and moving aside (or to another window) to look, and men who went down (killed, or unable to fight) within 2 s of either.", "",
+    "| scenario | side | standing to look man-s | down while standing to look | moving to look man-s | down while moving to look |", "|---|---|---:|---:|---:|---:|");
+  for (const sc of scenarios) {
+    const rs = rows.filter((r) => r.scenario === sc);
+    for (const side of ["defence", "attack"] as const) { const t = sumSides(rs.map((r) => r[side])); out.push(`| ${sc} | ${side} | ${t.peekStandS} | ${t.downPeekStand} | ${t.peekMoveS} | ${t.downPeekMove} |`); }
+  }
   return out.join("\n");
 }

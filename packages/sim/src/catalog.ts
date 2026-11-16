@@ -530,6 +530,22 @@ export interface BehaviourDef {
     crawlMode: string; crawlSearchM: number; crawlSearchFarM: number; crawlRetrySeconds: number; minSpacingM: number;
     beatenNoticeM: number; beatenRadiusM: number; beatenMemorySeconds: number; beatenMoveM: number; beatenHouseM: number; beatenOpenExposure: number;
     riseBelowSuppression: number; lookEverySeconds: number; faceEnemy: boolean; rearWatchMinMen: number;
+    /**
+     * A man who has lost sight of an enemy he knows looks for him (sight realism step 4, game values, low). Halted,
+     * not pinned, with no fire task, knowing an enemy (seen or reported within contactSeconds, at most contactErrM
+     * off) within his engage range whom he has not seen for afterSeconds, in a unit with no ambush, arc, cease-fire
+     * or hold rule, not in a drill nor moving: once every everySeconds he turns to him and kneels if that clears the
+     * line; else stands for standSeconds if that does (not under fire), then back to his posture; else moves to the
+     * first spot sidestepM metres across the line (from where his look started) that sees him, the one in the
+     * least exposed cell, at `mode` (lying) or `uprightMode`. Absent: off.
+     */
+    peek?: { afterSeconds: number; standSeconds: number; everySeconds: number; contactSeconds: number; contactErrM: number; sidestepM: number[]; mode: string; uprightMode: string };
+    /**
+     * Indoors (sight realism step 4, game values, low): a man at a window who has not seen the enemy he knows for
+     * afterSeconds moves to another window of his house that no comrade holds and that sees him (of the
+     * routeCandidates nearest, the shortest way), at `mode`, at most once every everySeconds. Absent: off.
+     */
+    windowSwitch?: { afterSeconds: number; everySeconds: number; mode: string; routeCandidates: number };
     atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
     grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
     /**

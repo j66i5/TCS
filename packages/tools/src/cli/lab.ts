@@ -33,6 +33,7 @@ import { oddsLab, selfAidLab, treatmentLabMarkdown } from "../labs/treatment";
 import { carryLab, carryLabMarkdown } from "../labs/carry";
 import { medevacLab, medevacLabMarkdown } from "../labs/medevac";
 import { breachLab, breachLabMarkdown, chanceTable, protectionLab, protectionLabMarkdown } from "../labs/protection";
+import { batteriesLab, batteriesLabMarkdown } from "../labs/batteries";
 import { consumptionLab, consumptionOptions } from "../labs/consumption";
 import { loadData, SCENARIOS } from "../scenarios";
 
@@ -80,6 +81,8 @@ const LABS: Record<string, () => string> = {
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,
   agl: () => `# Automatic grenade launcher lab\n\n${aglLabMarkdown(aglLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
   "missile-team": () => `# Missile team lab\n\n${missileTeamLabMarkdown(missileTeamLab(loadData(), Number(process.argv[3] ?? 50)))}\n`,
+  // M11.6: `lab -- batteries [seed] [speedup]` (the full 3 h night without a speedup).
+  batteries: () => `# Batteries and water lab\n\n${batteriesLabMarkdown(batteriesLab(loadData(), { seed: Number(process.argv[3] ?? 1), speedup: Number(process.argv[4] ?? 1) }))}\n`,
   missile: () => `# Missile lab\n\n${missileLabMarkdown(missileLab(loadData(true), Number(process.argv[3] ?? 20)))}\n`,
 };
 const name = process.argv[2] ?? "movement";

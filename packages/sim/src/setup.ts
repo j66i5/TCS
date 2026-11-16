@@ -9,6 +9,7 @@ import { CREW_STATION_ORDER } from "./mount";
 import { cos, sin } from "./math";
 import type { EntityId, SideId, DefId } from "./ids";
 import { addItems, aglBoxOf, countItems, emptyContainer, removeItems, type ItemStack } from "./items";
+import { fitBatteries, loadWithBatteries } from "./power";
 import { nextNormal, Streams } from "./rng";
 import { MORALE_SOURCES } from "./components";
 import type { Catalog, VehicleDef } from "./catalog";
@@ -296,7 +297,7 @@ function addSoldier(
     posture: "standing",
     postureTo: null,
     postureDoneTick: 0,
-    physical: { fatigue: rec.fatigue, heartRateBpm: catalog.body.physiology.hrRestBpm, hydration: 1, winded: false },
+    physical: { fatigue: rec.fatigue, heartRateBpm: catalog.body.physiology.hrRestBpm, hydration: rec.hydration ?? 1, winded: false },
     // His nerve (morale rework): his own steadiness, the same distribution for every side (stream "morale").
     mental: {
       stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady", strain: rec.strain ?? 0,
@@ -331,7 +332,11 @@ function addSoldier(
   updateImpairment(catalog, s);
   state.soldier.set(id, s);
   const c = emptyContainer();
-  for (const st of rec.load) addItems(c, st.type, st.count, st.charge);
+  // (M11.6: a charged item listed without a charge that is not a magazine or belt, a battery or water, comes in full.)
+  for (const st of rec.load) {
+    const d = st.charge === undefined ? catalog.items[st.type] : undefined;
+    addItems(c, st.type, st.count, d !== undefined && d.chargeCapacity !== undefined && d.chargeItem === undefined ? d.chargeCapacity : st.charge);
+  }
   // His identity tag (owner request 2026-11-15; faction data): issued if his record has none.
   const tag = catalog.medical?.down !== undefined ? catalog.factions[faction]?.identityTag : undefined;
   if (tag && catalog.items[tag.item] && countItems(c, tag.item) === 0) addItems(c, tag.item, tag.perMan);
@@ -350,6 +355,8 @@ function addSoldier(
     });
     if (mag && (mag.charge ?? 0) <= 0) addItems(c, mag.type, 1, mag.charge);
   }
+  // M11.6: the batteries in his powered devices (a fresh record's partly used, stream "power").
+  fitBatteries(catalog, state.rng, s, c, state.environment.light, rec.powerFitted === true, state.tick);
   return id;
 }
 
@@ -372,10 +379,14 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     fatigue: s.physical.fatigue,
     stress: s.mental.stress,
     ...(s.mental.strain > 0 ? { strain: s.mental.strain } : {}),
+    ...(s.physical.hydration < 1 ? { hydration: s.physical.hydration } : {}),
     wounds: JSON.parse(JSON.stringify(s.wounds)) as SoldierRecord["wounds"],
     // The magazine in the weapon goes back into the load, so nothing is lost between battles.
     // (M7.6d: so does the box on his team's AGL, if he carries its post.)
-    load: loadWithMagazine(loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null), aglBoxOf(state, id)),
+    // (M11.6: so do the batteries in his devices, at their charge now.)
+    // (M11.6: and a drone still in the air goes into its operator's load, airframe and battery as they are.)
+    load: loadWithAirborne(loadWithBatteries(loadWithMagazine(loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null), aglBoxOf(state, id)), s, state.tick), state, id),
+    ...(s.power !== undefined ? { powerFitted: true as const } : {}),
     ...(w ? { weapon: w.weapon } : {}),
     ...(s.wounds.length > 0 || !s.physiology.alive ? { physiology: { ...s.physiology } } : {}),
     status,
@@ -423,6 +434,40 @@ export function unitsFromState(state: SimState, side: SideId, template: UnitInpu
     subunits: u.subunits.map((c) => rebuild(c, late)),
   });
   return template.map((u) => rebuild(u, (u.arriveS ?? 0) > 0 && !(state.arrived ?? []).includes(u.key)));
+}
+
+/**
+ * M11.6: whose roster record a drone still in the air at the end goes to: its operator; with none (he was hit, nobody
+ * took the controller over), the first man of its unit still alive in ID order, else its first man. Nobody: null.
+ */
+export function airborneHolder(state: SimState, droneId: EntityId): EntityId | null {
+  const d = state.drone.get(droneId);
+  if (!d) return null;
+  if (d.operator !== null && state.soldier.has(d.operator)) return d.operator;
+  let first: EntityId | null = null, alive: EntityId | null = null;
+  for (const m of state.unit.get(d.unit)?.members ?? []) {
+    const s = state.soldier.get(m);
+    if (!s) continue;
+    if (first === null || m < first) first = m;
+    if (s.physiology.alive && (alive === null || m < alive)) alive = m;
+  }
+  return alive ?? first;
+}
+
+/** M11.6: the stacks of every drone in the air whose holder is man `id` (airframe, battery at its charge) added to a load. */
+function loadWithAirborne(stacks: ItemStack[], state: SimState, id: EntityId): ItemStack[] {
+  if (state.drone.size === 0) return stacks;
+  let added = false;
+  for (const did of state.drone.keys()) {
+    if (airborneHolder(state, did) !== id) continue;
+    for (const st of state.container.get(did)?.stacks ?? []) {
+      const same = stacks.find((x) => x.type === st.type && x.charge === st.charge);
+      if (same) same.count += st.count;
+      else stacks.push({ ...st });
+      added = true;
+    }
+  }
+  return added ? stacks.sort((a, b) => (a.type !== b.type ? (a.type < b.type ? -1 : 1) : (a.charge ?? -1) - (b.charge ?? -1))) : stacks;
 }
 
 function loadWithMagazine(stacks: ItemStack[], mag: { item: DefId; rounds: number } | null): ItemStack[] {

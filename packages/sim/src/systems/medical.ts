@@ -39,6 +39,7 @@
  * hidden from the enemy close by (`down.crawlSearchM`, a way of at most `down.crawlMaxM`; the crawl pace times his
  * wounds' impairment) while he is under fire for care, unless a carer of his is close.
  */
+import { onAir } from "../comms";
 import { registerActionHandler, startAction } from "../actions";
 import type { Action, SoldierState } from "../components";
 import type { SimContext } from "../context";
@@ -91,7 +92,7 @@ export function isSheltered(state: SimState, id: EntityId): boolean {
 /** A medical radio call by `from` for his unit (M10.3b): at most one of each kind per `care.radioCooldownS` per unit. */
 function medRadio(ctx: SimContext, state: SimState, events: EventSink, from: EntityId, key: string): boolean {
   const uid = state.identity.get(from)?.unit, u = uid !== undefined ? state.unit.get(uid) : undefined;
-  if (!u || !canReport(state.soldier.get(from))) return false;
+  if (!u || !canReport(state.soldier.get(from)) || !onAir(state, uid)) return false; // (M11.6: a flat radio: no call)
   const last = u.medRadio?.[key];
   if (last !== undefined && state.tick - last < secondsToTicks(ctx.catalog.medical!.care.radioCooldownS)) return false;
   (u.medRadio ??= {})[key] = state.tick;

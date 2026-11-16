@@ -9,7 +9,7 @@ import { buildForce } from "@tcs/scenario";
 import {
   createSim, DEFAULT_COMMS, environmentAt, flatMap, newVehicleRecord, step, submitOrder, type BattleInput, type Catalog, type SoldierRecord,
 } from "@tcs/sim";
-import { spotCase, type SpotCase, type SpotRow } from "./spotting";
+import { poweredDevice, spotCase, type SpotCase, type SpotRow } from "./spotting";
 
 export interface ThermalRow extends SpotRow { time: string; sensor: string }
 export interface HullRow { time: string; hull: string; rangeM: number; runs: number; spotted: number; medianS: number | null; within30: number }
@@ -28,7 +28,7 @@ function hullCase(data: DataSet, cat: Catalog, hot: boolean, time: number, range
   const times: number[] = [];
   const max = 120;
   for (let seed = 1; seed <= seeds; seed++) {
-    const obs: SoldierRecord = { personId: "obs", given: "Lab", family: "obs", rank: "r", role: "rifleman", skills: { marksmanship: 0.5 }, weapon: "de-g36", fatigue: 0, stress: 0, wounds: [], status: "fit", load: [{ type: "de-g36-mag", count: 4, charge: 30 }, { type: "de-thermal-sight", count: 1 }] };
+    const obs: SoldierRecord = { personId: "obs", given: "Lab", family: "obs", rank: "r", role: "rifleman", skills: { marksmanship: 0.5 }, weapon: "de-g36", fatigue: 0, stress: 0, wounds: [], status: "fit", load: [{ type: "de-g36-mag", count: 4, charge: 30 }, ...poweredDevice(cat, "de-thermal-sight")] };
     const crew = buildForce(data, { faction: "ru", template: "bmp2-ekipazh", seed, keyPrefix: "c" });
     crew.vehicleId = "v1";
     const input: BattleInput = {

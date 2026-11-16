@@ -40,6 +40,9 @@ export interface DroneDef {
   sensors: string[]; footprintM: number; noiseM: number; areaM2: number;
 }
 
+/** M11.6: what a powered device runs on (see ItemTypeDef.power). */
+export interface PowerDef { battery: DefId; hours: number; swapSeconds: number; onBelowLight?: number }
+
 export interface ItemTypeDef {
   id: DefId;
   /** Mass of one item, kg (for a magazine: the empty magazine). */
@@ -58,6 +61,13 @@ export interface ItemTypeDef {
   stripperClips?: boolean;
   /** A sensor kind the wearer looks through (core/spotting.json `sensors`). */
   sensor?: string;
+  /** M11.6: a powered device: its battery item (charge in Wh), hours on a full battery (draw = charge / hours, W),
+   *  seconds to change the battery, and for a night device the light below which it is on (absent: always on). */
+  power?: PowerDef;
+  /** M11.6: drinking water (charge in ml). */
+  water?: true;
+  /** M11.6 stage 2: a man-portable radio (comms.ts: a unit is off the net while all its radios are flat). */
+  radio?: true;
   /** Thermal blanket (M9.2): the share of his heat a still man carrying it shows. */
   thermalCover?: number;
   /** M8.2a: a laser rangefinder its carrier locates targets for indirect fire with. */
@@ -216,7 +226,19 @@ export interface BodyDef {
     recoveryPerS: number; hrRestBpm: number; hrMaxBpm: number; hrRiseTauS: number; hrFallTauS: number;
     heatThresholdC: number; heatPerC: number; postureChangeExertion: number; hrExertionWeight: number;
     hrFatigueWeight: number; exhaustedExertionFactor: number;
+    /** M11.6: water (body.ts). Absent: hydration never changes. */
+    hydration?: HydrationDef;
   };
+}
+
+/**
+ * M11.6 water (core/body.json physiology.hydration). `hydration` 1 = no deficit, 0 = a deficit of `deficitMaxL`.
+ * He loses water only in battles of `fromBattleS` or more; the effects start at a deficit of `effectFromL` and are
+ * full at `deficitMaxL`.
+ */
+export interface HydrationDef {
+  fromBattleS: number; lossBaseLph: number; lossExertLph: number; deficitMaxL: number; effectFromL: number;
+  drinkBelow: number; sipMl: number; drinkSuppressionMax: number; fatigueGainK: number; recoveryK: number; aimK: number;
 }
 
 /** Global ballistics parameters (core/ballistics.json). */
@@ -602,6 +624,10 @@ export interface BehaviourDef {
      *  multiplies it by (1 + spreadPenalty) for each comrade of his unit already firing at that enemy, at most
      *  spreadCap of them. Absent: off. */
     fireDistribution?: { dangerSustained: number; dangerMagnified: number; dangerFiring: number; spreadPenalty: number; spreadCap: number };
+    /** M11.6: a battery fitted at setup starts at a share of full in [installedMin, 1] (stream "power"); in a lull a
+     *  man changes one below swapBelowShare of full for a spare holding at least max(lullSpareShare x full, its charge +
+     *  LULL_MARGIN_SHARE x full) (no ping-pong between part-used batteries). Absent: fitted full, no lull changes. */
+    power?: { installedMin: number; swapBelowShare: number; lullSpareShare: number };
     droneHide?: { triggerM: number; freezeTriggerM: number; freezeSeconds: number; maxFreezeSeconds: number; freezeCooldownSeconds: number; searchM: number; hideSeconds: number; mode: string; moveBeyondM: number };
     /**
      * Leaving a house (M7.5e step "leave", owner 2026-11-14). houseLeave: the rule is on (false = off, for labs).

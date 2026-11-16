@@ -19,7 +19,7 @@ import type { DriveState, Transform, VehicleState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
-import { addItems, removeItems } from "../items";
+import { drawCharge } from "../items";
 import { atan, atan2, clamp, cos, hypot2, PI, sin, sqrt, tan, wrapAngle } from "../math";
 import { compCondition, hasDriver, onRoof } from "../mount";
 import type { SimState } from "../state";
@@ -251,13 +251,8 @@ export function fuelLitres(state: SimState, vid: EntityId, def: VehicleDef): num
 /** Take whole litres from the tank item (the only count of the fuel). */
 function drawFuel(state: SimState, vid: EntityId, def: VehicleDef, litres: number): void {
   const c = state.container.get(vid);
-  if (!c || litres <= 0) return;
-  let best = -1;
-  c.stacks.forEach((s, i) => { if (s.type === def.fuel.item && (s.charge ?? 0) > 0 && (best < 0 || (s.charge ?? 0) > (c.stacks[best]!.charge ?? 0))) best = i; });
-  if (best < 0) return;
-  const charge = c.stacks[best]!.charge ?? 0;
-  removeItems(c, def.fuel.item, 1, charge);
-  addItems(c, def.fuel.item, 1, Math.max(0, charge - litres));
+  if (!c) return;
+  drawCharge(c, def.fuel.item, litres, "fullest");
 }
 
 /** Remaining route length from (x, y): to the current waypoint, then along the rest. */

@@ -7136,6 +7136,200 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   (5.6 s of 24 s, 700 000 sight calls in 84 runs; now about 1.6 s in 40). `npm run test:perf` alone: 23/23.
 - `npm run golden:update`: the ten goldens with interiors changed (intended); `golden/no-interiors` untouched.
 
+## 2026-11-16 — M11.6 stage 1: batteries and water as counted, charged items; battery slots, lazy drain, swaps (goldens regenerated)
+
+Software decisions (owner to review); design in the slice notes. No effects of a flat device yet (radio silence and
+the sight fallback are later stages), no water physiology yet.
+
+- **Data, item schema:** the reserved `batteryHours` is replaced by `power: { battery, hours, swapSeconds,
+  onBelowLight? }` (draw W = the battery's `chargeCapacity` Wh / hours; `onBelowLight`: a night device is on only
+  while the light is below it). Water items carry `water: true` (never found by id, rule 8). Loader: a device's
+  battery is an item of its faction with a charge and no `chargeItem`; water needs a charge.
+- **Batteries (all search extracts; medium at most):** radio packs `de-radio-battery` / `ru-radio-battery` 30 Wh,
+  0.35 kg (inferred, low); DE radio 6 h (SOVERON HR short pack "up to 6 h", R&S datasheet, medium), RU radio 8 h
+  (R-187 family "up to 12 h", shorter for combat duty: low); 10 s to change (low). Goggle cell (1x AA lithium,
+  `*-nvg-battery`) 4 Wh, 0.015 kg; DE goggle 50 h (Lucie 60 h, PVS-14 class 40-50 h), RU 40 h (low); 20 s. Thermal
+  sight set (3x AA, `*-thermal-battery`) 12 Wh, 0.045 kg; DE 7 h (Hensoldt IRV-MR >= 7 h, medium), RU 5 h (1PN139/140
+  not found, low); 15 s. Goggles and thermal sights `onBelowLight` 0.3 (the AI's night threshold; game value, low).
+  Device masses drop by their battery's mass, so device + fitted battery weighs what the device did before.
+- **Loads (script, deterministic):** every load with a powered device carries its batteries: devices x (1 fitted +
+  spares), full; spares: radio 2, goggle 1, thermal sight 2 (game values, low). A radio operator carries 0.7 kg more.
+  Water (`de-water`, `ru-water`): charge in ml, 2000 full, `chargeMassKg` 0.0008 and `massKg` 0 (the full 1.6 kg kept;
+  the canteens folded into the water: low); loads list `charge: 2000`.
+- **Core data** `behaviour.soldier.power` (game values, low): `installedMin` 0.3 (a battery fitted at setup from a
+  fresh record holds a share of full drawn evenly from [0.3, 1], new RNG stream "power", so no other stream moves; spares
+  start full), `swapBelowShare` 0.1 (in a lull a battery below a tenth of full is changed for a fuller spare). Short
+  battles practically never see a change (the emptiest fitted radio lasts 1.8 h); 3-hour night battles will.
+- **Sim:** `SoldierState.power?: PowerSlot[]` (one slot per device type, ascending device id; devices of a type beyond
+  the first share it): `{device, battery, wh0, since, on, flatTick, drawW, flatSent?}`. The charge is never stepped:
+  `chargeAt = wh0 - drawW x ticks since / (3600 x 60)` while on; `flatTick` is precomputed (1e9 when off: finite for
+  JSON); `deviceLive` is one compare (an unpowered item, or a man without slots from an older save, counts as live).
+  Setup takes the fullest battery of the device's type out of the load into the slot (none: an empty slot, a dead
+  device). `loadKg` adds the fitted batteries; roster out puts them back into the load at their charge now, rounded
+  down to 0.01 Wh (`settle`), and marks the record `powerFitted: true`: the next battle fits the fullest as it is,
+  without a new draw (every Wh carries over). A charged item that is not a magazine or belt listed without a charge
+  comes in full (old records with `{type: "de-water", count: 1}`).
+- **System** `powerSystem` (after physiology; once a second per man, staggered by id, so about N/60 men a tick):
+  switches night devices on/off by the light (restamping the slot), emits `power.flat {soldier, device, side}` once per
+  battery, and starts the action `swapBattery` (the device's `swapSeconds`; able, arms usable, not stunned, not guiding
+  a missile, no other action) when the battery is flat and a spare with charge exists, or in a lull (no fire task,
+  steady or cautious) when it is below `swapBelowShare` and a fuller spare exists. On completion the fullest spare is
+  fitted and the old battery goes back into the load as a counted item, even at 0 Wh (`power.swapped {soldier, device,
+  battery, whOut, whIn}`); an interrupted change changes nothing. No radio message (a flat radio sends nothing).
+- **State schema 21 -> 22:** identity migration (new optional field; the "power" stream is created on first use).
+- **Tests:** `packages/sim/test/power.test.ts` (fit and draw, lazy drain and the exact flat tick, flat event once and a
+  swap with Wh conserved, no spare stays flat, lull swap, on/off by light, save/load mid-drain same hash and events,
+  roster round trip keeps every Wh, mass); `packages/tools/test/power-data.test.ts` (real data: every device fitted,
+  spares full, water 2000 ml). `lab-attack.test.ts`: the extra mass reshuffled the 32 seeds (support 1/32 against 3/32
+  wins; the defence's losses still favour support); the win-rate check now allows one standard error (0.07).
+- `npm run golden:update`: the ten goldens with interiors changed (catalog fingerprint, loads' mass); `golden/no-interiors` untouched.
+
+## 2026-11-16 — M11.6 stage 2: flat radios take a unit off the net (goldens regenerated)
+
+Software decisions (owner to review).
+
+- **Data:** radio items carry `radio: true` (`de-radio`, `ru-radio`; never found by id, rule 8). New item key, no
+  values to source.
+- **Coverage** (`comms.ts` `simpleComms.update`, once a second, before the wrecked-hull rule): a unit on foot (not a
+  vehicle crew) is off the net (`link "none"`) when the radios carried by the men of its subtree are all flat
+  (`deviceLive`); a unit whose subtree carries no radio takes its parent's coverage (walking up); with no radio
+  anywhere up the chain it stays on the net (as before M11.6). A unit whose alive men all sit in hulls with a working
+  radio stays on the net (the hull radio). A man down or dead still counts as carrying his radio in this slice (short
+  battles unchanged; question for the owner). While no radio slot is flat the pass is one loop over the battery slots.
+- **Effects:** an order to a unit off the net is rejected with the new reason `no-comms` (also the reason for the
+  M7.4b wrecked hull radio, formerly `unknown-target`); contact reports beyond voice range are not shared (the existing
+  `contactShareDelayTicks`); voice within `voiceRangeM` (40 m) and the intercom still work. The automatic ambulance call
+  waits while the platoon is off the net. A call for fire's observers skip men of a unit off the net beyond voice range
+  of the caller, and a drone whose operator's unit is off the net (unless he is in voice range or the caller). An order
+  already received when the radio goes flat is still delivered.
+- **Radio log:** `onAir(state, unit)` gates the radio lines of a unit off the net (orders' acknowledgements, drills,
+  morale, evacuation, fire support, medical calls, contact and drone call-outs, low ammunition, no line of fire,
+  grenade blocked, house left, smoke out, man down, nest sited, mortar/missile/AGL team ready, drone calls).
+  `radio.broken` is never silenced: morale.ts reads it as a sim effect and the review counts it. A medical call
+  (`radio.medic`) refused while off the net is tried again later (no cooldown stamped).
+- **Tests:** `packages/sim/test/radio-power.test.ts` (orders rejected `no-comms`, no blue radio lines while off the
+  net, no share beyond voice range and voice within it, observers within voice range only, back on the net after a
+  swap, `radio.broken` still sent, a unit with no radio in its chain unchanged).
+- `npm run golden:update`: the ten goldens with interiors changed (catalog fingerprint only: the new `radio` key).
+
+## 2026-11-16 — M11.6 stage 3: flat goggles and thermal sights; drone items by transfer, a drone in the air in roster out
+
+Software decisions (owner to review). No data change; goldens unchanged.
+
+- **Sights and goggles:** a man's carried sensor item (night goggle, thermal sight) counts in his sensor list
+  (spotting.ts) and in `hasOptics` (protection.ts) only while `deviceLive`: flat (or no battery fitted) he is back to
+  eye and weapon sight, exactly the case without the device (a test checks the same spotting times). A device switched
+  off by day counts while it has charge (stage 1). Vehicles exempt (seat sensors on hull power); the MELLS launcher's
+  thermal weapon sight stays unpowered this slice (it is a weapon sight, not an item).
+- **Labs:** the spotting, thermal and night labs and `night-ai.test.ts` give their goggles and thermal sights one full
+  battery (`poweredDevice` in labs/spotting.ts); the fitted share is drawn from stream "power" only, so their tables do
+  not change.
+- **Drones:** launch and recovery move the airframe and battery with `transferItems` (rule 9; a man's load has no mass
+  limit, so nothing changes); `bestCharge` uses the shared `fullestSpare`. The per-tick drain stays (few entities;
+  goldens with drones unchanged).
+- **Roster out:** a drone still in the air at the end goes into its holder's record (airframe, battery at the charge
+  left, unsettled as on landing): its operator; with none, the first man of its unit still alive (ID order), else its
+  first man (`airborneHolder`, setup.ts). Before, an airborne drone vanished from the roster.
+- **Tests:** `packages/tools/test/sight-drone-power.test.ts`.
+
+## 2026-11-16 — M11.6 stage 4: water in battles of 2 hours or more (goldens regenerated)
+
+Software decisions and game values (owner to review); sources in `core/body.json` `physiology.hydration` (search
+extracts only: medium at most).
+
+- **Data:** new optional block `physiology.hydration` in `core/body.json`: `fromBattleS` 7200 (owner: water matters
+  only in battles of 2 h or more), `lossBaseLph` 0.15 (about 3.6 L/day at rest, temperate; USARIEM Montain & Stamm
+  2000, US Army 3-4 L/day: medium), `lossExertLph` 0.8 at full exertion (TB MED 507 0.47-0.95 L/h for easy to hard
+  work: medium), `deficitMaxL` 4.8 (6 % of the 80 kg body = hydration 0), `effectFromL` 1.6 (2 %: Sawka NBK231132,
+  GSSI, PMC8912814: medium), `drinkBelow` 0.85, `sipMl` 250, `drinkSuppressionMax` 0.1, `fatigueGainK` 1.0,
+  `recoveryK` 0.5, `aimK` 0.3 (game values, low). The catalog keeps the block without provenance keys (`noProv`).
+- **Design deviation:** the design's hydration 0 = 3.2 L would never reach its own 6 % full-effect point (4.8 L);
+  hydration 0 is 4.8 L here, so the effect range 2-6 % lies inside the 0..1 scale.
+- **Loss:** in `physiologySystem`, only when `rules.timeLimitSeconds >= fromBattleS`: per tick
+  `(lossBaseLph + lossExertLph x min(1, exertion)) x heat x DT / 3600 / deficitMaxL` off `physical.hydration`
+  (alive men, mounted too). Shorter battles: hydration never falls, so nothing changes (the goldens' event streams are
+  unchanged; only the catalog fingerprint moved).
+- **Drinking:** once a second, staggered by id (`id % 60 == tick % 60`), a man below `drinkBelow` who is able, not
+  stunned and at most `drinkSuppressionMax` suppressed takes a sip from his emptiest water item with charge (items
+  flagged `water`, rule 8): `drawCharge` (new, items.ts: remove one item, add it back at the lower charge; an empty
+  canteen stays a counted item; `drawFuel` in drive.ts now uses it, same result). Instant, no action; event
+  `water.drunk {soldier, side, item, ml}` (integer ml: left + drunk = start, exactly). Drinking is not gated on the
+  battle length, so a man who comes in dry can drink in a short battle.
+- **Effects:** `thirstShare` = 0 up to `effectFromL`, linear to 1 at `deficitMaxL`. Fatigue gain x(1 + fatigueGainK x
+  share), recovery x(1 - recoveryK x share) (body.ts); aim error x(1 + aimK x share) (`thirstAimFactor`, fire.ts).
+  Morale and running follow through fatigue. Water drunk also lowers his load mass (the item's charge mass).
+- **Roster:** optional `SoldierRecord.hydration` out (only below 1) and in (absent = 1).
+- **Tests:** `packages/sim/test/water.test.ts` (no change in a 1200 s battle; drinking emptiest first and exact
+  conservation in a long battle; no water, under fire; effects and none below 2 %; roster round trip);
+  `power-data.test.ts` checks the block is loaded. `npm run golden:update`: the ten goldens with interiors changed
+  (fingerprint only; a headless platoon-vehicles 120 s event stream compared identical before and after).
+
+
+## 2026-11-16 — M11.6 stage 5: review and batch lines, the batteries and water lab
+
+Software decisions (owner to review). No data change except two review strings (`core/strings.en.json`
+`aar.batteries`, `aar.offNet`, `aar.water`); no behaviour change: goldens unchanged.
+
+- **Review tally** (`sim/src/review.ts`): optional `SideReview.supply` (no `RECORD_VERSION` bump, like `morale`),
+  created at the first such event: batteries changed (`power.swapped`) and gone flat (`power.flat`) by kind of device
+  (`deviceClass`: an item with `radio` = radio, with a `sensor` = sight (goggles and thermal sights), else other; the
+  catalog now goes into `tallyReview`, optional), drone relaunches (a `drone.launched` by a man who has brought a
+  drone back before: a fresh battery each time; a drone's flat battery stays `drones.lostBattery`), unit-seconds off
+  the net (sampled once a second: units on foot with `comms.link` "none" and none of their men aboard a hull, so a
+  wrecked hull radio's crew is not counted) and water drunk (ml, `water.drunk`).
+- **Batch** (`tools/src/cli/batch.ts`): one line "Batteries and water (M11.6; per battle)". **App review**: rows only
+  when non-zero (batteries changed and flat, time off the net as a duration, water in L).
+- **Lab** `npm run lab -- batteries [seed] [speedup]` (`tools/src/labs/batteries.ts`): the platoon scenario's two
+  platoons on foot moved onto a flat 3 x 1.2 km map 2.4 km apart, fire held, from 21:00 on a moonless night for 3 h;
+  every unit walks a 300 m beat to and fro (so the men lose water: a static night would lose about 0.45 L a man and
+  never reach the 0.85 drinking threshold); each platoon's quadcopter kept up over its men (a lab controller every
+  60 s: the AI's drone use needs objectives). Books: Wh at the start = left (loads, device slots, drones in the air)
+  + drained in devices (per slot, from the swap events and the end charge) + flown by drones (per tick) + lost with a
+  drone; battery item counts; water ml = left + drunk. `speedup` k (tests only): battery hours / k, drone draw x k,
+  water loss x k and `fromBattleS` / k, the night k times shorter.
+- **Screenshots:** `--scene aar` puts a made-up supply tally into the record before the 10 min battle ends, to show
+  the rows (a short battle never fills them).
+- **Tests:** `packages/tools/test/lab-batteries.test.ts` (the lab compressed 12x: swaps of radios and sights, drone
+  relaunches and drinking on both sides; Wh balance within 1e-6, water exact, no battery lost; radios with no spare go
+  flat and the review counts flats and time off the net; the tally by kind from synthetic events).
+
+## 2026-11-16 — M11.6 review fixes (goldens regenerated)
+
+- **Lull battery change** (F1/F9): in a lull a man changes a battery below `swapBelowShare` only for a spare holding at
+  least max(`behaviour.soldier.power.lullSpareShare` 0.5 x full, his charge + 0.25 x full) (`LULL_MARGIN_SHARE`;
+  game values, low). Before, a man with only part-used spares swapped back and forth every ~10-20 s. A flat battery is
+  still changed for the fullest spare with charge.
+- **Dead men and prisoners** (F2/F8/F10): their devices are switched off (no drain, no `power.flat`); their radios
+  cover nobody (comms.ts); the review counts off-net seconds only for units with a man alive and not a prisoner.
+- **Hull radio** (F3): the inverted test in `allAboardHullRadio` fixed: men aboard a hull whose radio works stay on the
+  net with their handhelds flat.
+- **Orders to a parent** (F4): an order to a unit does not reach the men, drills, rules or arcs of a sub-unit that is
+  off the net (its own sub-units on the net still hear it). The ambush clean-up still reaches all. Not changed: a
+  parent's orders split to its vehicles, and a cease-fire set on the top unit (read by every man).
+- **Recorded radio lines** (F5): `radio.broken`, `radio.rallied`, `radio.objectiveTaken` and `radio.refuseProtected`
+  go out even from a unit off the net (the record's timeline and conduct counts and the attack lab read them;
+  comms.ts `RECORDED_RADIO_KEYS`).
+- **Night devices** (F6): a device switched off gives nothing. Thermal sights (de, ru) are always on (used by day too,
+  they drain by day); goggles are on below light 0.5, the night sensor's `nightLight` (on whenever they help).
+  Game values, low.
+- **Drone relaunches** (F7): `drone.launched` and `drone.landed` carry the battery's Wh (`wh`); the review counts a
+  relaunch as a battery change only on a battery fuller than the one that man last brought back by more than 0.5 Wh.
+- **Goldens**: catalog fingerprint and state hashes changed (10 goldens; the no-interiors goldens untouched).
+
+## 2026-11-16 — M11.6 batches and acceptance (slice 49)
+- **Acceptance "a 3-hour night battle shows battery swaps":** `npm run batch -- --scenario platoon-ru-vehicles --runs 3
+  --seconds 10800 --time 21:00 --moon 0`: per battle blue changed 1.3 radio and 0.7 sight batteries and relaunched its
+  drone on a fresh pack 1.3 times; red 0.3 sight batteries, 1.3 drone relaunches, 0.3 thermal sights gone flat (no
+  spare left); no unit went off the net; water drunk 0.25 / 0.42 L per side (men in a mounted battle mostly sit or
+  lie: little loss). `npm run lab -- batteries` (3 h night patrol, both factions): swaps on both sides; conservation
+  exact (water) and within 4e-9 Wh (batteries), no battery item lost.
+- **Balance** (10 seeds x 1200 s, attacker wins, origin/main 760bdd6 -> M11.6): platoon 6 -> 5, platoon-ru 8 -> 8,
+  platoon-vehicles 9 -> 9 (+1 draw), platoon-ru-vehicles 1 -> 1: within noise (batteries last hours; water is off
+  below 2 h; the load mass is unchanged within a battery's weight).
+- Left to other slices: smoke and medical resupply (slices 46-47, resupply); handing batteries over between men
+  (redistribution, slice 44); vehicle power (hull sights and radios need no batteries); the MELLS launcher's thermal
+  weapon sight stays unpowered.
+
 ## 2026-11-16 — M11 owner round (2026-11-16)
 The owner's answers for M11 Logistics (binding; plan: `docs/plans/m11-logistics.md`):
 - **Scope: everything** (ammunition, fuel, re-arming, repair, batteries, water). Built in three chains at once: this
@@ -7267,3 +7461,17 @@ regenerates the goldens. No code or data changed in this entry.
   magazines; fixture item list with xf-bandolier and xf-can.
 - `npm run golden:update`: the ten goldens changed (data: loose rounds, stowage, rates), two new; `golden/no-interiors`
   untouched.
+- **Timing (M11.6 against origin/main 760bdd6, run alone back to back on this container):** spotting bench 8.7x / 8.7x,
+  with smoke 8.8x / 8.9x, bench-vehicles 8.1x / 8.8x (main itself measured 7.9x in an earlier run: the floors at 8x
+  are now within noise of main after the line-of-sight work, not because of M11.6; the power system walks a man once a
+  second and a scan checks a powered sensor with one compare). Merged origin/main (M11.1 consumption, assault group,
+  AGL teams) after the review; goldens regenerated; `npm test` 1448 pass.
+
+## 2026-11-16 — After merging M11.1 into M11.6: late units' batteries
+
+Checked the merge of main (M11.1) into M11.6 for silent clashes. Schema: only M11.6 bumped it (21 -> 22, one
+migration; M11.1's `arrived` is optional). RNG streams and events do not overlap. Batteries (Wh) and water (ml) have no
+`chargeKind`, so moveCharge does not move them and the conservation guard (ammunition only) ignores them consistently.
+One real clash fixed: a unit arriving late (M11.1 waves) had its batteries stamped at tick 0, so its radios and goggles
+drained from the start of the battle while it was not yet there; `fitBatteries` now takes the tick he enters at
+(`state.tick`). `npm run golden:update`: every golden unchanged.

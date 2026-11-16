@@ -34,6 +34,7 @@ import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { flareLightAt } from "../flares";
+import { deviceLive } from "../power";
 import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
 import { atan2, cos, exp, PI, pow, sin, sqrt } from "../math";
 import { nextFloat, nextNormal, Streams } from "../rng";
@@ -146,7 +147,8 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
     const sightKind = ctx.catalog.weapons[state.weapon.get(oid)?.weapon ?? ""]?.sights[0]?.kind;
     if (sightKind !== undefined) sensors.push(D.sensors[sightKind]);
     const box = state.container.get(oid);
-    if (box) for (const st of box.stacks) { const k = ctx.catalog.items[st.type]?.sensor; if (k !== undefined && st.count > 0) sensors.push(D.sensors[k]); }
+    // (M11.6: a powered goggle or sight helps only while its battery has charge: flat, he is back to eye and weapon sight.)
+    if (box) for (const st of box.stacks) { const k = ctx.catalog.items[st.type]?.sensor; if (k !== undefined && st.count > 0 && deviceLive(ctx.catalog, state, oid, st.type, tick)) sensors.push(D.sensors[k]); }
     // Sight realism step 3: a cued search — where he heard shots or was told of an enemy, he looks harder.
     const nCue = cueContacts(os, ot.x, ot.y, CC);
     // (The ground hides a man lying still at a grazing angle: from higher up — an upper floor, a roof — the view is

@@ -388,7 +388,24 @@ sees: `man`, `vehicleCold` (halted longer than `hotSeconds`), `vehicleHot` (movi
 `vehicleBurning`, and `vegetationExponent` (visibility through vegetation for heat = visibility^exponent; the better of the best
 sensor and the best thermal one counts). Items: a
 thermal weapon sight is an item with `"sensor": "thermal"`; a thermal blanket has `thermalCover` (the share of a still
-man's heat it lets through); `batteryHours` is reserved for M11.6. Check with `npm run lab -- thermal`.
+man's heat it lets through). Check with `npm run lab -- thermal`.
+
+Powered devices (M11.6): an item with `power: { battery, hours, swapSeconds, onBelowLight? }` runs on `battery` (an item
+of the same faction with `chargeCapacity` in Wh and no `chargeItem`; category "battery"); it draws `chargeCapacity /
+hours` W; changing the battery takes `swapSeconds`; a night device is on only while the light is below `onBelowLight`
+(set it to its sensor's `nightLight`, so the device is on whenever it helps: a device switched off gives nothing; a
+device used by day too, such as a thermal sight, has no `onBelowLight`: always on).
+Every load that carries a device lists its batteries too (devices x (1 fitted + spares), with `charge` = full); setup
+fits the fullest. Water items have `water: true` and a charge in ml (`chargeCapacity` 2000). Core
+`behaviour.soldier.power`: `installedMin` (the fitted battery's share of full at the start is drawn from [installedMin,
+1]), `swapBelowShare` (a lull change below that share) and `lullSpareShare` (a lull change only for a spare holding at
+least that share of full, and a quarter of full more than the fitted one). A man-portable radio has `radio: true` (M11.6 stage 2): a unit on foot whose radios
+(or, with none of its own, its parent's) are all flat is off the net. A powered item with a `sensor` (goggle, thermal
+sight) gives its sensor only while its battery has charge (stage 3): give lab or test loads a battery with the device.
+Water (stage 4): optional `core/body.json` `physiology.hydration` (`fromBattleS`: men lose water only in battles of at
+least that limit; `lossBaseLph` + `lossExertLph` x exertion, times the heat factor; `deficitMaxL` = hydration 0;
+effects from `effectFromL` to `deficitMaxL`; `drinkBelow`, `sipMl`, `drinkSuppressionMax`; `fatigueGainK`, `recoveryK`,
+`aimK`). Absent: hydration never changes.
 
 ## Guided missiles (M9.3a)
 

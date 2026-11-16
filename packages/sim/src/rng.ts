@@ -56,6 +56,8 @@ export const Streams = {
   /** Sight realism step 3: each still man's conspicuity (spotting). Its own stream, so "spotting" keeps exactly one draw
    *  per observer, target and scan; created on first use. */
   conspicuity: "conspicuity",
+  /** M11.6: the charge of the battery fitted in each powered device at setup. Its own stream, so no other draws move. */
+  power: "power",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

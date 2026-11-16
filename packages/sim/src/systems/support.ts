@@ -27,6 +27,7 @@
  * the correction; then every tube fires for effect at its own rate (`roundSeconds`). Rounds in flight are kept in
  * the mission (`flying`). With no team in range and no off-map battery, the call is refused out of range.
  */
+import { onAir } from "../comms";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId, type SideId } from "../ids";
@@ -538,6 +539,7 @@ function landRound(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
 /** A radio call from the man who called the mission (keys, rule 12). */
 function radio(state: SimState, events: EventSink, m: FireMission, key: string, params: Record<string, string | number> = {}): void {
   const u = state.identity.get(m.caller)?.unit;
+  if (!onAir(state, u)) return; // (M11.6: a flat radio sends nothing)
   events.emit({ kind: "radio", tick: state.tick, side: m.side, from: m.caller, key, params: { callsign: (u !== undefined ? state.unit.get(u)?.callsign : undefined) ?? "", ...params } });
 }
 

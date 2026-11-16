@@ -401,6 +401,10 @@ for the owner's numbers answer after playing, not for more building).
   consumption, slices 43-48 and 52; 49 and 50-51 in parallel sessions)
   - ✅ **M11.1 (slice 43)** consumption lab, moveCharge, ledger and conservation guard, packaging, loose rounds,
     refillMagazines, late arrival and `hold-resupply`, machine-gun rates (DECISIONS "M11.1"; balance points open)
+  - **M11.6 Batteries and water** ✅ 2026-11-16 (slice 49, parallel session): battery slots with lazy drain for radios, goggles
+    and thermal sights, swaps from own spares, flat radios take a unit off the net, flat sights fall back; drone
+    items via transferItems; water in battles of 2 h or more; `lab -- batteries`; review and batch lines. Smoke and
+    medical resupply are left to the resupply slices.
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

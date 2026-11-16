@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type ReviewTally, type MedicalSideSummary, MISSING_STEPS, medianOf, medicalSummary, careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
+import { type ReviewTally, type SupplyReview, type MedicalSideSummary, MISSING_STEPS, medianOf, medicalSummary, careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
 import { attackStats, type AttackStats } from "@tcs/ai";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
@@ -299,6 +299,10 @@ const md = [
   }).join("; ")}`,
   `- Fire missions by location method (M9.5; calls per battle, rounds landed in brackets): ${["blue", "red"].map((s) => `${s} ${(["estimate", "laser", "registered", "drone", "air"] as const).map((k) => `${k} ${mean(rows.map((r) => r.review.sides[s]?.calls[k] ?? 0)).toFixed(1)} (${mean(rows.map((r) => r.review.sides[s]?.rounds[k] ?? 0)).toFixed(1)})`).join(", ")}`).join("; ")}`,
   `- Morale (rework 2026-11-15; per battle): ${["blue", "red"].map((s) => `${s} men panicked ${mean(rows.map((r) => r.review.sides[s]?.morale?.panicked ?? 0)).toFixed(1)}, units broken ${mean(rows.map((r) => r.review.sides[s]?.morale?.broken ?? 0)).toFixed(1)}, rallies ${mean(rows.map((r) => r.review.sides[s]?.morale?.rallies ?? 0)).toFixed(1)}`).join("; ")}`,
+  `- Batteries and water (M11.6; per battle): ${["blue", "red"].map((s) => {
+    const p = (f: (x: SupplyReview) => number) => mean(rows.map((r) => { const x = r.review.sides[s]?.supply; return x ? f(x) : 0; }));
+    return `${s} batteries changed: radio ${p((x) => x.swaps.radio).toFixed(1)}, sights ${p((x) => x.swaps.sight).toFixed(1)}, other ${p((x) => x.swaps.other).toFixed(1)}, drone relaunches ${p((x) => x.swaps.drone).toFixed(1)}; gone flat: radio ${p((x) => x.flat.radio).toFixed(1)}, sights ${p((x) => x.flat.sight).toFixed(1)}, other ${p((x) => x.flat.other).toFixed(1)}; off the net ${p((x) => x.offNetS).toFixed(0)} unit-s; water drunk ${(p((x) => x.waterMl) / 1000).toFixed(2)} L`;
+  }).join("; ")}`,
   ...(timeOfDay !== null ? [`- Light (M9.1): start ${Math.round(100 * mean(rows.map((r) => r.review.light?.start ?? 1)))} %, lowest ${Math.round(100 * mean(rows.map((r) => r.review.light?.min ?? 1)))} %`] : []),
   `- Mortar per battle (by the calling side): ${["blue", "red"].map((s) => `${s} HE bursts ${mean(rows.map((r) => r.mortar[s]?.bursts ?? 0)).toFixed(1)} (ranging rounds of any kind ${mean(rows.map((r) => r.mortar[s]?.ranging ?? 0)).toFixed(1)}), enemy wounded in a burst's tick ${mean(rows.map((r) => r.mortar[s]?.enemyWounded ?? 0)).toFixed(2)}, of them down ${mean(rows.map((r) => r.mortar[s]?.enemyDown ?? 0)).toFixed(2)}`).join("; ")}`,
   ...buildingsMarkdown(rows.map((r) => r.buildings), sc.build(data, firstSeed, 1).rules.objectives[0]?.holder ?? "blue"),

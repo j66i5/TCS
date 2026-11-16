@@ -3,6 +3,7 @@
  * The app calls `step` as often as real time requires; the headless tools call it as fast as they can.
  */
 import { droneSystem } from "./systems/drones";
+import { powerSystem } from "./systems/power";
 import { lightAt } from "./light";
 import { initMortars, mortarSystem } from "./systems/mortars";
 import { missileTeamSystem } from "./systems/missile-team";
@@ -129,7 +130,9 @@ export function step(sim: Sim): SimEvent[] {
   // Carrying parties (M10.4a): the payload and the other carriers follow the leader's trail; phases, rests, cover.
   carrySystem(ctx, state, events);
   droneSystem(ctx, state, events);
-  physiologySystem(ctx, state);
+  physiologySystem(ctx, state, events);
+  // Batteries (M11.6): once a second per man, staggered (after physiology: the tick's loads are summed by then).
+  powerSystem(ctx, state, events);
   // Vehicle gunnery (M7.3; each returns at once without vehicles): lay the turrets, then fire.
   turretSystem(ctx, state);
   fireSystem(ctx, state, events);

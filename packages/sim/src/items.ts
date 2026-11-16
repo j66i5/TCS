@@ -202,6 +202,27 @@ function countWithCharge(c: Container, type: DefId, charge: number): number {
 }
 
 /**
+ * Draw up to `amount` of charge from ONE item of `type` with charge left: the fullest or the emptiest one (ties: the
+ * first stack in order). The item stays a counted item, at its lower charge (an empty canteen stays in the load).
+ * Returns the charge drawn (0 when no item of the type has charge). Fuel from a tank, water from a canteen (M11.6).
+ */
+export function drawCharge(c: Container, type: DefId, amount: number, order: "fullest" | "emptiest"): number {
+  if (amount <= 0) return 0;
+  let best: ItemStack | undefined;
+  for (const s of c.stacks) {
+    const ch = s.charge ?? 0;
+    if (s.type !== type || ch <= 0) continue;
+    if (best === undefined || (order === "fullest" ? ch > best.charge! : ch < best.charge!)) best = s;
+  }
+  if (best === undefined) return 0;
+  const charge = best.charge!;
+  const drawn = Math.min(amount, charge);
+  removeItems(c, type, 1, charge);
+  addItems(c, type, 1, charge - drawn);
+  return drawn;
+}
+
+/**
  * M7.6d: the box on the automatic grenade launcher of man `id`'s team if he is the one it counts on (the post's
  * carrier), else null. It is part of his load (mass, roster out) as the magazine in his weapon is.
  */

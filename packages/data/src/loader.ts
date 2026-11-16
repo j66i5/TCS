@@ -313,6 +313,15 @@ function loadFaction(
       if (mo.minRangeM >= mo.maxRangeM) errors.push({ file: f("items.json"), path: `items[${i}].mortar.minRangeM`, message: "minimum range must be below the maximum", severity: "error" });
       if (mo.crewMin > mo.crew) errors.push({ file: f("items.json"), path: `items[${i}].mortar.crewMin`, message: "crewMin must not exceed crew", severity: "error" });
     }
+    // A powered device (M11.6): its battery is an item of this faction with a charge (Wh).
+    const pw = it.power;
+    if (pw) {
+      const b = itemsF.items.find((x) => x.id === pw.battery);
+      if (!b || b.chargeCapacity === undefined || b.chargeItem !== undefined) errors.push({ file: f("items.json"), path: `items[${i}].power.battery`, message: `'${pw.battery}' is not a battery (an item with a charge in Wh, not a magazine) of this faction`, severity: "error" });
+      if (b?.power) errors.push({ file: f("items.json"), path: `items[${i}].power.battery`, message: `'${pw.battery}' is itself a powered device`, severity: "error" });
+    }
+    // Water (M11.6): its charge is in ml.
+    if (it.water === true && it.chargeCapacity === undefined) errors.push({ file: f("items.json"), path: `items[${i}].water`, message: "water needs a chargeCapacity (ml) and chargeMassKg", severity: "error" });
     // A quadcopter (M9.4a): its battery is an item of this faction with a charge (Wh); heights in order.
     const dr = it.drone;
     if (dr) {

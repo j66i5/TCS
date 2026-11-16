@@ -6,6 +6,7 @@ import { buildScenario } from "@tcs/scenario";
 import {
   createSim, DEFAULT_COMMS, environmentAt, flatMap, runBattle, step, submitOrder, supportLeft, type BattleInput, type Catalog, type Controller, type SoldierRecord,
 } from "@tcs/sim";
+import { poweredDevice } from "../src/labs/spotting";
 import { loadData } from "../src/scenarios";
 
 const data = loadData();
@@ -106,7 +107,7 @@ describe("night drills (M9.6)", () => {
   function lone(catalog: Catalog, rangeM: number, night: boolean): { spotted: boolean; fired: boolean } {
     const man = (personId: string, weapon: string, mag: string): SoldierRecord => ({ personId, given: "Lab", family: personId, rank: "r", role: "rifleman", skills: { marksmanship: 0.5 }, weapon, fatigue: 0, stress: 0, wounds: [], status: "fit", load: [{ type: mag, count: 4, charge: catalog.items[mag]?.chargeCapacity ?? 30 }] });
     const obs = man("obs", "de-g36", "de-g36-mag");
-    obs.load.push({ type: "de-nvg", count: 1 });
+    obs.load.push(...poweredDevice(catalog, "de-nvg")); // (M11.6: with its battery)
     const tgt = man("tgt", "ru-ak74m", "ru-ak74-mag");
     const input: BattleInput = {
       map: flatMap("night", rangeM + 80, 200, 4), catalog, seed: 1, orders: [],

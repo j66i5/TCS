@@ -346,6 +346,21 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 
 ## Open questions for the owner
 
+- M11.6 batteries and water (2026-11-16, low unless noted; DECISIONS "M11.6 stage 1"): radio pack 30 Wh / 0.35 kg,
+  DE radio 6 h (medium), RU radio 8 h, goggle cell 4 Wh, DE goggle 50 h, RU 40 h, thermal set 12 Wh, DE thermal 7 h
+  (medium), RU 5 h; change times 10 / 20 / 15 s; spares radio 2, goggle 1, thermal 2; night devices on below light
+  0.3; fitted batteries start at 30-100 % of full; lull change below 10 %; water 2000 ml at 0.8 g/ml (canteens folded in).
+  Stage 2 (radio silence): should a radio carrier who is down or killed take his unit off the net (now: his radio still
+  counts)? Should an order already received when the radio goes flat still arrive (now: yes)?
+  Stage 4 (water, `core/body.json` `physiology.hydration`): loss 0.15 L/h at rest + 0.8 L/h at full exertion (medium,
+  TB MED 507 / USARIEM), only in battles of 2 h or more; effects from a 1.6 L deficit (2 % of 80 kg, medium) to full at
+  4.8 L (6 %); he sips 250 ml when 0.72 L down and not under fire (suppression <= 0.1); at full deficit fatigue builds
+  x2, recovers x0.5, aim error x1.3 (low). Drinking is instant (no action). A man who comes in dry (roster) into a short
+  battle can still drink but loses no more water.
+  Stage 5 (review, batch, lab): the review's supply rows (batteries changed and flat by kind, drone relaunches, unit
+  time off the net, water drunk) and `npm run lab -- batteries` (3 h night patrol, both platoons; `reports/lab-batteries.md`).
+  Should the lab's night be static (a defence) instead of a patrol? Static, nobody drinks within 3 h.
+
 - M11.1 (2026-11-16, low): loose rounds carried (DE one 140-round bandolier, RU four 30-round packs), cans in the
   vehicles (Puma/Boxer 2 x 840 + 2 x 200, BMP-2/BTR-82A one 5.45 and one 7.62 x 54R tin), crate counts of 40 mm and hand
   grenades, refilling 1.2 s a round by hand and 0.4 s from clips; the attacker wins of platoon and platoon-ru now 8 of

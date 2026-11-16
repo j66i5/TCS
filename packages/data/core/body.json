@@ -80,6 +80,29 @@
     "postureChangeExertion": 0.3,
     "hrExertionWeight": 0.85,
     "hrFatigueWeight": 0.25,
-    "exhaustedExertionFactor": 0.5
+    "exhaustedExertionFactor": 0.5,
+    "hydration": {
+      "fromBattleS": 7200,
+      "lossBaseLph": 0.15,
+      "lossExertLph": 0.8,
+      "deficitMaxL": 4.8,
+      "effectFromL": 1.6,
+      "drinkBelow": 0.85,
+      "sipMl": 250,
+      "drinkSuppressionMax": 0.1,
+      "fatigueGainK": 1.0,
+      "recoveryK": 0.5,
+      "aimK": 0.3,
+      "sources": [
+        "https://apps.dtic.mil/sti/tr/pdf/ADA390352.pdf",
+        "https://ph.health.mil/resources/cphe-heat-ehip-guide.pdf",
+        "https://ph.health.mil/PHC%20Resource%20Library/cphe-heat-fluid-replacement-poster.pdf",
+        "https://ncbi.nlm.nih.gov/books/NBK231132",
+        "https://www.gssiweb.org/docs/default-source/sse-docs/barnes-baker_sse_210_a06_final.pdf",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC8912814"
+      ],
+      "confidence": "low",
+      "note": "M11.6 water (search extracts only, no page opened). fromBattleS 7200: owner decision (water matters only in battles of 2 h or more). lossBaseLph 0.15 L/h at rest, temperate (about 3.6 L/day; USARIEM Montain & Stamm 2000 give 1.5 L/day fixed plus sweat, the US Army 3-4 L/day temperate: medium) plus lossExertLph 0.8 L/h at full exertion (TB MED 507: 0.47 L/h easy work to 0.7-0.95 L/h hard work: medium), times the heat factor of this block. deficitMaxL 4.8 L = 6 % of the 80 kg body (hydration 0) and effectFromL 1.6 L = 2 % (Sawka NBK231132, GSSI Barnes & Baker, PMC8912814: endurance and cognition fall from about 2 % lost; physical work capacity about -20 % at 6-7 %: medium); between them the effects grow linearly. Game values (low, owner to review): he sips sipMl 250 ml from his emptiest canteen when hydration is below drinkBelow 0.85 (a deficit of 0.72 L) and his suppression is at most drinkSuppressionMax 0.1; at a 6 % deficit fatigue builds x(1 + fatigueGainK 1.0), recovers x(1 - recoveryK 0.5) and the aim error is x(1 + aimK 0.3)."
+    }
   }
 }

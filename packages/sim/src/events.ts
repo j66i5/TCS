@@ -118,6 +118,13 @@ export type SimEvent =
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
+  /** M11.6 batteries: the battery in a man's powered device (`device`, an item id) has gone flat (once per battery);
+   *  he changed it (`battery` fitted with `whIn` Wh; the old one went back into his load with `whOut` Wh, 0 if the
+   *  device had none). No radio message: a flat radio sends nothing. */
+  | { kind: "power.flat"; tick: number; soldier: EntityId; device: DefId; side: SideId }
+  | { kind: "power.swapped"; tick: number; soldier: EntityId; device: DefId; battery: DefId; whOut: number; whIn: number }
+  /** M11.6: he drank `ml` millilitres from his canteen (`item`; battles of 2 h or more). */
+  | { kind: "water.drunk"; tick: number; soldier: EntityId; side: SideId; item: DefId; ml: number }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
   /** A leader rallied a man of his unit (morale rework 2026-11-15): his shock eased, a runner stopped. */
   | { kind: "morale.rally"; tick: number; leader: EntityId; soldier: EntityId }
@@ -165,8 +172,8 @@ export type SimEvent =
    *  a tube fires a round (where from, where it is aimed, which round, seconds of flight). */
   /** M9.4a reconnaissance quadcopters: launched (its operator flies it), landed and recovered by a man, lost (empty
    *  battery, or nobody there when it came home). */
-  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId; /** M9.6: the drone's item type. */ item?: DefId }
-  | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId }
+  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId; /** M9.6: the drone's item type. */ item?: DefId; /** M11.6: its battery's charge at launch, Wh. */ wh?: number }
+  | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId; /** M11.6: its battery's charge at landing, Wh. */ wh?: number }
   | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" | "shot"; /** M9.6: the man whose round brought it down (reason "shot"). */ by?: EntityId }
   | { kind: "mortar.setup"; tick: number; unit: EntityId; readyTick: number }
   | { kind: "mortar.ready"; tick: number; unit: EntityId }

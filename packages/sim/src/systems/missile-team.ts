@@ -22,6 +22,7 @@
  *
  * No randomness here (the flight draws on the "missile" stream in missiles.ts).
  */
+import { onAir } from "../comms";
 import { registerActionHandler, startAction } from "../actions";
 import type { AmmoDef, CrewServedDef } from "../catalog";
 import type { SimContext } from "../context";
@@ -179,7 +180,7 @@ function ownTarget(ctx: SimContext, state: SimState, uid: EntityId, l: Launcher,
 function teamRadio(state: SimState, events: EventSink, uid: EntityId, key: string): void {
   const u = state.unit.req(uid);
   const lead = u.leader ?? u.members[0];
-  if (lead !== undefined) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: lead, key, params: { callsign: u.callsign } });
+  if (lead !== undefined && onAir(state, uid)) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: lead, key, params: { callsign: u.callsign } });
 }
 
 /**

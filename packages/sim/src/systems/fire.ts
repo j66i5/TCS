@@ -11,13 +11,14 @@
  * (the order, incoming fire near it), then slows to a trickle, then ceases fire and reports. A man stops when
  * only the magazine in his weapon is left. In lulls men swap a partly used magazine for a fuller one.
  */
+import { onAir } from "../comms";
 import { DRONE_SEEN_S, droneInSight, shootAtDrone } from "./drones";
 import { startAction } from "../actions";
 import { aimErrorFactor, fireRateFactor, isCowering } from "./morale";
 import type { Contact, FireTask, SoldierState, WeaponState } from "../components";
 import { sight } from "../los";
 import type { Posture } from "../orders";
-import { loadKg, postureChangeSeconds, requestPosture } from "./body";
+import { loadKg, postureChangeSeconds, requestPosture, thirstAimFactor } from "./body";
 import type { WeaponDef } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
@@ -74,7 +75,7 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   const mv = state.mover.get(id);
   const onTheMove = task?.onTheMove === true && mv !== undefined && mv.speedMps > 0.2 ? ctx.catalog.behaviour.soldier.assaultFireAimFactor : 1;
   return onTheMove * settle * braced * a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
-    * (1 + a.fatigueK * s.physical.fatigue) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
+    * (1 + a.fatigueK * s.physical.fatigue) * (s.physical.hydration < 1 ? thirstAimFactor(ctx.catalog, s.physical.hydration) : 1) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
     * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim * aimErrorFactor(ctx, s);
 }
 
@@ -385,7 +386,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       if (!w.lowAmmoReported) w.lowAmmoReported = true;
       if (!already && !w.lowAmmoRadioed) {
         w.lowAmmoRadioed = true;
-        events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.lowAmmo", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
+        if (onAir(state, state.identity.req(id).unit)) events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.lowAmmo", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
       }
       // A rifleman keeps that last magazine as a close-defence reserve (package A): he fires it, aimed, only at an
       // enemy close by or assaulting him.
@@ -447,7 +448,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
           const u = state.unit.get(top);
           if (u && !u.lineBlockedReported) {
             u.lineBlockedReported = true;
-            events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.noLineOfFire", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
+            if (onAir(state, state.identity.req(id).unit)) events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.noLineOfFire", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
           }
         }
       }

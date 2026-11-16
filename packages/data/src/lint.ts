@@ -43,8 +43,10 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
   // Medical data (M10.1): researched from search extracts only (web pages cannot be opened here), so nothing in it
   // may claim more than "medium" confidence.
   const notHigh = (file: string, path: string, p: Prov) => {
-    if (p.confidence === "high") errors.push({ file, path, message: "medical data comes from search extracts only: confidence 'medium' at most", severity: "error" });
+    if (p.confidence === "high") errors.push({ file, path, message: "medical and repair data come from search extracts only: confidence 'medium' at most", severity: "error" });
   };
+  // Field repair (M11.7a): search extracts only.
+  if (data.repair) { check("core/repair.json", "repair", data.repair.repair, false); notHigh("core/repair.json", "repair", data.repair.repair); }
   if (data.medical) {
     const m = data.medical, f = "core/medical.json";
     for (const [k, b] of [["physiology", m.physiology], ["levels", m.levels], ["chain", m.chain], ["protection", m.protection], ["triage", m.triage]] as const) { check(f, k, b, false); notHigh(f, k, b); }
@@ -101,6 +103,11 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
       // M7.6a: the armour and the components carry their own provenance (game values, mostly low).
       if (v.armour) check(`${d}/vehicles.json`, `${v.id}.armour`, v.armour, fx);
       if (v.components) check(`${d}/vehicles.json`, `${v.id}.components`, v.components, fx);
+      // M11.7a: repair data comes from search extracts only (confidence 'medium' at most).
+      if (v.repair) {
+        check(`${d}/vehicles.json`, `${v.id}.repair`, v.repair, fx); notHigh(`${d}/vehicles.json`, `${v.id}.repair`, v.repair);
+        for (const k of Object.keys(v.repair.parts)) if (data.repair && data.repair.repair.tasks[k as keyof typeof data.repair.repair.tasks] === undefined) errors.push({ file: `${d}/vehicles.json`, path: `${v.id}.repair.parts.${k}`, message: `no crew task '${k}' in core/repair.json`, severity: "error" });
+      }
       const kwPerT = v.drive.powerKw / (v.mass.kg / 1000);
       if (kwPerT < 8 || kwPerT > 40) errors.push({ file: `${d}/vehicles.json`, path: v.id, message: `${kwPerT.toFixed(1)} kW/t is outside the plausible 8-40 kW/t`, severity: "warning" });
     }

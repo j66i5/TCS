@@ -761,6 +761,51 @@
         "aimSeconds": 2,
         "engageRangeM": 1500
       }
+    },
+    {
+      "id": "de-bordwerkzeug",
+      "nameKey": "item.de-bordwerkzeug",
+      "category": "vehicle-supply",
+      "massKg": 40,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.7a field repair: the crew's tool kit (Bordwerkzeug: tools, tow cables, track tools); must be aboard for any repair, not used up. Mass a game value (low)."
+    },
+    {
+      "id": "de-kettenglied-leopard2",
+      "nameKey": "item.de-kettenglied-leopard2",
+      "category": "vehicle-supply",
+      "massKg": 30,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.7a: one Leopard 2 track link with its pin and connectors, carried as a spare on the hull; a broken track takes two (game value). Mass estimated from a Diehl 570 track of about 82 links per side (memory, low)."
+    },
+    {
+      "id": "de-kettenglied-puma",
+      "nameKey": "item.de-kettenglied-puma",
+      "category": "vehicle-supply",
+      "massKg": 20,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.7a: one Puma track link with pin (game value; mass estimated, low)."
+    },
+    {
+      "id": "de-mg5-rohr",
+      "nameKey": "item.de-mg5-rohr",
+      "category": "vehicle-supply",
+      "massKg": 2,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.7a: a spare barrel for the Puma's coaxial MG5 (mass about 2 kg, memory, low); changing a damaged coax is a crew task."
+    },
+    {
+      "id": "de-mg3-rohr",
+      "nameKey": "item.de-mg3-rohr",
+      "category": "vehicle-supply",
+      "massKg": 2,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.7a: a spare barrel for the Leopard 2's coaxial MG3 (mass about 2 kg, memory, low)."
     }
   ]
 }

@@ -1,5 +1,5 @@
 /** Turns a validated DataSet into the Catalog the simulation runs with. */
-import { canonicalJson, hashText, PI, type BodyDef, type Catalog, type FactionDef, type ItemTypeDef, type MedicalDef, type MovementModeDef, type TerrainCatalog, type VehicleDef } from "@tcs/sim";
+import { canonicalJson, hashText, PI, type BodyDef, type Catalog, type FactionDef, type ItemTypeDef, type MedicalDef, type MovementModeDef, type RepairDef, type TerrainCatalog, type VehicleDef } from "@tcs/sim";
 import type { MedicalT, VehicleT } from "./schemas";
 import type { DataSet } from "./loader";
 
@@ -78,7 +78,8 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
   const formations: Catalog["formations"] = {};
   for (const f of Object.values(data.formations)) formations[f.id] = { id: f.id, slots: f.slots.map(([a, b]) => [a, b] as [number, number]) };
   const medical = data.medical ? medicalCatalog(data.medical) : undefined;
-  const body = { ...(medical ? { medical } : {}), items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, spotting, behaviour, ammo, ammoIds, weapons, vehicles };
+  const repair = data.repair ? noProv(data.repair.repair) as RepairDef : undefined;
+  const body = { ...(medical ? { medical } : {}), ...(repair ? { repair } : {}), items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, spotting, behaviour, ammo, ammoIds, weapons, vehicles };
   return { fingerprint: hashText(canonicalJson(body)), ...body };
 }
 
@@ -161,6 +162,7 @@ export function vehicleDef(v: VehicleT): VehicleDef {
     ...(v.components ? { components: noProv(v.components.parts) as NonNullable<VehicleDef["components"]> } : {}),
     ...(v.dischargers ? { dischargers: { item: v.dischargers.item, perSalvo: v.dischargers.perSalvo, salvos: v.dischargers.salvos, arcRad: rad(v.dischargers.arcDeg), rangeM: v.dischargers.rangeM, delaySeconds: v.dischargers.delaySeconds, cloudRadiusM: v.dischargers.cloudRadiusM, cloudSeconds: v.dischargers.cloudSeconds, cloudTopM: v.dischargers.cloudTopM } } : {}),
     ...(v.laserWarner ? { laserWarner: true } : {}),
+    ...(v.repair ? { repair: noProv(v.repair) as NonNullable<VehicleDef["repair"]> } : {}),
     ...(v.ambulance ? { ambulance: { layouts: v.ambulance.layouts.map((l) => ({ lying: l.lying, sitting: l.sitting, lyingOutside: l.lyingOutside ?? 0 })), marked: v.ambulance.marked } } : {}),
     // A vehicle without signature data: plain defaults (its boxes give the area), aimed at the middle of its hull.
     signature: v.signature

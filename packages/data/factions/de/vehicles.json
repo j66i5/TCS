@@ -427,6 +427,18 @@
           "item": "de-mells-round",
           "count": 2,
           "charge": 1
+        },
+        {
+          "item": "de-bordwerkzeug",
+          "count": 1
+        },
+        {
+          "item": "de-kettenglied-puma",
+          "count": 4
+        },
+        {
+          "item": "de-mg5-rohr",
+          "count": 1
         }
       ],
       "sources": [
@@ -856,7 +868,28 @@
         "confidence": "low",
         "note": "Game values: the Puma has an automatic fire suppression system (search extracts); its charges, the delay and the chance to put a fire out are not published."
       },
-      "laserWarner": true
+      "laserWarner": true,
+      "repair": {
+        "tool": "de-bordwerkzeug",
+        "parts": {
+          "track": [
+            {
+              "item": "de-kettenglied-puma",
+              "count": 2
+            }
+          ],
+          "coax": [
+            {
+              "item": "de-mg5-rohr",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
+      }
     },
     {
       "id": "de-boxer-san",
@@ -1106,6 +1139,10 @@
         {
           "item": "de-boxer-extinguisher",
           "count": 2
+        },
+        {
+          "item": "de-bordwerkzeug",
+          "count": 1
         }
       ],
       "signature": {
@@ -1363,7 +1400,17 @@
         "https://www.army-technology.com/projects/boxer/"
       ],
       "confidence": "medium",
-      "note": "Boxer ambulance (M10.6-data): the first German wheeled vehicle. Crew of three: commander, driver and a medic in the patient compartment (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places. No weapon station. M7.6b reuses this hull for the Boxer carrier. Ambulance behaviour (requests, runs, loading casualties) comes with M10.6a."
+      "note": "Boxer ambulance (M10.6-data): the first German wheeled vehicle. Crew of three: commander, driver and a medic in the patient compartment (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places. No weapon station. M7.6b reuses this hull for the Boxer carrier. Ambulance behaviour (requests, runs, loading casualties) comes with M10.6a.",
+      "repair": {
+        "tool": "de-bordwerkzeug",
+        "parts": {
+          "wheels": [],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
+      }
     },
     {
       "id": "de-leopard2a7v",
@@ -1702,6 +1749,18 @@
         {
           "item": "de-leopard-extinguisher",
           "count": 2
+        },
+        {
+          "item": "de-bordwerkzeug",
+          "count": 1
+        },
+        {
+          "item": "de-kettenglied-leopard2",
+          "count": 4
+        },
+        {
+          "item": "de-mg3-rohr",
+          "count": 1
         }
       ],
       "dischargers": {
@@ -2162,7 +2221,28 @@
         "https://www.army-technology.com/projects/leopard-2-a7-main-battle-tank/"
       ],
       "confidence": "medium",
-      "note": "Leopard 2A7V main battle tank (M7.6a): 4 crew (commander, gunner and loader in the turret, driver front right). Search extracts only (pages not opened in this container). Published (medium): mass, engine, top speed, crew, 42 rounds, sights. Game values (low): armour, components, reload, stowage split, signature. No reactive armour; no active protection (the 2A8 with Trophy comes with M14.5; DM73 later). No laser warner (not found for the 2A7V)."
+      "note": "Leopard 2A7V main battle tank (M7.6a): 4 crew (commander, gunner and loader in the turret, driver front right). Search extracts only (pages not opened in this container). Published (medium): mass, engine, top speed, crew, 42 rounds, sights. Game values (low): armour, components, reload, stowage split, signature. No reactive armour; no active protection (the 2A8 with Trophy comes with M14.5; DM73 later). No laser warner (not found for the 2A7V).",
+      "repair": {
+        "tool": "de-bordwerkzeug",
+        "parts": {
+          "track": [
+            {
+              "item": "de-kettenglied-leopard2",
+              "count": 2
+            }
+          ],
+          "coax": [
+            {
+              "item": "de-mg3-rohr",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
+      }
     },
     {
       "id": "de-boxer-gtk",
@@ -2526,6 +2606,10 @@
         {
           "item": "de-boxer-extinguisher",
           "count": 2
+        },
+        {
+          "item": "de-bordwerkzeug",
+          "count": 1
         }
       ],
       "sources": [
@@ -2925,6 +3009,16 @@
         "sources": [],
         "confidence": "low",
         "note": "Game values as the Puma's: an automatic fire suppression system is usual on the Boxer; charges, delay and chance are not published."
+      },
+      "repair": {
+        "tool": "de-bordwerkzeug",
+        "parts": {
+          "wheels": [],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
       }
     },
     {
@@ -3291,6 +3385,10 @@
         {
           "item": "de-boxer-extinguisher",
           "count": 2
+        },
+        {
+          "item": "de-bordwerkzeug",
+          "count": 1
         }
       ],
       "sources": [
@@ -3691,6 +3789,16 @@
         "sources": [],
         "confidence": "low",
         "note": "Game values as the Puma's: an automatic fire suppression system is usual on the Boxer; charges, delay and chance are not published."
+      },
+      "repair": {
+        "tool": "de-bordwerkzeug",
+        "parts": {
+          "wheels": [],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
       }
     }
   ]

@@ -981,6 +981,8 @@ export interface Catalog {
   fingerprint: string;
   /** Medical data (core/medical.json, M10.1); absent in data sets without it (old tests). */
   medical?: MedicalDef;
+  /** Field repair (core/repair.json, M11.7a); absent: crews repair nothing (old tests, data sets without it). */
+  repair?: RepairDef;
   items: Record<DefId, ItemTypeDef>;
   movementModes: Record<DefId, MovementModeDef>;
   qualities: Record<DefId, QualityDef>;
@@ -1070,6 +1072,20 @@ export interface VehicleDef {
   laserWarner?: boolean;
   /** An ambulance (M10.6-data): patient layouts (alternatives) and the protective emblem. Behaviour: M10.6a. */
   ambulance?: { layouts: { lying: number; sitting: number; lyingOutside: number }[]; marked: boolean };
+  /** Field repair (M11.7a): the crew's tool kit (must be in the container, not used up) and the parts each task
+   *  uses up. Absent: its crew repairs nothing. */
+  repair?: { tool?: DefId; parts: Partial<Record<ComponentKind, { item: DefId; count: number }[]>> };
+}
+
+/** One field repair task (core/repair.json, M11.7a). */
+export interface RepairTaskDef { outside: boolean; men: number; manMin: number; minCondition: number; restoreTo: number; chance: number }
+/** Field repair (core/repair.json `repair`, M11.7a) without provenance. */
+export interface RepairDef {
+  stepS: number; quietS: number; underFireS: number; enemyNearM: number; suppressionStop: number; orderHitS: number;
+  skill: { key: string; k: number; ref: number; driverFactor: number; minRate: number };
+  order: ComponentKind[];
+  tasks: Partial<Record<ComponentKind, RepairTaskDef>>;
+  workshopDays: Partial<Record<ComponentKind, number>>;
 }
 
 export interface VehiclePlate { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; material: DefId; thicknessMm: number; slopeDeg: number }

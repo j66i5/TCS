@@ -15,6 +15,7 @@ import {
   BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   MedicalFile, type MedicalT,
+  RepairFile, type RepairT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
   StringsFile, UnitsFile, VehiclesFile, type VehicleT,
   CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT,
@@ -61,6 +62,8 @@ export interface DataSet {
   wounds: WoundsT | null;
   /** Medical data (M10.1; optional file core/medical.json). */
   medical?: MedicalT;
+  /** Field repair (M11.7a; optional file core/repair.json). */
+  repair?: RepairT;
   shooting: ShootingT | null;
   spotting: SpottingT | null;
   behaviour: BehaviourT | null;
@@ -177,6 +180,12 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
   const behaviour = parse(BehaviourFile, "core/behaviour.json", files["core/behaviour.json"], errors);
   const medical = files["core/medical.json"] === undefined ? null : parse(MedicalFile, "core/medical.json", files["core/medical.json"], errors);
   if (medical) checkMedical(medical, strings, errors);
+  const repair = files["core/repair.json"] === undefined ? null : parse(RepairFile, "core/repair.json", files["core/repair.json"], errors);
+  if (repair) {
+    const R = repair.repair;
+    for (const k of Object.keys(R.tasks)) if (!R.order.includes(k as never)) errors.push({ file: "core/repair.json", path: `repair.tasks.${k}`, message: `task '${k}' is not in repair.order`, severity: "error" });
+    for (const [k, t] of Object.entries(R.tasks)) if (t && t.minCondition >= t.restoreTo) errors.push({ file: "core/repair.json", path: `repair.tasks.${k}`, message: "minCondition must be below restoreTo", severity: "error" });
+  }
   const data: DataSet = {
     wounds,
     shooting,
@@ -191,6 +200,7 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     strings,
     factions: {},
     ...(medical ? { medical } : {}),
+    ...(repair ? { repair } : {}),
   };
   // Appearance (M7.5): presentation only, outside the catalog; its keys must name terrain entries.
   if (files["core/appearance.json"] !== undefined) {
@@ -605,6 +615,21 @@ function checkVehicles(
     // M7.4b: extinguisher charges, active protection charges and add-on tiles are counted items.
     if (v.extinguisher && !pack.items[v.extinguisher.item]) err("extinguisher.item", `unknown item '${v.extinguisher.item}'`);
     if (v.activeProtection && !pack.items[v.activeProtection.item]) err("activeProtection.item", `unknown item '${v.activeProtection.item}'`);
+    // M11.7a: the tool kit and the parts of each repair task are counted items stowed aboard, on a component it has.
+    if (v.repair) {
+      const stowed = (item: string) => v.stowed.filter((x) => x.item === item).reduce((n, x) => n + x.count, 0);
+      if (v.repair.tool !== undefined) {
+        if (!pack.items[v.repair.tool]) err("repair.tool", `unknown item '${v.repair.tool}'`);
+        else if (stowed(v.repair.tool) < 1) err("repair.tool", `'${v.repair.tool}' is not stowed`);
+      }
+      for (const [kind, parts] of Object.entries(v.repair.parts)) {
+        if (!v.components?.parts.some((c) => c.kind === kind)) err(`repair.parts.${kind}`, `no '${kind}' component on this vehicle`);
+        parts?.forEach((x, j) => {
+          if (!pack.items[x.item]) err(`repair.parts.${kind}[${j}].item`, `unknown item '${x.item}'`);
+          else if (stowed(x.item) < x.count) err(`repair.parts.${kind}[${j}].item`, `fewer '${x.item}' stowed than one repair uses`);
+        });
+      }
+    }
     v.armour?.tiles?.forEach((t, k) => {
       const it = pack.items[t.item];
       if (!it) err(`armour.tiles[${k}].item`, `unknown item '${t.item}'`);

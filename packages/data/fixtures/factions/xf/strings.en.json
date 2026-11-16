@@ -44,5 +44,8 @@
   "item.xf-pot-round": "Test pot round",
   "item.xf-scale": "Scale",
   "item.xf-scale-hull": "Hull scale",
-  "role.xf.stoker": "Stoker"
+  "role.xf.stoker": "Stoker",
+  "item.xf-kit": "fixture tool kit",
+  "item.xf-link": "fixture track link",
+  "vehicle.xf.tug": "Tug"
 }

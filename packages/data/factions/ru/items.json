@@ -858,6 +858,42 @@
       ],
       "confidence": "medium",
       "note": "The BTR-82A's fuel tanks (M7.6c): the charge is litres of diesel (0.84 kg per litre); 300 L for about 600 km (search extracts; ROE gives 700 km). The tank is part of the hull (mass 0)."
+    },
+    {
+      "id": "ru-zip",
+      "nameKey": "item.ru-zip",
+      "category": "vehicle-supply",
+      "massKg": 40,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.7a field repair: the crew's ZIP kit (zapasnye chasti, instrument i prinadlezhnosti: tools, tow cables); must be aboard for any repair, not used up. Mass a game value (low)."
+    },
+    {
+      "id": "ru-trak-t72",
+      "nameKey": "item.ru-trak-t72",
+      "category": "vehicle-supply",
+      "massKg": 17,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.7a: one RMSh track link of the T-72/T-90 family with its pin (about 97 links of about 17 kg per side: memory, low); a broken track takes two (game value)."
+    },
+    {
+      "id": "ru-trak-bmp",
+      "nameKey": "item.ru-trak-bmp",
+      "category": "vehicle-supply",
+      "massKg": 8,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.7a: one BMP-2 track link with pin (mass estimated, low)."
+    },
+    {
+      "id": "ru-pkt-stvol",
+      "nameKey": "item.ru-pkt-stvol",
+      "category": "vehicle-supply",
+      "massKg": 3,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.7a: a spare barrel for the coaxial PKT/PKTM (about 3 kg, memory, low)."
     }
   ]
 }

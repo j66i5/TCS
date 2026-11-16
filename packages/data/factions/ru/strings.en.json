@@ -174,5 +174,9 @@
   "ammo.ru-rpo-a": "RPO-A Shmel",
   "role.ru.shturmovik-rpo": "Assault trooper (RPO-A)",
   "role.ru.assault-commander": "Assault group commander",
-  "role.ru.uav-operator": "Radio and drone operator"
+  "role.ru.uav-operator": "Radio and drone operator",
+  "item.ru-zip": "crew ZIP tool kit",
+  "item.ru-trak-t72": "T-72/T-90 track link",
+  "item.ru-trak-bmp": "BMP-2 track link",
+  "item.ru-pkt-stvol": "spare PKT barrel"
 }

@@ -31,6 +31,27 @@ describe("data loader", () => {
     expect(errors.filter((e) => e.severity === "error")).toEqual([]);
   });
 
+  it("checks field repair data (M11.7a): tool and parts known and stowed, a component of the kind, a crew task", () => {
+    const files = clone(read(["core", "factions"]));
+    type V = { id: string; stowed: { item: string; count: number }[]; repair?: { tool?: string; parts: Record<string, { item: string; count: number }[]> } };
+    const vs = (files["factions/de/vehicles.json"] as { vehicles: V[] }).vehicles;
+    const puma = vs.find((v) => v.id === "de-puma")!;
+    puma.repair!.tool = "de-nothing";
+    puma.repair!.parts["track"] = [{ item: "de-kettenglied-puma", count: 9 }];
+    const gtk = vs.find((v) => v.id === "de-boxer-gtk")!;
+    gtk.repair!.parts["coax"] = [];
+    gtk.stowed = gtk.stowed.filter((x) => x.item !== "de-bordwerkzeug");
+    const text = formatErrors(loadDataSet(files).errors);
+    expect(text).toContain("unknown item 'de-nothing'");
+    expect(text).toContain("fewer 'de-kettenglied-puma' stowed than one repair uses");
+    expect(text).toContain("no 'coax' component on this vehicle");
+    expect(text).toContain("'de-bordwerkzeug' is not stowed");
+    const files2 = clone(read(["core", "factions"]));
+    (files2["core/repair.json"] as { repair: { tasks: Record<string, unknown> } }).repair.tasks["radio"] = undefined;
+    delete (files2["core/repair.json"] as { repair: { tasks: Record<string, unknown> } }).repair.tasks["radio"];
+    expect(formatErrors(lintDataSet(files2).errors.filter((e) => e.severity === "error"))).toContain("no crew task 'radio' in core/repair.json");
+  });
+
   it("reports broken references readably with file and path", () => {
     const files = clone(read(["core", "factions"]));
     const units = files["factions/de/units.json"] as { units: { members: { role: string }[] }[] };
@@ -114,7 +135,7 @@ describe("data loader", () => {
       expect(formatErrors(errors.filter((e) => e.severity === "error"))).toBe("");
       expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san", "de-leopard2a7v", "de-boxer-gtk", "de-boxer-gtk-gmw"]);
       expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2", "ru-bmm", "ru-t90m", "ru-t72b3m", "ru-btr82a"]);
-      expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon", "xf-litter-cart", "xf-tortoise"]);
+      expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon", "xf-litter-cart", "xf-tortoise", "xf-tug"]);
     });
     it("checks tanks (M7.6a): reactive tiles, autoloader cycle, a round in the breech, the missile range", () => {
       const xfV = (f: Record<string, unknown>, i: number) => (f["fixtures/factions/xf/vehicles.json"] as { vehicles: V[] }).vehicles[i]!;

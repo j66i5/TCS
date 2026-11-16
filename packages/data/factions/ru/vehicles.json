@@ -408,6 +408,18 @@
           "item": "ru-9m113m-round",
           "count": 3,
           "charge": 1
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        },
+        {
+          "item": "ru-trak-bmp",
+          "count": 4
+        },
+        {
+          "item": "ru-pkt-stvol",
+          "count": 1
         }
       ],
       "sources": [
@@ -859,6 +871,27 @@
         "sources": [],
         "confidence": "low",
         "note": "Game values: the BMP-2 carries a fire-extinguishing system (search extracts); its charges, delay and chance are not published. Lower than the Puma's: fuel in the rear doors and between the seats (owner: the BMP-2 burns easily)."
+      },
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "track": [
+            {
+              "item": "ru-trak-bmp",
+              "count": 2
+            }
+          ],
+          "coax": [
+            {
+              "item": "ru-pkt-stvol",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
       }
     },
     {
@@ -1106,6 +1139,10 @@
         {
           "item": "ru-bmm-extinguisher",
           "count": 2
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
         }
       ],
       "signature": {
@@ -1362,7 +1399,17 @@
         "https://en.wikipedia.org/wiki/BTR-80"
       ],
       "confidence": "medium",
-      "note": "BMM armoured medical vehicle on the BTR-80 (M10.6-data): the first Russian wheeled vehicle. Crew of three: driver, commander and a medic (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places inside. No weapon station (the BTR-80 turret is removed). Ambulance behaviour comes with M10.6a."
+      "note": "BMM armoured medical vehicle on the BTR-80 (M10.6-data): the first Russian wheeled vehicle. Crew of three: driver, commander and a medic (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places inside. No weapon station (the BTR-80 turret is removed). Ambulance behaviour comes with M10.6a.",
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "wheels": [],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
+      }
     },
     {
       "id": "ru-t90m",
@@ -1740,6 +1787,18 @@
         {
           "item": "ru-relikt-hull-side",
           "count": 12
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        },
+        {
+          "item": "ru-trak-t72",
+          "count": 4
+        },
+        {
+          "item": "ru-pkt-stvol",
+          "count": 1
         }
       ],
       "dischargers": {
@@ -2252,7 +2311,28 @@
         "https://www.armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-90m-model-2017-mbt-main-battle-tank-technical-data-sheet"
       ],
       "confidence": "medium",
-      "note": "T-90M Proryv main battle tank (M7.6a): 3 crew (driver front centre, gunner turret left, commander turret right), carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, 43 rounds in all (40 in another source), Sosna-U and PK-PAN thermal sights, Relikt, 2A46M-5, Refleks-M. Game values (low): armour, tiles, components, stowage split, reload 7 s, signature. Laser warner (low: a Shtora-type warning set reported)."
+      "note": "T-90M Proryv main battle tank (M7.6a): 3 crew (driver front centre, gunner turret left, commander turret right), carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, 43 rounds in all (40 in another source), Sosna-U and PK-PAN thermal sights, Relikt, 2A46M-5, Refleks-M. Game values (low): armour, tiles, components, stowage split, reload 7 s, signature. Laser warner (low: a Shtora-type warning set reported).",
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "track": [
+            {
+              "item": "ru-trak-t72",
+              "count": 2
+            }
+          ],
+          "coax": [
+            {
+              "item": "ru-pkt-stvol",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
+      }
     },
     {
       "id": "ru-t72b3m",
@@ -2615,6 +2695,18 @@
         {
           "item": "ru-relikt-hull-side",
           "count": 12
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        },
+        {
+          "item": "ru-trak-t72",
+          "count": 4
+        },
+        {
+          "item": "ru-pkt-stvol",
+          "count": 1
         }
       ],
       "dischargers": {
@@ -3100,7 +3192,28 @@
         "https://defense-update.com/?p=155195"
       ],
       "confidence": "medium",
-      "note": "T-72B3M (T-72B3 obr. 2016) main battle tank (M7.6a): 3 crew, carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, Sosna-U, Relikt on the glacis and skirts, Kontakt-5 on the turret. Game values (low): armour, tiles, components, 40 rounds in all (38-45 in the sources), reload 7.5 s, signature. 3BM42 is the carousel round here (low: the B3M's newer autoloader may take 3BM59/60). No laser warner (not found). No turret bustle rack."
+      "note": "T-72B3M (T-72B3 obr. 2016) main battle tank (M7.6a): 3 crew, carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, Sosna-U, Relikt on the glacis and skirts, Kontakt-5 on the turret. Game values (low): armour, tiles, components, 40 rounds in all (38-45 in the sources), reload 7.5 s, signature. 3BM42 is the carousel round here (low: the B3M's newer autoloader may take 3BM59/60). No laser warner (not found). No turret bustle rack.",
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "track": [
+            {
+              "item": "ru-trak-t72",
+              "count": 2
+            }
+          ],
+          "coax": [
+            {
+              "item": "ru-pkt-stvol",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
+      }
     },
     {
       "id": "ru-btr82a",
@@ -3505,6 +3618,14 @@
         {
           "item": "ru-bmm-extinguisher",
           "count": 2
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        },
+        {
+          "item": "ru-pkt-stvol",
+          "count": 1
         }
       ],
       "sources": [
@@ -3942,6 +4063,22 @@
         "sources": [],
         "confidence": "low",
         "note": "Game values as the BMP-2's and the BMM's."
+      },
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "wheels": [],
+          "coax": [
+            {
+              "item": "ru-pkt-stvol",
+              "count": 1
+            }
+          ],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair: the kit the crew needs and the parts each crew task uses up (game values from forum and test-drive search extracts, research 2026-11-16, low)."
       }
     }
   ]

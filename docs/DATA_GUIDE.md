@@ -204,6 +204,18 @@ out, worst-case bleeding in litres per second), `wounding` (knock-down seconds, 
 `effects` (when a man can no longer walk or use his rifle). After a change run `npm run lab -- casualty` and
 compare the table.
 
+## Field repair (M11.7a)
+
+`core/repair.json` (optional; without it crews repair nothing): `repair.tasks` per component kind — `outside` (the
+men work beside the hull, exposed) or inside, `men` (how many work at it), `manMin` (man-minutes at work rate 1),
+`minCondition` / `restoreTo` (a component below `restoreTo` and at least `minCondition` is a task; done, it is back
+at `restoreTo`), `chance` (it works; a failed task makes that component beyond the crew for the battle). `order`:
+which damaged kind first (every task kind must be in it). `stepS`, `quietS`, `underFireS`, `enemyNearM`,
+`suppressionStop`, `orderHitS`: when the crew starts, stops and refuses an order (see HOW_IT_WORKS). `skill`: work
+rate per man 1 + `k` x (skill `key` - `ref`), at least `minRate`, the driver x `driverFactor`. `workshopDays`: days
+in the workshop per component kind at condition 0 (campaign input). Search extracts only: `"medium"` at most.
+After a change run `npm run lab -- repair`.
+
 ## Medical data (M10.1)
 
 `core/medical.json`: `physiology` (rates of the "medical" body model: tension pneumothorax chance, onset and
@@ -447,6 +459,13 @@ metres: `f` forward (+) / back, `r` right (+) / left, `u` up from the ground.
   the `passenger` seats are the sitting places. A crew template whose vehicle has an `ambulance` block is never
   picked as the default crew of the vehicles scenario. The painted emblem is appearance data: a faction
   `appearance.json` may give `markings: { "<vehicle type>": "red-cross" }` (outside the catalog).
+- Field repair (M11.7a): `repair: { tool?, parts: { <component kind>: [{ item, count }] } }` lists the crew tasks
+  this hull's crew can do (each kind must be a task of `core/repair.json` and a component of the hull) and the
+  counted items each task uses up from the container (`[]`: no part, e.g. the radio or a holed 8x8 wheel side).
+  `tool` is the crew's tool kit: it must be aboard for any repair and is not used up. Every tool and part item
+  must be stowed (at least the count one repair uses; the loader checks). Without a `repair` block the crew
+  repairs nothing. Research comes from search extracts only: confidence `"medium"` at most (the lint refuses
+  `"high"`).
 - Armour figures from sources in mm RHA are multiplied by `rhaToMildSteel` (core/ballistics.json, 1.25) to the
   mild-steel scale the simulation uses; the `armour-steel` material has the same resistance.
 - Main battle tanks (M7.6a):

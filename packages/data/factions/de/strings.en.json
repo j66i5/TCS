@@ -153,5 +153,10 @@
   "item.de-gmw": "GMW 40 mm (tripod)",
   "weapon.de-gmw-rws": "GMW 40 mm",
   "weapon.de-gmw": "GMW 40 mm (tripod)",
-  "vehicle.de.boxer-gtk-gmw": "GTK Boxer (GMW)"
+  "vehicle.de.boxer-gtk-gmw": "GTK Boxer (GMW)",
+  "item.de-bordwerkzeug": "crew tool kit",
+  "item.de-kettenglied-leopard2": "Leopard 2 track link",
+  "item.de-kettenglied-puma": "Puma track link",
+  "item.de-mg5-rohr": "spare MG5 barrel",
+  "item.de-mg3-rohr": "spare MG3 barrel"
 }

@@ -1,10 +1,19 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11 hold battle: a stronger defence (2026-11-16, branch `claude/m11-logistics`).** Owner: dig the defenders in,
+  fewer attacker mortar rounds. New minimal fighting positions (`sim/positions.ts`, data `core/ballistics.json`
+  `fightingPosition`, low): a side with `rules.prepared` digs a hole under each man halted outdoors in a window
+  (hold battle 60-90 s, where the commander sites them); the rim stops rounds, fragments and blast that come in
+  below it (only head and weapon show); men keep their holes (cover seeking, side steps, drone hiding, re-siting,
+  bearers under fire), morale counts a hole as cover; drawn as a hole in spoil. Attacker mortar share 1/3 -> 1/6.
+  6 seeds x 60 min: wave 2 / wave 3 reached 5/4 and 6/5 without resupply (before 5/4, 4/4), defender wins 2 and 2
+  (before 0, 0), with resupply 2 and 3 (before 3, 1); squads out of spares by minute 30 met; a machine gun dry by
+  minute 45 NOT met (2 and 1 of 6). Numbers in DECISIONS "M11 hold battle: a stronger defence". Slice 44 next.
 - **M11.7b Recovery (2026-11-16, branch `claude/medical-ambulance-smoke`, roadmap-detail slice 51).** Each side with
   vehicles has a recovery vehicle off the map (Bergepanzer 3 Büffel: tows up to 70 t; BREM-1: up to 50 t, refuses a
   Leopard 2; fixture `xf-tug`). The player's Recover button (selected crew's immobilised or abandoned hull) or the AI
@@ -365,6 +374,10 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+- M11 hold battle (2026-11-16): fighting-position values are game values, low confidence (hole 1 m wide, up to 1.2 m
+  deep; head and weapon 0.1-0.3 m above the rim by posture); positions only prepared before the battle, no digging
+  in battle. Defending machine guns still rarely run dry in 45 min (they see and fire little); seed 4 of
+  hold-resupply still breaks in the first wave.
 
 - M11.7b recovery (2026-11-16; new data low unless noted: `de-bergepanzer3` (body, mass 54.3 t, drive, armour,
   components, the third crewman), `ru-brem1` (body, drive 618 kW, armour, components; mass 41 t and crew of three

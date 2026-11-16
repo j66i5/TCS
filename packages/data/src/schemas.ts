@@ -132,6 +132,9 @@ export const BallisticsFile = withProv({
     /** Small folds and grass: a fragment flying lower than clutterHeightM above the ground is stopped with
      *  this chance per metre at ground level, falling to zero at that height. */
     clutterHeightM: Num(0, 2), clutterStopPerM: Num(0, 1) }).strict(),
+  /** Fighting positions (M11 hold battle): a dug hole `halfWidthM` round its middle, at most `depthM` deep; its rim
+   *  stops what comes in below it: only the top `exposedM` of a man (by posture) shows; prepared positions at least `spacingM` apart. */
+  fightingPosition: z.object({ halfWidthM: Num(0.1, 3), depthM: Num(0, 3), exposedM: z.object({ standing: Num(0, 2), crouching: Num(0, 2), prone: Num(0, 1) }).strict(), spacingM: Num(0.5, 20) }).strict().optional(),
   /** How a grenade that has not yet burst bounces: speed kept along the surface normal and along the surface;
    *  both are multiplied by softFactor on soft ground (material lighter than softBelowDensityKgM3) and by
    *  vegetationFactor in vegetation. Below stopSpeedMps it lies still. */

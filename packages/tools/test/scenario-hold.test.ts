@@ -1,11 +1,13 @@
 /** M11.1: the hold-resupply scenario: waves arriving late, the supply point, save and load across an arrival. */
 import { describe, expect, it } from "vitest";
-import { holdBattle } from "@tcs/scenario";
-import { waveCommanders } from "@tcs/ai";
-import { createSim, hashState, loadGame, saveGame, secondsToTicks, step, submitOrder, type Sim } from "@tcs/sim";
+import { buildScenario, HOLD, holdBattle } from "@tcs/scenario";
+import { commanderController, waveCommanders } from "@tcs/ai";
+import { createSim, rimHeight, hashState, loadGame, saveGame, secondsToTicks, step, submitOrder, type Sim } from "@tcs/sim";
 import { loadData } from "../src/scenarios";
 
 const data = loadData();
+const input0 = () => holdBattle(data, { factions: ["de", "ru"], seed: 1 });
+const blueCommander = (input: ReturnType<typeof input0>) => commanderController("blue", input);
 
 describe("hold-resupply (M11.1)", () => {
   it("one defending platoon, three attacking platoons of which two arrive at 15 and 30 min; a supply point of cans", () => {
@@ -24,6 +26,32 @@ describe("hold-resupply (M11.1)", () => {
     expect(Math.hypot(cache.x - main.x, cache.y - main.y)).toBeGreaterThan(100);
     expect(cache.x).toBeLessThan(main.x); // (behind the village, away from the attack from the east)
   });
+
+  it("a stronger defence: the defender's positions are prepared, the attacker has a sixth of the platoon battle's mortar rounds", () => {
+    for (const defender of ["blue", "red"] as const) {
+      const input = holdBattle(data, { factions: ["de", "ru"], seed: 3, defender });
+      const attacker = defender === "blue" ? "red" : "blue";
+      expect(input.rules.prepared).toEqual([{ side: defender, fromS: HOLD.preparedS[0], untilS: HOLD.preparedS[1] }]);
+      const plain = buildScenario(data, { kind: "platoon-attack", seed: 3, mapKind: "village", factions: ["de", "ru"], attacker, attackerPlatoons: 3, hold: true });
+      const he = (i: typeof input) => i.rules.support!.find((sp) => sp.side === attacker && sp.asset === undefined)!.he;
+      expect(he(input)).toBe(Math.round(he(plain) * HOLD.attackerMortarShare));
+      expect(he(input)).toBeLessThan(he(plain) / 4);
+    }
+    expect(input0().catalog.ballistics.fightingPosition).toBeDefined();
+  });
+
+  it("the defenders dig in where they are sited in the first minutes and fight from there", () => {
+    const input = holdBattle(data, { factions: ["de", "ru"], seed: 1, timeLimitSeconds: 150 });
+    const sim: Sim = createSim(input);
+    const ctl = waveCommanders("red", input), def = blueCommander(input);
+    for (let i = 0; i < secondsToTicks(HOLD.preparedS[1] + 1); i++) { for (const c of [ctl, def]) for (const o of c.think(sim.state, sim.state.tick)) submitOrder(sim, o); step(sim); }
+    const ps = sim.state.terrain.positions ?? [];
+    expect(ps.length).toBeGreaterThanOrEqual(6);
+    expect(ps.every((p) => p.side === "blue")).toBe(true);
+    // (Men in them now: a rim above their feet.)
+    const inHole = [...sim.state.soldier.keys()].filter((m) => rimHeight(sim.ctx, sim.state, m) > 0);
+    expect(inHole.length).toBeGreaterThanOrEqual(6);
+  }, 120_000);
 
   it("a wave enters at its time and not before; save and load across the arrival replays the same", () => {
     const mk = () => holdBattle(data, { factions: ["de", "ru"], seed: 1, waveS: [0, 30] });

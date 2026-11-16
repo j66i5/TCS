@@ -54,6 +54,7 @@ import { carrySystem } from "./systems/carry";
 import { vehicleDriveSystem, vehicleSyncSystem } from "./systems/drive";
 import { physiologySystem, postureSystem } from "./systems/body";
 import { enqueueOrder, deliverOrders, receiveOrders } from "./systems/orders";
+import { positionsSystem } from "./positions";
 
 export interface Sim {
   ctx: SimContext;
@@ -181,6 +182,7 @@ export function step(sim: Sim): SimEvent[] {
   // Getting in and out of vehicles, seat swaps (M7.2; returns at once without vehicles).
   boardingSystem(ctx, state, events);
   objectiveSystem(ctx, state, events);
+  if (ctx.rules.prepared !== undefined) positionsSystem(ctx, state, events); // (M11 hold battle)
   // Late arrivals (M11.1): a wave enters at its time (once a second; nothing without late units).
   if (ctx.late.length > 0) arrivalSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.

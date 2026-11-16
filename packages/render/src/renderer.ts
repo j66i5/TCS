@@ -1474,6 +1474,19 @@ export class BattleRenderer {
       if (this.look === "photo") { this.scorch(sx, sy, rad * 2.3, cr.x * 7.1 + cr.y * 3.3); continue; } // soft, ragged
       g.circle(sx, sy, rad).fill({ color: 0x2b2018, alpha: 0.55 });
     }
+    // Fighting positions (M11 hold battle; terrain state): a dark hole in a ring of spoil. Under fog of war only the
+    // player's own (the enemy's come to light only as his men do).
+    const holes = state.terrain.positions;
+    if (holes && holes.length > 0) {
+      const hw = this.cat?.ballistics.fightingPosition?.halfWidthM ?? 0.5;
+      for (const p of holes) {
+        if (fog && p.side !== overlay.playerSide) continue;
+        const sx = (p.x - c.x) * c.scale, sy = (p.y - c.y) * c.scale;
+        if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
+        g.circle(sx, sy, Math.max(2, (hw + 0.45) * c.scale)).fill({ color: 0x7a6446, alpha: 0.75 });
+        g.circle(sx, sy, Math.max(1.2, hw * c.scale)).fill({ color: 0x21180f, alpha: 0.85 });
+      }
+    }
     // Bursts: a bright flash that becomes a spreading grey-brown cloud.
     for (const b of this.bursts) {
       const sx = (b.x - c.x) * c.scale, sy = (b.y - c.y) * c.scale;

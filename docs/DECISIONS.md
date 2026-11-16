@@ -7632,3 +7632,61 @@ drained from the start of the battle while it was not yet there; `fitBatteries` 
   spotting-with-smoke and bench-vehicles floors (8x) missed on this container, but origin/main a7aa754 run alone
   back to back in the same container misses them by the same amount (smoke 7.2x / 7.2x vs merged 7.7x / 7.5x;
   bench-vehicles 7.7x vs 7.9x / 7.5x): the container is slower today, not the merge.
+
+## 2026-11-16 — M11 hold battle: a stronger defence (fighting positions, fewer attacker mortar rounds; goldens regenerated)
+Owner answer 2026-11-16 (~12:00): the hold battle needs a stronger defence (dig the defenders in, fewer attacker
+mortar rounds) so it lasts long enough for ammunition to matter. Nothing in the code base dug men in (siting, houses
+and windows, cover by walls only), so a minimal **fighting position** was added (software decision; values low):
+- **Data** (`core/ballistics.json` `fightingPosition`, low; search extracts only): a hole `halfWidthM` 0.5 round a point,
+  at most `depthM` 1.2 deep (armpit deep); only the top `exposedM` of a man shows above its rim (standing 0.3, kneeling
+  0.2, lying in a shell scrape 0.1: head and weapon); positions at least `spacingM` 1.5 apart. Fingerprint changed.
+- **State** (`state.terrain.positions`, optional, no schema bump; terrain like craters): x, y, side, tick. Anyone of
+  either side standing in one is in it (an attacker who takes the ground can use the defender's holes).
+- **Digging** (`sim/positions.ts` `positionsSystem`, once a second, only with `rules.prepared`): a prepared side gets a
+  position under each of its able men who halts on the ground outdoors between `fromS` and `untilS` (the hold battle:
+  60-90 s, after the commander's siting walk: the positions are dug where he sites his men). None afterwards (digging
+  in battle is not modelled).
+- **Protection is geometric** (`rimStops`): a round or fragment that would strike a man in a hole below the rim and came
+  in over the rim's far side lower than the rim is stopped by the earth (`impact` soil; fragments vanish); a burst
+  whose line to his middle passes under the rim does not reach him with its blast. A steep fall, a burst in or over the
+  hole and anything above the rim still strike him. In the projectile loop the rim is one array per man (`SG.rim`, filled only
+  when positions exist), tested only when a body would be struck: no cost in battles without positions.
+- **Behaviour:** a man in a position counts as in cover for morale (as in a house); he does not leave it to seek
+  cover, to crawl out of the open or of a beaten zone, to step aside for a look, or for a canopy against a drone (he
+  lies down in it); the commander's re-siting toward a lost enemy (sight realism step 5) leaves men in positions where
+  they are; a man in a position under fire is not taken as a casualty bearer (as a man in a house under fire, M10);
+  bearers back from a carry take a free position of their side within 25 m of their leader. Medics and buddy aid still
+  leave their holes; panicked men still bolt.
+- **Render:** a dark hole in a ring of spoil, both looks; under fog of war only the player's own.
+- **Hold battle** (`HOLD`): `attackerMortarShare` 1/3 -> **1/6** of the platoon battle's allotment (RU attacker 8 HE
+  + 4 smoke, DE 4 + 2), `preparedS` [60, 90], `rules.prepared` for the defender.
+- **Measured** (6 seeds x 3600 s each, scratch runner over `consumptionBattle`; "wave 2/3" = the battle still running
+  at 900 / 1800 s; out of spares and MG dry = first defending squad with a man out of loaded spares, first defending
+  machine gun dry, s; median over 6 with "none" counted as never):
+
+  | scenario | resupply | before: ends (s) | w2 / w3 | def. wins | after: ends (s) | w2 / w3 | def. wins | squad out med. | MG dry |
+  |---|---|---|---|---|---|---|---|---|---|
+  | hold-resupply | off | 2428, 607, 2477, 2246, 2825, 1052 | 5 / 4 | 0 | 3600, 3600, 2599, 537, 2587, 1340 | 5 / 4 | 2 | 1550 -> 1145 | 1 -> 2 of 6 (med. none) |
+  | hold-resupply | on | 3600, 1453, 3600, 2119, 3600, 3600 | 6 / 5 | 3 | 3600, 3600, 2797, 631, 2728, 1340 | 5 / 4 | 2 | 1400 -> 1440 | 5 -> 2 of 6 |
+  | hold-resupply-ru | off | 2447, 2564, 424, 1822, 758, 2577 | 4 / 4 | 0 | 3600, 3600, 3600, 2948, 1676, 2655 | 6 / 5 | 2 | 1405 -> 1370 | 0 -> 1 of 6 (med. none) |
+  | hold-resupply-ru | on | 2447, 3600, 424, 3600, 669, 2197 | 4 / 4 | 1 | 3600, 3600, 3457, 1690, 1676, 3600 | 6 / 4 | 3 | 1405 -> 1370 | 1 -> 4 of 6 (med. 2740) |
+
+  Acceptance: wave 2 in >= 5 of 6 and wave 3 in >= 4 of 6: **met in all four rows**. A defending squad man out of
+  loaded spares by minute 30 (median, no resupply): **met** (1145 and 1370 s). Defender wins with resupply at least
+  as often as without: **met** (2 = 2, 3 > 2). A defending machine gun dry by minute 45 (median, no resupply): **not
+  met** (2 and 1 of 6 battles; the defenders' machine guns fire little: they see little, plan section 2 open point).
+  Seed 4 of hold-resupply still breaks in wave 1 (the Germans hit nobody there; their sited places see little).
+  Steps measured on the way (hold-resupply / -ru, no resupply, wave2/wave3/defender wins): positions alone with the
+  rim at the muzzle 5/4/3, 5/3/1; + bearers back into holes, prone in a scrape 4/4/4, 5/4/2; + no bearers from
+  holes under fire (final) 5/4/2, 6/5/2.
+- Other scenarios: no positions, no change in behaviour (event streams of platoon, vehicles and village-occupy 240 s
+  identical to origin/main; goldens changed for the catalog fingerprint, hold-resupply's two for the behaviour).
+  `npm run golden:update`; `golden/no-interiors` untouched.
+- Tests: `sim/test/positions.test.ts` (rim geometry; a crouching man in a hole hit only above the rim, soil impacts;
+  a grenade 4 m off does not wound a man in a hole; digging only in the window, saved and loaded; nothing without
+  positions); `tools/test/scenario-hold.test.ts` (prepared rule and the mortar share; defenders dug in by 91 s).
+- Checks: typecheck, lint, data lint (no errors), `npm test` 1487 pass. `npm run test:perf` alone: 20 of 23; the
+  spotting-with-smoke, bench-vehicles and bench-tanks floors (8x) missed, but origin/main 7c5a47b run alone in the same
+  container misses 6 (smoke 6.3x, bench-vehicles 7.5x, tanks 7.3x; this branch 6.8x, 6.6x, 7.7x); bench-vehicles
+  alone, alternating, 4 runs each: main 7.47, 7.61, 7.03, 6.38; this branch 7.06, 6.97, 6.99, 6.51 — noise of a slow
+  container (the new per-tick work in battles without positions is one length check per man).

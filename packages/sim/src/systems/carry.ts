@@ -34,6 +34,7 @@ import type { SimState } from "../state";
 import { loadKg, requestPosture } from "./body";
 import { coveredFrom, threatOf, unitThreat } from "./decisions";
 import { isCowering } from "./morale";
+import { freePositionNear } from "../positions";
 
 /** Code defaults when the data has no `carrying` block (old data sets). */
 const DEFAULTS = { reachM: 2, holdSuppression: 0.3, resumeQuietS: 10, selfDefenceM: 30, massRefKg: 105 };
@@ -177,13 +178,20 @@ export function endCarry(ctx: SimContext, state: SimState, events: EventSink, pa
 }
 
 /** Bearers back with their squad (M10.5, on arrival at the nest; a man returned to duty): each walks to his unit's leader. */
+/** M11: a bearer back from a carry takes a free fighting position within this of his leader (m; game value). */
+const FP_BACK_M = 25;
+
 export function bearersBack(ctx: SimContext, state: SimState, carriers: readonly EntityId[]): void {
   for (const m of carriers) {
     const s = state.soldier.get(m), mv = state.mover.get(m);
     const u = state.unit.get(state.identity.get(m)?.unit ?? -1);
     if (!s || !mv || !isAble(s) || !u || u.leader === null || u.leader === m) continue;
-    const a = state.transform.req(m), b = state.transform.get(u.leader);
-    if (!b || hypot2(a.x - b.x, a.y - b.y) < 5) continue;
+    const a = state.transform.req(m), b0 = state.transform.get(u.leader);
+    if (!b0) continue;
+    // (M11: into a free fighting position of his side near his leader, where there is one.)
+    const fpos = b0.z === 0 ? freePositionNear(ctx, state, u.side, b0.x, b0.y, FP_BACK_M, m) : null;
+    const b = fpos ? { x: fpos.x, y: fpos.y, z: 0 } : b0;
+    if (hypot2(a.x - b.x, a.y - b.y) < (fpos ? 0.3 : 5)) continue;
     const leg = routeBetween(ctx, navFor(ctx, "foot").search, a.x, a.y, b.x, b.y, { maxExpansions: 8000, snapCells: 3 }, { sz: a.z, gz: b.z });
     if (!leg) continue;
     mv.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" });

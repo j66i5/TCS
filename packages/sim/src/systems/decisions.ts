@@ -46,6 +46,7 @@ import { isGuiding } from "./missile-team";
 import { grenadeOption, throwArcExists, throwRangeM } from "./grenades";
 import { houseLeaveDecision, leftLately } from "./house";
 import { forEachSidestep } from "./peek";
+import { inPosition } from "../positions";
 import { windowWithView } from "./occupy";
 import { contactErrorM } from "./contacts";
 import { spared } from "../protection";
@@ -332,6 +333,7 @@ export function freeSpotNear(ctx: SimContext, state: SimState, id: EntityId, x: 
  * `soldier.crawlSearchM` where that enemy cannot, never toward him, keeping clear of his comrades' places.
  */
 function crawlToCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, threat: { x: number; y: number; z: number }): boolean {
+  if (inPosition(ctx, state, id)) return false; // (M11: in a fighting position he is in cover already)
   const S = ctx.catalog.behaviour.soldier, body = ctx.catalog.body.postures;
   const me = state.transform.req(id);
   const lie = body.prone.heightM * 0.6;
@@ -380,6 +382,7 @@ function crawlToCover(ctx: SimContext, state: SimState, id: EntityId, s: Soldier
  * where he lies already (a fold), he stays.
  */
 function crawlOutOfOpen(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, unitId: EntityId, threat: { x: number; y: number; z: number } | null): boolean {
+  if (inPosition(ctx, state, id)) return false; // (M11: in a fighting position he is in cover already)
   const S = ctx.catalog.behaviour.soldier, D = ctx.catalog.behaviour.decisions, body = ctx.catalog.body.postures;
   const me = state.transform.req(id);
   if (!ctx.catalog.movementModes[S.crawlMode] || indoorAt(ctx, me.x, me.y) >= 0) return false;
@@ -475,6 +478,7 @@ function leaveBeatenZone(ctx: SimContext, state: SimState, id: EntityId, s: Sold
   if (hypot2(me.x - b.x, me.y - b.y) > S.beatenRadiusM) return false;
   b.left = true;
   if (indoorAt(ctx, me.x, me.y) >= 0) return false; // in a house already: its walls and floors are his cover
+  if (inPosition(ctx, state, id)) return false; // (M11: so is a fighting position)
   // Only a man in the open: next to a wall, a hedge, a building or in woods he stays down where he is (and a man
   // in a position, e.g. on a support line, keeps it).
   if (exposureAt(navFor(ctx, "foot").grid, me.x, me.y) < S.beatenOpenExposure) return false;
@@ -542,6 +546,7 @@ function leaveBeatenZone(ctx: SimContext, state: SimState, id: EntityId, s: Sold
 }
 
 function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, threat: { x: number; y: number; z: number }): boolean {
+  if (inPosition(ctx, state, id)) return false; // (M11: in a fighting position he is in cover already)
   const D = ctx.catalog.behaviour.decisions, body = ctx.catalog.body.postures;
   const me = state.transform.req(id);
   const lie = body.prone.heightM * 0.6, kneel = body.crouching.muzzleHeightM;
@@ -799,7 +804,7 @@ function lookForLost(ctx: SimContext, state: SimState, id: EntityId, s: SoldierS
     return true;
   }
   // A few metres aside: the least exposed spot from which he sees him, in his posture or kneeling.
-  if (P.sidestepM.length === 0) return true;
+  if (P.sidestepM.length === 0 || inPosition(ctx, state, id)) return true; // (M11: not out of his fighting position)
   const home: Posture = s.homePosture ?? s.peekFrom ?? s.posture;
   const hs = [body[home].heightM * 0.9, body.crouching.heightM * 0.9];
   const grid = navFor(ctx, "foot").grid;
@@ -1131,7 +1136,7 @@ function hideFromDrone(ctx: SimContext, state: SimState, id: EntityId, s: Soldie
   hide.until = tick + hideT;
   s.droneHide = hide;
   if (s.intent?.kind !== "hideDrone") s.intent = { kind: "hideDrone", tick, x: me.x, y: me.y };
-  const covered = indoorAt(ctx, me.x, me.y) >= 0 || underCanopy(ctx, me.x, me.y, me.z, aboveM);
+  const covered = indoorAt(ctx, me.x, me.y) >= 0 || underCanopy(ctx, me.x, me.y, me.z, aboveM) || inPosition(ctx, state, id); // (M11: down in his hole)
   // (Only while the drone is still at least moveBeyondM off: closer, moving would show him; he lies still instead.
   // Not a man at a post: he lies down where he is.)
   if (!covered && m && H.searchM > 0 && near >= H.moveBeyondM * H.moveBeyondM && (hide.searched === undefined || tick - hide.searched >= hideT)

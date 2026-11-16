@@ -680,6 +680,8 @@ export interface TerrainState {
   craters: { x: number; y: number; radiusM: number; depthM: number; tick: number }[];
   /** Vegetation thinned by fire: [cell index, fraction removed 0..1], sorted by cell. */
   vegetationLoss: [number, number][];
+  /** M11 hold battle: dug fighting positions (`positions.ts`), in the order they were dug; anyone in one is in it. */
+  positions?: { x: number; y: number; side: string; tick: number }[];
 }
 
 /** A soldier's personal weapon. The loaded magazine is here, not in his container, while it is in the weapon. */

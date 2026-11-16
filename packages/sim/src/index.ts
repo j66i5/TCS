@@ -92,3 +92,4 @@ export * from "./medstats";
 export { aimErrorFactor, fireRateFactor, isCowering, leaderNear, moraleKicks, moraleOf, qualityMorale, resolveOf } from "./systems/morale";
 export * from "./ledger";
 export { REFILL_ACTION, refillChoice } from "./systems/refill";
+export { inPosition, positionAt, rimHeight, rimStops, positionsSystem } from "./positions";

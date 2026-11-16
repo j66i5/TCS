@@ -38,6 +38,7 @@ import { navCostAt, nearestPassable } from "../nav";
 import { navFor } from "../navctx";
 import { newEntity, type SimState } from "../state";
 import { bearersBack, endCarry, startCarry } from "./carry";
+import { inPosition } from "../positions";
 import { coveredFrom } from "./decisions";
 import { assignCarer, careEnabled, releaseCarer, treatedNow, underFireForCare } from "./medical";
 
@@ -372,6 +373,8 @@ function pickBearers(ctx: SimContext, state: SimState, top: EntityId, c: EntityI
     const t = state.transform.req(m);
     // (Not a man in a house under fire: his squad may have to get out of it.)
     if (indoorAt(ctx, t.x, t.y) >= 0 && underFireForCare(ctx, state, m)) continue;
+    // (M11: nor a man in a fighting position under fire: the defence keeps its holes manned; the carry waits.)
+    if (inPosition(ctx, state, m) && underFireForCare(ctx, state, m)) continue;
     cands.push({ m, d: hypot2(t.x - ct.x, t.y - ct.y) * (ident.unit === cu ? 0.5 : 1), u: ident.unit });
   }
   cands.sort((a, b) => a.d - b.d || a.m - b.m);

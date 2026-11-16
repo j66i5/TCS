@@ -44,6 +44,9 @@ export interface BattleRules {
   /** M11: resupply (refilling magazines from loose rounds, and every route of slices 44-48); false switches it off
    *  (`--no-resupply`, comparison batches). Default on. */
   resupply?: boolean;
+  /** M11 hold battle: a side whose positions were prepared before the battle: each of its men who halts on the
+   *  ground outdoors between `fromS` and `untilS` is in a dug fighting position there (`positions.ts`). */
+  prepared?: { side: SideId; fromS: number; untilS: number }[];
 }
 
 /** An area worth holding (M6). */

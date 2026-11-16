@@ -26,7 +26,7 @@
 import { withDrones } from "./drone";
 import {
   atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
-  type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
+  positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
@@ -695,6 +695,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
         pts.push(...one);
         if (closing(id, cx, cy) > RQ.closingM) pts.push(...one); // (a closing enemy counts twice)
       }
+      const inPosition = (m: EntityId): boolean => { const t = view.transform.get(m)!; return t.z === 0 && positionAt(ctx, view, t.x, t.y) >= 0; };
       // Does he see any of the points from where he is now (kneeling outdoors, at his own eye indoors)?
       const seesNow = (m: EntityId): boolean => {
         const t = view.transform.get(m)!, s = view.soldier.get(m)!;
@@ -705,7 +706,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       };
       // (Only a blind man who sees none of them where he is may shift: if there is none, nothing to work out — review
       // fix, a cost bound; the others are anchored where they are.)
-      const shift = blind.filter((m) => !seesNow(m));
+      // (M11: a man in a dug fighting position keeps it: a prepared defence does not leave its holes to look.)
+      const shift = blind.filter((m) => !seesNow(m) && !inPosition(m));
       if (shift.length === 0) return;
       // (A squad blind as a whole for `longBlindSeconds` may reach as far as a follow, within the ring plus `longRingM`.)
       const longBlind = allBlind && men.every((m) => !fresh(m, RQ.longBlindSeconds));

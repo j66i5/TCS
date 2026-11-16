@@ -261,6 +261,8 @@ export interface BallisticsDef {
     shieldSteelMm: number;
   };
   fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number; clutterHeightM: number; clutterStopPerM: number };
+  /** M11 hold battle: dug fighting positions (`sim/positions.ts`). */
+  fightingPosition?: { halfWidthM: number; depthM: number; exposedM: { standing: number; crouching: number; prone: number }; spacingM: number };
   bounce: { restitution: number; tangentKeep: number; softFactor: number; vegetationFactor: number; softBelowDensityKgM3: number; stopSpeedMps: number };
   /** Rounds against vehicle armour (M7.4a). */
   armour: { losFloorCos: number; grazeFuseCos: number; jetDecayMmPerM: number; spallComponentDamage: number; seatHalfM: number; seatHeightM: number };

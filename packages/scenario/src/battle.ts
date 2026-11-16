@@ -487,7 +487,7 @@ function placeVehicles(
 }
 
 /** M11.1 hold-resupply: what the waves and the supply point are (game values). */
-export const HOLD = { waveS: [0, 900, 1800], timeLimitSeconds: 3600, supplyBehindM: 150, canMaxRounds: 1200, attackerMortarShare: 1 / 3 } as const;
+export const HOLD = { waveS: [0, 900, 1800], timeLimitSeconds: 3600, supplyBehindM: 150, canMaxRounds: 1200, attackerMortarShare: 1 / 6, preparedS: [60, 90] } as const;
 
 export interface HoldDef {
   seed: number;
@@ -524,6 +524,9 @@ export function holdBattle(data: DataSet, def: HoldDef): BattleInput {
   // came; with the platoon battle's full allotment it still did in 2 of 3 trial seeds. Each wave's own allotment
   // arriving with it is for the off-map deliveries of slice 47.)
   for (const sp of input.rules.support ?? []) if (sp.side === attacker && sp.asset === undefined) { sp.he = Math.round(sp.he * HOLD.attackerMortarShare); sp.smoke = Math.round(sp.smoke * HOLD.attackerMortarShare); }
+  // Prepared positions (owner 2026-11-16, "a stronger defence"): the defenders dug in where their commander sites
+  // them; a man halted on the ground in the first minutes is in a fighting position there.
+  input.rules.prepared = [{ side: defender, fromS: HOLD.preparedS[0], untilS: HOLD.preparedS[1] }];
   // The supply point: behind the main objective, away from the attack.
   const main = input.rules.objectives[0]!;
   const dx = defender === "blue" ? -1 : 1;

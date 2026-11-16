@@ -176,7 +176,7 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "hold-resupply": {
-    description: "M11.1: a German platoon on foot holds the village centre against three Russian platoons coming in waves from the east at 0, 15 and 30 minutes (the attacker's usual mortar allotment); a supply point of cans 150 m behind the village; 60 minutes. The battle where ammunition runs short (`--no-resupply` for comparisons).",
+    description: "M11.1: a German platoon on foot holds the village centre against three Russian platoons coming in waves from the east at 0, 15 and 30 minutes (a sixth of the attacker's usual mortar allotment); the defenders dig in where they are sited in the first 90 s (fighting positions); a supply point of cans 150 m behind the village; 60 minutes. The battle where ammunition runs short (`--no-resupply` for comparisons).",
     build: (data, seed, seconds) => holdBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds }),
     controllers: (input) => [commanderController("blue", input), waveCommanders("red", input)],
   },

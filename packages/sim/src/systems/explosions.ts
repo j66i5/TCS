@@ -26,6 +26,7 @@ import { applyBlast } from "./wounds";
 import { markHouseDanger } from "./house";
 import { floorAtZ, indoorAt, roomOfPoint } from "../interior-nav";
 import { roomAt } from "../interior";
+import { rimHeight, rimStops } from "../positions";
 
 /**
  * Re-derive everything that depends on terrain damage (after a new breach, and after loading a save).
@@ -82,6 +83,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   // M7.6d (SPEC 3, an abstract effect): a thermobaric filling bursting in a room (or on its outer wall) fills it:
   // every man in that room takes the blast at the radii x `enclosedFactor`, no wall shielding him.
   const room = ex.thermobaric ? roomOfPoint(ctx, x, y, z - heightAt(map, x, y), THERMOBARIC_WALL_M) : null; // ground: ok (the burst's floor)
+  const holeHalf = (state.terrain.positions?.length ?? 0) > 0 ? ctx.catalog.ballistics.fightingPosition?.halfWidthM ?? 0 : 0;
   const rb = room ? map.buildings[room.bi]! : null, k = room ? ex.thermobaric!.enclosedFactor : 1, reachR = stunR * k;
   for (const [id, s] of state.soldier.entries()) {
     if (!s.physiology.alive || (s.mount !== undefined && !onRoof(state, id))) continue; // men aboard are behind armour (M7; not one out on the roof, M9.3a)
@@ -97,6 +99,8 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     }
     if (d > stunR) continue;
     if (d > 0.3 && lineBlocked(ctx.ballistics, map, ctx.mapIndex, x, y, z, t.x, t.y, cz, BL.shieldSteelMm)) continue;
+    // (M11: in a fighting position, a burst whose line to his middle comes in under the rim does not reach him.)
+    if (holeHalf > 0 && rimStops(holeHalf, rimHeight(ctx, state, id), t.x, t.y, cz - ctx.catalog.body.postures[s.posture].heightM * 0.5, x, y, z, cz)) continue;
     applyBlast(ctx, state, events, id, d, severeR, injuryR, stunR, owner);
   }
 

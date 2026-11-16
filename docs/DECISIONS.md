@@ -7315,3 +7315,17 @@ Software decisions (owner to review). No data change except two review strings (
 - **Drone relaunches** (F7): `drone.launched` and `drone.landed` carry the battery's Wh (`wh`); the review counts a
   relaunch as a battery change only on a battery fuller than the one that man last brought back by more than 0.5 Wh.
 - **Goldens**: catalog fingerprint and state hashes changed (10 goldens; the no-interiors goldens untouched).
+
+## 2026-11-16 — M11.6 batches and acceptance (slice 49)
+- **Acceptance "a 3-hour night battle shows battery swaps":** `npm run batch -- --scenario platoon-ru-vehicles --runs 3
+  --seconds 10800 --time 21:00 --moon 0`: per battle blue changed 1.3 radio and 0.7 sight batteries and relaunched its
+  drone on a fresh pack 1.3 times; red 0.3 sight batteries, 1.3 drone relaunches, 0.3 thermal sights gone flat (no
+  spare left); no unit went off the net; water drunk 0.25 / 0.42 L per side (men in a mounted battle mostly sit or
+  lie: little loss). `npm run lab -- batteries` (3 h night patrol, both factions): swaps on both sides; conservation
+  exact (water) and within 4e-9 Wh (batteries), no battery item lost.
+- **Balance** (10 seeds x 1200 s, attacker wins, origin/main 760bdd6 -> M11.6): platoon 6 -> 5, platoon-ru 8 -> 8,
+  platoon-vehicles 9 -> 9 (+1 draw), platoon-ru-vehicles 1 -> 1: within noise (batteries last hours; water is off
+  below 2 h; the load mass is unchanged within a battery's weight).
+- Left to other slices: smoke and medical resupply (slices 46-47, resupply); handing batteries over between men
+  (redistribution, slice 44); vehicle power (hull sights and radios need no batteries); the MELLS launcher's thermal
+  weapon sight stays unpowered.

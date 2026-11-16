@@ -607,6 +607,37 @@ is in DECISIONS (2026-11-15, M10.8). In both tabs each side has its own coloured
 indented; durations read "13 min 52 s" or "3 h 4 min" so they are not taken for clock times; the evacuation time
 is "during the battle" and left out when nobody was; smoke is mentioned only when there was some on the line.
 
+## Batteries and water (M11.6)
+
+Radios, night-vision goggles and thermal sights run on batteries, and drones on their flight packs. Every battery
+is a counted item (rule 9): a man carries the one in his device and his spares, and a used battery stays in his
+load at the charge it has left.
+
+- **The battery in a device** sits in a small slot on the man (like the magazine in his rifle). It does not tick
+  down every frame: the slot remembers when it was switched on and how full it was, and the charge is worked out
+  when someone asks. The tick it goes flat is known in advance, so "is it flat?" is one comparison.
+- **When a device is on.** The radio always; the thermal sight always (it is used by day too); the goggles only
+  while the light is below 0.5 (where they help). Batteries fitted at the start are part used (30-100 %, drawn
+  from the battle's seed), spares are full.
+- **Changing it.** A man swaps a flat battery himself, from his own spares, in 10-20 s. In a lull he also swaps
+  one that is nearly empty (below 10 %) for a clearly fuller spare. Nobody hands batteries over yet: that is the
+  resupply part of M11.
+- **When it is flat.** A squad whose radios are all flat is off the net: orders sent to it do not arrive
+  ("no comms"), it shares what it sees only by voice (40 m), it calls no ambulance and observes for nobody's
+  fire mission, and its radio messages stop (except the few the after-action review needs). A squad riding in a
+  hull with a working radio stays on the net. Flat goggles or a flat thermal sight leave the man with his eyes
+  (and his weapon sight). A drone with too little charge cannot take off; in the air it comes home when its
+  battery runs low.
+- **Water** matters only in battles of two hours or more. Men lose water faster when they work hard or in heat;
+  below about 85 % they drink 250 ml from the emptiest canteen when nobody is shooting at them. Short of water
+  (more than about 2 % of body weight), they tire faster, recover more slowly and aim a little worse.
+- **What the numbers are.** Radio packs 6 h (German) and 8 h (Russian), goggles 40-50 h on one AA cell, thermal
+  sights 5-7 h on three AA cells, drone packs 75-77 Wh at 150 W (about half an hour), two litres of water a man:
+  from public figures where they could be found (medium at most), game values otherwise (DECISIONS "M11.6").
+- **Checking it.** `npm run lab -- batteries` runs both platoons on a three-hour night patrol and shows the
+  changes, the flat batteries, the drone flights and the water drunk, and checks that every watt-hour and every
+  millilitre is accounted for. The review and the batch report have a "Batteries and water" line.
+
 ## Grenades
 
 A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one

@@ -534,7 +534,7 @@ AI never strips a defended objective to fetch ammunition.
 **48. M11.5 Re-arming and refuelling** (M, optional). Depends on 47 and 24: crates into stowage, fuel in litres per
 minute, rounds to mortars. Acceptance: conservation includes litres; roster round trip keeps them.
 
-**49. M11.6 Batteries, water and other consumables** (M, optional). Depends on M9: battery charge for radios,
+**49. M11.6 Batteries, water and other consumables** (M, optional). ✅ 2026-11-16 (DECISIONS "M11.6"; smoke and medical resupply left to slices 46-47). Depends on M9: battery charge for radios,
 sights and drones; drone airframes as items; water in long battles; smoke and medical resupply. Acceptance: a
 3-hour night battle shows battery swaps.
 

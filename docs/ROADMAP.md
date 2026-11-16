@@ -397,7 +397,8 @@ back (far casualties now reachable, no reassignment loops, the nest medic re-tag
 commander; numbers there. **M10 is complete** (all slices built, reviewed and fixed; the open targets above wait
 for the owner's numbers answer after playing, not for more building).
 
-- **M11 Logistics** (SPEC 9.2) ⬜
+- **M11 Logistics** (SPEC 9.2) 🔨 plan written 2026-11-16: `docs/plans/m11-logistics.md` (owner answers, measured
+  consumption, slices 43-48 and 52; 49 and 50-51 in parallel sessions)
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

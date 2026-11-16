@@ -5,6 +5,10 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11 Logistics: plan written (2026-11-16, branch `claude/m11-logistics`).** `docs/plans/m11-logistics.md`: the owner's
+  answers (DECISIONS "M11 owner round (2026-11-16)"), the measured consumption (nobody runs short today: battles end
+  early and men fire little), research on loads and packaging (medium at most), and slices 43-48 and 52 for this
+  chain; repair (50-51) and batteries (49) are built in parallel sessions. No code changed yet; slice 43 is next.
 - **Sight realism: review fixes (2026-11-16, branch `claude/sight-realism`).** Men of a set-up mortar or missile team
   stay at their post instead of looking for a lost enemy; a man stands up to look only when there is no fight (else
   he kneels or steps aside) and lies down again afterwards even with no posture of his own; a man crawling, bolting

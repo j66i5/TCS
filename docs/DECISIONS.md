@@ -7135,3 +7135,37 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   12x/13x (floor 8x); bench seed 1: base 20x/24x, now 22x/19x. The step-5 re-siting was most of the platoon slowdown
   (5.6 s of 24 s, 700 000 sight calls in 84 runs; now about 1.6 s in 40). `npm run test:perf` alone: 23/23.
 - `npm run golden:update`: the ten goldens with interiors changed (intended); `golden/no-interiors` untouched.
+
+## 2026-11-16 — M11 owner round (2026-11-16)
+The owner's answers for M11 Logistics (binding; plan: `docs/plans/m11-logistics.md`):
+- **Scope: everything** (ammunition, fuel, re-arming, repair, batteries, water). Built in three chains at once: this
+  one (ammunition, resupply, re-arming and refuelling, the AI and the Logistics review page; slices 43-48 and 52),
+  field repair and recovery (slices 50-51, branch `claude/m11-repair`), batteries, water and drone airframes (slice 49,
+  branch `claude/m11-batteries`). The item and transfer machinery stays generic so the other two plug in
+  (`moveCharge`, the ledger, the off-map stock, `OffMapAsset.kind`; plan section 4).
+- **Making logistics felt: both** — a new long (45-60 min) "hold the village" battle in waves (`hold-resupply`) where
+  resupply decides the outcome, and men fire more where that is realistic (measured first; with sources).
+- **Loose rounds:** men carry loose rounds and refill empty magazines in cover when not firing (`refillMagazines`).
+- **Taking kit:** own casualties' ammunition automatically, after treatment; enemy weapons and ammunition only on a
+  player order.
+- **Delivery: all three** — bearers on foot (the M10 carry store), vehicle rear runs, off-map deliveries.
+- **Control:** automatic (squads ask, on the AI and the player side) plus player orders ("set supply point",
+  "resupply at", order a run).
+- **Supply point separate from the Verwundetennest;** no ammunition at the red cross; an ambulance carrying
+  ammunition is a breach of the law of war.
+- **Repair:** crews fix light damage, a recovery vehicle on request (parallel session).
+- **Batteries now; water only in battles of 2 hours or more** (parallel session).
+- **Caches** are legitimate targets; a captured cache becomes the captor's.
+- **Mortar and artillery allotments** are topped up by deliveries.
+- **Military police and prisoners of war:** built at the end of M11, in a separate later workflow.
+
+Measured before planning (6 seeds x 2400 s, both AI commanders, code at 760bdd6; plan section 2): nobody runs short
+today. Most battles end early (platoon-ru 455-1098 s every time), a rifleman fires 0.02-0.84 rounds a minute averaged
+over a battle and a machine gunner 0.06-6, the median rifleman fires none; a side's men use 0-22 % of what they carry;
+at most 7 of 36 German gunner-battles ran out of loaded spare belts; no infantry magazine was taken from vehicle
+stowage. Sources (search extracts only, medium at most): 150 rounds on a Bundeswehr rifleman (5 magazines), MG5
+120-round boxes, PK boxes of 100 and belts of 100/200/250, sustained rates 12-15 (rifle) and about 100 (machine gun)
+a minute, packaging 840 rounds of 5.56 per can (6 bandoliers of 140), 1,080 of 5.45 per tin, 440 of 7.62 x 54R per
+tin. Software decisions in the plan, for the owner to review: medics and first responders never carry ammunition
+(they would lose their protection); this chain owns the state schema bumps 22 and 23; the merge that comes second
+regenerates the goldens. No code or data changed in this entry.

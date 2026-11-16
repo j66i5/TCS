@@ -324,6 +324,7 @@ export function followRoute(ctx: SimContext, def: VehicleDef, d: DriveState, x: 
   const left = routeLeft(d, x, y);
   let v = Math.min(Math.abs(pace), sqrt(2 * 0.6 * brake * left));
   if (d.crossing) v = Math.min(v, d.crossing.capMps);
+  if (d.towCapMps !== undefined) v = Math.min(v, d.towCapMps); // (M11.7b: towing)
   // Slow for the corner at the next point: the sharper the turn, the slower.
   if (d.routeIdx + 1 < d.route.length) {
     const nx = d.route[d.routeIdx + 1]!;
@@ -360,6 +361,10 @@ const HT: HullTerrain = { blocked: false, crossObstacle: -1, crossPart: -1 };
 const O_SELF: Obb = { x: 0, y: 0, c: 1, s: 0, hl: 0, hw: 0 };
 const O_OTHER: Obb = { x: 0, y: 0, c: 1, s: 0, hl: 0, hw: 0 };
 const O_CORR: Obb = { x: 0, y: 0, c: 1, s: 0, hl: 0, hw: 0 };
+/** A recovery vehicle and the hull it was called for (M11.7b): neither blocks the other (it reverses up to it, tows it). */
+function pairedForTow(v: VehicleState, vid: EntityId, ov: VehicleState, oid: EntityId): boolean {
+  return v.recoveryBy === oid || ov.recoveryBy === vid;
+}
 /** Seconds a vehicle waits for another hull or a man who cannot move before planning round them. */
 const YIELD_REPLAN_S = 3;
 /** Small moves tried to get a hull clear of what it struck: speed (m/s) and yaw rate (rad/s), for ESCAPE_TICKS. */
@@ -385,7 +390,7 @@ function escapeMove(ctx: SimContext, state: SimState, vid: EntityId, def: Vehicl
       hullObb(def, px, py, ph, 0, O_CORR);
       for (let q = 0; q < VEH.n; q++) {
         const oid = VEH.id[q]!, ot = VEH.t[q];
-        if (oid === vid || !ot || Math.abs(ot.x - px) > 20 || Math.abs(ot.y - py) > 20) continue;
+        if (oid === vid || !ot || Math.abs(ot.x - px) > 20 || Math.abs(ot.y - py) > 20 || pairedForTow(state.vehicle.req(vid), vid, VEH.v[q]!, oid)) continue;
         const odef = VEH.def[q];
         if (!odef) continue;
         if (obbOverlap(O_CORR, hullObb(odef, ot.x, ot.y, ot.heading, 0, O_OTHER))) { ok = false; break; }
@@ -439,7 +444,8 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
   const wet = clamp(state.environment.rain, 0, 1);
   let replanned = false; // one re-plan per tick (ID order)
   for (const [vid, v] of state.vehicle.entries()) {
-    if (isOffMap(v)) continue;
+    // (M11.7b: a towed hull does not drive; it follows its recovery vehicle's hitch, recovery.ts towSystem.)
+    if (isOffMap(v) || v.towedBy !== undefined) continue;
     const def = ctx.catalog.vehicles[v.def];
     if (!def) continue;
     const t = state.transform.req(vid);
@@ -476,7 +482,7 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
         hullObb(def, nx, ny, nh, 0, O_SELF);
         for (let q = 0; q < VEH.n; q++) {
           const oid = VEH.id[q]!, ot = VEH.t[q];
-          if (oid === vid || !ot || Math.abs(ot.x - nx) > 20 || Math.abs(ot.y - ny) > 20) continue;
+          if (oid === vid || !ot || Math.abs(ot.x - nx) > 20 || Math.abs(ot.y - ny) > 20 || pairedForTow(v, vid, VEH.v[q]!, oid)) continue;
           const odef = VEH.def[q];
           if (!odef) continue;
           if (obbOverlap(O_SELF, hullObb(odef, ot.x, ot.y, ot.heading, 0, O_OTHER))) { blocked = true; break; }
@@ -545,7 +551,7 @@ function corridor(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleSta
   // Other hulls: the one whose hull is in the other's corridor waits; if both are in each other's, the higher ID.
   for (let q = 0; q < VEH.n; q++) {
     const oid = VEH.id[q]!, ot = VEH.t[q];
-    if (oid === vid || !ot || Math.abs(ot.x - x) > R + 10 || Math.abs(ot.y - y) > R + 10) continue;
+    if (oid === vid || !ot || Math.abs(ot.x - x) > R + 10 || Math.abs(ot.y - y) > R + 10 || pairedForTow(v, vid, VEH.v[q]!, oid)) continue;
     const odef = VEH.def[q], ov = VEH.v[q]!;
     if (!odef) continue;
     if (!obbOverlap(O_CORR, hullObb(odef, ot.x, ot.y, ot.heading, 0, O_OTHER))) continue;

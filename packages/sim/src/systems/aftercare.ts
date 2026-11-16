@@ -99,7 +99,7 @@ export function handOver(ctx: SimContext, state: SimState, events: EventSink, si
 }
 
 /** The side holding the ground at (x, y): more able men within `holdM`, else the nearest able man's; null: nobody. */
-function holderAt(able: readonly { side: SideId; x: number; y: number }[], x: number, y: number, holdM: number): SideId | null {
+export function holderAt(able: readonly { side: SideId; x: number; y: number }[], x: number, y: number, holdM: number): SideId | null {
   const count = new Map<SideId, number>();
   let near: SideId | null = null, nd = Infinity;
   const r2 = holdM * holdM;

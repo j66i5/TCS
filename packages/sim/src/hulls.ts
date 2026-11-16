@@ -258,7 +258,8 @@ export function deriveWrecks(ctx: SimContext, state: SimState): [number, number,
   const stamps: NavStamp[] = [];
   if (state.vehicle.size > 0) {
     for (const [vid, v] of state.vehicle.entries()) {
-      if (isOffMap(v) || !isWreck(v, state.tick)) continue;
+      // (M11.7b: not a hull a recovery vehicle was called for: it must reach it.)
+      if (isOffMap(v) || !isWreck(v, state.tick) || v.recoveryBy !== undefined) continue;
       const def = ctx.catalog.vehicles[v.def], t = state.transform.get(vid);
       if (!def || !t) continue;
       const o = hullObb(def, t.x, t.y, t.heading);

@@ -16,6 +16,7 @@
  * map is stranded ("lost": an ordinary hull from then on). Same rules for every side, player and AI.
  */
 import type { SoldierState, VehicleState } from "../components";
+type VehicleClass = "tracked" | "wheeled";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, ticksToSeconds, type DefId, type EntityId, type SideId } from "../ids";
@@ -62,7 +63,7 @@ export function radio(state: SimState, events: EventSink, uid: EntityId, key: st
  * the mean of the enemy contacts its men hold, else the nearest edge), 10 m in, on a wheeled-grid cell in the nest's
  * region (else the nearest such cell along the edges). Heading: toward the nest.
  */
-export function entryPoint(ctx: SimContext, state: SimState, top: EntityId, px: number, py: number): { x: number; y: number; heading: number } | null {
+export function entryPoint(ctx: SimContext, state: SimState, top: EntityId, px: number, py: number, cls: VehicleClass = "wheeled"): { x: number; y: number; heading: number } | null {
   const W = ctx.map.widthM, H = ctx.map.heightM;
   let tx = 0, ty = 0, tn = 0;
   const walk = (uid: EntityId) => {
@@ -89,7 +90,8 @@ export function entryPoint(ctx: SimContext, state: SimState, top: EntityId, px: 
   const dW = ex, dE = W - ex, dN = ey, dS = H - ey, mn = Math.min(dW, dE, dN, dS);
   const IN = 10;
   if (mn === dW) ex = IN; else if (mn === dE) ex = W - IN; else if (mn === dN) ey = IN; else ey = H - IN;
-  const g = navFor(ctx, "wheeled").grid;
+  // (M11.7b: a tracked recovery vehicle comes on where its tracks reach.)
+  const g = navFor(ctx, cls).grid;
   const pc = Math.floor(px / g.cellM), pr = Math.floor(py / g.cellM);
   const pi = nearestPassable(g, Math.min(Math.max(px, 1), W - 1), Math.min(Math.max(py, 1), H - 1), 25);
   const region = pi >= 0 ? g.region[pi]! : pc >= 0 && pr >= 0 && pc < g.cols && pr < g.rows ? g.region[pr * g.cols + pc]! : 0;
@@ -171,10 +173,10 @@ export function canDrive(ctx: SimContext, state: SimState, v: VehicleState): boo
  * Where to stop for the nest at (px, py): `standM` short of it on the side the hull comes from, else the nearest
  * ground its wheels reach from where it is (a nest in a wood: at the wood's edge; the crew carries the men further).
  */
-export function standSpot(ctx: SimContext, from: { x: number; y: number }, px: number, py: number, standM: number): { x: number; y: number } {
+export function standSpot(ctx: SimContext, from: { x: number; y: number }, px: number, py: number, standM: number, cls: VehicleClass = "wheeled"): { x: number; y: number } {
   const L = hypot2(from.x - px, from.y - py);
   const sx = L > 1 ? px + ((from.x - px) / L) * standM : px, sy = L > 1 ? py + ((from.y - py) / L) * standM : py;
-  const g = navFor(ctx, "wheeled").grid;
+  const g = navFor(ctx, cls).grid;
   const clampX = (x: number) => Math.min(Math.max(x, 1), ctx.map.widthM - 1), clampY = (y: number) => Math.min(Math.max(y, 1), ctx.map.heightM - 1);
   const fi = nearestPassable(g, clampX(from.x), clampY(from.y), 10);
   const region = fi >= 0 ? g.region[fi]! : 0;

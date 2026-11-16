@@ -82,6 +82,9 @@ function summarize(
       vs.start++;
       vs[v.status]++;
       if (v.capturedBy !== null) vs.captured++;
+      // (M11.7b: a hull towed off the map counts by its status and as towed; one recovered at the end too.)
+      if (v.recovery?.state === "towed") vs.towed = (vs.towed ?? 0) + 1;
+      else if (v.recovery?.state === "recovered") vs.recovered = (vs.recovered ?? 0) + 1;
     }
     if (vs) out.vehicles = vs;
     return out;

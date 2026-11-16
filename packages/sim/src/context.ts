@@ -37,6 +37,9 @@ export interface BattleRules {
   /** Field repair by crews (M11.7a): false switches it off (`--no-repair`, labs holding a target still). Default on
    *  whenever the data has core/repair.json. */
   repair?: boolean;
+  /** Recovery vehicles called to tow disabled hulls (M11.7b): false switches it off (`--no-recovery`). Default on
+   *  whenever the data has core/repair.json `recovery`. */
+  recovery?: boolean;
 }
 
 /** An area worth holding (M6). */

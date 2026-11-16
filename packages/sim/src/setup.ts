@@ -121,7 +121,9 @@ function addVehicles(state: SimState, force: ForceInput, catalog: Catalog, which
       comp: rec.components ? [...rec.components] : (def.components ?? []).map(() => 1),
       status: rec.status ?? "ok",
       fire: null, smokeReadyTick: 0, pendingSmokeTick: -1, crewReaction: null, reactionTick: -1, reactionWhy: [],
-      lastHitTick: -1e9, lastPenTick: -1e9, lastShapedHitTick: -1e9, threatAz: null, hitsThisTick: 0, seatSwap: null, hatches: "closed", aps: null, recovery: null,
+      lastHitTick: -1e9, lastPenTick: -1e9, lastShapedHitTick: -1e9, threatAz: null, hitsThisTick: 0, seatSwap: null, hatches: "closed", aps: null,
+      // (M11.7b: how it was recovered in an earlier battle, as the roster gives it.)
+      recovery: rec.recovery ? { ...rec.recovery } : null,
       capturedBy: rec.capturedBy ?? null,
     };
     state.vehicle.set(id, v);
@@ -380,6 +382,7 @@ export function vehicleRecordFromState(state: SimState, id: EntityId): VehicleRe
     ...(v.comp.length > 0 ? { components: [...v.comp] } : {}),
     status: v.status,
     capturedBy: v.capturedBy,
+    ...(v.recovery !== null ? { recovery: { ...v.recovery } } : {}),
   };
 }
 

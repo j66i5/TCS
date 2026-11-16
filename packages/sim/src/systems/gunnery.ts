@@ -69,7 +69,8 @@ export function fireAndForget(kind: string | undefined): boolean {
 
 /** Can this vehicle still fight (not knocked out, abandoned or destroyed)? */
 export function canFight(v: VehicleState): boolean {
-  return v.status === "ok" || v.status === "immobilised";
+  // (M11.7b: not on a recovery vehicle's tow bar.)
+  return (v.status === "ok" || v.status === "immobilised") && v.towedBy === undefined;
 }
 
 /** The man who works this station now: its operator if able, else the commander if the station allows it. */

@@ -196,6 +196,16 @@ export type SimEvent =
       phase: "started" | "interrupted" | "resumed" | "done" | "failed"; why?: string; status?: VehicleStatus; etaS?: number; ordered?: true;
       parts?: { item: DefId; count: number }[];
     }
+  /** Recovery (M11.7b): recovery vehicle `vehicle` of `side` for hull `target`: called (comes on in about `dueS`),
+   *  entered the map, waiting short of a hull under fire, arrived at it, hooked it up, departed with it, away off the
+   *  map, lost (stranded), cancelled (`why`: notNeeded, underFire, noRoute), noRoute. */
+  | {
+      kind: "vehicle.recovery"; tick: number; side: SideId; vehicle: EntityId; target: EntityId;
+      phase: "called" | "entered" | "waiting" | "arrived" | "hookedUp" | "departed" | "away" | "lost" | "cancelled" | "noRoute";
+      dueS?: number; ordered?: true; why?: string;
+    }
+  /** End-of-battle settlement of a hull (M11.7b): recovered by its side, captured (`by`), or lost (destroyed). */
+  | { kind: "vehicle.settled"; tick: number; vehicle: EntityId; side: SideId; state: "towed" | "recovered" | "captured" | "lost"; by?: SideId }
   /** A vehicle is destroyed (M7.4a): its ammunition blew up, or it burnt out. */
   | { kind: "vehicle.destroyed"; tick: number; vehicle: EntityId; cause: "cookOff" | "burnt" }
   /** Its crew (and passengers) bailed out, or its crew is out of action (M7.4a, owner Q14/Q15). */

@@ -10,8 +10,8 @@ import type { DefId, EntityId } from "./ids";
 import { isAble } from "./impair";
 import { indoorAt } from "./interior-nav";
 import { countItems } from "./items";
-import { atan2, cos, sin } from "./math";
-import { REPAIR_INSIDE, REPAIR_OUTSIDE } from "./mount";
+import { atan2, cos, PI, sin } from "./math";
+import { HOOK_UP, REPAIR_INSIDE, REPAIR_OUTSIDE } from "./mount";
 import type { Container } from "./items";
 import type { DeepReadonly, SimState, SimView } from "./state";
 
@@ -125,6 +125,12 @@ export function outsideSpot(ctx: SimContext, state: SimState, sid: EntityId, def
   const comp = def.components?.[Number(a?.params["comp"] ?? -1)];
   const slot = Number(a?.params["slot"] ?? 0);
   const H = def.body.hull;
+  if (a?.kind === HOOK_UP) {
+    // (M11.7b: a recovery crewman hooking up stands behind his hull, at the hitch.)
+    const c = cos(t.heading), s = sin(t.heading), f = H.f[0] - 0.8, r = slot % 2 === 0 ? -0.7 : 0.7;
+    mt.x = t.x + c * f - s * r; mt.y = t.y + s * f + c * r; mt.z = 0; mt.heading = t.heading + PI;
+    return;
+  }
   const rMid = comp ? (comp.box.r[0] + comp.box.r[1]) / 2 : 0;
   let side = rMid > 0.2 ? 1 : rMid < -0.2 ? -1 : slot % 2 === 0 ? 1 : -1;
   const fMid = comp ? Math.min(Math.max((comp.box.f[0] + comp.box.f[1]) / 2, H.f[0] + 0.5), H.f[1] - 0.5) : 0;

@@ -9,6 +9,7 @@ import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
 import { callAmbulanceOrder } from "./evacuation";
 import { rearRunGate, rearRunOrder } from "./rearrun";
 import { endRepairByOrder, repairOrder } from "./repair";
+import { callRecoveryOrder, towGate } from "./recovery";
 import { aglOf, crewServedKind, startSetup } from "./mortars";
 import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
@@ -161,6 +162,11 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       // A vehicle crew's hull (M11.7a).
       if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
       return ctx.catalog.repair !== undefined && ctx.rules.repair !== false ? null : "not-applicable";
+    case "callRecovery":
+      // (M11.7b) A hull named, or the target crew's (or the one it left).
+      if (o.vehicle !== undefined && !state.vehicle.has(o.vehicle)) return "invalid-params";
+      if (o.vehicle === undefined && state.unit.get(o.target)?.vehicle === undefined && state.unit.get(o.target)?.exVehicle === undefined) return "invalid-params";
+      return ctx.catalog.recovery !== undefined && ctx.rules.recovery !== false ? null : "not-applicable";
   }
 }
 
@@ -405,6 +411,10 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "rearRun") return rearRunOrder(ctx, state, events, order.target);
   const gate = rearRunGate(state, events, order);
   if (gate !== null) return gate;
+  // Recovery (M11.7b): a call; orders to a crew on the bar or towed away are refused.
+  if (order.kind === "callRecovery") return callRecoveryOrder(ctx, state, events, order);
+  const tow = towGate(state, order);
+  if (tow !== null) return tow;
   // Field repair (M11.7a): the crew's own task on its hull.
   if (order.kind === "repair") return repairOrder(ctx, state, events, state.unit.req(order.target).vehicle!);
   // (D4b: a halt, getting in or out, or a move of the vehicle that carries them ends an arc they were defending.)

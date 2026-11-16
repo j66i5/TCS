@@ -15,8 +15,9 @@ import type { SimState, SimView } from "./state";
 export const OFF_MAP_PARK = { x: -10000, y: -10000 } as const;
 
 /** Is this vehicle off the map right now (an asset waiting, on its way to the edge, or gone; a combat vehicle away on
- *  a rear run, M10.6b)? */
-export function isOffMap(v: { offMap?: VehicleState["offMap"]; rearRun?: VehicleState["rearRun"] } | undefined): boolean {
+ *  a rear run, M10.6b; a hull towed off the map, M11.7b)? */
+export function isOffMap(v: { offMap?: VehicleState["offMap"]; rearRun?: VehicleState["rearRun"]; towAway?: true } | undefined): boolean {
+  if (v?.towAway === true) return true;
   const o = v?.offMap;
   if (o !== undefined) return o.phase === "ready" || o.phase === "called" || o.phase === "away";
   return v?.rearRun?.phase === "away";
@@ -54,7 +55,7 @@ export function parkOffMap(state: SimState, vid: EntityId): void {
   const d = v.drive;
   d.route = []; d.routeIdx = 0; d.arrived = true; d.endHeading = null; d.yieldTo = null; d.speed = 0; d.yawRate = 0;
   d.trackL = 0; d.trackR = 0; d.throttle = 0; d.brake = 1; d.steer = 0; d.stuckTicks = 0; d.replans = 0;
-  d.progressX = t.x; d.progressY = t.y; d.backX = t.x; d.backY = t.y; d.crossing = null; delete d.escape;
+  d.progressX = t.x; d.progressY = t.y; d.backX = t.x; d.backY = t.y; d.crossing = null; delete d.escape; delete d.towCapMps;
   for (const sid of v.seats) {
     if (sid === null) continue;
     const mt = state.transform.get(sid);

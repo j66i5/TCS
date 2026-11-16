@@ -51,6 +51,7 @@ export { callAmbulance, callAmbulanceOrder, entryPoint, evacuationSystem, onRun 
 export { rearRunOrder, rearRunSystem } from "./systems/rearrun";
 export * from "./repair";
 export { endRepairByOrder, repairOrder, repairSystem } from "./systems/repair";
+export { callRecovery, callRecoveryOrder, needsRecovery, recoveryEnabled, recoveryLeft, recoverySystem, settleVehicles, towGate, towSystem } from "./systems/recovery";
 export { recomputeStatus } from "./systems/armour";
 export { diedOfWounds, diedOfWoundsChance, handOver, settleBattle } from "./systems/aftercare";
 export { liesAboard, loadingParams, placesFit, placesUsed } from "./systems/boarding";

@@ -112,6 +112,10 @@ export type OrderBody =
   /** Repair the hull now (M11.7a): the target crew starts its next field repair task at once, without waiting for
    *  the quiet period (not within seconds of a hit, not while burning). A move order ends it (progress kept). */
   | { kind: "repair" }
+  /** Call a recovery vehicle (M11.7b): the side's next waiting recovery vehicle comes to tow hull `vehicle` (absent:
+   *  the target crew's hull, or the hull it bailed out of) off the map. Refused for a hull that still drives, is
+   *  destroyed or burning, already has one coming, is too heavy for every one left, or when none is left. */
+  | { kind: "callRecovery"; vehicle?: EntityId }
   /** Lay an ambush (D4b, SPEC 6.6): the unit and its sub-units (vehicle crews too) hold their fire until an enemy
    *  comes within `rangeM` of one of their men, one of them fires, or they come under fire; then the ambush is
    *  sprung for all of them and they fire at will. */

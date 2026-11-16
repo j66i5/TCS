@@ -73,7 +73,7 @@ for (const [kind, outside] of [[REPAIR_OUTSIDE, true], [REPAIR_INSIDE, false]] a
 
 /** Can this crew work at its hull at all now (aboard, halted, not burning, not bailing out)? */
 function canWork(v: VehicleState): boolean {
-  return v.unit !== null && v.fire === null && v.crewReaction !== "bailOut" && v.status !== "destroyed" && v.status !== "abandoned"
+  return v.unit !== null && v.fire === null && v.crewReaction !== "bailOut" && v.status !== "destroyed" && v.status !== "abandoned" && v.towedBy === undefined
     && Math.abs(v.drive.speed) <= HALTED_MPS && (v.drive.arrived || v.drive.route.length === 0);
 }
 

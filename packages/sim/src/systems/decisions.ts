@@ -23,6 +23,7 @@ import { DRONE_SEEN_S } from "./drones";
 import { interruptAction, startAction } from "../actions";
 import { refillDecision } from "./refill";
 import { stepBack, stepTake } from "./consolidate";
+import { stepResupply } from "./supply";
 import type { Contact, Intent, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import { countItems, type Container } from "../items";
@@ -912,7 +913,7 @@ function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: Ent
 /** Errands that take a man right up to a comrade on purpose (carrying parties too, M10.4a). */
 function closeErrand(s: SoldierState): boolean {
   const k = s.intent?.kind;
-  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner" || k === "takeAmmo" || k === "takeKit" || s.carrying !== undefined;
+  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner" || k === "takeAmmo" || k === "takeKit" || k === "resupply" || s.carrying !== undefined;
 }
 
 /**
@@ -1264,6 +1265,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
     // Taking a casualty's ammunition, or enemy kit on an order (M11.2, consolidate.ts).
     if (s.intent?.kind === "takeAmmo" || s.intent?.kind === "takeKit") { stepTake(ctx, state, events, id); continue; }
+    if (s.intent?.kind === "resupply") { stepResupply(ctx, state, events, id); continue; }
     if (s.intent?.kind === "fetchAmmo") {
       const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
       if (!wd || s.intent.target === undefined || !stepFetchAmmo(ctx, state, events, id, s.intent.target, wd.feed.magazine, s.intent.tick)) s.intent = null;

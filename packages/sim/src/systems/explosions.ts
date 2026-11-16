@@ -27,6 +27,7 @@ import { markHouseDanger } from "./house";
 import { floorAtZ, indoorAt, roomOfPoint } from "../interior-nav";
 import { roomAt } from "../interior";
 import { rimHeight, rimStops } from "../positions";
+import { cacheBurst } from "./supply";
 
 /**
  * Re-derive everything that depends on terrain damage (after a new breach, and after loading a save).
@@ -106,6 +107,8 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
 
   // ---- the men in the house it bursts in or on remember it (M7.5e: a house that has become a trap)
   markHouseDanger(ctx, state, x, y, ex.fillingKg, owner);
+  // ---- caches nearby lose hp and may be set off (M11.3)
+  if (state.cache.size > 0) cacheBurst(ctx, state, events, x, y, ex.fillingKg);
 
   // ---- fragments
   const fragIdx = ammoIndexOf(ctx.catalog, ex.fragmentAmmo);

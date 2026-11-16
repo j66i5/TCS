@@ -4,7 +4,7 @@
  */
 import { indoorAt, ticksToSeconds, type EntityId } from "@tcs/sim";
 import { worldToScreen, type GestureOverlay } from "@tcs/render";
-import { addPoint, arcOrder, attachInput, centreOf, dragTo, ghostFarEnough, hitHandle, nestAt, nestMarkers, ordersFor, planToOrder, retargetMove, unitCapabilities, type PlanKind } from "@tcs/ui";
+import { addPoint, arcOrder, attachInput, cacheMarkers, centreOf, dragTo, ghostFarEnough, hitHandle, nestAt, nestMarkers, supplyPointAt, ordersFor, planToOrder, retargetMove, unitCapabilities, type PlanKind } from "@tcs/ui";
 import type { App, Pt } from "./app";
 import { stopFollow } from "./camera";
 import { clearAt, facingHandle, fireAtPoint, forUnit, ghostPlan, issue, losTo, now, occupyOrder, offerSupport, oneTapDone, SCREEN_MIN_M, startPlan, turnPlan } from "./orders";
@@ -98,6 +98,12 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
         return;
       }
       if (mode === "fire" || mode === "antitank") { fireAtPoint(a, w); return; }
+      if (mode === "supply") {
+        // Supply point (M11.3): the selected unit's platoon has its supply point at the tapped point.
+        issue(a, { ...now(a, uid), kind: "supplyPoint", x: w.x, y: w.y });
+        oneTapDone(a);
+        return;
+      }
       if (mode === "arc") {
         // Defend arc (D4b): the unit faces from its middle toward the tapped point and fires on its own only into it.
         const c = centreOf(placesOf(a, uid));
@@ -118,6 +124,9 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
       if (!a.plan) {
         const nest = nestAt(nestMarkers(sim.state, playerSide), w.x, w.y, 16 / renderer.camera.scale + 1);
         if (nest) { a.gesture = { kind: "nest", unit: nest.unit, from: { x: nest.x, y: nest.y }, at: { ...w } }; return true; }
+        // M11.3: the supply point's marker likewise.
+        const sp = supplyPointAt(cacheMarkers(sim.state, a.input.catalog, playerSide), w.x, w.y, 16 / renderer.camera.scale + 1);
+        if (sp && sp.unit !== undefined) { a.gesture = { kind: "supply", unit: sp.unit, from: { x: sp.x, y: sp.y }, at: { ...w } }; return true; }
       }
       if (a.plan) {
         const g = markerFor(a, a.plan);
@@ -164,7 +173,7 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
     onDrag: (w) => {
       const gs = a.gesture;
       if (!gs) return;
-      if (gs.kind === "nest") { if (inMap(a, w)) gs.at = { ...w }; return; }
+      if (gs.kind === "nest" || gs.kind === "supply") { if (inMap(a, w)) gs.at = { ...w }; return; }
       if (gs.kind === "plan") { if (a.plan && a.dragHandle !== null) a.plan = dragTo(a.plan, a.dragHandle, w.x, w.y, { minFrontageM: 2, maxFrontageM: 200, resizeGapM: a.dragGapM }); return; }
       if (gs.kind === "fire") { gs.at = { ...w }; gs.onUnit = onSelected(a, w); gs.los = gs.onUnit || !inMap(a, w) ? [] : losTo(a, w); return; }
       if (gs.kind === "support") { if (inMap(a, w)) gs.at = { ...w }; return; }
@@ -185,6 +194,10 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
       const uid = overlay.selectedUnit;
       if (gs?.kind === "nest") {
         if (how !== "cancel" && how !== "tap" && inMap(a, gs.at)) issue(a, { ...now(a, gs.unit), kind: "casualtyPoint", x: gs.at.x, y: gs.at.y });
+        return false;
+      }
+      if (gs?.kind === "supply") {
+        if (how !== "cancel" && how !== "tap" && inMap(a, gs.at)) issue(a, { ...now(a, gs.unit), kind: "supplyPoint", x: gs.at.x, y: gs.at.y });
         return false;
       }
       if (!gs || gs.kind === "plan" || how === "cancel" || uid === null) return false;

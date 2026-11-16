@@ -7762,3 +7762,73 @@ no ammunition at the Verwundetennest. Everything else is a software decision (va
   7.5 / this 7.6; smoke base 6.6, 7.2 / this 7.6, 7.5; bench-vehicles base 7.3, 7.0 / this 7.5, 7.3; tanks base 8.0
   / this 7.9: no regression, a slow container (the new per-tick work is one modulo test per unit; a squad is looked at
   once per 2 s).
+
+## 2026-11-16 — M11.3 (slice 45): supply points and caches (goldens regenerated)
+Owner answers (binding): the supply point is separate from the Verwundetennest, no ammunition at the red cross, caches
+are legitimate targets, a captured cache becomes the captor's. Everything else is a software decision (values in the
+new `core/supply.json`, low, game values; the cook-off model is the M7.4a light-vehicle rack, general knowledge).
+- **Caches** (`cache` store, state schema 22 -> 23: an empty store in an older save; `Cache {side, kind "point" |
+  "cache", top?, placed?, hp, cookoff?, burnt?, capturedBy?, from?, known?, holdTick?}` + a transform and a
+  container). The scenario's crates (`ForceInput.caches`, new optional `point`) and the M11.2 piles outside the nest are
+  caches now; a crate marked `point` is the supply point of its side's nearest platoon (a `rear` point of kind "supply"
+  naming it, new optional `RearPoint.cache`). New RNG stream "supply" (created on first use).
+- **Siting** (`systems/supply.ts`; `sitePoint` shared with the nest in nest.ts): like the nest, never within
+  `nestApartM` 50 m of the platoon's nest; the nest siting and the `casualtyPoint` order keep 50 m from the supply point
+  too (`radio.nestNearSupply`), the `supplyPoint` order 50 m from the nest (`radio.supplyNearNest`). Nothing with
+  ammunition is put within `nestClearM` 15 m of any nest (`putInCache` refuses it; the nest piles lie 30 m out). An
+  automatic point is sited on first need (`ensureSupplyPoint`: the deliveries of slices 46-47; nothing calls it in this
+  slice); empty, it moves when threatened or left 300 m behind, like the nest. **Deviation from the plan:** no automatic
+  siting in battle yet (an empty point nobody fills would only be an icon); the hold battle's crates are the point from
+  the start.
+- **Seen, blast, cook-off** (each cache looked at once per `stepS` 1 s, staggered by id; a burst checks the caches in
+  reach): men of another side within `seeM` 250 m with a line of sight see it (`known`, stays known; no night factor
+  yet). A burst of F kg within 5 x F^(1/3) m takes (1 - d/R) x min(1, F/4) of its hp and sets it off with (1 - d/R) x
+  min(0.9, 0.3 F); hp 0 sets it off. A burning vehicle or cache within 8 m: 2 % a second. Set off it burns 30-120 s;
+  every 5 s a share of each stack is lost (`items.destroyed` cause "cookoff"), one explosive round in it goes off a step
+  (`detonate`, owner the cache: blast and fragments), rifle rounds only burn; smoke 4 m. The ledger stays exact.
+- **Capture**: none of its side able within 50 m, an able enemy within 10 m, 10 s: side changes (`cache.captured`), a
+  supply point stops being one. Not while it burns, not when empty.
+- **Orders** `supplyPoint {x, y}` (the platoon's point; an empty one moves, one with supplies stays as a plain cache and
+  a new empty point is put there) and `resupplyAt {cache?}` (the men on foot go to the named or nearest own cache within
+  `take.reachM` 400 m that has something for them, take up to their standard load and walk back: the M11.2 errand and
+  walk-back). **Standard load = every magazine and belt he carries full and every bandolier or pack of loose rounds
+  full** (from the cache's packages and magazines with `moveCharge`), 10 s + 0.4 s a round into magazines + 0.02 s a
+  round into packages (low). **Deviation:** grenades and rockets are not taken (no per-man standard count in the state;
+  a later slice with the delivery packages). Refusals on the radio: `radio.supplyNone` / `supplyFar` / `supplyEmpty` /
+  `supplyFull` / `supplyUnderFire` (fired on within 15 s). A man takes from within 4.5 m (a crate against a wall lies
+  off the navigation cells; found in the screenshots: the men stopped 3 m short). The AI does not give either order
+  (slices 46 and 52).
+- **AI shells enemy caches** (`commander.ts`, `supply.ai`): HE (3 rounds) on an enemy cache its men have seen when no HE
+  was called for 300 s and no own man is within 100 m, at most every 300 s.
+- **Record and result**: `BattleResult.caches` (side, kind, place, load left, `from` when captured, `burnt`); record
+  version 10, `SideRecord.supply` (caches captured and their rounds, set off and rounds lost, men sent, rounds taken at
+  caches); timeline lines for a capture and a cook-off.
+- **UI**: crate markers at every zoom (side colour; grey empty; dark burnt; a burning pile with the vehicle fire's
+  flames; the supply point with a pennant, a fill bar and its rounds; the enemy's only once seen, without fill);
+  "Supply point" in the Move tray (tap the map) and a draggable supply-point marker; "Resupply" on the bar (phone under
+  "⋯") when an own cache with supplies is within 400 m. Screenshots `--scene supply` (both looks, phone and desktop),
+  looked at.
+- **Lab** `npm run lab -- cache [trials]` (40 trials): data / real bursts: 120 mm tank HE (2.0 kg) 60/57 % at 0 m, 12/8 %
+  at 5 m; 125 mm 90/93, 30/23; 120 mm mortar DE 69/70, 17/15, RU 42/38, 4/5; 152 mm 100/100, 44/40; 155 mm 100/100,
+  48/45, 6/5 at 10 m; nothing at 20 m. Crates burnt 65 s, 14 bursts from 20 grenades, rounds lost = ledger (exact).
+- **Measured** (same seeds, base a72787c vs this; batch 10 x 1200 s, attacker wins): platoon 9 -> 9, platoon-ru 10 ->
+  10, platoon-vehicles 9 -> 9, platoon-ru-vehicles 1 -> 1, every battle ending at the same second with the same
+  casualties (no cache event in them; the state hashes differ by the new store). hold-resupply 6 x 3600 s, defender
+  wins 4 -> 3 (ends 3600, 3600, 3600, 1704, 3600, 1426 -> 3600, 3600, 3600, 2041, 2657, 1160); `--no-resupply` 3 -> 3
+  (seed 5 2089 -> 2100). In the changed seeds no cache was captured, shelled or set off (seed 5: the Russians saw the
+  crates once; seed 6 traced: no cache event, the nest sited 109 m from the crates, so the 50 m rule did not act): most
+  likely the entity-id shift of the supply point's rear point created at setup (every later entity's staggered steps
+  move), not a behaviour of this slice; six seeds cannot tell 4 from 3. Conservation (`consumption --conservation`): bench-caches 6 x 300 s and
+  hold-resupply 2 x 1200 s exact.
+- **Perf**: `bench-caches` (bench + 20 caches, one shelled by blue's mortars every 30 s) 13.6x vs bench 12.8x (median of
+  3 alternating): within 5 %, met (new perf test). `npm run test:perf` alone: 22 of 24; the spotting-with-smoke and
+  bench-vehicles floors missed (7.1-7.7x and 7.6x); base a72787c alternating with this branch, those tests alone: smoke
+  6.7, 7.3 / 6.8, 6.2; bench-vehicles 6.1, 7.7 / 7.3, 6.6: no regression, the container is slow (as in M11.2).
+- Tests: `sim/test/supply.test.ts` (siting apart from the nest both ways; ammunition refused at the nest; a cook-off
+  destroys exactly its contents with bursts; rifle rounds alone burn without bursts; a 10 kg burst sets a crate off,
+  the chance table, the detonate hook; capture after 10 s, none with a defender within 50 m; resupplyAt walk, take and
+  walk back with the ledger unchanged; the four refusals; the scenario's point; save/load mid cook-off and a schema-22
+  save), `ui/test/supply.test.ts` (markers, the enemy's only once seen, Resupply offered and not when empty); UI mode
+  lists updated for "supply".
+- Goldens: all twelve changed (catalog fingerprint, the state's new store, the setup's rear point), `npm run
+  golden:update`; `golden/no-interiors` untouched.

@@ -155,6 +155,20 @@ export type SimEvent =
   /** M11.2: nobody to take a casualty's ammunition at the Verwundetennest: it was left as a pile (`cache`, a new entity
    *  with a container) at (x, y). */
   | { kind: "items.dropped"; tick: number; from: EntityId; cache: EntityId; x: number; y: number }
+  /** M11.3: top unit `unit`'s supply point (`point`, a rear point) is cache `cache` at (x, y): sited automatically, put
+   *  there by an order, or by the scenario. */
+  | { kind: "supply.point"; tick: number; side: SideId; point: EntityId; cache: EntityId; unit: EntityId; x: number; y: number; reason: "sited" | "ordered" | "scenario" }
+  /** M11.3: `men` men of `side` sent to cache `cache` for supplies (order `resupplyAt`). */
+  | { kind: "supply.resupply"; tick: number; side: SideId; cache: EntityId; men: number }
+  /** M11.3: men of `side` have seen cache `cache` (another side's). */
+  | { kind: "cache.seen"; tick: number; cache: EntityId; side: SideId }
+  /** M11.3: cache `cache` became `side`'s, taken from `from` with `rounds` rounds of ammunition in it. */
+  | { kind: "cache.captured"; tick: number; cache: EntityId; side: SideId; from: SideId; rounds: number }
+  /** M11.3: cache `cache` (of `side`) set off by a burst or a fire; it burns until `endTick`; `bursts`: explosive rounds
+   *  in it go off. */
+  | { kind: "cache.cookoff"; tick: number; cache: EntityId; side: SideId; cause: "blast" | "fire"; bursts: boolean; endTick: number }
+  /** M11.3: cache `cache` has burnt out. */
+  | { kind: "cache.burnt"; tick: number; cache: EntityId; side: SideId }
   /** M11.2 (takeKit): `soldier` took `weapon` from `from` and carries his own `put` as an item. */
   | { kind: "weapon.swapped"; tick: number; soldier: EntityId; from: EntityId; weapon: DefId; put: DefId }
   | { kind: "action.started"; tick: number; actor: EntityId; action: string; durationTicks: number }

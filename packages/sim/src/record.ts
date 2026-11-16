@@ -17,7 +17,7 @@ import type { SimView } from "./state";
 import { newReviewTally, tallyReview, type ReviewTally } from "./review";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 9;
+export const RECORD_VERSION = 10;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -51,6 +51,9 @@ export interface SideRecord {
   /** Recovery (M11.7b): recovery vehicles called (by the player: `ordered`), at the hull, hulls towed away, runs
    *  lost or stood down, seconds from each call to its arrival; hulls recovered or captured at the end. */
   recovery: { called: number; ordered: number; arrived: number; towed: number; lost: number; cancelled: number; callToArrivalS: number[]; recovered: number; captured: number };
+  /** Supply (M11.3): enemy caches captured and the rounds in them, own caches set off and the rounds they lost, men
+   *  sent to a cache and the rounds they took there. Optional: records before version 10 have none. */
+  supply?: { captured: number; roundsCaptured: number; cookoffs: number; roundsDestroyed: number; sent: number; roundsTaken: number };
   /** Guided missiles fired by the side's hulls and how they ended; enemy hulls penetrated by its missiles and by its
    *  shoulder-fired rockets. */
   missiles: { fired: number; hit: number; lost: number; miss: number; penetrated: number; rocketPenetrated: number };
@@ -158,6 +161,7 @@ export function newSideRecord(): SideRecord {
     crews: { reversedOut: 0, fires: 0, firesOut: 0 },
     repair: { started: 0, done: 0, failed: 0, interrupted: 0, parts: 0 },
     recovery: { called: 0, ordered: 0, arrived: 0, towed: 0, lost: 0, cancelled: 0, callToArrivalS: [], recovered: 0, captured: 0 },
+    supply: { captured: 0, roundsCaptured: 0, cookoffs: 0, roundsDestroyed: 0, sent: 0, roundsTaken: 0 },
     missiles: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 },
     mortar: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 },
     care: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 },
@@ -422,6 +426,20 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       if (r) { if (e.state === "recovered") r.recovery.recovered++; else r.recovery.captured++; }
       if (v && e.state === "captured") rec.timeline.push({ tick: e.tick, side: v.side, key: "aar.vehicle.captured", vehicle: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? v.vehicleId : v.vehicleId });
     }
+    // Supply (M11.3): caches captured and set off go on the timeline.
+    if (e.kind === "cache.captured") {
+      const r = side(e.side)?.supply;
+      if (r) { r.captured++; r.roundsCaptured += e.rounds; }
+      rec.timeline.push({ tick: e.tick, side: e.side, key: "timeline.cache.captured" });
+    }
+    if (e.kind === "cache.cookoff") {
+      const r = side(e.side)?.supply;
+      if (r) r.cookoffs++;
+      rec.timeline.push({ tick: e.tick, side: e.side, key: "timeline.cache.cookoff" });
+    }
+    if (e.kind === "items.destroyed" && e.cause === "cookoff" && e.rounds !== undefined) { const r = side(view.cache.get(e.holder)?.side)?.supply; if (r) r.roundsDestroyed += e.rounds; }
+    if (e.kind === "supply.resupply") { const r = side(e.side)?.supply; if (r) r.sent += e.men; }
+    if (e.kind === "items.taken" && e.source === "cache" && view.cache.has(e.from)) { const r = side(sideOfMan(e.to))?.supply; if (r) r.roundsTaken += e.rounds; }
     if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
       const r = side(view.vehicle.get(e.vehicle)?.side);
       if (r) { if (e.kind === "vehicle.reaction" && e.reaction === "reverseOut") r.crews.reversedOut++; else if (e.kind === "vehicle.fire") r.crews.fires++; else if (e.kind === "vehicle.extinguished") r.crews.firesOut++; }

@@ -1,5 +1,5 @@
 /** Turns a validated DataSet into the Catalog the simulation runs with. */
-import { canonicalJson, hashText, PI, type BodyDef, type Catalog, type FactionDef, type ItemTypeDef, type MedicalDef, type MovementModeDef, type RecoveryDef, type RepairDef, type TerrainCatalog, type VehicleDef } from "@tcs/sim";
+import { canonicalJson, hashText, PI, type BodyDef, type Catalog, type FactionDef, type ItemTypeDef, type MedicalDef, type MovementModeDef, type RecoveryDef, type RepairDef, type SupplyDef, type TerrainCatalog, type VehicleDef } from "@tcs/sim";
 import type { MedicalT, VehicleT } from "./schemas";
 import type { DataSet } from "./loader";
 
@@ -85,7 +85,8 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
   const medical = data.medical ? medicalCatalog(data.medical) : undefined;
   const repair = data.repair ? noProv(data.repair.repair) as RepairDef : undefined;
   const recovery = data.repair?.recovery ? noProv(data.repair.recovery) as RecoveryDef : undefined;
-  const body = { ...(medical ? { medical } : {}), ...(repair ? { repair } : {}), ...(recovery ? { recovery } : {}), items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, spotting, behaviour, ammo, ammoIds, weapons, vehicles };
+  const supply = data.supply ? noProv(data.supply.supply) as SupplyDef : undefined;
+  const body = { ...(medical ? { medical } : {}), ...(repair ? { repair } : {}), ...(recovery ? { recovery } : {}), ...(supply ? { supply } : {}), items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, spotting, behaviour, ammo, ammoIds, weapons, vehicles };
   return { fingerprint: hashText(canonicalJson(body)), ...body };
 }
 

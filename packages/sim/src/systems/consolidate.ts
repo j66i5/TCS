@@ -35,13 +35,14 @@ import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type DefId, type EntityId } from "../ids";
 import { isAble, isConscious } from "../impair";
 import { routeBetween, routeWaypoints } from "../interior-nav";
-import { addItems, emptyContainer, transferItems, type Container } from "../items";
+import { addItems, transferItems, type Container } from "../items";
 import { atan2, hypot2 } from "../math";
 import { careNeed } from "../medical";
 import { isMounted } from "../mount";
 import { navFor } from "../navctx";
 import { wearsEmblem } from "../protection";
-import { newEntity, type SimState } from "../state";
+import type { SimState } from "../state";
+import { newCache, putInCache } from "./supply";
 import { stepBringAmmo } from "./decisions";
 import { treatedNow } from "./medical";
 import { requestPosture } from "./body";
@@ -65,7 +66,7 @@ function freeMan(state: SimState, id: EntityId): boolean {
 }
 
 /** Where he stands now, kept on an errand's intent so that he walks back there afterwards. */
-function origin(state: SimState, id: EntityId): { x: number; y: number; z: number; heading: number; posture: Posture } {
+export function origin(state: SimState, id: EntityId): { x: number; y: number; z: number; heading: number; posture: Posture } {
   const t = state.transform.req(id), s = state.soldier.req(id), it = s.intent;
   // (Called away again on his way back: where he first stood stays his place.)
   if (it?.returning === true && it.x !== undefined && it.y !== undefined) return { x: it.x, y: it.y, z: it.z ?? 0, heading: it.heading ?? t.heading, posture: it.posture ?? s.posture };
@@ -296,10 +297,12 @@ function atNest(ctx: SimContext, state: SimState, events: EventSink, C: Consolid
     const len = hypot2(dx, dy) || 1;
     const x = Math.min(Math.max(p.x + (dx / len) * C.nestCacheM, 1), ctx.map.widthM - 1);
     const y = Math.min(Math.max(p.y + (dy / len) * C.nestCacheM, 1), ctx.map.heightM - 1);
-    const pile = newEntity(state);
-    state.transform.set(pile, { x, y, z: 0, heading: 0 });
-    state.container.set(pile, emptyContainer());
-    for (const st of stacks) transferItems(ctx.catalog, state.container, st.charge === undefined ? { from: c, to: pile, type: st.type, count: st.count } : { from: c, to: pile, type: st.type, count: st.count, charge: st.charge });
+    // (M11.3: it is a cache of his side; outside the nest's clear zone, `nestCacheM` from it.)
+    const side = state.identity.req(c).side;
+    const pile = newCache(state, side, x, y, []);
+    let moved = 0;
+    for (const st of stacks) moved += putInCache(ctx, state, c, pile, st);
+    if (moved === 0) { state.cache.delete(pile); state.container.delete(pile); state.transform.delete(pile); continue; }
     events.emit({ kind: "items.dropped", tick: state.tick, from: c, cache: pile, x, y });
   }
 }

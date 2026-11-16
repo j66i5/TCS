@@ -1382,3 +1382,38 @@ export const RepairFile = z.object({
   }).optional(),
 }).strict();
 export type RepairT = z.infer<typeof RepairFile>;
+
+/** core/supply.json (M11.3 supply points and caches; optional file). Game values (low) unless a source says more. */
+export const SupplyFile = z.object({
+  supply: withProv({
+    /** Each cache is looked at every `stepS` (s): who sees it, capture, fire beside it, an automatic point's move. */
+    stepS: Num(0.1, 60),
+    /** A platoon's supply point stays at least `nestApartM` from its Verwundetennest; nothing with ammunition in it
+     *  is ever put within `nestClearM` of a nest (owner: no ammunition at the red cross). */
+    nestApartM: Num(0, 1000), nestClearM: Num(0, 500),
+    /** Automatic siting (like the nest): `backM` behind the platoon's able men away from the enemy they know, the
+     *  covered spot within `searchM`, between `minBackM` and `maxBackM` back; an empty automatic point moves when an
+     *  enemy is known within `threatM` of it or it lies more than `driftM` behind (looked at every `checkS`). */
+    site: z.object({ backM: Num(0, 2000), searchM: Num(0, 500), minBackM: Num(0, 2000), maxBackM: Num(0, 5000), threatM: Num(0, 2000), driftM: Num(0, 5000), checkS: Num(1, 600) }).strict(),
+    /** Men of another side see a cache within `seeM` with a line of sight to it (crate height `heightM`). */
+    seeM: Num(0, 3000), heightM: Num(0.1, 3),
+    /** Capture: none of its side able within `holdM`, an able enemy within `enemyM`, for `seconds`. */
+    capture: z.object({ holdM: Num(0, 500), enemyM: Num(0, 100), seconds: Num(0, 600) }).strict(),
+    /** A burst of F kg of filling reaches a cache within `reachScaledM` x F^(1/3) m; at distance d it takes
+     *  (1 - d/R) x min(1, F / `hpKg`) of its hp, and sets it off with chance (1 - d/R) x min(`maxChance`, F x
+     *  `chancePerKg`). At hp 0 it is set off. */
+    blast: z.object({ reachScaledM: Num(0, 50), hpKg: Num(0.01, 100), chancePerKg: Num(0, 10), maxChance: Num(0, 1) }).strict(),
+    /** Set off, a cache burns `minS`-`maxS` s, its contents lost in steps of `stepS`; explosive rounds in it go off,
+     *  at most `maxBurstsPerStep` a step (fragments and blast); rifle rounds only burn. A burning vehicle or cache
+     *  within `fireM` sets it off with `fireChancePerS` a second. Smoke: `smokeRadiusM`, `smokeTopM`. */
+    cookoff: z.object({ minS: Num(1, 3600), maxS: Num(1, 3600), stepS: Num(0.5, 60), maxBurstsPerStep: z.number().int().min(0).max(10), fireM: Num(0, 100), fireChancePerS: Num(0, 1), smokeRadiusM: Num(0, 50), smokeTopM: Num(0, 100) }).strict(),
+    /** Taking supplies at a cache (order `resupplyAt`): `baseS` plus `bulkSecondsPerRound` for each loose round into
+     *  his bandolier or packs, `magSecondsPerRound` for each round put into a magazine or belt (stripper clips and a
+     *  loader at the crate). Squads are sent to a cache within `reachM`; not while fired on within `underFireS`. */
+    take: z.object({ baseS: Num(0, 600), bulkSecondsPerRound: Num(0, 10), magSecondsPerRound: Num(0, 10), reachM: Num(0, 5000), underFireS: Num(0, 600) }).strict(),
+    /** The computer commander shells an enemy cache its men have seen (high explosive, `heRounds`) at most every
+     *  `everyS`, when no own man is within `ownClearM` of it and it has no better target. */
+    ai: z.object({ heRounds: z.number().int().min(1).max(24), everyS: Num(0, 36000), ownClearM: Num(0, 2000) }).strict(),
+  }),
+}).strict();
+export type SupplyT = z.infer<typeof SupplyFile>;

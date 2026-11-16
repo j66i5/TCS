@@ -58,6 +58,17 @@ export function takeKit(a: App): EntityId | null {
   return src;
 }
 
+/** "Resupply" (M11.3) for the selected unit: its men go to the nearest own cache with supplies. The cache, or null
+ *  (none in reach: the button is not shown then). */
+export function resupply(a: App): EntityId | null {
+  const uid = a.overlay.selectedUnit;
+  if (uid === null) return null;
+  const src = unitCapabilities(a.sim.state, a.input.catalog, uid, hqMode(a)).supplySource;
+  if (src === undefined) return null;
+  issue(a, { ...now(a, uid), kind: "resupplyAt", cache: src, ...(hqMode(a) ? { own: true as const } : {}) });
+  return src;
+}
+
 /** A planned move for a vehicle: "reverse" legs drive the slowest pace backwards; no formation. */
 export function forUnit(a: App, o: Order): Order {
   const cls = vehicleClassOf(a, o.target);

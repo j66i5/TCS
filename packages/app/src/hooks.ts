@@ -5,13 +5,13 @@
  * are screenshot-only shortcuts, as before.
  */
 import { buildAppearance, type DataSet } from "@tcs/data";
-import { EventSink, indoorAt, isOffMap, isOutside, navFor, refreshStatus, simHash, startCarry, supportLeft, type EntityId, type Wound } from "@tcs/sim";
+import { EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, refreshStatus, simHash, startCarry, supportLeft, type EntityId, type Wound } from "@tcs/sim";
 import { enemyMenInSight, SIDE_COLOURS, worldToScreen } from "@tcs/render";
 import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
 import { centredOn, startFollow, stopFollow, viewInsets } from "./camera";
 import { activeMoveOf, placesOf, ridersIn, vehicleClassOf } from "./units";
-import { clearAt, endPlan, facingHandle, fireAtPoint, forUnit, issue, now, occupyOrder, offerSupport, startPlan, SUPPORT_ROUNDS, takeKit } from "./orders";
+import { clearAt, endPlan, facingHandle, fireAtPoint, forUnit, issue, now, occupyOrder, offerSupport, resupply, startPlan, SUPPORT_ROUNDS, takeKit } from "./orders";
 import { select, showCard, syncOrders } from "./panels";
 import { showSpriteSheet } from "./sprite-sheet";
 import { sightView } from "./view";
@@ -97,6 +97,13 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     recovery: () => [...sim.state.vehicle.entries()].filter(([, v]) => v.offMap?.kind === "recovery").map(([id, v]) => ({ id, side: v.side, phase: v.offMap!.phase, target: v.offMap!.target ?? null, hook: v.offMap!.hookDoneS ?? 0 })),
     /** M11.2: "Take enemy kit" for the selected unit (the nearest known enemy casualty or prisoner); the source, or null. */
     takeKit: () => takeKit(a),
+    /** M11.3 (screenshots, checks): "Resupply" for the selected unit; the supply point of the selected unit's platoon
+     *  at (x, y); the caches on the map; set cache `id` off (a fire beside it); what the side knows of caches. */
+    resupply: () => resupply(a),
+    supplyPoint: (x: number, y: number) => issue(a, { ...to(), kind: "supplyPoint", x, y }),
+    caches: () => [...sim.state.cache.entries()].map(([id, c]) => ({ id, side: c.side, kind: c.kind, x: sim.state.transform.req(id).x, y: sim.state.transform.req(id).y, stacks: sim.state.container.get(id)?.stacks.length ?? 0, burning: c.cookoff !== undefined, burnt: c.burnt === true, known: c.known ?? [] })),
+    igniteCache: (id: EntityId) => { const S = a.input.catalog.supply; const c = sim.state.cache.get(id); if (S && c) ignite(sim.ctx, sim.state, new EventSink(), S, id, c, "fire"); },
+    knowCache: (id: EntityId, side: string) => { const c = sim.state.cache.get(id); if (c && !(c.known ?? []).includes(side)) c.known = [...(c.known ?? []), side].sort(); },
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */
     dismountWounded: () => issue(a, { ...to(), kind: "dismount", wounded: true }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */

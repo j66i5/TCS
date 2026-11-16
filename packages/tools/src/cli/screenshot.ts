@@ -557,6 +557,63 @@ async function repairScenes(page: Page, name: string, errors: string[], shots: s
 }
 
 /**
+ * M11.3 supply points and caches (`--scene supply`): the hold battle (`?scenario=hold`): the German platoon's supply
+ * point behind the village (crates in the side's colour, its pennant, the fill bar, the rounds), a squad selected (order
+ * bar: Resupply; the Move tray: Supply point), the men on their way to it; in both looks. Then (photo) the supply point
+ * moved by the order (the old crates stay as a plain cache, the new point empty, grey), the crates set off (a burning
+ * pile with its smoke), and from the Russian side the German cache once seen (the enemy's colour).
+ */
+async function supplyScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => {
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p = `${outDir}/supply-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  };
+  const info: Record<string, object> = {};
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    info[`${look}-0`] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state; t.stepTicks(60 * 100);
+      const c = t.caches().find((x) => x.kind === "point"); const sq = t.units().find((u) => u.kind === "infantry");
+      t.select(sq.unit); t.stepTicks(1); t.focus(c.x, c.y, 90); t.stepTicks(1);
+      return { cache: c, squad: sq.callsign, resupply: t.orderSet().resupply ?? false, supplyMode: t.orderSet().modes.includes("supply") };`) as () => object);
+    await shot(`${look}-0-point`);
+    if (look === "photo") {
+      // The Move tray with "Supply point"; on a phone, "Resupply" under "⋯".
+      await page.click('.hud-group[data-group="move"] .hud-caret');
+      await shot(`${look}-0b-move-tray`);
+      await page.click('.hud-group[data-group="move"] .hud-caret');
+      if (name === "phone" && await page.isVisible(".hud-orders .hud-more-btn")) { await page.click(".hud-orders .hud-more-btn"); await shot(`${look}-0c-more`); await page.click(".hud-orders .hud-more-btn"); }
+    }
+    info[`${look}-1`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      const sq = t.units().find((u) => u.kind === "infantry"); const cat = t.sim.ctx.catalog;
+      for (const m of s.unit.get(sq.unit).members) for (const st of s.container.get(m).stacks) if (st.charge !== undefined && cat.items[st.type] && cat.items[st.type].category === "magazine") st.charge = 0;
+      const src = t.resupply(); for (let k = 0; k < 180 && ![...s.action.values()].some((a) => a.kind === "takeSupply"); k++) t.stepTicks(60); t.stepTicks(60 * 3);
+      const c = t.caches().find((x) => x.kind === "point"); t.focusScale(c.x, c.y, 9); t.stepTicks(1);
+      return { src, going: [...s.soldier.values()].filter((x) => x.intent && x.intent.kind === "resupply").length, taking: [...s.action.values()].filter((a) => a.kind === "takeSupply").length };`) as () => object);
+    await shot(`${look}-1-resupply`);
+  }
+  // (Photo) the point moved by the order, the old crates set off, then the Russian side's view of a German cache it has seen.
+  await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=photo`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  info["moved"] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state; t.stepTicks(60 * 100); t.select(t.units()[0].unit); t.stepTicks(1);
+    const c = t.caches().find((x) => x.kind === "point"); t.supplyPoint(c.x - 40, c.y + 25); t.stepTicks(60 * 3); t.select(null); t.focus(c.x - 20, c.y + 12, 90); t.stepTicks(1);
+    return { caches: t.caches() };`) as () => object);
+  await shot("photo-2-point-moved");
+  info["cookoff"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+    const c = t.caches().find((x) => x.kind === "cache" && x.stacks > 0); t.igniteCache(c.id); t.stepTicks(60 * 12); t.focusScale(c.x, c.y, 10); t.stepTicks(1);
+    return { cache: t.caches().find((x) => x.id === c.id) };`) as () => object);
+  await shot("photo-3-cookoff");
+  await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=photo&side=red`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  info["enemy"] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(60 * 5);
+    const c = t.caches()[0]; t.knowCache(c.id, "red"); t.reveal(false); t.focus(c.x, c.y, 120); t.stepTicks(1);
+    return { cache: t.caches()[0] };`) as () => object);
+  await shot("photo-4-enemy-cache");
+  console.log(`${name}: supply scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M11.7b recovery (`--scene recovery`): the vehicles scenario with tanks and recovery vehicles (`&recovery=1`): the
  * Leopard 2A7V with both tracks broken, selected (order bar: Recover), the card after the call ("on its way"); the
  * Büffel coming on (hurried: its delay over), its man outside at the hitch hooking up, the Leopard under tow (photo
@@ -2034,6 +2091,7 @@ try {
     if (args["scene"] === "triage") { await triageScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "repair") { await repairScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "supply") { await supplyScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "recovery") { await recoveryScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks") { await tankScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
@@ -2179,7 +2237,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

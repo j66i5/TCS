@@ -225,6 +225,8 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   if (act?.kind === "unloadCasualty") return { key: "unloading" };
   // (M11.2: taking a casualty's ammunition, or enemy kit; handing over in the squad's consolidation.)
   if (act?.kind === "takeAmmo" || act?.kind === "takeKit") return { key: act.kind };
+  // (M11.3: taking supplies at a cache.)
+  if (act?.kind === "takeSupply") return { key: "takeSupply" };
   // Carrying (M10.4a): a drag into cover, any other carry, or walking out wounded.
   if (s.carrying !== undefined && s.carrying !== id) {
     const c = view.carry.get(s.carrying);
@@ -238,7 +240,7 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   if (b === "panicked" && s.mental.flee) return { key: "fleeing" };
   if (b === "panicked" || b === "routed") return { key: b };
   const intent = s.intent?.kind;
-  if (intent === "cover" || intent === "bringAmmo" || intent === "fetchAmmo" || intent === "takePrisoner" || intent === "reposition" || intent === "hideDrone" || intent === "takeAmmo" || intent === "takeKit") return { key: intent };
+  if (intent === "cover" || intent === "bringAmmo" || intent === "fetchAmmo" || intent === "takePrisoner" || intent === "reposition" || intent === "hideDrone" || intent === "takeAmmo" || intent === "takeKit" || intent === "resupply") return { key: intent };
   const f = view.fire.get(id);
   if (f) return { key: f.self ? "engaging" : "firing" };
   if (b === "pinned") return { key: "pinned" };

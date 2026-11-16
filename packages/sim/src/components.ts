@@ -351,10 +351,42 @@ export interface RearPoint {
   kind: "medical" | "supply";
   side: SideId;
   unit: EntityId;
+  /** kind "supply" (M11.3): the cache (an entity of the `cache` store) that is the platoon's supply point. */
+  cache?: EntityId;
   x: number;
   y: number;
   placed?: true;
   /** When it was sited (or last moved) and last checked. */
+  sitedTick: number;
+  checkTick: number;
+}
+
+/**
+ * A cache (M11.3, plan slice 45; the `cache` store, keyed by its own entity, which also has a transform and a
+ * container): ammunition and other supplies on the ground. `kind` "point": a platoon's supply point (a `rear` point of
+ * kind "supply" names it; never at or within `supply.nestApartM` of its Verwundetennest); "cache": any other pile
+ * (crates left at a delivery, a casualty's ammunition left outside the nest). `side`: whose it is now (a captured
+ * cache becomes the captor's: `capturedBy`, and `from` the side it was taken from). `hp`: what is left of it (1 whole;
+ * a burst nearby takes some; at 0 it is set off). `cookoff`: burning since `startTick` until `endTick`, its contents
+ * lost step by step (`nextTick`), with bursts when it holds explosive rounds (`bursts`). `burnt`: burnt out.
+ * `known`: the other sides whose men have seen it (its own side always knows it). `holdTick`: since when an enemy has
+ * stood at it with none of its side near (capture after `supply.capture.seconds`). `placed`: put there by an order (or
+ * the scenario); an automatic point moves when threatened or left behind while empty.
+ */
+export interface Cache {
+  side: SideId;
+  kind: "point" | "cache";
+  /** The top unit (platoon) it serves, for a supply point. */
+  top?: EntityId;
+  placed?: true;
+  hp: number;
+  cookoff?: { startTick: number; endTick: number; nextTick: number; bursts: boolean };
+  burnt?: true;
+  capturedBy?: SideId;
+  from?: SideId;
+  known?: SideId[];
+  holdTick?: number;
+  /** When it was sited (or last moved) and last checked (automatic points). */
   sitedTick: number;
   checkTick: number;
 }
@@ -420,10 +452,11 @@ export interface CommState {
  * first responder or medic (else as a comrade).
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone" | "takeAmmo" | "takeKit";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone" | "takeAmmo" | "takeKit" | "resupply";
   tick: number;
   /** takeAmmo (M11.2, systems/consolidate.ts): he goes to the own casualty `target` (treated, or dead) to take his
-   *  ammunition; takeKit: to the enemy casualty, prisoner or pile `target` the player named (order `takeKit`). */
+   *  ammunition; takeKit: to the enemy casualty, prisoner or pile `target` the player named (order `takeKit`);
+   *  resupply (M11.3, order `resupplyAt`): to the own cache `target` to take up to his standard load. */
   target?: EntityId;
   /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
   item?: DefId;

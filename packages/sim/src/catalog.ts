@@ -1047,6 +1047,9 @@ export interface Catalog {
   repair?: RepairDef;
   /** Recovery from the rear (core/repair.json `recovery`, M11.7b); absent: no recovery vehicle is ever called. */
   recovery?: RecoveryDef;
+  /** Supply points and caches (core/supply.json, M11.3); absent: caches are plain containers (no capture, no
+   *  cook-off, no supply orders). */
+  supply?: SupplyDef;
   items: Record<DefId, ItemTypeDef>;
   movementModes: Record<DefId, MovementModeDef>;
   qualities: Record<DefId, QualityDef>;
@@ -1153,6 +1156,17 @@ export interface RepairDef {
   order: ComponentKind[];
   tasks: Partial<Record<ComponentKind, RepairTaskDef>>;
   workshopDays: Partial<Record<ComponentKind, number>>;
+}
+/** Supply points and caches (core/supply.json, M11.3) without provenance; see the schema (data/src/schemas.ts). */
+export interface SupplyDef {
+  stepS: number; nestApartM: number; nestClearM: number;
+  site: { backM: number; searchM: number; minBackM: number; maxBackM: number; threatM: number; driftM: number; checkS: number };
+  seeM: number; heightM: number;
+  capture: { holdM: number; enemyM: number; seconds: number };
+  blast: { reachScaledM: number; hpKg: number; chancePerKg: number; maxChance: number };
+  cookoff: { minS: number; maxS: number; stepS: number; maxBurstsPerStep: number; fireM: number; fireChancePerS: number; smokeRadiusM: number; smokeTopM: number };
+  take: { baseS: number; bulkSecondsPerRound: number; magSecondsPerRound: number; reachM: number; underFireS: number };
+  ai: { heRounds: number; everyS: number; ownClearM: number };
 }
 /** Recovery from the rear (core/repair.json `recovery`, M11.7b) without provenance (see the schema). */
 export interface RecoveryDef {

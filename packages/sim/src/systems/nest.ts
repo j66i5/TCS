@@ -90,7 +90,24 @@ function freeMan(state: SimState, id: EntityId, s: SoldierState): boolean {
  * platoon has nobody left to site it from.
  */
 export function siteNest(ctx: SimContext, state: SimState, top: EntityId): { x: number; y: number } | null {
-  const N = ctx.catalog.medical!.nest!;
+  // (M11.3: never within `supply.nestApartM` of the platoon's supply point.)
+  const sp = supplyPointOf(state, top), S = ctx.catalog.supply;
+  const avoid = sp !== null && S ? { x: state.rear.req(sp).x, y: state.rear.req(sp).y, r: S.nestApartM } : undefined;
+  return sitePoint(ctx, state, top, ctx.catalog.medical!.nest!, avoid);
+}
+
+/** The supply point (a `rear` point of kind "supply") of top unit `top`, or null (M11.3). */
+export function supplyPointOf(state: SimState, top: EntityId): EntityId | null {
+  for (const [id, p] of state.rear.entries()) if (p.kind === "supply" && p.unit === top) return id;
+  return null;
+}
+
+/**
+ * A rear point's spot for top unit `top` (the nest, M10.5; the supply point, M11.3): `N.backM` behind the platoon's able
+ * men away from the enemy they know, the spot hidden from that enemy within `N.searchM`, between `N.minBackM` and
+ * `N.maxBackM` back, on open ground a wheeled vehicle can reach from the edge behind; never within `avoid.r` of `avoid`.
+ */
+export function sitePoint(ctx: SimContext, state: SimState, top: EntityId, N: { backM: number; searchM: number; minBackM: number; maxBackM: number }, avoid?: { x: number; y: number; r: number }): { x: number; y: number } | null {
   let cx = 0, cy = 0, n = 0, tx = 0, ty = 0, tn = 0;
   for (const m of menOf(state, top)) {
     const s = state.soldier.get(m), t = state.transform.get(m);
@@ -130,6 +147,7 @@ export function siteNest(ctx: SimContext, state: SimState, top: EntityId): { x: 
       const along = (x - cx) * bx + (y - cy) * by;
       if (along < N.minBackM || along > N.maxBackM) continue;
       if (navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
+      if (avoid && hypot2(x - avoid.x, y - avoid.y) < avoid.r) continue;
       const wc = Math.floor(x / wheel.cellM), wr = Math.floor(y / wheel.cellM);
       if (wc < 0 || wr < 0 || wc >= wheel.cols || wr >= wheel.rows) continue;
       const wi = wr * wheel.cols + wc;
@@ -142,7 +160,19 @@ export function siteNest(ctx: SimContext, state: SimState, top: EntityId): { x: 
   }
   if (best) return best;
   const fi = nearestPassable(foot, gx, gy, 15);
-  return fi >= 0 ? { x: (fi % foot.cols + 0.5) * foot.cellM, y: (Math.floor(fi / foot.cols) + 0.5) * foot.cellM } : { x: gx, y: gy };
+  const at = fi >= 0 ? { x: (fi % foot.cols + 0.5) * foot.cellM, y: (Math.floor(fi / foot.cols) + 0.5) * foot.cellM } : { x: gx, y: gy };
+  // (Every spot searched lay too near `avoid`: the nearest passable spot just outside it, in one of eight directions.)
+  if (avoid && hypot2(at.x - avoid.x, at.y - avoid.y) < avoid.r) {
+    let alt: { x: number; y: number } | null = null, altD = Infinity;
+    for (const [dx, dy] of DIRS) {
+      const x = avoid.x + dx * (avoid.r + 2), y = avoid.y + dy * (avoid.r + 2);
+      if (x < 10 || y < 10 || x > W - 10 || y > H - 10 || navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
+      const d = hypot2(x - gx, y - gy);
+      if (d < altD) { altD = d; alt = { x, y }; }
+    }
+    if (alt) return alt;
+  }
+  return at;
 }
 
 /** Put (or move) top unit `top`'s nest at (x, y); `placed` by the player. Its parties on the way go to the new place. */
@@ -393,9 +423,12 @@ function pickBearers(ctx: SimContext, state: SimState, top: EntityId, c: EntityI
  * The player's `casualtyPoint` order (M10.5): the target's platoon puts its nest at (x, y) (snapped to passable ground
  * outside buildings). True if done.
  */
-export function casualtyPointOrder(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, x: number, y: number): boolean {
+export function casualtyPointOrder(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, x: number, y: number): true | false | { unable: string } {
   const uid = state.unit.has(target) ? target : state.identity.get(target)?.unit;
   if (uid === undefined) return false;
+  // (M11.3, owner: the nest and the supply point stay apart.)
+  const sp = supplyPointOf(state, topOf(state, uid)), S = ctx.catalog.supply;
+  if (sp !== null && S && hypot2(state.rear.req(sp).x - x, state.rear.req(sp).y - y) < S.nestApartM) return { unable: "radio.nestNearSupply" };
   const foot = navFor(ctx, "foot").grid;
   let px = x, py = y;
   if (navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) {

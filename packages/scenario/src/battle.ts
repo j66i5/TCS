@@ -547,6 +547,6 @@ export function holdBattle(data: DataSet, def: HoldDef): BattleInput {
   }
   const merged = new Map<string, { type: string; count: number; charge: number }>();
   for (const l of loads) { const m = merged.get(l.type); if (m) m.count += l.count; else merged.set(l.type, { ...l }); }
-  df.caches = [{ x: sp.x, y: sp.y, load: [...merged.values()].sort((a, b) => (a.type < b.type ? -1 : 1)) }];
+  df.caches = [{ x: sp.x, y: sp.y, load: [...merged.values()].sort((a, b) => (a.type < b.type ? -1 : 1)), point: true }];
   return input;
 }

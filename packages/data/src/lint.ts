@@ -54,6 +54,8 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     if (R.delayMinS > R.delayMaxS) errors.push({ file: "core/repair.json", path: "recovery.delayMinS", message: "delayMinS above delayMaxS", severity: "error" });
     for (const k of ["pace", "nearPace"] as const) if (!data.movementModes[R[k]]) errors.push({ file: "core/repair.json", path: `recovery.${k}`, message: `unknown movement mode '${R[k]}'`, severity: "error" });
   }
+  // Supply points and caches (M11.3): game values; search extracts at most.
+  if (data.supply) { check("core/supply.json", "supply", data.supply.supply, false); notHigh("core/supply.json", "supply", data.supply.supply); }
   if (data.medical) {
     const m = data.medical, f = "core/medical.json";
     for (const [k, b] of [["physiology", m.physiology], ["levels", m.levels], ["chain", m.chain], ["protection", m.protection], ["triage", m.triage]] as const) { check(f, k, b, false); notHigh(f, k, b); }

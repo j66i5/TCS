@@ -7,6 +7,7 @@
  */
 import { isAble, isOffMap, isOut, repairTaskFor, supportLeft, type Catalog, type EntityId, type SimView } from "@tcs/sim";
 import type { OrderMode } from "./hud";
+import { supplySourceNear } from "./supply";
 
 export type Nature = "ap" | "he" | "mg";
 
@@ -40,6 +41,8 @@ export interface OrderSet {
   recoverLeft?: number;
   /** "Take enemy kit" (M11.2): a known enemy casualty or prisoner is near enough. Absent: not offered. */
   takeKit?: boolean;
+  /** "Resupply" (M11.3): an own cache with supplies is within reach. Absent: not offered. */
+  resupply?: boolean;
 }
 
 /** What the selected unit can do about vehicles now (M7.2). */
@@ -86,6 +89,10 @@ export interface UnitCapabilities {
   /** M11.2: the nearest enemy casualty or prisoner the unit's men know of (their contacts marked down or given up)
    *  within `consolidate.kitM` of one of its able men on foot: the source of a "Take enemy kit" order. */
   kitSource?: EntityId;
+  /** M11.3: the own cache with supplies a "Resupply" order would send its men on foot to (`supply.take.reachM`). */
+  supplySource?: EntityId;
+  /** M11.3: the battle has supply points (core/supply.json): "Supply point" is offered to units on foot. */
+  supply?: boolean;
 }
 
 const NONE: UnitCapabilities = { kind: "none", vehicleClass: null, ableMen: 0, hasLauncherRounds: false, handGrenades: 0, rifleGrenades: 0, smokeGrenades: 0, supportHe: 0, supportSmoke: 0, canMount: false, canDismount: false, passengers: 0, hasSmokeDischargers: false, natures: [] };
@@ -184,6 +191,11 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
   }
   const kit = kitSourceNear(view, catalog, own ? [...u.members] : unitSoldierIds(view, unitId));
   if (kit !== null) out.kitSource = kit;
+  if (catalog.supply !== undefined) {
+    out.supply = true;
+    const src = supplySourceNear(view, catalog, u.side, own ? [...u.members] : unitSoldierIds(view, unitId));
+    if (src !== null) out.supplySource = src;
+  }
   if (out.ableMen === 1) out.kind = "man";
   if (out.ableMen === 0) out.kind = "none"; // nobody left to take an order
   return out;
@@ -280,10 +292,11 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     if (cap.smokeGrenades > 0) m.push("smoke");
     if (cap.supportHe > 0 || cap.supportSmoke > 0) m.push("support");
     if (onFoot(cap)) m.push("arc"); // (D4b: Defend arc, a unit's; not for men all aboard)
-    return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.kitSource !== undefined ? { takeKit: true } : {}) };
+    if (cap.supply === true) m.push("supply"); // (M11.3: the platoon's supply point)
+    return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.kitSource !== undefined ? { takeKit: true } : {}), ...(cap.supplySource !== undefined ? { resupply: true } : {}) };
   }
   if (cap.kind === "man") {
-    return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.canRecover ? { recover: true, recoverLeft: cap.recoverLeft ?? 0 } : {}), ...(cap.kitSource !== undefined ? { takeKit: true } : {}) };
+    return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.canRecover ? { recover: true, recoverLeft: cap.recoverLeft ?? 0 } : {}), ...(cap.kitSource !== undefined ? { takeKit: true } : {}), ...(cap.supplySource !== undefined ? { resupply: true } : {}) };
   }
   // (Slice s0-clear: Clear a house — a squad's drill, never a single man's.)
   const m: OrderMode[] = ["move", "assault", "withdraw", "occupy", "clear", "fire"];
@@ -297,7 +310,9 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
   // (D4b: Defend arc — a unit on foot faces a sector and fires on its own only into it; not offered while all its
   // men are aboard: the sim would answer "unable" for a platoon whose squads ride.)
   if (onFoot(cap)) m.push("arc");
-  return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.canRecover ? { recover: true, recoverLeft: cap.recoverLeft ?? 0 } : {}), ...(cap.kitSource !== undefined ? { takeKit: true } : {}) };
+  // (M11.3: Supply point — the platoon's, put where the player taps.)
+  if (cap.supply === true) m.push("supply");
+  return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.canRecover ? { recover: true, recoverLeft: cap.recoverLeft ?? 0 } : {}), ...(cap.kitSource !== undefined ? { takeKit: true } : {}), ...(cap.supplySource !== undefined ? { resupply: true } : {}) };
 }
 
 /** Has the unit able men on foot (D4b)? */

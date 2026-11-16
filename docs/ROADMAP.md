@@ -408,6 +408,9 @@ for the owner's numbers answer after playing, not for more building).
   - ✅ **M11.2 (slice 44)** consolidation in quiet squads (belts first, then magazines, then loose rounds), own
     casualties' ammunition after treatment, none at the Verwundetennest (a pile outside), "Take enemy kit" on the
     player's order (rifle swap with `weaponItem`), `npm run lab -- redistribute` (DECISIONS "M11.2")
+  - ✅ **M11.3 (slice 45)** supply points and caches (`cache` store, schema 23): apart from the Verwundetennest (owner),
+    seen, set off by HE and fire (cook-off with bursts, ledger exact), captured (owner), orders `supplyPoint` and
+    `resupplyAt`, the AI shells enemy caches, map icons, `lab -- cache`, `bench-caches` (DECISIONS "M11.3")
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

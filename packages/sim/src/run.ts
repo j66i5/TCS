@@ -95,6 +95,13 @@ function summarize(
     const t = state.transform.req(id);
     wrecks.push({ vehicleId: v.vehicleId, type: v.def, side: v.side, x: t.x, y: t.y, heading: t.heading, status: v.status });
   }
+  // Caches left on the map (M11.3): whose they are now, what is in them; a captured one names the side it was taken from.
+  const caches: NonNullable<BattleResult["caches"]> = [];
+  for (const [id, c] of state.cache.entries()) {
+    const t = state.transform.req(id);
+    const load = (state.container.get(id)?.stacks ?? []).filter((s) => s.count > 0).map((s) => (s.charge === undefined ? { type: s.type, count: s.count } : { type: s.type, count: s.count, charge: s.charge }));
+    caches.push({ side: c.side, kind: c.kind, x: Math.round(t.x), y: Math.round(t.y), load, ...(c.from !== undefined ? { from: c.from } : {}), ...(c.burnt === true ? { burnt: true as const } : {}) });
+  }
   return {
     seed: input.seed,
     catalogFingerprint: input.catalog.fingerprint,
@@ -108,6 +115,7 @@ function summarize(
       ...(f.vehicles && f.vehicles.length > 0 ? { vehicles: vehiclesFromState(state, f.side) } : {}),
     })),
     ...([...state.vehicle.values()].some((v) => v.offMap === undefined) || wrecks.length > 0 ? { wrecks } : {}),
+    ...(caches.length > 0 ? { caches } : {}),
     orders,
     eventCounts,
     ...battleScore(sim.ctx, state),

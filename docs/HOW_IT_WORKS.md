@@ -721,6 +721,51 @@ his belts first, and that not a round appeared or vanished. The consumption lab 
 from casualties per battle, and checks that none was ever taken from a living man before his treatment;
 `--no-consolidate` runs the battles without this step for comparison.
 
+## Supply points and caches (M11.3)
+
+**A cache is a pile on the ground.** Crates, cans and tins lying somewhere are a cache: a thing with a place and a
+content, belonging to a side. A platoon's **supply point** is one such cache that the platoon uses; any other pile
+(crates left at a delivery, a casualty's ammunition left outside the Verwundetennest) is a plain cache. On the map a
+cache is a small crate in its side's colour, at every zoom; the supply point flies a pennant and shows how full its
+crates and cans are (a bar) and how many rounds are in it. An empty one is grey, a burnt-out one dark. The player sees
+the enemy's caches only once one of his men has seen them (within 250 m, with a line of sight), and then only that
+they are there, not how full.
+
+**Apart from the red cross (owner).** The supply point is never at the Verwundetennest: it stays at least 50 m from its
+platoon's nest, and the nest at least 50 m from the supply point (an order that would put one within 50 m of the other
+is refused on the radio). Nothing with ammunition in it is ever put within 15 m of any nest. In the hold battle the
+crates behind the village are the defending platoon's supply point from the start; otherwise a platoon gets one where
+the player puts it ("Supply point" in the Move tray: tap the map; or drag the marker), and the deliveries of the next
+steps will site one automatically like the nest (behind the platoon, out of the enemy's sight). An empty automatic one
+moves when the enemy comes near or the platoon has moved on; one with supplies in it stays where it is.
+
+**Resupply (player's order).** "Resupply" appears on the order bar (on a phone under "⋯") when an own cache with
+something in it lies within 400 m of the selected squad. Its men go there, each takes what brings him back to his
+standard load — every magazine and belt he carries full, his bandolier or packs of loose rounds full — and walks back to
+where he stood. Filling magazines at the crate takes time (0.4 s a round with stripper clips and a loader; loose clips
+into a bandolier much less), so an empty man spends a minute or so there. The squad refuses on the radio when no cache
+is within reach, when nothing there fits its weapons, when it is already full, or while it is under fire. The computer
+commander does not use this order yet (the squads' own requests come with the next steps).
+
+**Caches are targets (owner).** A high-explosive burst near a crate damages it and may set it off: within 5 m times the
+cube root of the filling in kilograms, more likely the nearer and the bigger the round (a 120 mm round bursting on a
+crate sets it off about six times in ten, a 152 or 155 mm shell always; nothing at 20 m). A burning vehicle or a
+burning cache within 8 m can set it off too. A cache that goes up burns for half a minute to two minutes: its contents
+are lost step by step, the grenades and bombs in it go off one by one (blast and fragments, dangerous to anyone near),
+rifle rounds only burn and pop; it smokes. Every round lost is counted (the conservation guard stays exact). The
+computer commander shells an enemy cache its men have seen when its mortars have had nothing better to fire at for five
+minutes and none of its own men is near it.
+
+**Capture (owner).** A cache with none of its side's men within 50 m and an enemy man within 10 m for 10 seconds
+becomes the enemy's, with everything in it (a supply point stops being one). At the end of the battle every cache is
+listed in the result with its side and what is left in it; a captured one names the side it was taken from (its
+contents count as captured), and the review tallies caches captured and set off and the rounds in them.
+
+**Measuring it.** `npm run lab -- cache [trials]` sets one high-explosive round off at 0, 5, 10 and 20 m from a full
+crate (tank guns, mortars, 152/155 mm) and compares the data's chance with real bursts, then lets crates burn out and
+checks that the rounds lost match the ledger. `bench-caches` (the bench battle with 20 caches, one shelled) must run
+within 5 % of the bench.
+
 ## Grenades
 
 A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one

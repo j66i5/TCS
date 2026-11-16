@@ -158,6 +158,8 @@ interface Memory extends TanksMemory {
   /** M7.4b: crews that bailed out and were sent back; anti-tank tasks: the last look, each gunner's last shot
    *  order, and the men sent after a vehicle (target, since when). */
   sentBack?: number[]; lastAt?: number; atShot?: Record<string, number>; hunt?: Record<string, [number, number]>;
+  /** M11.3: when it last shelled an enemy cache. */
+  lastCacheHe?: number;
   /** M11.7b: hulls a recovery vehicle was called for, and the last look (recovery.ts). */
   recoveryCalled?: number[]; lastRecoveryLook?: number;
   /** Infantry attack (balance pass 2026-11-13): when each squad was last sent on toward its place; the assault
@@ -953,6 +955,19 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];
       if (!main) return out;
+      // M11.3: an enemy cache its men have seen is a legitimate target: high explosive on it when the mortars have had
+      // nothing better to fire at for `supply.ai.everyS` and no own man is near it.
+      const SA = input.catalog.supply?.ai;
+      if (SA && view.cache.size > 0 && supportLeft(view, side, "he", input.catalog) > 0 && tick - (mem.lastHe ?? -1e9) >= SA.everyS * 60 && tick - (mem.lastCacheHe ?? -1e9) >= SA.everyS * 60) {
+        for (const [cid, c] of view.cache.entries()) {
+          if (c.side === side || c.burnt === true || c.cookoff !== undefined || !(c.known?.includes(side) ?? false)) continue;
+          const ct = view.transform.get(cid);
+          if (!ct || all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && hypot2(ft.x - ct.x, ft.y - ct.y) < SA.ownClearM; })) continue;
+          heCall(ct.x, ct.y, SA.heRounds);
+          mem.lastCacheHe = tick;
+          break;
+        }
+      }
 
       if (defending) {
         { const f = mem.front ?? front0(); tanks(cos(f), sin(f), () => ({ kind: "move", waypoints: [{ x: clamp(sx, W), y: clamp(sy, H), mode: "run" }] })); }

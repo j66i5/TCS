@@ -1,0 +1,54 @@
+{
+  "supply": {
+    "stepS": 1,
+    "nestApartM": 50,
+    "nestClearM": 15,
+    "site": {
+      "backM": 100,
+      "searchM": 40,
+      "minBackM": 50,
+      "maxBackM": 250,
+      "threatM": 100,
+      "driftM": 300,
+      "checkS": 10
+    },
+    "seeM": 250,
+    "heightM": 0.5,
+    "capture": {
+      "holdM": 50,
+      "enemyM": 10,
+      "seconds": 10
+    },
+    "blast": {
+      "reachScaledM": 5,
+      "hpKg": 4,
+      "chancePerKg": 0.3,
+      "maxChance": 0.9
+    },
+    "cookoff": {
+      "minS": 30,
+      "maxS": 120,
+      "stepS": 5,
+      "maxBurstsPerStep": 1,
+      "fireM": 8,
+      "fireChancePerS": 0.02,
+      "smokeRadiusM": 4,
+      "smokeTopM": 8
+    },
+    "take": {
+      "baseS": 10,
+      "bulkSecondsPerRound": 0.02,
+      "magSecondsPerRound": 0.4,
+      "reachM": 400,
+      "underFireS": 15
+    },
+    "ai": {
+      "heRounds": 3,
+      "everyS": 300,
+      "ownClearM": 100
+    },
+    "sources": [],
+    "confidence": "low",
+    "note": "M11.3 (plan slice 45): game-design values, no source. Separation from the Verwundetennest and caches as legitimate targets are owner answers (2026-11-16); the 50 m apart and the 15 m clear zone are software choices. Cook-off: a light vehicle's ammunition rack as model (M7.4a); a burst sets a crate off with a chance per kg of filling (a 120 mm round on it about 0.6, a 152/155 mm round 0.9 and destroyed outright), within 5 m x filling^(1/3); a fire burns 30-120 s (plan), rifle rounds burn and pop without fragments (general knowledge, low). Taking at a crate: 0.4 s a round into a magazine (stripper clips and a loader, as refillMagazines with clips), 0.02 s a round of loose clips into a bandolier. Capture after 10 s with an enemy within 10 m and none of its side within 50 m (plan)."
+  }
+}

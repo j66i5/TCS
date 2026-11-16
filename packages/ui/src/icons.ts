@@ -32,6 +32,10 @@ const P: Record<string, string> = {
   recover: `<path d="M10 2.5v8"/><path d="M7.5 2.5h5"/><path d="M10 10.5a3.6 3.6 0 1 1-3.6 3.6"/><path d="M6.4 14.1 4.6 12.3"/>`,
   // (M11.2 "take enemy kit": a magazine and a hand picking it up.)
   takeKit: `<path d="M8 3h4l1 7H7z"/><path d="M7.5 7h5"/><path d="M3 14.5h4.5l2 1.5h4.5c1 0 1 1.5 0 1.5H9"/><path d="M14 16l3-2c.8-.5 1.6.4 1 1.1L15 18H6"/>`,
+  // (M11.3 "supply point": an ammunition crate with a flag on a pole.)
+  supply: `<path d="M3 11h10v6H3z"/><path d="M3 13.5h10"/><path d="M15.5 17V3"/><path d="M15.5 3.5l3 1.5-3 1.5"/>`,
+  // (M11.3 "resupply": an ammunition crate with an arrow out of it.)
+  resupply: `<path d="M3 11h10v6H3z"/><path d="M3 13.5h10"/><path d="M8 9V2.5"/><path d="M5.5 5 8 2.5 10.5 5"/>`,
   // (D4b "defend arc": a sector opening from a man.)
   arc: `<circle cx="10" cy="16" r="1.6"/><path d="M10 16L4 6M10 16l6-10"/><path d="M4 6q6-4 12 0"/>`,
   ceaseFire: `<circle cx="10" cy="10" r="5"/><path d="M10 2v4M10 14v4M2 10h4M14 10h4"/><path d="M4 16L16 4" stroke-width="2.2"/>`,

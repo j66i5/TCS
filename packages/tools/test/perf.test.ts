@@ -34,6 +34,25 @@ describe("performance floor", () => {
     expect(speed).toBeGreaterThanOrEqual(PERF_FLOOR_X_REALTIME);
   });
 
+  // M11.3 (plan slice 45): 20 caches on the bench map, one shelled: each cache is looked at once a second (who sees it,
+  // capture, fire beside it) and every burst checks the caches in reach. Within 5 % of the bench (median of three runs
+  // each, alternating: the container's noise is larger than the cost).
+  it("bench-caches (the bench battle with 20 caches, one shelled) runs within 5 % of the bench", () => {
+    const data = loadData(), seconds = 60;
+    const run = (name: string): number => {
+      const sc = getScenario(name), input = sc.build(data, 1, seconds);
+      const t0 = performance.now();
+      runBattle(input, { controllers: sc.controllers!(input) });
+      return seconds / ((performance.now() - t0) / 1000);
+    };
+    run("bench"); run("bench-caches"); // (warm-up)
+    const b: number[] = [], c: number[] = [];
+    for (let k = 0; k < 3; k++) { b.push(run("bench")); c.push(run("bench-caches")); }
+    b.sort((x, y) => x - y); c.sort((x, y) => x - y);
+    console.log(`bench-caches: ${c[1]!.toFixed(1)}x real time (runs ${c.map((x) => x.toFixed(1)).join(", ")}); bench ${b[1]!.toFixed(1)}x (${b.map((x) => x.toFixed(1)).join(", ")}): ${((1 - c[1]! / b[1]!) * 100).toFixed(1)} % slower`);
+    expect(c[1]!).toBeGreaterThanOrEqual(0.95 * b[1]!);
+  }, 240_000);
+
   it("304 men in plain view of each other, all firing (spotting at full load), runs at >= 8x real time", () => {
     const input = demoBattle(loadData(), { seed: 1, factions: ["de", "ru"], templates: ["demo-team", "demo-team"], unitsPerSide: 38, mapWidthM: 2000, mapHeightM: 2000, frontM: 300, timeLimitSeconds: 600 });
     const sim = createSim(input);

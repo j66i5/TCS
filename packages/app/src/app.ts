@@ -26,7 +26,9 @@ export type Gesture =
   /** S11: a point held for fire support (letting go opens the HE / smoke pop-up there). */
   | { kind: "support"; at: Pt; from: Pt }
   /** M10.5: the Verwundetennest's marker dragged (letting go moves it there: a `casualtyPoint` order to `unit`). */
-  | { kind: "nest"; unit: EntityId; from: Pt; at: Pt };
+  | { kind: "nest"; unit: EntityId; from: Pt; at: Pt }
+  /** M11.3: the supply point's marker dragged (letting go moves it there: a `supplyPoint` order to `unit`). */
+  | { kind: "supply"; unit: EntityId; from: Pt; at: Pt };
 
 export interface App {
   readonly input: BattleInput;

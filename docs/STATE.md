@@ -1,10 +1,22 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.3 (slice 45) built (2026-11-16, branch `claude/m11-logistics`).** Supply points and caches: a `cache` store
+  (schema 23) for every pile on the ground (the hold battle's crates are the defending platoon's supply point; the
+  M11.2 piles outside the nest are caches), kept 50 m apart from the Verwundetennest both ways and no ammunition within
+  15 m of any nest (owner); seen by the enemy within 250 m with a line of sight; HE bursts and fires beside it set it
+  off (chance per kg of filling; a 120 mm round on it 6 in 10, a 152/155 mm shell always), a cook-off burns 30-120 s
+  losing its contents step by step with its grenades going off (ledger exact); captured after 10 s with an enemy at it
+  and none of its side within 50 m (owner); orders `supplyPoint` (Move tray, or drag the marker) and `resupplyAt`
+  ("Resupply": men fill magazines, belts and bandoliers at the crate and walk back; four radio refusals); the AI shells
+  enemy caches it has seen when it has nothing better; crate icons at every zoom; `lab -- cache`, `bench-caches` (within
+  5 % of bench), `--scene supply`. Platoon batches unchanged; hold battle defender wins 4 -> 3 of 6 (id shift, no cache
+  event in the changed seeds). Deviations: no automatic siting in battle yet (deliveries site it, slices 46-47),
+  grenades not taken at a cache. Numbers in DECISIONS "M11.3". Slice 46 (resupply on foot) next.
 - **M11.2 (slice 44) built (2026-11-16, branch `claude/m11-logistics`).** From the interrupted WIP branch
   `claude/m11-wip-44`, reviewed and finished. Quiet, halted squads even out ammunition (belts to the gunner first, then
   magazines, then loose rounds; `bringAmmo` + `transferItems`); own casualties' ammunition is taken only after
@@ -15,7 +27,7 @@ DECISIONS.md under its date._
   after a hand-over or taking; consolidation waits until the squad has stood still 20 s. `lab -- redistribute` 8 of 8.
   Hold battle: defender wins 2 -> 4 of 6 (13 of 20), median 309 rounds taken from casualties per battle. **Open for the
   owner:** attacker wins in the foot platoon battles rose (platoon 7 -> 9 of 10, 15 of 20; platoon-ru 9 -> 10, 19 of
-  20). Numbers in DECISIONS "M11.2". Slice 45 (supply points and caches) next.
+  20). Numbers in DECISIONS "M11.2". Slice 45 (supply points and caches) built next (above).
 - **M11 hold battle: a stronger defence (2026-11-16, branch `claude/m11-logistics`).** Owner: dig the defenders in,
   fewer attacker mortar rounds. New minimal fighting positions (`sim/positions.ts`, data `core/ballistics.json`
   `fightingPosition`, low): a side with `rules.prepared` digs a hole under each man halted outdoors in a window

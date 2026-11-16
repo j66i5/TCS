@@ -38,6 +38,7 @@ import { settleBattle } from "./systems/aftercare";
 import { rearRunSystem } from "./systems/rearrun";
 import { recoverySystem, settleVehicles, towSystem } from "./systems/recovery";
 import { consolidateSystem } from "./systems/consolidate";
+import { supplySystem } from "./systems/supply";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
@@ -177,6 +178,8 @@ export function step(sim: Sim): SimEvent[] {
   recoverySystem(ctx, state, events);
   // Redistribution in quiet squads, own casualties' ammunition after treatment, none left at the nest (M11.2).
   consolidateSystem(ctx, state, events);
+  // Supply points and caches (M11.3): who sees them, capture, fire beside them, cook-offs (nothing without caches).
+  supplySystem(ctx, state, events);
   // Ambushes (D4b): sprung before the decisions, so the men open fire at once.
   ambushSystem(ctx, state, events);
   decisionSystem(ctx, state, events);

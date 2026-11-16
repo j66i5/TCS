@@ -12,6 +12,7 @@ import { rearRunGate, rearRunOrder } from "./rearrun";
 import { endRepairByOrder, repairOrder } from "./repair";
 import { callRecoveryOrder, towGate } from "./recovery";
 import { kitSource, takeKitOrder } from "./consolidate";
+import { resupplyAtOrder, supplyPointOrder } from "./supply";
 import { aglOf, crewServedKind, startSetup } from "./mortars";
 import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
@@ -161,6 +162,15 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (state.unit.get(o.target)?.vehicle !== undefined || !Number.isInteger(o.source)) return "invalid-params";
       if (!ctx.catalog.behaviour.consolidate) return "not-applicable";
       return kitSource(state, o.issuer, o.source) ? null : "invalid-params";
+    case "supplyPoint":
+      // (M11.3: the target's platoon.)
+      if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
+      return ctx.catalog.supply && ctx.rules.resupply !== false ? null : "not-applicable";
+    case "resupplyAt":
+      // (M11.3: men on foot; an own cache, if one is named.)
+      if (state.unit.get(o.target)?.vehicle !== undefined) return "invalid-params";
+      if (o.cache !== undefined && (!Number.isInteger(o.cache) || state.cache.get(o.cache)?.side !== o.issuer)) return "invalid-params";
+      return ctx.catalog.supply && ctx.rules.resupply !== false ? null : "not-applicable";
     case "rearRun":
       // A vehicle crew's hull (M10.6b).
       if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
@@ -410,7 +420,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // (A platoon's headquarters on its own, owner 2026-11-15: its own men, not its sub-units or their vehicles.)
   const own = isUnit && order.own === true;
   // The Verwundetennest (M10.5): nobody's errand or drill changes.
-  if (order.kind === "casualtyPoint") return casualtyPointOrder(ctx, state, events, order.target, order.x, order.y) ? true : "unable";
+  if (order.kind === "casualtyPoint") { const r = casualtyPointOrder(ctx, state, events, order.target, order.x, order.y); return r === true ? true : r === false ? "unable" : r; }
   if (order.kind === "evacuate") return evacuateOrder(state, order.target) ? true : "unable";
   // An ambulance from the rear (M10.6a): the platoon's call; nothing of the unit changes.
   if (order.kind === "callAmbulance") return callAmbulanceOrder(ctx, state, events, order.target, order.player === true);
@@ -422,6 +432,13 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     // mounted: ok takeKitOrder sends only men on foot
     const men = isUnit ? (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : unitSoldiers(state, order.target)) : [order.target];
     return takeKitOrder(ctx, state, events, men, order.source);
+  }
+  // Supply points and caches (M11.3): the platoon's point; the men's errand to a cache (only men on foot go).
+  if (order.kind === "supplyPoint") { const r = supplyPointOrder(ctx, state, events, order.target, order.x, order.y); return r === true ? true : r === false ? "unable" : r; }
+  if (order.kind === "resupplyAt") {
+    // mounted: ok resupplyAtOrder sends only men on foot
+    const men = isUnit ? (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : unitSoldiers(state, order.target)) : [order.target];
+    return resupplyAtOrder(ctx, state, events, men, order.issuer, order.cache);
   }
   const gate = rearRunGate(state, events, order);
   if (gate !== null) return gate;
@@ -515,7 +532,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (!keepsDrill) {
     for (const m of soldiers) {
       const ms = state.soldier.get(m);
-      if (ms?.intent?.kind === "takePrisoner" || ms?.intent?.kind === "care" || ms?.intent?.kind === "takeAmmo" || ms?.intent?.kind === "takeKit" || (ms?.intent?.kind === "bringAmmo" && ms.intent.consolidate === true)) ms.intent = null;
+      if (ms?.intent?.kind === "takePrisoner" || ms?.intent?.kind === "care" || ms?.intent?.kind === "takeAmmo" || ms?.intent?.kind === "takeKit" || ms?.intent?.kind === "resupply" || (ms?.intent?.kind === "bringAmmo" && ms.intent.consolidate === true)) ms.intent = null;
       if (ms?.carrying !== undefined) leaveCarry(state, m); // an order to him alone takes him out of his carrying party
     }
   }

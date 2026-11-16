@@ -128,7 +128,15 @@ export type OrderBody =
    *  unit (or the man) goes to `source` — an enemy casualty or prisoner, or a pile of ammunition on the ground — and
    *  takes the ammunition that fits a weapon he carries; if none fits, he swaps his rifle for the enemy's rifle with its
    *  magazines (his own goes into his load). Refused on the radio when nothing fits or nobody is near. */
-  | { kind: "takeKit"; source: EntityId };
+  | { kind: "takeKit"; source: EntityId }
+  /** Put the supply point here (M11.3, owner: separate from the Verwundetennest): the target's platoon (its top unit)
+   *  has its supply point at (x, y) from now on (an empty one moves; one with supplies stays as a plain cache and a new
+   *  empty one is put here). Refused within `supply.nestApartM` of its nest. */
+  | { kind: "supplyPoint"; x: number; y: number }
+  /** Resupply at a cache (M11.3): the target unit's men on foot (or the man) go to own cache `cache` (absent: the
+   *  nearest own one within reach that has something for them), take up to their standard load and walk back to
+   *  where they stood. Refused on the radio: none in reach, nothing there for them, under fire, already full. */
+  | { kind: "resupplyAt"; cache?: EntityId };
 
 export type OrderKind = OrderBody["kind"];
 

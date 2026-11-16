@@ -37,7 +37,7 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     const o = ordersFor(cap, modes);
     // (D4b review: no Defend arc while every man rides.)
     expect(cap.onFoot).toBe(0);
-    expect(o.modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support"]);
+    expect(o.modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support", "supply"]); // (M11.3: Supply point)
     expect(o.dismount && !o.mount && o.posture && o.rules).toBe(true);
     expect(boardingOf(sim.state, cat, uid)).toEqual({ mount: false, dismount: true });
   });
@@ -54,7 +54,7 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     expect(o.modes).not.toContain("grenade");
     expect(o.modes).not.toContain("grenades");
     for (const sp of s2.state.support) { const c = s2.state.container.get(sp.battery); if (c) c.stacks = []; }
-    expect(ordersFor(unitCapabilities(s2.state, cat, uid), modes).modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire"]);
+    expect(ordersFor(unitCapabilities(s2.state, cat, uid), modes).modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire", "supply"]);
   });
 
   it("Defend arc (D4b): offered once a man is on foot, not for a platoon whose squads all ride", () => {

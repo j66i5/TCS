@@ -50,6 +50,8 @@ export interface SitingPlace {
   id: number; x: number; y: number; facing: number; move: boolean;
   /** M7.5e: a window place: the building's id and the window's index in its `windowPlaces` (an `occupy` order). */
   building?: number; windowIndex?: number;
+  /** How many of the points it sees (absent: a man left where he is, not worked out). */
+  seen?: number;
 }
 
 /** The approach the defence must see: points on rings out from (ox, oy), `arcDeg` either side of `front` (rad). */
@@ -80,6 +82,17 @@ function distToOutline(fp: readonly number[], x: number, y: number): number {
 export interface SitingOptions {
   /** Window places of the houses near each group are candidates too (M7.5e; default true). */
   windows?: boolean;
+  /**
+   * Sight realism step 5 (re-siting toward a lost enemy): each man may only take a place within `r` of his own anchor
+   * (where he was sited), and the candidates are searched only within those discs (not `searchM` around the group).
+   */
+  anchors?: ReadonlyMap<number, { x: number; y: number; r: number }>;
+  /** Places other men already hold or are going to (building index, -1 outdoors; height): kept clear like the group's own. */
+  taken?: readonly { x: number; y: number; bi: number; z: number }[];
+  /** The eye a candidate is judged from outdoors (default prone) and the share of visibility that counts as seen
+   *  (default `SITING.seenVisibility`). */
+  eyePosture?: "prone" | "crouching";
+  seenVisibility?: number;
 }
 
 interface Cand {
@@ -102,17 +115,20 @@ interface Cand {
  * group's next man after one takes a house watches its back (`wallClearM`..`wallClearM + backM` from its walls on
  * the far side from the approach, facing away from it). `opts.windows` false: outdoor spots only (as before).
  */
-export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts: readonly { x: number; y: number }[], searchM: number = SITING.searchM, opts: SitingOptions = {}): SitingPlace[] {
+export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts: readonly { x: number; y: number; h?: number }[], searchM: number = SITING.searchM, opts: SitingOptions = {}): SitingPlace[] {
   const S = SITING, map = ctx.map, foot = navFor(ctx, "foot").grid;
   const N = pts.length;
-  const eye = eyeHeightM(ctx, "prone"), tz = ctx.catalog.body.postures.crouching.heightM * 0.8;
-  const ptz = pts.map((p) => heightAt(map, p.x, p.y) + tz); // ground: ok (the approach's open ground)
+  const eye = eyeHeightM(ctx, opts.eyePosture ?? "prone"), tz = ctx.catalog.body.postures.crouching.heightM * 0.8, seenVis = opts.seenVisibility ?? S.seenVisibility;
+  // (A point may carry its own target height above the ground: a known enemy's posture, step 5.)
+  const ptz = pts.map((p) => heightAt(map, p.x, p.y) + (p.h ?? tz)); // ground: ok (the approach's open ground)
+  // (A point given twice — a closing enemy counts twice, step 5 — is looked at once: `first[i]`, its first index.)
+  const first = pts.map((p, i) => { for (let j = 0; j < i; j++) if (pts[j]!.x === p.x && pts[j]!.y === p.y && ptz[j] === ptz[i]) return j; return i; });
   const seenFrom = (x: number, y: number, z0: number): { seen: Uint8Array; n: number; ax: number; ay: number } => {
     const seen = new Uint8Array(N);
     let n = 0, ax = 0, ay = 0;
     for (let i = 0; i < N; i++) {
-      const p = pts[i]!;
-      if (sight(ctx, x, y, z0, p.x, p.y, ptz[i]!).visibility >= S.seenVisibility) {
+      const p = pts[i]!, f = first[i]!;
+      if (f !== i ? seen[f] === 1 : sight(ctx, x, y, z0, p.x, p.y, ptz[i]!).visibility >= seenVis) {
         seen[i] = 1; n++;
         const d = hypot2(p.x - x, p.y - y) || 1;
         ax += (p.x - x) / d; ay += (p.y - y) / d;
@@ -161,25 +177,48 @@ export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts
     houses.set(bi, l);
     return l;
   };
+  const anchors = opts.anchors;
   const lists = groups.map((g) => {
     const out: Cand[] = [];
-    const k = Math.floor(searchM / S.gridM);
-    for (let dy = -k; dy <= k; dy++) for (let dx = -k; dx <= k; dx++) {
-      if (dx * dx + dy * dy > k * k) continue;
-      const x = g.cx + dx * S.gridM, y = g.cy + dy * S.gridM;
-      if (x < 1 || y < 1 || x > map.widthM - 1 || y > map.heightM - 1) continue;
+    // (Step 5: with anchors, the discs around its men's anchors, on one grid so that overlapping discs share points.)
+    const discs = anchors ? g.men.map((m) => anchors.get(m.id)).filter((a) => a !== undefined) : [];
+    const grid = new Set<number>();
+    const tryPoint = (x: number, y: number) => {
+      if (x < 1 || y < 1 || x > map.widthM - 1 || y > map.heightM - 1) return;
       const c = candOf(x, y);
-      if (!c) continue;
-      if (g.ring && hypot2(c.x - g.ring.x, c.y - g.ring.y) > g.ring.r - S.ringMarginM) continue;
+      if (!c) return;
+      if (g.ring && hypot2(c.x - g.ring.x, c.y - g.ring.y) > g.ring.r - S.ringMarginM) return;
       if (!out.includes(c)) out.push(c);
+    };
+    if (discs.length > 0) {
+      for (const a of discs) {
+        const k = Math.ceil(a.r / S.gridM), ix = Math.round(a.x / S.gridM), iy = Math.round(a.y / S.gridM);
+        for (let dy = -k; dy <= k; dy++) for (let dx = -k; dx <= k; dx++) {
+          const x = (ix + dx) * S.gridM, y = (iy + dy) * S.gridM;
+          if (hypot2(x - a.x, y - a.y) > a.r) continue;
+          const key = (iy + dy) * 100000 + (ix + dx);
+          if (grid.has(key)) continue;
+          grid.add(key);
+          tryPoint(x, y);
+        }
+      }
+    } else {
+      const k = Math.floor(searchM / S.gridM);
+      for (let dy = -k; dy <= k; dy++) for (let dx = -k; dx <= k; dx++) {
+        if (dx * dx + dy * dy > k * k) continue;
+        tryPoint(g.cx + dx * S.gridM, g.cy + dy * S.gridM);
+      }
     }
     // The men's own places count too (a man already well placed stays).
     for (const m of g.men) {
       const c = candOf(m.x, m.y);
       if (c && !out.includes(c) && (!g.ring || hypot2(c.x - g.ring.x, c.y - g.ring.y) <= g.ring.r)) out.push(c);
     }
+    const nearHouse = (fp: readonly number[]) => discs.length > 0
+      ? discs.some((a) => distToOutline(fp, a.x, a.y) <= a.r || pointInPolygon(fp, a.x, a.y))
+      : distToOutline(fp, g.cx, g.cy) <= searchM || pointInPolygon(fp, g.cx, g.cy);
     if (useWindows) map.buildings.forEach((b, bi) => {
-      if (!b.interior || distToOutline(b.footprint, g.cx, g.cy) > searchM && !pointInPolygon(b.footprint, g.cx, g.cy)) return;
+      if (!b.interior || !nearHouse(b.footprint)) return;
       for (const c of windowsOf(bi)) if (!g.ring || hypot2(c.x - g.ring.x, c.y - g.ring.y) <= g.ring.r + S.windowRingSlackM) out.push(c);
     });
     return out;
@@ -189,7 +228,7 @@ export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts
   for (const p of pts) { fx += p.x / Math.max(1, N); fy += p.y / Math.max(1, N); }
   const union = new Uint8Array(N);
   /** Places taken: where, on which level (building index and height; -1 / 0 outdoors). */
-  const taken: { x: number; y: number; bi: number; z: number }[] = [];
+  const taken: { x: number; y: number; bi: number; z: number }[] = [...(opts.taken ?? [])];
   const inHouse = new Map<number, number>(), upHouse = new Map<number, number>(), inRoom = new Map<string, number>();
   const result: SitingPlace[] = [];
   const next = groups.map(() => 0);
@@ -215,7 +254,7 @@ export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts
   const place = (gi: number, id: number, c: Cand, facing: number, move: boolean) => {
     taken.push({ x: c.x, y: c.y, bi: c.bi, z: c.z });
     for (let i = 0; i < N; i++) if (c.seen[i] === 1) union[i] = 1;
-    const p: SitingPlace = { id, x: c.x, y: c.y, facing, move };
+    const p: SitingPlace = { id, x: c.x, y: c.y, facing, move, seen: c.n };
     if (c.bi >= 0) {
       p.building = map.buildings[c.bi]!.id; p.windowIndex = c.win;
       inside[gi]!++;
@@ -256,7 +295,8 @@ export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts
       if (!m) return;
       next[gi]!++; more = true;
       // The group's man after one takes a house: its back watcher (M7.5e).
-      const due = backDue[gi]!.shift();
+      // (Not when re-siting around anchors, step 5: the house's back was seen to when it was first sited.)
+      const due = anchors ? undefined : backDue[gi]!.shift();
       if (due !== undefined) {
         const c = backSpot(due, m);
         if (c) {
@@ -266,7 +306,9 @@ export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts
         }
       }
       let best: Cand | null = null, bestScore = -Infinity;
+      const anchor = anchors?.get(m.id);
       for (const c of lists[gi]!) {
+        if (anchor !== undefined && hypot2(c.x - anchor.x, c.y - anchor.y) > anchor.r) continue;
         if (c.bi >= 0) {
           if (inside[gi]! >= maxIn[gi]! || (inHouse.get(c.bi) ?? 0) >= S.houseMax || (inRoom.get(`${c.bi}:${c.floor}:${c.room}`) ?? 0) >= S.roomMax) continue;
           if (c.floor > 0 && ((upHouse.get(c.bi) ?? 0) >= S.upperMax || upstairs[gi]! >= Math.ceil(maxIn[gi]! / 2))) continue;

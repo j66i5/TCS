@@ -6603,3 +6603,535 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   alone is "unable", as for crew. Before, the squad's dismount took him out and left the station empty (a second
   passenger then swapped in and got out with the rest). `gtk-seatswap.test.ts` passed on main only because the old
   morale broke the blue platoon at 37 s, before its squad ever got out. No golden changed.
+
+## 2026-11-15 — Sight realism: baseline (step 1 of 5; tools only, no sim or data change, no golden update)
+- **Owner request** (2026-11-15, "make the line of sight more realistic"): men see enemies too easily (through bushes
+  and crops, at long range, lying still), yet sometimes do not shoot at an enemy right in front of them and do not
+  move to see a known enemy again. Before changing anything, the audit's throwaway scripts became repo labs, so that
+  every later step is judged by the same cases and seeds:
+  - `npm run lab -- spotting [seeds]` now also prints the **sight realism rows** (`SIGHT_CASES`, `sightCase` in
+    `tools/src/labs/spotting.ts`: a 4 m vegetation patch in front of the target, crop fields, treelines, crawling,
+    firing, 1/3/9 observers, optic against iron sights, a house window placed with `occupyPlaces`; seeds 7001-7020)
+    and a **retention** table (`retainCase`: seen, then prone and still; seeds 101-120). The old table is unchanged.
+  - `npm run lab -- engage [seeds]` (new, `labs/engage.ts`): one G36 rifleman, one enemy still in the open ahead at
+    30/60/100 m; halted under rule return (the data default, no order), free or hold; walking toward or across under
+    free; forced pinned under free. 12 seeds, 60 s.
+  - `npm run lab -- reacquire [seeds] [--seeds 1-3] [--scenarios a,b] [--seconds s]` (new, `labs/reacquire.ts`):
+    samples once a second; platoon (red defends), platoon-ru (blue defends), village-occupy (red attacks; 900 s, the
+    audit's length; the others 1200 s), seeds 1-3; about 2.5 min for all nine battles. Definitions are in the file's
+    header. The "not engaged" front arc is +-60 degrees of his facing (the audit's), visibility at least 0.5.
+- **Reproduced the audit** (all within noise, most exactly): prone still behind 4 m of crops at 100 m 13 s, 45 %
+  within 10 s; standing 2 m inside a treeline at 100 m 2 s (the open: 2 s); crops at 200 m 34 s with one observer,
+  2.8 s with nine; retention behind scrub at 300 m 15/15 kept at 60 s; engage rule return 0/72; walking toward
+  under rule free 19.6 s at 30 m, 41.5 s at 60 m, never at 100 m; pinned 0/72; platoon s1-3 defence blind-idle to
+  sighted 1.50 (5367/3585), re-acquisition 4.3 %; village-occupy s1 attackers blind-idle 52.0 % of man-time,
+  defenders indoors 1272 man-s, 95.5 % of it with another window of the house seeing.
+- **Spotting, sight realism rows (before):**
+
+  | target | range m | runs | median s | found within 10 s | never found in 120 s |
+  |---|---:|---:|---:|---:|---:|
+  | standing, still, open | 50 | 20 | 1.0 | 100 % | 0 % |
+  | standing, still, open | 100 | 20 | 2.0 | 100 % | 0 % |
+  | standing, still, open | 200 | 20 | 5.0 | 80 % | 0 % |
+  | prone, still, open | 50 | 20 | 2.0 | 100 % | 0 % |
+  | prone, still, behind 4 m of crops | 100 | 20 | 13.0 | 45 % | 0 % |
+  | prone, still, behind 4 m of crops | 200 | 20 | 34.0 | 15 % | 5 % |
+  | prone, still, behind 4 m of crops | 400 | 20 | 67.0 | 15 % | 30 % |
+  | prone, still, behind 4 m of tall-grass | 100 | 20 | 10.0 | 60 % | 0 % |
+  | prone, still, behind 4 m of tall-grass | 200 | 20 | 21.0 | 25 % | 0 % |
+  | prone, still, behind 4 m of tall-grass | 400 | 20 | 67.0 | 15 % | 30 % |
+  | prone, still, behind 4 m of scrub | 100 | 20 | 14.0 | 40 % | 0 % |
+  | prone, still, behind 4 m of scrub | 200 | 20 | 37.0 | 15 % | 15 % |
+  | prone, still, behind 4 m of scrub | 400 | 20 | 107.0 | 10 % | 40 % |
+  | prone, still, in a whole crop field | 100 | 20 | over 120 | 0 % | 100 % |
+  | prone, still, in a whole crop field | 200 | 20 | over 120 | 0 % | 100 % |
+  | standing, still, 2 m inside a treeline | 100 | 20 | 2.0 | 100 % | 0 % |
+  | standing, still, 2 m inside a treeline | 400 | 20 | 17.0 | 35 % | 0 % |
+  | standing, still, 5 m inside woodland | 400 | 20 | 19.0 | 30 % | 0 % |
+  | crouching, still, in tall grass (4 m) | 100 | 20 | 3.0 | 95 % | 0 % |
+  | crouching, still, in tall grass (4 m) | 400 | 20 | 33.0 | 15 % | 0 % |
+  | prone, firing, behind 4 m of crops | 200 | 20 | 5.0 | 80 % | 0 % |
+  | prone, firing, behind 4 m of crops | 400 | 20 | 14.0 | 35 % | 0 % |
+  | prone, firing, open | 400 | 20 | 5.0 | 65 % | 0 % |
+  | prone, firing, open | 600 | 20 | 17.0 | 25 % | 0 % |
+  | crawling, open | 400 | 20 | 17.0 | 35 % | 0 % |
+  | crawling, open | 600 | 20 | 37.0 | 15 % | 15 % |
+  | crawling, behind 4 m of crops | 200 | 20 | 9.0 | 65 % | 0 % |
+  | prone, still, behind 4 m of crops, 1 observer | 200 | 20 | 34.0 | 15 % | 5 % |
+  | prone, still, behind 4 m of crops, 1 observer | 400 | 20 | 67.0 | 15 % | 30 % |
+  | prone, still, behind 4 m of crops, 3 observers | 200 | 20 | 9.9 | 55 % | 0 % |
+  | prone, still, behind 4 m of crops, 3 observers | 400 | 20 | 25.9 | 30 % | 15 % |
+  | prone, still, behind 4 m of crops, 9 observers | 200 | 20 | 2.8 | 95 % | 0 % |
+  | prone, still, behind 4 m of crops, 9 observers | 400 | 20 | 8.8 | 55 % | 0 % |
+  | standing, still, open, G36 optic | 400 | 20 | 14.0 | 40 % | 0 % |
+  | standing, still, open, iron sights | 400 | 20 | 19.0 | 30 % | 0 % |
+  | standing, still, open, G36 optic | 600 | 20 | 37.0 | 15 % | 5 % |
+  | standing, still, open, iron sights | 600 | 20 | 37.0 | 15 % | 15 % |
+  | standing, still, at a house window | 300 | 20 | 9.0 | 65 % | 0 % |
+
+- **Retention (before):**
+
+  | in front of him | range m | seen as he stopped | still kept at 60 s | lost within 20 s | mean time kept s |
+  |---|---:|---:|---:|---:|---:|
+  | open ground | 100 | 20/20 | 100 % | 0 % | 80 |
+  | open ground | 200 | 20/20 | 100 % | 0 % | 80 |
+  | open ground | 300 | 18/20 | 100 % | 0 % | 80 |
+  | 4 m of crops | 100 | 20/20 | 100 % | 0 % | 79 |
+  | 4 m of crops | 200 | 20/20 | 100 % | 0 % | 79 |
+  | 4 m of crops | 300 | 19/20 | 100 % | 0 % | 79 |
+  | 4 m of scrub | 100 | 20/20 | 100 % | 0 % | 76 |
+  | 4 m of scrub | 200 | 20/20 | 100 % | 0 % | 76 |
+  | 4 m of scrub | 300 | 15/20 | 100 % | 0 % | 76 |
+
+- **Engage lab (before).** By case: walking toward fires at 19.6 s (30 m) and 41.5 s (60 m) for both postures, 0/12
+  at 100 m; rule free, halted, fires at a median of 1.5-8.2 s.
+
+  | situation | fired within 10 s | within 15 s | within 60 s | median s of those that fired | never spotted |
+  |---|---:|---:|---:|---:|---:|
+  | rule return | 0/72 | 0/72 | 0/72 | – | 0 |
+  | rule free | 65/72 | 68/72 | 72/72 | 1.9 | 0 |
+  | rule hold | 0/72 | 0/72 | 0/72 | – | 0 |
+  | walking toward (free) | 0/72 | 0/72 | 48/72 | 41.0 | 0 |
+  | walking across (free) | 0/72 | 0/72 | 0/72 | – | 12 |
+  | pinned (free) | 0/72 | 0/72 | 0/72 | – | 0 |
+
+- **Re-acquire lab, seeds 1-3 (before).** Village-occupy s1 alone: attack 1842 of 3541 man-s blind-idle (52.0 %),
+  defence 1272 blind-idle man-s, all indoors, 1215 (95.5 %) with another window seeing.
+
+  | scenario | side | man-s | sighted man-s | blind-idle man-s | blind-idle / sighted | blind-idle share of man-time | re-acquisition | episodes | median s | p90 s | median s, enemy stayed within 10 m | fully blind squad-time | longest fully blind squad s | squad episodes over 30 s |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | platoon s1,2,3 | defence | 48865 | 3585 | 5367 | 1.50 | 11.0 % | 4.3 % | 588 | 3 | 15 | 3 | 10.1 % | 154 | 7 (2.3 per battle) |
+  | platoon s1,2,3 | attack | 123475 | 10497 | 1643 | 0.16 | 1.3 % | 1.6 % | 503 | 1 | 5 | 1 | 1.1 % | 28 | 0 (0.0 per battle) |
+  | platoon-ru s1,2,3 | defence | 29933 | 10567 | 322 | 0.03 | 1.1 % | 14.3 % | 42 | 6 | 10 | 5 | 1.0 % | 14 | 0 (0.0 per battle) |
+  | platoon-ru s1,2,3 | attack | 57699 | 17374 | 96 | 0.01 | 0.2 % | 8.0 % | 25 | 2 | 9 | 2 | 0.0 % | 0 | 0 (0.0 per battle) |
+  | village-occupy s1,2,3 | defence | 14464 | 958 | 1823 | 1.90 | 12.6 % | 6.9 % | 58 | 12 | 89 | 12 | 0.7 % | 6 | 0 (0.0 per battle) |
+  | village-occupy s1,2,3 | attack | 10445 | 957 | 2447 | 2.56 | 23.4 % | 12.4 % | 129 | 6 | 24 | 6 | 3.9 % | 15 | 0 (0.0 per battle) |
+
+  | scenario | side | blind-idle man-s | prone | under fire (suppression 0.1+) | indoors | indoors, another window sees | visible now, not yet spotted | kneel shows him | stand shows him | side-step of 2-6 m shows him | fixable by a peek of 6 m or less | nothing near shows him | episodes ended by |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+  | platoon | defence | 5367 | 4502 | 344 | 1654 | 678 (41.0 %) | 47 | 75 | 35 | 361 | 471 (8.8 %) | 4849 | forgot 521, posture 29, seen again 25, other 6, own move 4, fired 2, unit moved 1 |
+  | platoon | attack | 1643 | 1484 | 28 | 196 | 124 (63.3 %) | 3 | 19 | 36 | 126 | 181 (11.0 %) | 1459 | forgot 430, unit moved 45, other 10, seen again 8, posture 5, fired 3, own move 2 |
+  | platoon-ru | defence | 322 | 315 | 50 | 132 | 132 (100.0 %) | 15 | 40 | 68 | 62 | 170 (52.8 %) | 137 | forgot 34, seen again 6, posture 2 |
+  | platoon-ru | attack | 96 | 96 | 0 | 0 | 0 (–) | 1 | 41 | 0 | 0 | 41 (42.7 %) | 54 | forgot 15, fired 7, seen again 2, unit moved 1 |
+  | village-occupy | defence | 1823 | 43 | 14 | 1823 | 1532 (84.0 %) | 18 | 15 | 0 | 0 | 15 (0.8 %) | 1790 | forgot 50, seen again 4, own move 3, posture 1 |
+  | village-occupy | attack | 2447 | 2195 | 154 | 0 | 0 (–) | 127 | 111 | 36 | 1413 | 1560 (63.8 %) | 760 | forgot 99, seen again 16, posture 5, own move 5, other 4 |
+
+  Enemy in front, not engaged (only 285 exposure man-s in nine battles: few men are within 100 m of an enemy in
+  clear view; platoon-ru and village-occupy have none at that range):
+
+  | scenario | side | exposure man-s | not engaged man-s | share | carrying | care | pinned | rule | moving | drill or ordered task | other |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | platoon | defence | 155 | 52 | 33.5 % | 31 | 0 | 0 | 0 | 0 | 0 | 21 |
+  | platoon | attack | 130 | 103 | 79.2 % | 17 | 19 | 26 | 0 | 31 | 5 | 5 |
+  | platoon-ru | defence | 0 | 0 | – | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+  | platoon-ru | attack | 0 | 0 | – | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+  | village-occupy | defence | 0 | 0 | – | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+  | village-occupy | attack | 0 | 0 | – | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+  | all | both | 285 | 155 | 54.4 % | 48 | 19 | 26 | 0 | 31 | 5 | 26 |
+
+- **Batches (before**, `npm run batch -- --scenario <s> --runs 10 --seconds 1200`, seeds 1-10):
+
+  | scenario (attacker) | winners blue/red | attacker wins | casualties blue/red | mean duration s | end reasons |
+  |---|---|---:|---|---:|---|
+  | platoon (blue) | 8/2 | 8 | 12.1 / 11.8 | 1018 | eliminated 7, time 3 |
+  | platoon-ru (red) | 2/8 | 8 | 14.1 / 5.3 | 808 | eliminated 8, time 2 |
+  | platoon-vehicles (blue) | 9/1 | 9 | 6.6 / 25.5 | 899 | eliminated 4, time 6 |
+  | platoon-ru-vehicles (red) | 10/0 | 0 | 8.2 / 34.0 | 1096 | eliminated 1, time 9 |
+
+  Casualties 31.4 per battle. Two of the four are already outside the acceptance's 2-8 band (platoon-vehicles 9,
+  platoon-ru-vehicles 0): later steps are judged against these numbers. Platoon breaks: the morale rework's "17 of
+  40" came from a scratch sampler that is not in the repo and cannot be re-run the same way. Counted again on these
+  40 battles with a scratch script (`sight/step1/breaks.ts` in the session's scratch folder; a top-level unit of
+  echelon platoon with `broken` set at any time): a platoon of the side that lost broke in 32 of 40 (8 in each
+  scenario); a platoon broke at all in 34 of 40. Later steps compare with this count, same script.
+- No behaviour change: `sim`, `ai` and data untouched, goldens unchanged. Tests: `lab-engage.test.ts` (hold never
+  fires; free and halted fires within 10 s at 30 m), `lab-reacquire.test.ts` (options; counts consistent over a
+  short village-occupy battle), a sight realism row in `lab-spotting.test.ts`.
+
+## 2026-11-15 — Sight realism, step 2 of 5: an enemy close in front gets shot at (behaviour gates; spotting untouched)
+- **What changed** (all game values, low confidence, in line with the immediate-action drill "react to contact:
+  return fire, get down"; search extracts only; the spotting rates are untouched — the audit showed a standing enemy
+  within 100 m in the open is seen after a median 0.5 s, and the delay was in the rules that let a man fire):
+  - **Self-defence under rule "return"** (`decisions.returnCloseM` 100): not fired on lately, a man still opens fire
+    on his own at an enemy he sees (not spared) within 100 m; in the dark no farther than the night ranges (the
+    existing night limit still applies). New optional `Unit.seenContactTick` (his unit and the top unit) lets his
+    comrades throw a hand grenade under "return" too. Anti-tank shots on his own still need the full rule. Hold, a
+    cease-fire with no fire since, an ambush not yet sprung, `maxEngageM` and a defend arc stay absolute. A self fire
+    task now ends when its enemy moves beyond the range he may fire at (`fireReach`).
+  - **React to contact on sight** (`drills.reactSeenM` 150, `reactSeenNightM` 75): a moving unit also goes to ground
+    when one of the men carrying its move sees an enemy anew (none in sight within `contactLostSeconds` before:
+    new optional `Unit.seenSpellTick`, set by decisions.ts) after the move began. An enemy already in sight when the
+    move was ordered does not stop it (otherwise every move in contact would stop at once). Push, entering a house and
+    the other existing exceptions still skip it.
+  - **Fire on the move** (`soldier.moveEngageM` 75): a man running (`hurryMode`), in an assault or on a push fires as
+    he goes (assault-fire aiming penalty) at an enemy he sees within 75 m. Walking and sneaking moves stop instead.
+  - **Pinned self-defence** (`soldier.pinnedSelfDefenceM` 50): a pinned man (not panicked) with an enemy he sees
+    within 50 m and a line lying down fires back, at the pinned rate.
+  - **Close threat** (`soldier.closeThreatM` 40, `closeThreatTaskFactor` 2): an enemy he sees within 40 m in his front
+    arc (`spotting.frontHalfAngleDeg`) is fired at whatever else he does: an errand (on the move: as he goes), care
+    (the treatment is broken off and his care waits until 10 s after he last saw such an enemy: new optional
+    `SoldierState.closeThreatTick`, medical.ts), a drill's or an order's fire at a point more than 2 x farther.
+    Carriers: `medical.carrying.selfDefenceM` 30 -> 40 m, also while the party lies in cover. The red cross rule is
+    unchanged. The nearest seen enemy is worked out once per man per decision and shared by all these rules.
+  - New data fields are optional in the schema (absent = off; the sim test catalog has them off); no schema bump.
+- **Engage lab** (12 seeds, 60 s; before -> after): rule return 0/72 -> 65/72 within 10 s (standing 30/60/100 m
+  36/36 within 10 s, medians 1.5/1.8/3.9 s; prone 100 m median 8.2 s) — the same as rule free; rule hold 0/72 ->
+  0/72; walking toward medians 19.6/41.5 s/never at 30/60/100 m -> 3.5/2.8-5.2/4.8-6.0 s, 100 m 22/24 within 15 s;
+  walking across 0/72 -> 55/72 within 15 s (76 %, short of the 80 % goal: 12 of the 72 runs never spot the prone
+  man at his side in 60 s — spotting, not a gate; the runs that see him fire 1-2 s later); pinned at 30 m 0/24 ->
+  24/24 (medians 2.5-3.2 s); pinned at 60 and 100 m stay 0 (beyond 50 m).
+- **Reacquire lab** (seeds 1-3), enemy in front not engaged for more than 5 s: 155 -> 46 man-s (-70 %); moving
+  31 -> 4, pinned 26 -> 0, carrying 48 -> 0, care 19 -> 0; "drill or ordered task" 5 -> 41 (men of a drill firing at
+  the objective with an enemy at 40-100 m: outside the 40 m close-threat rule; left as it is). The exposure itself
+  fell 285 -> 59 man-s (fights now start before men get that close). Blind-idle: platoon defence 1.50 -> 1.20, re-
+  acquisition 4.3 -> 6.1 % (step 4's work).
+- **Batches** (10 x 1200 s, seeds 1-10; before -> after): platoon attacker wins 8 -> 8, casualties 12.1/11.8 ->
+  9.6/11.5, mean duration 1018 -> 977 s; platoon-ru 8 -> 8, 14.1/5.3 -> 14.0/4.2, 808 -> 789 s; platoon-vehicles
+  9 -> 10, 6.6/25.5 -> 8.6/25.1, 899 -> 920 s; platoon-ru-vehicles 0 -> 1, 8.2/34.0 -> 8.6/33.0, 1096 -> 993 s.
+  All within +-30 % of the baseline; platoon-vehicles (10) and platoon-ru-vehicles (1) stay outside the 2-8 band
+  as in the baseline. Platoon breaks (step 1's script): the losing side's platoon broke in 29 of 40 (was 32), any
+  break 32 of 40 (was 34). Headless platoon seed 1: "contact" radio calls 17 -> 18; the defender opens fire first
+  (145 s) in both, so this seed does not show the attacker walking onto a silent defender.
+- Self-defence under "return" does not cover enemy drones: a man fires at a drone on his own only with the full rule
+  (else the drone lab's endurance flight was shot down by the man it hovered over).
+- Tests adapted where a test set two sides side by side and counted on both staying passive: the casualty lab and the
+  AGL friend test hold every unit's fire (the AGL test at once, not on the order's arrival: the comrade moved next to
+  the enemy opened fire first), the drone-hide walker, the village crossing (formation-cover) and the nav-maps walk
+  hold fire and push on contact. The casualty lab's numbers may differ slightly from before (the targets no longer
+  fire back).
+- Goldens regenerated (intended; `npm run golden:update`); `golden/no-interiors` untouched.
+
+## 2026-11-15 — Sight realism, step 3 of 5: hidden men stay hidden (spotting and vegetation data; goldens regenerated)
+- **What changed** (owner request "make the line of sight more realistic"; plan step "conceal"; all numbers in
+  `core/spotting.json` `conceal` and `core/terrain/vegetation.json`; game values, low confidence: search extracts only,
+  no source page could be opened, so no URL; Van der Burg, Hogervorst and Toet (SPIE) on static targets in clutter and
+  motion breaking camouflage, FM 21-75 (1984) on vegetation, shadow and crack-thump, urban doctrine on firing from back
+  in a room are cited in the notes):
+  - Vegetation concealment per metre for the line of sight: crops 0.12 -> 0.45 (the plan said 0.5; 0.5 put the
+    100 m crops row over 120 s), tall grass 0.08 -> 0.35, scrub 0.2 -> 0.5, treeline 0.1 -> 0.3, woodland 0.06 -> 0.12,
+    orchard 0.03. Cover seeking and routes keep the old figures (new `exposureConcealPerM`, read only by nav's
+    exposure map), and so do thermal sights (new `heatConcealPerM`; `sight()` returns `heatVisibility` beside
+    `visibility`; without it the thermal lab's man in crops at 100 m dropped from 57-60 % found to 0 %).
+  - Backdrop (`vegetation.backdrop`: woodland and treeline 0.3, scrub 0.4, crops and tall grass 0.5, orchard 0.6): a
+    still man (not firing) in a vegetation cell shows that share of his size. **Deviation from the plan:** applied
+    whenever he is still in vegetation, not only when its top is above his aim point; when it is lower, he also shows
+    only the part of his body above it (1 - vegetation height / posture height). Without this a man crouching in
+    0.7 m tall grass (aim point 0.75 m) was untouched (3 s at 100 m against the 8 s target).
+  - Keep decay: new optional `SoldierState.movedTick` (movement system, speed above stillBelowMps). A man seen is
+    kept at keepFloorFactor + (keepRateFactor - keepFloorFactor) x exp(-quiet / 5 s), quiet = since he last moved,
+    fired or launched. **Deviation:** a floor `keepFloorFactor` 20 (the plan decayed to 1): with 1, a man lying in
+    the open at 100 m was lost within a minute, against the "80 % still kept at 60 s" target. Vehicles keep 200.
+  - Conspicuity: new optional `consp`, `conspX`, `conspY`, `conspPosture`; lognormal (sigma 0.8, mean 1) from a new
+    stream `conspicuity` (the `spotting` stream keeps one draw per observer, target and scan), drawn when he holds
+    still at a new spot (5 m) or posture. **Deviation:** only among plants or indoors (clutter to blend into); in the
+    open it moved the open-ground rows (200 m: 5 -> 8 s) against "unchanged within noise".
+  - Crawling (prone, under 0.6 m/s; crawl is 0.3 m/s) shows 1.6, not 4. By day firing shows
+    1 + 14 / (1 + range / 200 m) (full 15 at night, blended by darkness); the firing floor through vegetation 0.25 by
+    day, 0.5 in full dark.
+  - Cued search: a heard or reported contact (the 3 nearest per observer, `cueMax`; a cost bound and "a few
+    directions") within 10 degrees of a target's bearing and with its guessed spot within 50 m of him multiplies the
+    rate by 3 while looking for him (not for one already kept).
+  - Dark rooms: a man indoors (`indoorAt`, not on the roof) shows 0.25 by day (the plan said 0.35; 0.35 gave 26 s at
+    the 300 m window against "at least 30 s"), x 0.5 more than 1 m from the nearest opening of the outer walls on his
+    floor (openings from `ballistics.seg`, breaches included); both toward 1 as it gets dark; firing from inside shows
+    6, not 15.
+  - Optics: `magnified` and `telescopic` sights help only within 10 degrees of where he looks.
+  - **Addition (census):** a man lying still shows 1 / (1 + (range / 250 m)^4) of himself to an observer on the
+    ground (grass, furrows and folds of the ground at a grazing angle: 0.97 at 100 m, 0.13 at 400 m); not to drones,
+    and a thermal sight sees his heat through it. Without it the battle census stayed at 413 m (target 300 m or
+    less); a gentler (range / 300 m)^2 gave 371 m and slowed the engage lab's prone-at-100 m case past 10 s.
+  - Thermal sights see heat, not blending: conspicuity and backdrop do not count for them (`unblend`).
+- **Lab fix:** the sight realism rows' still, walking and crawling targets now hold their fire. Since step 2 a man
+  fires at an enemy he sees within 100 m, so the "still" targets at 100 m had been firing (crops at 100 m read 4 s
+  instead of 13 s). With the fix the baseline rows are again exactly step 1's.
+- **Spotting, sight realism rows** (`npm run lab -- spotting`, seeds 7001-7020; median s / found within 10 s,
+  before -> after):
+
+  | target | range m | before median s | before within 10 s | after median s | after within 10 s |
+  |---|---:|---:|---:|---:|---:|
+  | standing, still, open | 50 | 1.0 | 100 % | 1.0 | 100 % |
+  | standing, still, open | 100 | 2.0 | 100 % | 2.0 | 100 % |
+  | standing, still, open | 200 | 5.0 | 80 % | 5.0 | 80 % |
+  | prone, still, open | 50 | 2.0 | 100 % | 2.0 | 100 % |
+  | prone, still, behind 4 m of crops | 100 | 13.0 | 45 % | 67.0 | 10 % |
+  | prone, still, behind 4 m of crops | 200 | 34.0 | 15 % | over 120 | 5 % |
+  | prone, still, behind 4 m of crops | 400 | 67.0 | 15 % | over 120 | 0 % |
+  | prone, still, behind 4 m of tall-grass | 100 | 10.0 | 60 % | 38.0 | 10 % |
+  | prone, still, behind 4 m of tall-grass | 200 | 21.0 | 25 % | over 120 | 5 % |
+  | prone, still, behind 4 m of tall-grass | 400 | 67.0 | 15 % | over 120 | 0 % |
+  | prone, still, behind 4 m of scrub | 100 | 14.0 | 40 % | 103.0 | 10 % |
+  | prone, still, behind 4 m of scrub | 200 | 37.0 | 15 % | over 120 | 0 % |
+  | prone, still, behind 4 m of scrub | 400 | 107.0 | 10 % | over 120 | 0 % |
+  | prone, still, in a whole crop field | 100 | over 120 | 0 % | over 120 | 0 % |
+  | prone, still, in a whole crop field | 200 | over 120 | 0 % | over 120 | 0 % |
+  | standing, still, 2 m inside a treeline | 100 | 2.0 | 100 % | 8.0 | 70 % |
+  | standing, still, 2 m inside a treeline | 400 | 17.0 | 35 % | 67.0 | 10 % |
+  | standing, still, 5 m inside woodland | 400 | 19.0 | 30 % | 84.0 | 10 % |
+  | crouching, still, in tall grass (4 m) | 100 | 3.0 | 95 % | 10.0 | 55 % |
+  | crouching, still, in tall grass (4 m) | 400 | 33.0 | 15 % | over 120 | 5 % |
+  | prone, firing, behind 4 m of crops | 200 | 5.0 | 80 % | 6.0 | 55 % |
+  | prone, firing, behind 4 m of crops | 400 | 14.0 | 35 % | 85.0 | 15 % |
+  | prone, firing, open | 400 | 5.0 | 65 % | 13.0 | 40 % |
+  | prone, firing, open | 600 | 17.0 | 25 % | over 120 | 15 % |
+  | crawling, open | 400 | 17.0 | 35 % | 37.0 | 15 % |
+  | crawling, open | 600 | 37.0 | 15 % | 67.0 | 15 % |
+  | crawling, behind 4 m of crops | 200 | 9.0 | 65 % | 63.0 | 15 % |
+  | prone, still, behind 4 m of crops, 1 observer | 200 | 34.0 | 15 % | over 120 | 5 % |
+  | prone, still, behind 4 m of crops, 1 observer | 400 | 67.0 | 15 % | over 120 | 0 % |
+  | prone, still, behind 4 m of crops, 3 observers | 200 | 9.9 | 55 % | 65.0 | 20 % |
+  | prone, still, behind 4 m of crops, 3 observers | 400 | 25.9 | 30 % | over 120 | 5 % |
+  | prone, still, behind 4 m of crops, 9 observers | 200 | 2.8 | 95 % | 24.9 | 35 % |
+  | prone, still, behind 4 m of crops, 9 observers | 400 | 8.8 | 55 % | over 120 | 0 % |
+  | standing, still, open, G36 optic | 400 | 14.0 | 40 % | 14.0 | 40 % |
+  | standing, still, open, iron sights | 400 | 19.0 | 30 % | 19.0 | 30 % |
+  | standing, still, open, G36 optic | 600 | 37.0 | 15 % | 37.0 | 15 % |
+  | standing, still, open, iron sights | 600 | 37.0 | 15 % | 37.0 | 15 % |
+
+- **Retention** (seen, then prone and still; kept at 60 s / lost within 20 s):
+
+  | in front of him | range m | before kept 60 s | before lost 20 s | after kept 60 s | after lost 20 s |
+  |---|---:|---:|---:|---:|---:|
+  | open ground | 100 | 100 % | 0 % | 100 % | 0 % |
+  | open ground | 200 | 100 % | 0 % | 90 % | 0 % |
+  | open ground | 300 | 100 % | 0 % | 17 % | 61 % |
+  | 4 m of crops | 100 | 100 % | 0 % | 42 % | 37 % |
+  | 4 m of crops | 200 | 100 % | 0 % | 5 % | 90 % |
+  | 4 m of crops | 300 | 100 % | 0 % | 0 % | 100 % |
+  | 4 m of scrub | 100 | 100 % | 0 % | 11 % | 72 % |
+  | 4 m of scrub | 200 | 100 % | 0 % | 7 % | 86 % |
+  | 4 m of scrub | 300 | 100 % | 0 % | 0 % | 100 % |
+
+- **Acceptance:** every spotting row met: crops 100 m 13 -> 67 s, 10 % within 10 s; crops 200 m 45 % found;
+  tall grass / scrub at 100 m 38 / 103 s; treeline 100 m 8 s (open 2 s), 400 m 67 s; crouching in tall grass 10 s;
+  open rows unchanged; 9 observers crops 400 m 0 % within 10 s; firing behind crops 400 m 85 s; firing in the open
+  400 m 13 s; crawling in the open 400 m 37 s; G36 400 m 14 s; window 300 m 33 s; retention behind scrub or crops at
+  300 m 100 % lost within 20 s, open 100 m 100 % kept at 60 s.
+- **Engage lab:** unchanged from step 2 (rule return 65/72 within 10 s, prone at 100 m median 8.2 s; walking across
+  still 49/72 within 10 s, 55/72 within 15 s).
+- **Night and thermal labs:** at full dark nothing changes except where the 10-degree optic arc applies (the
+  "40 degrees off where he looks" rows: 50 -> 43 % and 40 -> 33 % found). By day: firing at 300 / 600 m 1 / 4 s ->
+  2 / 8 s (the firing reveal by range), a prone man under a thermal blanket at 300 m 93 -> 47 % (the blanket hides
+  his heat, so the eye with its ground clutter counts). Thermal through crops unchanged (57 % / 60 %).
+- **Battle census** (new table in `npm run lab -- reacquire`: new sightings by men on foot of enemy men lying still
+  in the open): median range 414 m -> 259 m (p25 336 -> 157, p75 459 -> 350; 545 -> 464 sightings).
+- **Reacquire lab (platoon s1-3 defence, step 2 -> step 3):** blind-idle to sighted 1.20 -> 2.39, fully blind squad-time 6.4 % ->
+  23.9 % (longest 370 s, 5 episodes over 30 s per battle). Worse, as expected: the attackers are now hidden much
+  more often while the defenders still sit and wait. This is step 4's work (men and squads moving to see again).
+  Enemy in front and not engaged: exposure 59 -> 589 man-s (more close contact), 78 % -> 61 % not engaged.
+- **Batches** (10 x 1200 s, seeds 1-10; step 1 baseline -> step 2 -> step 3): platoon attacker wins 8 -> 8 -> 8,
+  casualties 12.1/11.8 -> 9.6/11.5 -> 12.2/11.0, mean duration 1018 -> 977 -> 967 s; platoon-ru 8 -> 8 -> 8,
+  14.1/5.3 -> 14.0/4.2 -> 13.3/7.4, 808 -> 789 -> 888 s; platoon-vehicles 9 -> 10 -> 9, 6.6/25.5 -> 8.6/25.1 ->
+  9.9/24.2, 899 -> 920 -> 888 s; platoon-ru-vehicles 0 -> 1 -> 1, 8.2/34.0 -> 8.6/33.0 -> 7.6/36.0, 1096 -> 993 ->
+  1091 s. Durations within +-30 %; total casualties per battle within +-10 %; one side's figure moves more
+  (platoon-ru defenders' losses 5.3 -> 7.4, platoon-vehicles attackers' 6.6 -> 9.9: small numbers). Platoon breaks
+  (step 1's script): the losing side's platoon broke in 26 of 40 (step 1: 32, step 2: 29), any break 27 of 40 (34, 32).
+- **Performance:** the cue first checked every heard contact per pair (the 304-man spotting bench fell to 5.2x,
+  floor 8x); with the 3 nearest cues and only for targets not yet seen it runs at 11-12x (8.3x before this step on the
+  same machine). `npm run test:perf` alone: 23/23, bench-vehicles above its floor.
+- **Tests:** new `tools/test/conceal.test.ts` (crops, treeline, retention, conspicuity stream and redraw, movedTick,
+  firing at range). Adapted: `lab-sight` (woodland about a third after 10 m, was half), `commander` (seed 2: in seed
+  1 the attack now wins by fire at 796 s before any assault), `tanks-ai` seed 2 (the carriers move at 160 s, the
+  bound is now the 180 s cap; it was 150 s).
+- New `SoldierState` fields optional, no schema bump. Goldens regenerated (intended; `npm run golden:update`, 10
+  files); `golden/no-interiors` untouched.
+
+## 2026-11-15 — Sight realism, step 4 of 5: a man who has lost a known enemy looks for him (goldens regenerated)
+- **What changed** (owner request "make the line of sight more realistic", second complaint: men do not move to see a
+  known enemy again; plan step "peek"; values in `core/behaviour.json` `soldier.peek` and `soldier.windowSwitch`;
+  game values, low confidence: individual movement techniques (observe from a new position, move to a firing point
+  with a view) from search extracts of FM 3-21.8-style manuals only, no page opened):
+  - New optional `SoldierState.sawEnemyTick` (set in spotting.ts whenever he sees, or keeps seeing, an enemy man or
+    vehicle; not drones, not reports), `peekTick`, `peekUntilTick`, `peekHome`, `windowSwitchTick`. No schema bump.
+  - Peek ladder outdoors (`lookForLost` in decisions.ts, from `postureAndWatch`): a halted man, not pinned, no fire
+    task, who knows an enemy man (seen or reported within 60 s, at most 20 m off, within his engage range) and has seen
+    no enemy for 4 s; his unit has no ambush, no arc, no cease-fire, not rule "hold", not moving, not in a drill. Once
+    every 15 s: he turns to him (out of a fight only within 90 degrees of his facing: the player's laid-out facing
+    stands, `marker-vs-sim` test); if he has a line already he only watches; else kneels if that clears it; else
+    stands for 3 s (no suppression at all) and goes back to his posture; else moves 2/4/6 m across the line (from
+    `peekHome`, where this blind spell's looks began) to the least exposed spot (`exposureAt`) from which he or a
+    kneeling man would see him, crawling if he lies, walking otherwise, and takes his posture there. When his own fire
+    stops because he lost sight (`contactLostSeconds`), the look is due at once. An order to his unit clears `peekHome`.
+  - Change of window indoors (`windowSwitch`; `windowWithView` in occupy.ts): after 6 s without seeing an enemy, at most
+    every 20 s, a window of his house that no comrade holds or is going to (any floor) and that sees the contact
+    (visibility 0.1 or more), of the 3 nearest the shortest route (`routeBetween` with heights, `routeWaypoints`), at a
+    run, with the window's posture as his new home posture.
+  - The drills' covering side-step now walks its spots through `forEachSidestep` (new `systems/peek.ts`, `lineFor`
+    moved there); that refactor was committed alone first (afe00fa) and every golden replayed bit-identically.
+  - Lab `reacquire`: a blind spell now runs through a man's own looks (posture changes, his own short moves) and ends
+    when he sees an enemy again, forgets him, fires or his unit moves (`TCS_REACQUIRE_STEP1=1` gives step 1's
+    definition, where a look ended the spell and so could never count as a re-acquisition); new table "Looking for a
+    lost enemy": man-s standing or moving to look, and men down within 2 s of it.
+- **Plan deviations:** the turn toward him (not in the plan) is the rung that helped most (without it platoon defence
+  blind-idle/sighted 2.16, with it 1.74); a man who has a line already does not rise; the stand needs suppression 0;
+  everySeconds stays 15 (6 s gave no clear gain: 1.57 vs 1.59 blind-idle/sighted). The contact's drift (1 m/s) makes
+  it more than 20 m uncertain about 18 s after it was last refreshed, so a lost man gets one or two looks per spell.
+- **Before -> after** (reacquire lab, seeds 1-3, new episode definition; "before" = afe00fa, the step 3 behaviour):
+  - platoon defence: blind-idle/sighted 2.39 -> 1.74; blind-idle share 19.2 -> 20.2 %; re-acquisition 11.0 -> 13.1 %
+    (target 20 %: not met); fully blind squad-time 23.9 -> 15.2 %, longest 370 -> 232 s, squad episodes over 30 s 5.0
+    -> 5.3 per battle; median blind spell with the enemy still within 10 m of the known spot 3 -> 2 s.
+  - platoon attack 0.15 -> 0.24 (1.0 -> 1.4 % of man-time), re-acquisition 9.8 -> 8.4 %; platoon-ru defence 0.03 ->
+    0.12, re-acquisition 20.7 -> 52.8 %; platoon-ru attack 13.0 -> 17.9 %.
+  - village-occupy s1 attackers blind-idle share 21.1 -> 3.8 % (step 1 baseline 52 %; target under 15 %: met);
+    re-acquisition (s1-3) 11.1 -> 50.0 %. Defenders indoor blind-idle s1 379 -> 634 man-s (step 1 baseline 1272;
+    target under 380: not met). Why: the windows that see the enemy are all held by comrades or are where a comrade is
+    going (scratch count over s1: every free window that saw the contact was the end of a comrade's way); the window
+    change found no window in s1-3 (switching it off gives the same table), and the attackers, who now look too, are
+    seen and lost more often (defenders' sighted man-s 225 -> 303).
+  - Median blind spell with the enemy still near the known spot: 2-11 s in every scenario (target under 15 s: met).
+  - Men down within 2 s of standing up to look: 1 in 9 battles (platoon defence; 117 man-s standing to look in all);
+    within 2 s of moving to look: 6 (2083 man-s). Engage and spotting labs: identical tables before and after.
+- **Batches** (10 x 1200 s, seeds 1-10; step 3 -> step 4): platoon attacker wins 8 -> 6, casualties blue/red 12.2/11.0
+  -> 13.6/12.4, mean duration 967 -> 980 s; platoon-ru 8 -> 10, 13.3/7.4 -> 12.8/6.1, 888 -> 807 s; platoon-vehicles
+  9 -> 9, 9.9/24.2 -> 8.2/25.5, 888 -> 887 s; platoon-ru-vehicles 1 -> 2, 7.6/36.0 -> 9.7/32.4, 1091 -> 939 s.
+  platoon-ru at 10 of 10 is outside the 2-8 band; seeds 11-20 give 9 of 10 both before and after (20 seeds: 17 ->
+  19), platoon 11-20 5 -> 6. Defenders' losses over the four 56.1 -> 60.4 (+8 %; platoon-ru-vehicles alone 7.6 -> 9.7,
+  +28 %, two men). Platoon breaks (step 1's script): battles with a platoon break 27 -> 33 of 40 (the broken side lost
+  in 32); seeds 11-20 of platoon and platoon-ru 12 -> 17 of 20; battles ended by a break 1 -> 2 of 40. More breaks,
+  not explained yet (open).
+- **Performance:** headless wall time, seed 1, before -> after: bench 120 s 6.7/6.8 -> 6.5/7.1 s, village-occupy 900 s
+  2.8/2.8 -> 3.0/3.5 s, bench-vehicles 120 s 10.6/10.2 -> 11.2/10.9 s (two runs each). The new work runs per decision
+  step and only for a blind man whose look is due (every 15 s), the window search only for an indoor blind man every
+  20 s.
+- **Tests:** new `sim/test/peek.test.ts` (sawEnemyTick; stand up behind a 1.3 m wall and lie down again; a few metres
+  aside behind a 2.5 m wall, not closer, back in his posture; nothing under rule hold; `windowWithView` picks the
+  window that sees and skips one a comrade holds). Goldens regenerated (intended; `npm run golden:update`, 10 files);
+  `golden/no-interiors` untouched.
+
+## 2026-11-16 — Sight realism, step 5 of 5: squads shift to see a lost enemy again (AI commander only; golden regenerated)
+- **What changed** (owner request "make the line of sight more realistic", second complaint: men and squads do not
+  move to see a known enemy again; plan step "squad"; values in `COMMANDER.reacquire` in `ai/src/commander.ts`,
+  following that file's pattern; game values, low confidence: alternate and supplementary positions, local
+  repositioning, holding the ground rather than pursuing, from search extracts only, no page opened). The sim and the
+  data are unchanged: spotting, engage, night and thermal labs are as after step 4.
+  - **Defence, in "hold"** (`reacquire` in commander.ts): every 10 s per group (each squad and the platoon
+    headquarters' own men, staggered) the men who have seen no enemy for 6 s (`SoldierState.sawEnemyTick`), are not
+    pinned, panicked or under fire (suppression below 0.1), are halted and were not shifted in the last 20 s may be
+    shifted, when the group knows an enemy man (seen or reported, not heard, not down or given up) within the
+    defence's range of fire (300 m, 200 m in the dark) to 40 m or better, and the group is not in a drill, broken or
+    pinned as a unit. `siteDefence` is run on that group with the known positions plus a ring of 4 points at their
+    uncertainty as the points to see (each at the height of the enemy's known posture, plus his floor; a contact
+    whose known position came more than 10 m nearer over 20 s counts twice), a kneeling eye and visibility 0.2, each
+    shiftable man limited to 35 m of his sited place (new `SitingOptions.anchors`; the others anchored where they are),
+    the side's other men's places kept clear (`SitingOptions.taken`), inside the objective's ring plus 15 m. A man is
+    moved only if his new place sees some of the points and his place now does not (kneeling, or his own eye at a
+    window), at most half the group at one look, crawling within 8 m, else walking, facing the enemy; a window place
+    is an `occupy` order. A group whose men have all seen nothing for 30 s may reach 50 m. Men shifted go back to
+    their sited places once no contact of theirs is fresher than 60 s. The sited places are remembered at the start
+    (and after a rally or a house left).
+  - **Bounded follow:** when the group's freshest contact drew away by more than 30 m over 20 s (none closing), all
+    its men are blind and its morale is ready (state not pinned or broken, 0.45 or more), the same shift is run with a
+    50 m leash, inside the ring plus 50 m; the men moved come back after 60 s, or at once when one of them is under
+    fire.
+  - **Attack:** a base-of-fire squad on its support line, idle, none of whose men has seen an enemy for 60 s (and
+    60 s into the assault phase) slides 20/40/60 m either way along the line, or 20 m forward, to the spot that sees
+    most of the enemies known near the objective (else 8 points on its ring and its centre) from a man lying there,
+    if that beats where it is by 0.05; at most every 30 s.
+  - Lab `reacquire`: a new table "Squads shifting to see" (the commanders' tally, `reacquireStats`); a man his
+    commander shifted within 60 s is on a look (his blind spell goes on), as a man's own look since step 4.
+- **Plan deviations (all to meet the acceptance, measured on platoon seeds 1-8):** (1) the plan's trigger (no man of
+  the squad has seen an enemy for 10 s, the whole squad halted and unpinned) fired 5-17 times in a battle and
+  barely moved anyone; a man-by-man trigger inside each group (blind men only, the others hold) did the work
+  (blind-idle/sighted over seeds 1-8 1.11 -> 0.58 with it and (4), before the change of cadence (3)). (2) Contacts to 40 m, not 20 m:
+  at 1 m/s drift a contact is 20 m vague about 15 s after it was last refreshed, so a squad blind for 10 s almost
+  never had one. (3) Every 10 s and 6 s blind, not 15 s and 10 s: re-acquisition 14.9 -> 22.5 % over seeds 1-8,
+  the other figures the same within noise. (4) The platoon headquarters' own men are a group too: the lab counts
+  them as a "squad", and their blind spells were the longest left (575 s). (5) A squad blind as a whole for 30 s may
+  reach 50 m (not in the plan); a ring extension of 30 m for it was tried and dropped (ring + 15 m as planned). (6)
+  The unit's `moving` flag does not stop a look (a man still on his way is left out, the others may shift). (7) The
+  follow may start after a re-siting (otherwise it never started: a squad had always been re-sited before its
+  enemy drew away); 2 follows in 8 battles.
+- **Before -> after** (reacquire lab, "before" = step 4, ab01ba4):
+  - platoon s1-3 defence: blind-idle/sighted 1.74 -> 0.35 (goal under 0.7: met); blind-idle share 20.2 -> 6.3 %;
+    fully blind squad-time 15.2 -> 2.6 % (goal under 4 %: met), longest 232 -> 57 s, squad episodes over 30 s 5.3 ->
+    1.0 per battle (goal at most 1: met); re-acquisition 13.1 -> 28.7 % (goal 30 %: just short); median blind spell
+    with the enemy still within 10 m of the known spot 2 -> 4 s (goal under 10 s: met); men moved per battle 36 (goal
+    tens, not hundreds: met), 1 follow, 15 men sent back.
+  - platoon s1-3 attack: re-acquisition 8.4 -> 13.3 % (goal 15 %: not met), blind-idle/sighted 0.24 -> 0.15; base
+    slides 4 in 3 battles. platoon-ru s1-3: defence 0.12 -> 0.08, re-acquisition 52.8 -> 38.6 %; attack 17.9 -> 14.1 %.
+  - Seeds 1-8 (check against noise): platoon defence 1.11 -> 0.40, fully blind 10.7 -> 5.2 % (longest 242 -> 242 s,
+    1.5 episodes over 30 s per battle), re-acquisition 13.2 -> 23.7 %; platoon attack 7.2 -> 10.7 %; platoon-ru
+    defence 0.19 -> 0.19, fully blind 5.8 -> 7.2 %, re-acquisition 13.6 -> 17.9 %; platoon-ru attack 17.1 -> 9.3 %
+    (twice the episodes: longer battles). What is left blind: mostly men who cannot be moved (a lone wounded platoon
+    leader, pinned men) and enemies 200-300 m off that no spot within 50 m of the position sees.
+  - village-occupy unchanged (its two sides are scripted, `occupyControllers`, no commander): attackers blind-idle
+    3.8 %, defenders indoors 634 man-s in s1 (goal under 380: not met by this step).
+  - Enemy in front, not engaged (platoon s1-3): 26 -> 13 man-s.
+- **Batches** (10 x 1200 s, seeds 1-10; step 4 -> step 5): platoon attacker wins 6 -> 6, casualties blue/red
+  13.6/12.4 -> 14.6/12.7, mean duration 980 -> 992 s; platoon-ru 10 -> 10, 12.8/6.1 -> 14.0/7.7, 807 -> 851 s;
+  platoon-vehicles 9 -> 9, 8.2/25.5 -> 8.4/25.6, 887 -> 933 s; platoon-ru-vehicles 2 -> 1, 9.7/32.4 -> 8.7/30.8, 939
+  -> 1006 s. Casualties and durations within 30 % (the largest: platoon-ru red +26 %, 1.6 men). platoon-ru (10) and
+  the two mounted scenarios (9 and 1) stay outside the 2-8 band, as in the baseline. Battles with a platoon break
+  (step 1's script) 33 -> 29 of 40 (the morale rework's 17 of 40 is still exceeded). An objective changes hands only
+  with the enemy inside its ring (objectives.ts), and the shifted men stay inside the ring plus 15 m (50 m on a
+  follow, at most half a squad, for a minute).
+- **Performance:** `siteDefence` runs only for a group with a man to shift, on candidates within the leash discs
+  around its men's anchors (5 m grid, shared between overlapping discs) against at most 6 contacts x 5 points.
+  Headless platoon-vehicles 1200 s, seed 1: 29.6/30.4 s before, 29.2/29.0 s after. `npm run test:perf` alone: 23/23
+  (bench-combined and bench-vehicles above their floors).
+- **Tests:** new `tools/test/reacquire-squad.test.ts` (anchored siting keeps each man in his disc and is pure; the
+  commander moves only blind men who do not see the contact, at most half a squad per look, within the leash, by
+  crawl or walk; nothing for a far or vague contact; a follow within the follow leash and the men sent back).
+  `npm run golden:update`: platoon-vehicles-s1 changed (intended; the other goldens replay their recorded orders
+  unchanged); `golden/no-interiors` untouched.
+
+## 2026-11-16 — Sight realism: review fixes (goldens regenerated)
+- **Review of steps 1-5, eleven findings; nine fixed, one partly, one left** (the owner's two complaints: hidden men
+  seen too easily; an enemy in front not engaged and not looked for). Game values, low confidence, as the steps.
+  - **Men at a post do not wander to look** (`decisions.ts mayLook`): a man of a mortar or missile team that is not
+    packed, a drone operator or a man busy with an action (`postedMan`, as the drone-hiding rule) neither turns,
+    rises, side-steps nor changes window to look for a lost enemy (a Metis-M gunner's post moved with him).
+  - **Standing up to look only out of a fight** (`soldier.peek.standInFight` false): not when his platoon was fired on,
+    rounds passed him (`fireFrom`) or the enemy he looks for fired, all within 30 s; he kneels or side-steps instead.
+    He goes back to the posture he stood up from (`SoldierState.peekFrom`) even with no posture of his own, and a
+    fire task taken while standing to look fires from that posture; the side-step keeps that posture too (before, a
+    man with no posture of his own stayed standing in the open and the next side-step made standing his posture).
+  - **Fire on the move at a close enemy** (`closeThreat`): not on a crawl, a bolt out of a house, a dash to cover or
+    to hide from a drone (as `fireOnMoveOk`); his intent "cover" is left alone; a man's own `onTheMove` flag is
+    cleared when he halts (it carried over to a later crawl or side-step).
+  - **Lying still in the grass** (`spotting.ts`): the ground term does not apply to a man on a roof or an upper floor;
+    an observer whose eye is higher above the ground than `conceal.proneGroundEyeM` 1.6 m (an upper floor, a roof)
+    sees it as from nearer, the range scaled by 1.6 m / his eye height (an upper window at about 4 m: a man lying
+    still 400 m off shows about 0.9 of himself instead of 0.13). Vehicle sights as before.
+  - **Conspicuity drawn once per posture at a spot** (`SoldierState.conspBy`): kneeling to look and lying down again no
+    longer draws a new value each time; all are drawn again after 5 m (a save from before keeps its one value).
+    Keying on the spot alone (the review's first suggestion) was tried: platoon attacker casualties 14.6 -> 18.6 (10
+    runs; a kneeling man then kept a prone man's good blend); one value per posture: 16.2.
+  - **Numbers into data:** `peek.turnMaxDeg` 90, `peek.standInFight` false, `windowSwitch.minView` 0.1,
+    `windowSwitch.storeyWeight` 2 (all optional, these defaults). `openingDistance` looks for walls only within
+    `indoor.backM` + 0.5 m (any backM works; smaller query). The route search caps (2000, 8000 expansions) stay in
+    code: cost bounds, not game values.
+  - **Commander:** a re-siting record waits for a house clearing (`clear` drill) to end before its men are sent back
+    (an assault, withdrawal or rout takes them elsewhere on purpose: dropped as before). Cost: `reacquire` runs the
+    siting only when a blind man who sees none of the points where he is exists (the others are anchored where they
+    are), and `siteDefence` looks at a point given twice (a closing enemy) once.
+  - **Tests:** commander save-and-reload test timeout 150 s (it ran 66.6 s under the full suite's load; about 25 s
+    alone); `commander-clear` on seed 4 (seed 3's attack no longer reaches a house in 1200 s); peek tests for the
+    restore without a posture of his own, no standing in a fight, and a missile team's man at his post; spotting lab
+    rows "firing from a house window" at 150 and 300 m.
+- **village-occupy (high finding), checked:** the red men standing up there at 39.8 s, 41.0 s and 55.8 s (seed 1) were
+  stretcher-bearers starting a two-man carry and men going to a wounded comrade, not the step-4 look (events and a
+  per-second probe of every red man); the standing look is now barred in a fight anyway. Red fires little because it
+  walks in the open at 260-300 m toward an MG in a house (the scripted `occupyControllers`: walk, fire free), is
+  pinned within seconds of the first burst and a pinned man fires back only within 50 m; red does spot the window
+  men (14, 13, 10 within 49-58 s in seed 1). A man firing from a window: median 2 s to be found at 150 m, 11 s at
+  300 m (new lab rows; standing still there 33 s). Raising the indoor firing factor 6 -> 10 changed nothing in the
+  batch (red small arms 9 -> 5), so it stays 6. Batch: red small arms 22 (base) -> 7 (review) -> 9, blue 141 -> 119,
+  casualties blue 0.6 -> 0.2, red 3.1 -> 3.7. Not fixed: a pinned attacker who cannot see the window firing back at
+  it (suppressive fire at a known place) would need a new rule; left for the owner.
+- **Left, with reason:** a prone enemy beside the path of a lone man walking past (engage lab "walking across", 60 m
+  7/12 within 60 s, 100 m 6/12): one observer whose path puts the enemy at his side and then behind him (side factor
+  0.3, rear 0.05), the attention model from before this work; scanning the flanks on the move would be a new rule.
+- **Numbers after the fixes** (10 x 1200 s, seeds 1-10; base = before step 1, s5 = after step 5): platoon attacker
+  wins 8 / 6 / 6, casualties blue/red 12.1/11.8 / 14.6/12.7 / 16.2/10.7; platoon-ru attacker 8 / 10 / 8, 14.1/5.3 /
+  14.0/7.7 / 13.8/9.5 (back inside the 2-8 band; STATE wrongly said 10 was "as at the baseline": the baseline was 8);
+  platoon-vehicles 9 / 9 / 9, 7.6/26.0; platoon-ru-vehicles 0 / 1 / 1, 8.7/31.9; village-occupy draws, 0.2/3.7.
+  Labs: spotting rows unchanged; engage unchanged (return 65/72 within 10 s, walking toward 68/72, walking across
+  49/72); reacquire platoon s1-3 defence blind-idle/sighted 0.35 -> 0.54 (goal under 0.7), fully blind squad-time
+  2.6 -> 3.3 % (goal under 4 %), re-acquisition 28.7 -> 17.5 % (goal 30 %: further off), squad episodes over 30 s
+  0.7 per battle; attack re-acquisition 13.3 -> 10.8 %; men standing up to look: platoon s1-3 30 man-s, none hit; platoon-ru and village-occupy none.
+- **Performance** (one at a time, idle machine, base = before step 1 (origin/main), alternating, two runs each):
+  headless platoon seed 3, 900 s: base 51x/48x, after step 5 33x (measured earlier the same way), now 54x/54x (the
+  battle itself differs now, so read it as "no longer slower"); bench-vehicles seed 1, 120 s: base 12x/11x, now
+  12x/13x (floor 8x); bench seed 1: base 20x/24x, now 22x/19x. The step-5 re-siting was most of the platoon slowdown
+  (5.6 s of 24 s, 700 000 sight calls in 84 runs; now about 1.6 s in 40). `npm run test:perf` alone: 23/23.
+- `npm run golden:update`: the ten goldens with interiors changed (intended); `golden/no-interiors` untouched.

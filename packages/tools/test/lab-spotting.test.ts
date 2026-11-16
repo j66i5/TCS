@@ -47,4 +47,15 @@ describe("spotting lab", () => {
     const iron = spotCase(cat, { name: "i", rangeM: 300, posture: "standing", action: "still", ironSights: true, seeds: 200, seedBase: 5000 });
     expect(optic.within10).toBeGreaterThan(iron.within10);
   });
+
+  it("sight realism rows: the window row puts him at a window, and a man standing in the open at 100 m is found within 2 s", async () => {
+    const { buildCatalog } = await import("@tcs/data");
+    const { sightCase } = await import("../src/labs/spotting");
+    const cat = buildCatalog(loadData(), ["de", "ru"]);
+    const open = sightCase(cat, { name: "o", rangeM: 100, posture: "standing", action: "still", seeds: 6 });
+    expect(open.found).toBe(6);
+    expect(open.medianS!).toBeLessThanOrEqual(2);
+    const win = sightCase(cat, { name: "w", rangeM: 300, posture: "standing", action: "still", window: true, seeds: 4 });
+    expect(win.runs).toBe(4);
+  });
 });

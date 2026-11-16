@@ -386,6 +386,14 @@ export const SpottingFile = withProv({
   /** Smoke v2 (M8.1): a cloud thins to nothing over its last seconds; it moves with this share of the wind; a
    *  plume is cut this far behind its head. */
   smokeFadeSeconds: Num(0, 600).default(0), smokeDriftFactor: Num(0, 2).default(1), smokeStretchMaxM: Num(1, 2000).default(200), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
+  /** Sight realism step 3 (2026-11-15): hidden men stay hidden — the kept rate decays while he is quiet, each still man's
+   *  conspicuity, crawling, firing reveal by range, a cued search toward a heard enemy, dark rooms. */
+  conceal: z.object({
+    keepDecaySeconds: Num(0.1, 600), keepFloorFactor: Num(1, 1000), conspicuitySigma: Num(0, 3), conspicuityResetM: Num(0, 100),
+    crawlFactor: Num(1, 50), crawlBelowMps: Num(0, 5), proneGroundM: Num(1, 10000), proneGroundEyeM: Num(0.1, 100).optional(), firingHalfM: Num(1, 5000), firingVisibilityFloorDay: Num(0, 1),
+    cueBearingDeg: Num(0, 90), cueRangeM: Num(0, 1000), cueFactor: Num(1, 50), cueMax: z.number().int().min(1).max(50),
+    indoor: z.object({ shade: Num(0, 1), backM: Num(0, 20), backFactor: Num(0, 1), firingFactor: Num(1, 500) }).strict(),
+  }).strict().optional(),
   contacts: z.object({
     seenErrorM: Num(0, 100), seenErrorPerM: Num(0, 1), hearingRangeM: Num(0, 20000), bearingErrorDeg: Num(0, 90), rangeErrorFraction: Num(0, 2),
     heardEverySeconds: Num(0, 60), forgetSeconds: Num(1, 3600), driftMps: Num(0, 20), reportEverySeconds: Num(0, 600), reportedErrorM: Num(0, 500),
@@ -425,6 +433,8 @@ export const BehaviourFile = withProv({
     underFireSuppression: Num(0, 1), underFireMemorySeconds: Num(0, 600), seenWithinSeconds: Num(0, 60), contactLostSeconds: Num(0, 600),
     seekCoverSuppression: Num(0, 1), coverSearchM: Num(0, 100), coverRetrySeconds: Num(0, 600), threatEyeHeightM: Num(0, 5),
     shareRangeM: Num(0, 500), keepSpare: Num(0, 20), passSeconds: Num(0, 60),
+    /** Self-defence under rule "return" (sight realism step 2): see BehaviourDef.decisions.returnCloseM. */
+    returnCloseM: Num(0, 1000).optional(),
     ammoIntervalFactor: z.object({ conserve: Num(0.1, 10), normal: Num(0.1, 10), max: Num(0.1, 10) }).strict(),
     /** Night fire discipline (M9.6): below this light, a man not fired on lately opens fire on his own only out to these ranges. */
     night: z.object({ belowLight: Num(0, 1), engageRangeM: z.object({ rifle: Num(0, 5000), magnified: Num(0, 5000), sustained: Num(0, 5000) }).strict() }).strict().optional(),
@@ -432,7 +442,7 @@ export const BehaviourFile = withProv({
   drills: z.object({
     stepSeconds: Num(0.05, 10), reactToContact: z.boolean(), boundM: Num(1, 500), finalM: Num(0, 500), phaseTimeoutSeconds: Num(1, 600), spreadM: Num(0, 50),
     rallyDistanceM: Num(0, 2000), rallyQuietSeconds: Num(0, 600), rallyStressFactor: Num(0, 1), fallBackM: Num(0, 2000),
-    reactNeighbourM: Num(0, 1000), boundDoneShare: Num(0, 1), stragglerS: Num(0, 600), withdrawTogetherMen: Num(0, 50),
+    reactNeighbourM: Num(0, 1000), reactSeenM: Num(0, 2000).optional(), reactSeenNightM: Num(0, 2000).optional(), boundDoneShare: Num(0, 1), stragglerS: Num(0, 600), withdrawTogetherMen: Num(0, 50),
     suppressShortM: Num(0, 100), coverTargetM: Num(0, 500), laneClearM: Num(0, 50), laneShiftMaxM: Num(0, 100), coverFiredS: Num(0, 60), coverWaitS: Num(0, 600), coverRetaskS: Num(0, 60), sidestep: z.boolean(), sidestepM: z.array(Num(-20, 20)).max(12), coverCandidates: z.number().int().min(1).max(50), suppressIntervalS: Num(0, 60),
     clearEntryMen: z.number().int().min(1).max(20), clearStackOffM: Num(0, 10), clearStackAsideM: Num(0, 10), clearAfterBurstS: Num(0, 30), clearStackWaitS: Num(0, 600), clearThrowWaitS: Num(0, 600), clearRoomS: Num(1, 600), clearTimeoutS: Num(1, 3600), clearMinMen: z.number().int().min(1).max(20),
     clearOfM: Num(0, 50), clearShieldM: Num(0, 50), clearThrowMinM: Num(0, 50), clearAimInM: Num(0, 10), clearStackRankM: Num(0.3, 10), clearThrowAsideM: Num(0, 10), clearEntrySeenW: Num(0, 1000), clearEntrySeenM: Num(0, 500), clearKnownS: Num(0, 600), clearMoveAwayM: Num(0, 100), clearStackNearM: Num(0, 100),
@@ -481,8 +491,15 @@ export const BehaviourFile = withProv({
     crawlMode: z.string(), crawlSearchM: Num(0, 50), crawlSearchFarM: Num(0, 50), crawlRetrySeconds: Num(0, 600), minSpacingM: Num(0, 50),
     beatenNoticeM: Num(0, 500), beatenRadiusM: Num(0, 500), beatenMemorySeconds: Num(0, 3600), beatenMoveM: Num(0, 500), beatenHouseM: Num(0, 500), beatenOpenExposure: Num(0, 1),
     riseBelowSuppression: Num(0, 1), lookEverySeconds: Num(0.5, 60), faceEnemy: z.boolean(), rearWatchMinMen: z.number().int().min(0).max(50),
+    /** Sight realism step 4. See BehaviourDef.soldier.peek / windowSwitch. */
+    peek: z.object({
+      afterSeconds: Num(0, 600), standSeconds: Num(0, 60), everySeconds: Num(0.5, 600), contactSeconds: Num(0, 600), contactErrM: Num(0, 500),
+      sidestepM: z.array(Num(-20, 20)).max(12), mode: z.string(), uprightMode: z.string(), turnMaxDeg: Num(0, 180).optional(), standInFight: z.boolean().optional(),
+    }).strict().optional(),
+    windowSwitch: z.object({ afterSeconds: Num(0, 600), everySeconds: Num(0.5, 600), mode: z.string(), routeCandidates: z.number().int().min(1).max(20), minView: Num(0, 1).optional(), storeyWeight: Num(0, 20).optional() }).strict().optional(),
     atMoveM: Num(0, 200), atMoveMinRangeM: Num(0, 1000), atMoveRetrySeconds: Num(0, 600), atContactSeconds: Num(0, 600),
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
+    moveEngageM: Num(0, 500).optional(), pinnedSelfDefenceM: Num(0, 500).optional(), closeThreatM: Num(0, 500).optional(), closeThreatTaskFactor: Num(1, 100).optional(),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), stepAsideM: z.array(Num(0.5, 20)).min(1).max(4), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
     hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),
     /** Fire distribution (D4b). See BehaviourDef.soldier.fireDistribution. */
@@ -733,6 +750,12 @@ export const VegetationSchema = withProv({
   id: Id, nameKey: z.string(), heightM: z.number().positive().max(60),
   /** Fraction of a line of sight blocked per metre travelled through it. */
   concealmentPerM: z.number().min(0).max(1),
+  /** Sight realism step 3: the concealment per metre cover seeking and routes use (absent: concealmentPerM). */
+  exposureConcealPerM: z.number().min(0).max(1).optional(),
+  /** Sight realism step 3: the concealment per metre for heat, thermal sights (absent: concealmentPerM). */
+  heatConcealPerM: z.number().min(0).max(1).optional(),
+  /** Sight realism step 3: share of his size a still man keeps against this vegetation around him (absent: 1). */
+  backdrop: z.number().min(0).max(1).optional(),
   /** Fraction of a bullet's energy lost per metre (M2). */
   stoppingPerM: z.number().min(0).max(0.1),
   moveCost: MoveCost, colour: Colour,

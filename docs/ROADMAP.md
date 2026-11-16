@@ -166,6 +166,20 @@ Wounded men who can no longer fight, and panicked or fleeing men, give up when a
 hold fire once they see it; prisoners are taken (a quiet enemy walks over); surrender costs like a casualty;
 white flags on the map; the after-action review lists surrendered and captured men.
 
+### Sight realism — ✅ 5 of 5 steps, on branch `claude/sight-realism` (owner request 2026-11-15: "make the line of sight more realistic")
+Men see enemies too easily through bushes and crops, at long range and lying still; yet an enemy right in front is
+sometimes not shot at, and men do not move to see a known enemy again. Five steps: (1) ✅ measuring tools and the
+before numbers (labs `engage`, `reacquire`, sight realism rows in `spotting`; DECISIONS "Sight realism: baseline");
+(2) ✅ prompt fire at a close enemy in front; (3) ✅ hidden men stay hidden (vegetation, blending in, stillness, ground
+clutter far off, quieter crawling and firing at range, dark rooms; DECISIONS "Sight realism, step 3"); (4) ✅ a man
+who has lost a known enemy looks for him: turns, kneels, stands up for a moment or moves a few metres aside;
+indoors, another window (DECISIONS "Sight realism, step 4"); (5) ✅ squads moving to see a known enemy again: the
+computer commander shifts blind defenders within 35 m (50 m for a squad blind for 30 s) to spots that see the known
+enemy, follows a withdrawing enemy with half a squad for a minute, and slides a blind base of fire along its support
+line (DECISIONS "Sight realism, step 5"). Open: re-acquisition just short of its goals (platoon defence 29 %, goal
+30 %; attack 13 %, goal 15 %), the village-occupy defenders (scripted, no commander) unchanged, platoon breaks above
+the morale rework's 17 of 40.
+
 ## Stage B — combined arms and the modern layer
 - **M7 Vehicles** — drive model, crews, armour, components, IFVs and carriers, mount/dismount, shoulder-fired
   anti-tank weapons. ✅ (2026-11-12; M7.1a–c, M7.2, M7.3, M7.4a, M7.4b — plan `docs/plans/m7-vehicles.md`).

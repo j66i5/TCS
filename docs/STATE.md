@@ -1,10 +1,68 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Sight realism: review fixes (2026-11-16, branch `claude/sight-realism`).** Men of a set-up mortar or missile team
+  stay at their post instead of looking for a lost enemy; a man stands up to look only when there is no fight (else
+  he kneels or steps aside) and lies down again afterwards even with no posture of his own; a man crawling, bolting
+  or going to cover no longer fires on the move at a close enemy; a man lying still on a roof is no longer hidden as
+  if in grass, and men at upper windows see men lying still better (they look down); how well a still man blends in is drawn once
+  per posture where he is, not again at each look; a few tuning numbers moved into the data. The commander's
+  re-siting costs about a third of what it did (headless platoon 33x -> 54x real time, base 48-51x; bench-vehicles 12-13x, floor 8x). Batches: platoon 6 of
+  10 attacker wins (base 8), platoon-ru 8 (base 8; step 5 had 10), mounted 9 and 1 as before. Numbers in DECISIONS
+  "Sight realism: review fixes". Open: re-acquisition in the platoon defence 17.5 % (goal 30 %); village-occupy
+  attackers pinned in the open still hardly fire back at the house (a pinned man fires only within 50 m); a prone
+  enemy beside a lone walker's path is often missed (attention to the side and rear).
+- **Sight realism, step 5 of 5: squads shift to see a lost enemy again (2026-11-16, branch `claude/sight-realism`).**
+  The computer commander, in defence, looks at each squad and the platoon leader's men every 10 s: a man who has seen
+  no enemy for 6 s (not pinned or under fire) is moved, crawling or walking, to the best spot within 35 m of his
+  place (50 m once the whole squad has seen nothing for 30 s; inside the objective's ring plus 15 m) from which a
+  kneeling man sees where the enemy is known to be, at most half a squad at a time; an enemy drawing away is followed
+  by up to half a steady squad for a minute; a blind base of fire in the attack slides along its support line. Sim
+  and data unchanged. Platoon defence blind-idle to sighted 1.74 -> 0.35, fully blind squad-time 15.2 -> 2.6 %,
+  re-acquisition 13 -> 29 %; batches as before (breaks 33 -> 29 of 40). Numbers in DECISIONS "Sight realism, step
+  5". Open: re-acquisition just short (defence 29 %, goal 30 %; attack 13 %, goal 15 %); village-occupy defenders
+  (scripted sides, no commander) still blind at windows; platoon-ru 10 of 10 (the baseline was 8, inside the band;
+  corrected by the review fixes) and the mounted scenarios 9 and 1 of 10 outside the 2-8 band, as at the baseline;
+  platoon breaks above the morale rework's 17 of 40.
+- **Sight realism, step 4 of 5: a man who has lost a known enemy looks for him (2026-11-15, branch
+  `claude/sight-realism`).** After 4 s without seeing any enemy, a halted man who is not pinned or firing turns to the
+  enemy he knows, kneels or stands up for 3 s if that would show him, else moves 2-6 m aside to the least exposed spot
+  that does (once every 15 s; not in an ambush, a held sector, a cease-fire or "hold fire"); indoors, a man moves to
+  another free window of his house that sees the enemy (every 20 s at most). The drills' side-step shares the new
+  `systems/peek.ts`. Platoon defence blind-idle to sighted 2.39 -> 1.74, fully blind squad-time 23.9 -> 15.2 %;
+  village attackers blind-idle 21 -> 4 %; engage and spotting labs unchanged. Numbers in DECISIONS "Sight realism,
+  step 4". Open: platoon defence re-acquisition 13 % (goal 20 %: the attackers lie in crops that nothing near shows);
+  village defenders still blind at windows (the windows that see are all manned); platoon breaks up (27 -> 33 of 40);
+  platoon-ru attack 10 of 10 (seeds 11-20: 9 of 10, as before). Step 5 (squads moving to see) is next.
+- **Sight realism, step 3 of 5: hidden men stay hidden (2026-11-15, branch `claude/sight-realism`).** Crops, grass,
+  scrub and trees hide a man behind them about four times as well as before (cover seeking keeps the old figures, and
+  so do thermal sights); a man holding still among plants or in a room blends in (each man a little better or worse,
+  the same for every enemy); a man lying still is hidden by the open ground itself far off (not to drones or thermal
+  sights); once seen, a man who lies still and quiet must be found again; crawling and firing far off show less; a
+  heard shot makes a man look harder that way; a dark room hides a man by day, more if he stays back from the window;
+  rifle optics help only where a man looks. Open-ground rows unchanged; every spotting target met; the battle census
+  of new sightings of men lying still in the open 414 -> 259 m. Numbers in DECISIONS "Sight realism, step 3". Open:
+  defenders now sit blind far more (platoon defence blind-idle to sighted 1.20 -> 2.39, fully blind squad-time 6.4 ->
+  23.9 %) — step 4 (moving to see again) is the fix; walking across an enemy's front still 55/72 within 15 s; values
+  low confidence (game values, no source page could be opened).
+- **Sight realism, step 2 of 5: an enemy close in front gets shot at (2026-11-15, branch `claude/sight-realism`).**
+  Rule "return" now lets a man fire at an enemy he sees within 100 m without waiting to be fired on; a moving unit
+  goes to ground when it sees an enemy anew within 150 m (75 m in the dark); runners, assaults and pushes fire on the
+  move within 75 m; pinned men fire back within 50 m; an enemy within 40 m in front is fired at whatever else a man is
+  doing (care waits). Spotting itself is unchanged. Numbers in DECISIONS "Sight realism, step 2". Open: walking across
+  an enemy's front 76 % within 15 s (goal 80 %: the misses never spot the prone man — step 3's spotting work); drill
+  fire at an objective still ignores an enemy at 40-100 m.
+- **Sight realism, step 1 of 5: measuring tools and baseline (2026-11-15, branch `claude/sight-realism`, on the
+  morale rework; owner request "make the line of sight more realistic").** No behaviour change yet. New labs:
+  `npm run lab -- engage` (does a man shoot an enemy right in front of him?), `npm run lab -- reacquire` (men who
+  know where an enemy is but cannot see him and do nothing; enemies in front not engaged) and the sight realism and
+  retention rows in `npm run lab -- spotting`. The before numbers and batches are in DECISIONS "Sight realism:
+  baseline". Next steps: harder spotting where it should be (vegetation, posture, stillness, range, losing sight of
+  a man who lies still), prompt fire at an enemy close in front, and men and squads moving to see a lost enemy again.
 - **Morale rework (2026-11-15, branch `claude/morale-rework`; owner report "morale is almost always at 100").**
   morale = resolve x (1 - shock) x (1 - strain) per man (`mental.morale` is now the sim's value; `mental.stress` is the
   shock, new `strain`, `nerve`, `why`, `flee`); the four driver groups (leadership/cohesion, losses/wounded,
@@ -272,6 +330,11 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- Sight realism step 3 (2026-11-15, all low; `core/spotting.json` `conceal`, `core/terrain/vegetation.json`): the
+  vegetation concealment and backdrop figures, the conspicuity spread (sigma 0.8), the kept-sight decay (5 s, floor
+  20), the ground clutter for men lying still (250 m), the firing reveal by range (half at 200 m), the dark room (0.25
+  by day, half again back from the window, firing 6), the cued search (x3, 10 degrees, 50 m, three directions).
 
 - M7.6c (2026-11-15, low unless noted; `docs/research/low-confidence.md`): GTK 2 crew + 8 (inference from "max 10
   persons"), the FLW 200's rates, limits, smoke fit and 9 stowed belts, the GTK rear 22 mm; the 12.7 mm round's

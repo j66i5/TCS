@@ -20,7 +20,7 @@
  */
 import { inArc } from "../arc";
 import { DRONE_SEEN_S } from "./drones";
-import { startAction } from "../actions";
+import { interruptAction, startAction } from "../actions";
 import type { Contact, Intent, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import { countItems, type Container } from "../items";
@@ -31,12 +31,12 @@ import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { requestPosture } from "./body";
 import { isAble } from "../impair";
 import { sight, TARGET_POINT_M } from "../los";
-import { atan2, cos, hypot2, PI, sin } from "../math";
+import { atan2, cos, hypot2, PI, sin, wrapAngle } from "../math";
 import { bestCoverNear, exposureAt, navCostAt, type findPath } from "../nav";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { standZ } from "../terrain";
-import { aimHeightAt, assignFireTask, reserveTargetOk } from "./fire";
+import { aimHeightAt, assignFireTask, friendInLine, lineOfFireTo, reserveTargetOk } from "./fire";
 import { isCowering } from "./morale";
 import { footSoldiers } from "../mount";
 import { stepFetchAmmo, vehicleSource } from "./boarding";
@@ -44,6 +44,9 @@ import { launcherDecision } from "./launcher";
 import { isGuiding } from "./missile-team";
 import { grenadeOption, throwArcExists, throwRangeM } from "./grenades";
 import { houseLeaveDecision, leftLately } from "./house";
+import { forEachSidestep } from "./peek";
+import { windowWithView } from "./occupy";
+import { contactErrorM } from "./contacts";
 import { spared } from "../protection";
 import { beyondSelfDefence, breachActive, breachCandidate, decideDeliberate } from "../conduct";
 
@@ -59,14 +62,102 @@ function spareCount(c: Container | undefined, type: string): number {
   return n;
 }
 
-/** May he open fire on his own now? */
-function fireAllowed(state: SimState, ctx: SimContext, unit: Unit, top: Unit): boolean {
-  if (unit.fireRule === "hold") return false;
+/**
+ * How far he may open fire on his own now (sight realism step 2): any range his weapon is used at (Infinity: rule
+ * "free", or "return" with his platoon fired on lately), only in self-defence out to `decisions.returnCloseM` (rule
+ * "return", not fired on: an enemy he sees close in front of him), or not at all (0: rule "hold", or a cease-fire
+ * with no fire since).
+ */
+function fireReach(state: SimState, ctx: SimContext, unit: Unit, top: Unit): number {
+  if (unit.fireRule === "hold") return 0;
   const D = ctx.catalog.behaviour.decisions;
   const firedOnSinceCease = top.underFireTick > top.ceaseFireTick;
-  if (top.ceaseFireTick > -1e9 && !firedOnSinceCease) return false;
-  if (unit.fireRule === "free") return true;
-  return firedOnSinceCease && state.tick - top.underFireTick <= secondsToTicks(D.underFireMemorySeconds);
+  if (top.ceaseFireTick > -1e9 && !firedOnSinceCease) return 0;
+  if (unit.fireRule === "free") return Infinity;
+  if (firedOnSinceCease && state.tick - top.underFireTick <= secondsToTicks(D.underFireMemorySeconds)) return Infinity;
+  return D.returnCloseM ?? 0;
+}
+
+/** May he open fire on his own now (a hand grenade)? As `fireReach`; under rule "return" not fired on, once a man of
+ *  his unit (or of his platoon) has seen the enemy close (`Unit.seenContactTick`, sight realism step 2). */
+function fireAllowed(state: SimState, ctx: SimContext, unit: Unit, top: Unit): boolean {
+  const r = fireReach(state, ctx, unit, top);
+  if (r === Infinity) return true;
+  if (r <= 0) return false;
+  const t = Math.max(unit.seenContactTick ?? -1e9, top.seenContactTick ?? -1e9);
+  return state.tick - t <= secondsToTicks(ctx.catalog.behaviour.decisions.underFireMemorySeconds);
+}
+
+/** An enemy man he sees now (sight realism step 2) and how far off he is. */
+interface NearSeen { c: Contact; d: number }
+
+/**
+ * The nearest enemy man he sees now (seen within `decisions.seenWithinSeconds`), not spared, up, within his unit's
+ * defend arc (`all`); and the nearest such in his own front arc (`spotting.frontHalfAngleDeg` of his facing,
+ * `front`). Worked out once per decision and used by the close-range rules (contacts are few).
+ */
+function nearestSeen(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, me: { x: number; y: number; heading: number }): { all: NearSeen | null; front: NearSeen | null } {
+  let all: NearSeen | null = null, front: NearSeen | null = null;
+  if (s.contacts.length === 0) return { all, front };
+  const within = secondsToTicks(ctx.catalog.behaviour.decisions.seenWithinSeconds);
+  const half = (ctx.catalog.spotting.frontHalfAngleDeg * PI) / 180;
+  for (const c of s.contacts) {
+    if (c.kind !== "seen" || state.tick - c.tick > within || c.cls === "vehicle" || spared(c)) continue;
+    const es = state.soldier.get(c.target);
+    if (!es || !es.physiology.alive || es.casualty !== "none") continue;
+    const d = hypot2(c.x - me.x, c.y - me.y);
+    if ((all !== null && d >= all.d) && (front !== null && d >= front.d)) continue;
+    if (!inArc(state, id, me, c.x, c.y)) continue;
+    if (all === null || d < all.d) all = { c, d };
+    if ((front === null || d < front.d) && Math.abs(wrapAngle(atan2(c.y - me.y, c.x - me.x) - me.heading)) <= half) front = { c, d };
+  }
+  return { all, front };
+}
+
+/** The range out to which his unit's own rules let him fire on his own at all (its range limit, an ambush laid). */
+function unitCap(unit: Unit): number {
+  let r = unit.maxEngageM > 0 ? unit.maxEngageM : Infinity;
+  if (unit.ambush !== undefined) r = Math.min(r, unit.ambush.rangeM);
+  return r;
+}
+
+/** His own fire task at an enemy he sees (a self task, aimed by his contact); `onTheMove`: he fires as he goes. */
+function selfFire(ctx: SimContext, state: SimState, id: EntityId, c: Contact, onTheMove: boolean): boolean {
+  if (!assignFireTask(ctx, state, id, c.x, c.y, aimHeightAt(ctx, c))) return false;
+  const ft = state.fire.get(id)!;
+  ft.contact = c.target; ft.self = true; ft.aimAuto = true;
+  if (onTheMove) ft.onTheMove = true;
+  return true;
+}
+
+/**
+ * An enemy close in front of him (sight realism step 2, `soldier.closeThreatM`): he fires at him whatever else he is
+ * doing — on an errand (on the move: as he goes; not crawling, bolting, going to cover or hiding), caring for a comrade (his care waits: the treatment is broken off,
+ * he stops where he is, and goes on `decisions.contactLostSeconds` after he last saw such an enemy; medical.ts), with
+ * a drill's or an order's fire at a point more than `closeThreatTaskFactor` times farther off. A fire task already at
+ * an enemy as close (his own or not) is kept.
+ */
+function closeThreat(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState, near: NearSeen, moving: boolean): void {
+  const S = ctx.catalog.behaviour.soldier, me = state.transform.req(id), cur = state.fire.get(id);
+  if (s.intent?.kind === "care") {
+    s.closeThreatTick = state.tick;
+    const ak = state.action.get(id)?.kind;
+    if (ak === "treat" || ak === "checkDown" || ak === "takeTag") interruptAction(state, events, id, "closeThreat");
+    const m = state.mover.get(id);
+    if (m && m.waypoints.length > 0) { m.waypoints = []; m.speedMps = 0; m.formation = null; }
+    moving = false;
+  }
+  // (Review fix: not on a crawl, a bolt out of a house, a dash to cover or to hide from a drone — as fireOnMoveOk; he
+  // fires once he halts. His intent is left alone then.)
+  if (moving) {
+    const m = state.mover.get(id)!, last = m.waypoints[m.waypoints.length - 1]!;
+    if (last.bolt === true || m.waypoints[0]!.mode === S.crawlMode || s.intent?.kind === "cover" || s.intent?.kind === "hideDrone") return;
+  }
+  if (cur) {
+    if (cur.contact === near.c.target) { if (cur.self) { cur.reasonTick = state.tick; if (moving) cur.onTheMove = true; } return; }
+    if (hypot2(cur.x - me.x, cur.y - me.y) <= (S.closeThreatTaskFactor ?? 2) * near.d) return;
+  }
+  if (selfFire(ctx, state, id, near.c, moving) && (s.intent === null || s.intent.kind === "engage" || s.intent.kind === "cover")) s.intent = { kind: "engage", tick: state.tick, target: near.c.target };
 }
 
 /** What his weapon makes him (D4b): a machine gunner (sustained fire), a marksman (a sight of 4x or more) or a rifleman. */
@@ -583,7 +674,18 @@ function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: Sold
     if (task) task.basePosture = home!; // (his fire is from there again)
     return;
   }
-  if (task) return;
+  if (task) {
+    // (Stood up to look and found him: he fires from the posture he stood up from, not standing.)
+    if (s.peekUntilTick !== undefined) { delete s.peekUntilTick; if (s.peekFrom !== undefined && home === undefined) task.basePosture = s.peekFrom; delete s.peekFrom; }
+    return;
+  }
+  // Stood up to look (sight realism step 4) and saw nobody: back to the posture he stood up from (his fire
+  // position's, if he has one).
+  if (s.peekUntilTick !== undefined && state.tick >= s.peekUntilTick) {
+    const back = home ?? s.peekFrom;
+    delete s.peekUntilTick; delete s.peekFrom;
+    if (back !== undefined && s.posture !== back) { requestPosture(ctx, state, id, back); return; }
+  }
   const threat = threatOf(state, id, s);
   const me = state.transform.req(id);
   // An arc to defend (D4b): he faces it, unless the enemy he knows is within it (then the rules below).
@@ -591,7 +693,9 @@ function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: Sold
   const arcFacing = arc !== undefined && (!threat || !inArc(state, id, me, threat.x, threat.y));
   if (arcFacing && indoorAt(ctx, me.x, me.y) < 0) me.heading = arc.facing;
   if (!threat) return;
-  if (indoorAt(ctx, me.x, me.y) >= 0) return; // indoors his place (a window) sets his posture and facing
+  if (indoorAt(ctx, me.x, me.y) >= 0) { windowSwitch(ctx, state, id, s, unitId); return; } // indoors his place (a window) sets his posture and facing
+  // An enemy he knows but has lost sight of: he looks for him (sight realism step 4).
+  if (lookForLost(ctx, state, id, s, unitId)) return;
   // Lying blind: he rises to look (every lookEverySeconds, staggered), if kneeling would let him see.
   const lookN = Math.max(1, Math.round(S.lookEverySeconds * TICK_HZ / every));
   if (s.posture === "prone" && s.mental.suppression < S.riseBelowSuppression && Math.floor((state.tick + id) / every) % lookN === 0
@@ -620,6 +724,128 @@ function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: Sold
   while (off > PI) off -= 2 * PI;
   while (off < -PI) off += 2 * PI;
   if (Math.abs(off) > PI / 2 + 1e-6) me.heading = face;
+}
+
+/**
+ * May a man of this unit leave his place or posture on his own to look for an enemy he has lost (sight realism step
+ * 4)? Not at a post (an action, a mortar or missile team not packed, a drone: postedMan), not in an ambush, a sector
+ * to hold, a cease-fire or under rule "hold", nor while his unit moves or is in a drill.
+ */
+function mayLook(state: SimState, id: EntityId, unitId: EntityId): boolean {
+  const unit = state.unit.get(unitId), top = topUnit(state, unitId);
+  if (!unit || !top || postedMan(state, id, unitId) || unit.ambush !== undefined || unit.arc !== undefined || unit.fireRule === "hold" || unit.moving || inDrill(state, unitId)) return false;
+  return !(top.ceaseFireTick > -1e9 && top.underFireTick <= top.ceaseFireTick);
+}
+
+/**
+ * The enemy man he has lost (sight realism step 4): the nearest he knows of — seen or reported within
+ * `soldier.peek.contactSeconds`, at most `contactErrM` off, within his engage range, not spared — once he has seen no
+ * enemy for `afterSeconds` (`SoldierState.sawEnemyTick`). Null: none, or he sees one.
+ */
+function lostContact(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, afterSeconds: number): Contact | null {
+  const P = ctx.catalog.behaviour.soldier.peek;
+  if (!P) return null;
+  const tick = state.tick;
+  if (s.sawEnemyTick !== undefined && tick - s.sawEnemyTick < secondsToTicks(afterSeconds)) return null;
+  const me = state.transform.req(id), range = engageRange(ctx, state, id), age = secondsToTicks(P.contactSeconds);
+  let best: Contact | null = null, bestD = Infinity;
+  for (const c of s.contacts) {
+    if (spared(c) || c.cls === "vehicle" || c.kind === "heard" || tick - c.tick > age) continue;
+    const d = hypot2(c.x - me.x, c.y - me.y);
+    if (d > range || d >= bestD || contactErrorM(ctx, c, tick) > P.contactErrM) continue;
+    best = c; bestD = d;
+  }
+  return best;
+}
+
+/**
+ * Sight realism step 4: a man outdoors, halted and not pinned, with no fire task, who has lost sight of an enemy he
+ * knows (`lostContact`), looks for him once every `soldier.peek.everySeconds` (at once when his own fire on him has
+ * just stopped): he turns to him (out of a fight only within `turnMaxDeg` of his facing); if the ground or plants hide
+ * him where he is, he kneels if that clears the line, else stands for `standSeconds` if that does (not under any fire,
+ * and out of a fight unless `standInFight`; then back to the posture he stood up from), else moves a few metres across the line
+ * (`sidestepM`, measured from where this blind spell's looks began) to the least exposed spot that sees him, and takes
+ * his posture there. Returns whether he did something.
+ */
+function lookForLost(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, unitId: EntityId): boolean {
+  const S = ctx.catalog.behaviour.soldier, P = S.peek;
+  if (!P) return false;
+  const tick = state.tick;
+  if (s.sawEnemyTick !== undefined && tick - s.sawEnemyTick < secondsToTicks(P.afterSeconds)) { if (s.peekHome !== undefined) delete s.peekHome; return false; }
+  if (s.peekTick !== undefined && tick - s.peekTick < secondsToTicks(P.everySeconds)) return false;
+  if (s.mental.suppression >= S.riseBelowSuppression || !mayLook(state, id, unitId)) return false;
+  const c = lostContact(ctx, state, id, s, P.afterSeconds);
+  if (!c) return false;
+  const me = state.transform.req(id);
+  s.peekTick = tick;
+  s.peekHome ??= { x: me.x, y: me.y };
+  // (He turns to him: in a fight — his platoon fired on lately — whatever way he faced; out of one only within turnMaxDeg
+  // (90 degrees) of the facing he was given, which otherwise stands.)
+  const top = topUnit(state, unitId), bearing = atan2(c.y - me.y, c.x - me.x);
+  const inFight = top !== undefined && state.tick - top.underFireTick <= secondsToTicks(ctx.catalog.behaviour.decisions.underFireMemorySeconds);
+  if (inFight || Math.abs(wrapAngle(bearing - me.heading)) <= ((P.turnMaxDeg ?? 90) * PI) / 180) me.heading = bearing;
+  const body = ctx.catalog.body.postures, cz = c.z ?? 0, now = POSTURES.indexOf(s.posture);
+  if (!coveredFrom(ctx, me.x, me.y, c.x, c.y, body[s.posture].heightM * 0.9, me.z, cz)) return true; // (a line already: he watches)
+  if (now < 1 && !coveredFrom(ctx, me.x, me.y, c.x, c.y, body.crouching.heightM * 0.9, me.z, cz)) { requestPosture(ctx, state, id, "crouching"); return true; }
+  // (Not in a fight — his platoon fired on lately, rounds past him, or the enemy he looks for firing lately (he hears
+  // it) — review fix: a man standing up in the open to look where the enemy is firing from is shot.)
+  const mem = secondsToTicks(ctx.catalog.behaviour.decisions.underFireMemorySeconds);
+  const fight = inFight || (s.fireFrom !== undefined && tick - s.fireFrom.tick <= mem) || tick - (state.weapon.get(c.target)?.lastShotTick ?? -1e9) <= mem;
+  if (now < 2 && s.mental.suppression <= 0 && (!fight || P.standInFight === true) && !coveredFrom(ctx, me.x, me.y, c.x, c.y, body.standing.heightM * 0.9, me.z, cz)) {
+    s.peekFrom = s.posture;
+    requestPosture(ctx, state, id, "standing");
+    s.peekUntilTick = tick + secondsToTicks(P.standSeconds);
+    return true;
+  }
+  // A few metres aside: the least exposed spot from which he sees him, in his posture or kneeling.
+  if (P.sidestepM.length === 0) return true;
+  const home: Posture = s.homePosture ?? s.peekFrom ?? s.posture;
+  const hs = [body[home].heightM * 0.9, body.crouching.heightM * 0.9];
+  const grid = navFor(ctx, "foot").grid;
+  let best: { x: number; y: number } | null = null, bestE = Infinity;
+  forEachSidestep(ctx, state, id, c, P.sidestepM, (x, y) => {
+    if (hypot2(x - me.x, y - me.y) < 1) return false;
+    if (!hs.some((h) => !coveredFrom(ctx, x, y, c.x, c.y, h, 0, cz))) return false;
+    const e = exposureAt(grid, x, y);
+    if (e < bestE - 1e-9) { bestE = e; best = { x, y }; }
+    return false;
+  }, s.peekHome);
+  if (best === null) return true;
+  const to: { x: number; y: number } = best;
+  const m = state.mover.get(id);
+  if (!m) return true;
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, me.x, me.y, to.x, to.y, { maxExpansions: 2000, snapCells: 2 }); // (outdoors only: checked above)
+  if (!leg) return true;
+  m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: home === "prone" ? P.mode : P.uprightMode });
+  m.formation = null;
+  m.endPosture = home;
+  m.endHeading = atan2(c.y - leg.goalY, c.x - leg.goalX);
+  return true;
+}
+
+/**
+ * Sight realism step 4: a man indoors, halted and not pinned, with no fire task, who has lost sight of an enemy he
+ * knows for `soldier.windowSwitch.afterSeconds` moves to another window of his house that sees him (`windowWithView`),
+ * at most once every `everySeconds`; not while his unit clears or leaves the house (a drill, a move).
+ */
+function windowSwitch(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, unitId: EntityId): void {
+  const S = ctx.catalog.behaviour.soldier, W = S.windowSwitch;
+  if (!W || !S.peek) return;
+  const tick = state.tick;
+  if (s.windowSwitchTick !== undefined && tick - s.windowSwitchTick < secondsToTicks(W.everySeconds)) return;
+  if (s.mental.suppression >= S.riseBelowSuppression || !mayLook(state, id, unitId)) return;
+  const c = lostContact(ctx, state, id, s, W.afterSeconds);
+  if (!c) return;
+  s.windowSwitchTick = tick;
+  const r = windowWithView(ctx, state, id, { x: c.x, y: c.y, z: c.z ?? 0 }, W.routeCandidates, W.minView, W.storeyWeight);
+  const m = state.mover.get(id);
+  if (!r || !m) return;
+  m.waypoints = routeWaypoints(r.leg, { x: 0, y: 0, mode: W.mode });
+  m.formation = null;
+  m.slotLagM = 0;
+  m.endHeading = r.place.heading;
+  m.endPosture = r.place.posture;
+  s.homePosture = r.place.posture;
 }
 
 /**
@@ -680,13 +906,14 @@ function closeErrand(s: SoldierState): boolean {
 
 /**
  * A carrier's fire (M10.4a, owner M10-2 Q-2f: fire only in self-defence): while his party is still (gathering,
- * setting up, resting, lying in cover) and he is not pinned, at the nearest threat he sees within
+ * setting up, resting, lying in cover: also in cover since sight realism step 2) and he is not pinned, at the nearest threat he sees within
  * `carrying.selfDefenceM`; otherwise none.
  */
 function carrierSelfDefence(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState): void {
   const cr = state.carry.get(s.carrying!), cur = state.fire.get(id);
   const m = state.mover.get(id);
-  const still = cr !== undefined && cr.phase !== "move" && cr.phase !== "cover" && (!m || m.waypoints.length === 0);
+  // (Also lying in cover with the casualty, sight realism step 2.)
+  const still = cr !== undefined && cr.phase !== "move" && (!m || m.waypoints.length === 0);
   const R = ctx.catalog.medical?.carrying?.selfDefenceM ?? 30;
   const pick = still && !isCowering(s) && s.impair.canFight ? pickTarget(ctx, state, id, s, R, false) : null;
   if (!pick) { if (cur) state.fire.delete(id); return; }
@@ -942,6 +1169,20 @@ function hideFromDrone(ctx: SimContext, state: SimState, id: EntityId, s: Soldie
   return true;
 }
 
+/**
+ * Does he fire as he goes (sight realism step 2, `soldier.moveEngageM`)? On a run (`soldier.hurryMode`), in an
+ * assault of his unit or one above it, or on a push (his unit's rule on contact) — not crawling, bolting out of a
+ * house, going to cover or hiding from a drone.
+ */
+function fireOnMoveOk(ctx: SimContext, state: SimState, unitId: EntityId, unit: Unit, s: SoldierState, m: { waypoints: readonly { mode: string; bolt?: boolean }[] }): boolean {
+  const S = ctx.catalog.behaviour.soldier;
+  const w = m.waypoints[0]!, last = m.waypoints[m.waypoints.length - 1]!;
+  if (last.bolt === true || w.mode === S.crawlMode || s.intent?.kind === "cover" || s.intent?.kind === "hideDrone") return false;
+  if (w.mode === S.hurryMode || unit.onContact === "push") return true;
+  for (let u: EntityId | null = unitId; u !== null; u = state.unit.get(u)?.parent ?? null) if (state.unit.get(u)?.drill?.kind === "assault") return true;
+  return false;
+}
+
 /** Is his unit, or one above it, carrying out an assault or a withdrawal (a drill moves him on its own)? */
 function inDrill(state: SimState, unitId: EntityId): boolean {
   for (let u: EntityId | null = unitId; u !== null; u = state.unit.get(u)?.parent ?? null) {
@@ -985,9 +1226,30 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     const unit = ident ? state.unit.get(ident.unit) : undefined;
     if (!ident || !unit) continue;
     const top = topUnit(state, ident.unit)!;
+    // (An order since his last look for a lost enemy: his place is where the order puts him, sight realism step 4.)
+    if (s.peekHome !== undefined && Math.max(unit.orderTick, top.orderTick) > (s.peekTick ?? -1)) delete s.peekHome;
     if (s.mental.behaviour === "routed") { s.intent = null; dropDroneHide(state, id, s); continue; } // running back: no decisions of his own
     if (s.mental.flee !== null) { s.intent = null; dropDroneHide(state, id, s); continue; } // panicked, running back (morale.ts)
     const topId = (() => { let u = ident.unit; for (let p = state.unit.get(u)?.parent ?? null; p !== null; p = state.unit.get(u)?.parent ?? null) u = p; return u; })();
+    // ---- the enemy he sees now (sight realism step 2): nearest, and nearest in his front arc. His unit remembers a
+    // sighting within drills.reactSeenM (react to contact on sight, drills.ts; rule "return": grenades).
+    const near = nearestSeen(ctx, state, id, s, state.transform.req(id));
+    const inDark = D.night !== undefined && state.environment.light < D.night.belowLight;
+    const reactR = (inDark ? ctx.catalog.behaviour.drills.reactSeenNightM : ctx.catalog.behaviour.drills.reactSeenM) ?? 0;
+    if (near.all !== null && near.all.d <= reactR) {
+      if (state.tick - (unit.seenContactTick ?? -1e9) > secondsToTicks(D.contactLostSeconds)) unit.seenSpellTick = state.tick;
+      unit.seenContactTick = state.tick; top.seenContactTick = state.tick;
+    }
+    const reach = fireReach(state, ctx, unit, top);
+    // ---- an enemy close in front of him: he fires at him whatever else he is doing (a carrier: carrierSelfDefence)
+    const CT = Math.min(S.closeThreatM ?? 0, reach, unitCap(unit));
+    if (CT > 0 && near.front !== null && near.front.d <= CT && s.carrying === undefined && s.mental.behaviour !== "panicked") {
+      closeThreat(ctx, state, events, id, s, near.front, (state.mover.get(id)?.waypoints.length ?? 0) > 0);
+    } else if (s.closeThreatTick !== undefined && state.tick - s.closeThreatTick > secondsToTicks(D.contactLostSeconds)) {
+      // (Over: his care goes on, medical.ts; the fire he took up for it ends.)
+      delete s.closeThreatTick;
+      if (s.intent?.kind === "care" && state.fire.get(id)?.self === true) state.fire.delete(id);
+    }
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
     if (s.intent?.kind === "fetchAmmo") {
       const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
@@ -1003,6 +1265,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     const m = state.mover.get(id);
     const halted = !m || m.waypoints.length === 0;
     const task = state.fire.get(id);
+    // (His own fire as he went ends with the move: a later move — a crawl, a side-step — is not fired on by it.)
+    if (halted && task?.self === true && task.onTheMove === true) delete task.onTheMove;
 
     // ---- his own fire: keep it up while he sees the enemy, stop when he has lost him
     if (task?.self) {
@@ -1012,9 +1276,11 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       // (An ambush not yet sprung, D4b, holds his fire to its range.)
       const beyond = c !== undefined && ((unit.maxEngageM > 0 && hypot2(c.x - me.x, c.y - me.y) > unit.maxEngageM) || (unit.ambush !== undefined && hypot2(c.x - me.x, c.y - me.y) > unit.ambush.rangeM)
         || (c !== undefined && unit.arc !== undefined && !inArc(state, id, me, c.x, c.y)));
-      if (!c || (spared(c) && !breachActive(s, c.target, state.tick)) || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
+      if (!c || (spared(c) && !breachActive(s, c.target, state.tick)) || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || reach <= 0 || hypot2(c.x - me.x, c.y - me.y) > reach) {
         state.fire.delete(id);
         if (s.intent?.kind === "engage") s.intent = null;
+        // (Lost sight of him: his look for him is due at once, sight realism step 4.)
+        if (c && state.tick - c.tick > secondsToTicks(D.contactLostSeconds)) { delete s.peekTick; delete s.windowSwitchTick; }
       } else if (c.kind === "seen" && state.tick - c.tick <= secondsToTicks(D.seenWithinSeconds)) {
         task.reasonTick = state.tick;
       }
@@ -1038,6 +1304,14 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
         // ---- pinned or panicked lying in the open: a low crawl to the nearest cover, out of the fire (owner 2026-11-13)
         if (crawlOutOfOpen(ctx, state, id, s, ident.unit, threat)) continue;
       }
+      // ---- pinned (not panicked) with an enemy he sees close: he fires back, lying where he is (sight realism step 2;
+      // fire.ts holds him down and fires at the pinned rate)
+      const PS = Math.min(S.pinnedSelfDefenceM ?? 0, reach, unitCap(unit));
+      if (PS > 0 && halted && s.mental.behaviour === "pinned" && near.all !== null && near.all.d <= PS) {
+        const cur = state.fire.get(id), c = near.all.c;
+        if ((!cur || (cur.self === true && cur.contact !== c.target)) && !friendInLine(ctx, state, id, c.x, c.y)
+          && lineOfFireTo(ctx, state, id, c.x, c.y, aimHeightAt(ctx, c), "prone") > 0 && selfFire(ctx, state, id, c, false)) s.intent = { kind: "engage", tick: state.tick, target: c.target };
+      }
       // Nothing else while he is pinned or panicked: he fires back once he is no longer pinned (from the cover he
       // crawled to; a fire task he already had goes on at his pinned rate).
       continue;
@@ -1057,7 +1331,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
 
       // ---- an anti-tank shot on his own (M7.4a, owner Q19): his unit's fire rule and anti-tank rule allow it
       // (Not while an ambush waits, D4b: the first shot is the ambush's.)
-      if (halted && unit.ambush === undefined && fireAllowed(state, ctx, unit, top) && launcherDecision(ctx, state, events, id, s, ident.unit)) continue;
+      if (halted && unit.ambush === undefined && reach === Infinity && launcherDecision(ctx, state, events, id, s, ident.unit)) continue;
 
       // ---- a hand grenade on his own at an enemy behind cover or in a house close by (package D)
       if (halted && unit.ambush === undefined && fireAllowed(state, ctx, unit, top) && ownGrenade(ctx, state, events, id, s, ident.unit)) continue;
@@ -1065,9 +1339,11 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
 
     // ---- open fire on his own
     const current = state.fire.get(id);
-    if (halted && (!current || current.self) && fireAllowed(state, ctx, unit, top)) {
-      // (A unit rule may hold fire to a shorter range, e.g. for an ambush.)
-      const range00 = unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id);
+    // (On the move — a run, an assault, a push — at an enemy he sees close: he fires as he goes, sight realism step 2.)
+    const onMove = !halted && (S.moveEngageM ?? 0) > 0 && near.all !== null && near.all.d <= S.moveEngageM! && fireOnMoveOk(ctx, state, ident.unit, unit, s, m!);
+    if ((halted || onMove) && (!current || current.self) && reach > 0) {
+      // (A unit rule may hold fire to a shorter range, e.g. for an ambush; rule "return" not fired on: self-defence.)
+      const range00 = Math.min(reach, onMove ? S.moveEngageM! : Infinity, unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id));
       // (An ambush laid, D4b: nobody fires beyond its range before it is sprung.)
       const range0 = unit.ambush !== undefined ? Math.min(range00, unit.ambush.rangeM) : range00;
       // (Night fire discipline, M9.6: in the dark, not fired on lately, he holds his fire to closer ranges — a muzzle
@@ -1097,11 +1373,13 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
         if (assignFireTask(ctx, state, id, pick.x, pick.y, aimHeightAt(ctx, pick))) {
           const ft = state.fire.get(id)!;
           ft.contact = pick.target; ft.self = true; ft.aimAuto = true;
+          if (onMove) ft.onTheMove = true;
           s.intent = { kind: "engage", tick: state.tick, target: pick.target } satisfies Intent;
         }
-      }
+      } else if (onMove && current && current.self && pick && current.contact === pick.target) current.onTheMove = true;
       // No enemy on the ground to fire at: an enemy drone he sees close overhead (M9.4b).
-      if (!pick && !reserve && unit.ambush === undefined && state.drone.size > 0 && (!current || current.contact === undefined || !state.drone.has(current.contact))) {
+      // (Not in self-defence under rule "return": a drone overhead is no enemy close in front of him.)
+      if (halted && reach === Infinity && !pick && !reserve && unit.ambush === undefined && state.drone.size > 0 && (!current || current.contact === undefined || !state.drone.has(current.contact))) {
         const dr = droneTarget(ctx, state, id, s);
         if (dr && assignFireTask(ctx, state, id, dr.x, dr.y, dr.z)) {
           const ft = state.fire.get(id)!;

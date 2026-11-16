@@ -8,11 +8,14 @@ import type { EntityId } from "../ids";
 import type { Waypoint } from "../orders";
 import type { SimState } from "../state";
 import { atan2, cos, hypot2, sin } from "../math";
-import { indoorSpots, routeBetween, routeWaypoints, type IndoorSpot } from "../interior-nav";
+import { indoorAt, indoorSpots, routeBetween, routeWaypoints, type IndoorSpot, type RouteResult } from "../interior-nav";
 import { wallPoint } from "../interior";
 import { roomAt } from "../interior";
 import { navFor } from "../navctx";
 import type { Posture } from "../orders";
+import { eyeHeightM, sight } from "../los";
+import { standZ } from "../terrain";
+import { isAble } from "../impair";
 
 /** How far inside the wall a man stands at a window, m (plan §6: 0.5 m). */
 const WINDOW_IN_M = 0.5;
@@ -129,4 +132,47 @@ export function occupyBuilding(ctx: SimContext, state: SimState, soldiers: reado
     sent++;
   });
   return sent;
+}
+
+/**
+ * Another window of the house he is in (sight realism step 4) from which he would see a point (`to`: an enemy he
+ * knows, `tz` his height above the ground) — clear of walls and with at least `minView` of the view left by plants
+ * and smoke (windowSwitch.minView): one that no other man of his side holds or is on his way to (on any floor), not the one he is at; of the
+ * `candidates` nearest such windows (straight line, a storey counting its height `storeyWeight` times), the one with the shortest
+ * way there. Null: none, or he is not indoors.
+ */
+export function windowWithView(ctx: SimContext, state: SimState, id: EntityId, to: { x: number; y: number; z: number }, candidates: number, minView = 0.1, storeyWeight = 2): { place: WindowPlace; leg: RouteResult } | null {
+  const me = state.transform.req(id);
+  const bi = indoorAt(ctx, me.x, me.y);
+  if (bi < 0) return null;
+  const side = state.identity.get(id)?.side;
+  const taken: { x: number; y: number; z: number }[] = [];
+  // mounted: ok men aboard are skipped (they hold no window)
+  for (const [o, os] of state.soldier.entries()) {
+    if (o === id || os.mount !== undefined || !isAble(os) || state.identity.get(o)?.side !== side) continue;
+    const t = state.transform.req(o);
+    const w = state.mover.get(o)?.waypoints;
+    const last = w && w.length > 0 ? w[w.length - 1]! : null;
+    taken.push(last ? { x: last.x, y: last.y, z: last.z ?? t.z } : { x: t.x, y: t.y, z: t.z });
+  }
+  const tz = standZ(ctx.map, to) + 0.5;
+  const cands: { w: WindowPlace; d: number }[] = [];
+  for (const w of windowPlaces(ctx, bi)) {
+    if (Math.abs(w.z - me.z) < 1 && hypot2(w.x - me.x, w.y - me.y) < 1.2) continue; // (his own)
+    if (taken.some((p) => Math.abs(p.z - w.z) < 1.5 && hypot2(p.x - w.x, p.y - w.y) < 1.2)) continue;
+    const r = sight(ctx, w.x, w.y, standZ(ctx.map, w) + eyeHeightM(ctx, w.posture), to.x, to.y, tz, id);
+    if (r.blockedBy !== null || r.visibility < minView) continue;
+    cands.push({ w, d: hypot2(w.x - me.x, w.y - me.y) + storeyWeight * Math.abs(w.z - me.z) });
+  }
+  cands.sort((a, b) => a.d - b.d);
+  const { search } = navFor(ctx, "foot");
+  let best: { place: WindowPlace; leg: RouteResult } | null = null, bestL = Infinity;
+  for (const c of cands.slice(0, candidates)) {
+    const leg = routeBetween(ctx, search, me.x, me.y, c.w.x, c.w.y, { maxExpansions: 8000, snapCells: 3 }, { sz: me.z, gz: c.w.z });
+    if (!leg) continue;
+    let L = 0;
+    for (let i = 2; i < leg.points.length; i += 2) L += hypot2(leg.points[i]! - leg.points[i - 2]!, leg.points[i + 1]! - leg.points[i - 1]!);
+    if (L < bestL) { bestL = L; best = { place: c.w, leg }; }
+  }
+  return best;
 }

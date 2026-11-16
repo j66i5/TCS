@@ -22,6 +22,8 @@ export interface Sight {
   vegetationM: number;
   /** Where along the line (0 start .. 1 end) it was stopped; 1 if it was not. */
   blockedAt: number;
+  /** Sight realism step 3: the visibility for heat (vegetation thins it by its heatConcealPerM); absent: `visibility`. */
+  heatVisibility?: number;
 }
 
 /** Ends of the line closer than this to the ground at their own point are not tested against it. */
@@ -178,7 +180,7 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
     }
   }
   const bm = B.bucketM, bcols = B.bcols, brows = B.brows;
-  let vegM = 0, conceal = 0;
+  let vegM = 0, conceal = 0, heatConceal = 0;
   const tEnd0 = len > 0 ? END_CLEARANCE_M / len : 0;
   for (let k = 0; k < ts.length * 2 - 1; k++) {
     // even k: a crossing; odd k: half-way to the next one
@@ -212,11 +214,12 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
       const segLen = (ts[k / 2 + 1]! - t) * len * below;
       vegM += segLen;
       conceal += B.vegConcealPerM[v - 1]! * segLen;
+      heatConceal += B.vegHeatConcealPerM[v - 1]! * segLen;
     }
   }
   if (blockedBy !== null) return { visibility: 0, blockedBy, vegetationM: vegM, blockedAt: tBlock };
-  if (conceal > 0) visibility *= exp(-conceal);
-  return { visibility, blockedBy: null, vegetationM: vegM, blockedAt: 1 };
+  if (conceal <= 0) return { visibility, blockedBy: null, vegetationM: vegM, blockedAt: 1 };
+  return { visibility: visibility * exp(-conceal), blockedBy: null, vegetationM: vegM, blockedAt: 1, heatVisibility: visibility * exp(-heatConceal) };
 }
 
 /** Nearest point (0..1) where the line meets an inner wall [from, to) above its floor and outside a doorway; 2 if none. */

@@ -18,6 +18,9 @@ function team(sim: Sim): EntityId {
 }
 /** Everyone but the team holds fire; the team's targets stand. */
 function holdOthers(sim: Sim, tid: EntityId): void {
+  // (Every unit but the team's, sub-units too, and at once, not when the order arrives: rule "return" fires at an
+  // enemy seen within 100 m since sight realism step 2, and a man moved next to the enemy would start the fight.)
+  for (const [uid, u] of sim.state.unit.entries()) if (uid !== tid) u.fireRule = "hold";
   for (const [uid, u] of sim.state.unit.entries()) if (u.parent === null && uid !== tid) submitOrder(sim, { tick: sim.state.tick, issuer: u.side, target: uid, kind: "rules", fire: "hold" });
   step(sim);
 }

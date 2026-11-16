@@ -73,6 +73,37 @@ describe("fire rules and own fire (M4.2)", () => {
   });
 });
 
+describe("close-range fire (sight realism step 2)", () => {
+  /** Red 30 m in front of blue; the close-range rules on (the test catalog has them off). */
+  const close = (on: boolean) => setup((i) => {
+    i.forces[1]!.placements = i.forces[1]!.placements.map((p) => ({ ...p, x: 40 }));
+    if (on) {
+      const B = i.catalog.behaviour;
+      i.catalog = { ...i.catalog, behaviour: { ...B, decisions: { ...B.decisions, returnCloseM: 100 }, soldier: { ...B.soldier, closeThreatM: 40, closeThreatTaskFactor: 2 } } };
+    }
+  });
+  it("rule return, never fired on: men fire at an enemy they see close in front only with returnCloseM set", () => {
+    for (const on of [false, true]) {
+      const sim = createSim(close(on));
+      rules(sim, "blue", "return");
+      const n = shotsBy(sim, run(sim, 15), "blue");
+      if (on) expect(n).toBeGreaterThan(3); else expect(n).toBe(0);
+    }
+  });
+  it("an enemy close in front replaces an ordered fire task at a point far off; hold still holds", () => {
+    const sim = createSim(close(true));
+    rules(sim, "blue", "return");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: unitOf(sim, "blue")[0], kind: "fire", x: 300, y: 150, heightM: 1 });
+    // (Their shots go at the red men in front, not at the point 290 m off to the north-east.)
+    const shots = run(sim, 10).filter((e) => e.kind === "shot.fired" && sim.state.identity.get(e.shooter)?.side === "blue");
+    expect(shots.length).toBeGreaterThan(3);
+    for (const e of shots) if (e.kind === "shot.fired") expect(Math.abs(e.dirY)).toBeLessThan(0.3);
+    const held = createSim(close(true));
+    rules(held, "blue", "hold");
+    expect(shotsBy(held, run(held, 15), "blue")).toBe(0);
+  });
+});
+
 describe("cover and ammunition (M4.2)", () => {
   it("under fire in the open, a man runs to the nearest spot covered from the enemy he knows and lies down", () => {
     const sim = createSim(setup((i) => {

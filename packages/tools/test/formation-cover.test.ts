@@ -56,6 +56,9 @@ describe("cover-seeking routes and formations (M1 acceptance)", () => {
       const plain = buildNavGrid(input.map, terrain, "foot");
       const unit = [...sim.state.unit.entries()].find(([, u]) => u.side === "blue")!;
       const men = unit[1].members;
+      // (A movement test: nobody fires on his own and the walkers push on when they see the enemy — rule "return"
+      // fires at an enemy seen within 100 m and a move goes to ground on sight since sight realism step 2.)
+      for (const [u, un] of sim.state.unit.entries()) submitOrder(sim, { tick: 0, issuer: un.side, target: u, kind: "rules", fire: "hold", onContact: "push" });
       submitOrder(sim, { tick: 0, issuer: "blue", target: unit[0], kind: "move", waypoints: [{ x: 1700, y: 1000, mode: "walk" }] });
       let arrived = false;
       const gaps: number[] = [];

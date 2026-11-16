@@ -88,6 +88,9 @@ function runOnce(catalog: Catalog, c: CasualtyCase, seed: number, row: CasualtyR
   for (const [id, ident] of sim.state.identity.entries()) idOf.set(ident.personId, id);
   const sId = shooters.map((m) => idOf.get(m.personId)!), tId = targets.map((m) => idOf.get(m.personId)!);
   const pairOf = new Map<EntityId, number>(tId.map((id, i) => [id, i]));
+  // (Nobody fires on his own: only the ordered shots count. Rule "return" fires at an enemy seen within 100 m since
+  // sight realism step 2.)
+  for (const [uid, u] of sim.state.unit.entries()) submitOrder(sim, { tick: 0, issuer: u.side, target: uid, kind: "rules", fire: "hold" });
   for (const id of sId) submitOrder(sim, { tick: 0, issuer: "blue", target: id, kind: "posture", posture: "prone" });
   for (const id of tId) submitOrder(sim, { tick: 0, issuer: "red", target: id, kind: "posture", posture: c.posture });
   const aimH = c.posture === "standing" ? 1.25 : c.posture === "crouching" ? 0.75 : 0.15;

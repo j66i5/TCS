@@ -4,7 +4,10 @@
       "id": "crops",
       "nameKey": "vegetation.crops",
       "heightM": 1.0,
-      "concealmentPerM": 0.12,
+      "concealmentPerM": 0.45,
+      "exposureConcealPerM": 0.12,
+      "heatConcealPerM": 0.12,
+      "backdrop": 0.5,
       "stoppingPerM": 0.0005,
       "moveCost": {
         "foot": 1.15,
@@ -14,13 +17,16 @@
       "colour": "#a7a14f",
       "sources": [],
       "confidence": "low",
-      "note": "Standing cereal crop in summer."
+      "note": "Standing cereal crop in summer. Sight realism step 3 (2026-11-15): concealment per metre for the line of sight 0.12 -> 0.45 (a few metres of it now hide most of a man lying behind it; owner: men were seen through bushes and fields too easily); cover seeking and routes keep the old 0.12 (exposureConcealPerM), and so do thermal sights (heatConcealPerM: the new figures are about the clutter that hides a man from the eye, not the heat that comes through); backdrop 0.5: a still man in it shows 0.5 of his size (he blends into it). Game values against the spotting lab; medium would be the most search extracts allow, low here because no source page could be opened (no URL). Sources (search extracts only, no page could be opened here): Van der Burg, Hogervorst, Toet, 'Visual search and target detection in cluttered scenes' (SPIE, search extract): a still target is much harder to pick out against clutter; motion breaks camouflage; FM 21-75 Combat Skills of the Soldier (1984, search extract): use of vegetation and shadow; a man blends with a background of the same texture."
     },
     {
       "id": "tall-grass",
       "nameKey": "vegetation.tall-grass",
       "heightM": 0.7,
-      "concealmentPerM": 0.08,
+      "concealmentPerM": 0.35,
+      "exposureConcealPerM": 0.08,
+      "heatConcealPerM": 0.08,
+      "backdrop": 0.5,
       "stoppingPerM": 0.0002,
       "moveCost": {
         "foot": 1.1,
@@ -30,13 +36,16 @@
       "colour": "#8fa257",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Sight realism step 3 (2026-11-15): concealment per metre for the line of sight 0.08 -> 0.35 (a few metres of it now hide most of a man lying behind it; owner: men were seen through bushes and fields too easily); cover seeking and routes keep the old 0.08 (exposureConcealPerM), and so do thermal sights (heatConcealPerM: the new figures are about the clutter that hides a man from the eye, not the heat that comes through); backdrop 0.5: a still man in it shows 0.5 of his size (he blends into it). Game values against the spotting lab; medium would be the most search extracts allow, low here because no source page could be opened (no URL). Sources (search extracts only, no page could be opened here): Van der Burg, Hogervorst, Toet, 'Visual search and target detection in cluttered scenes' (SPIE, search extract): a still target is much harder to pick out against clutter; motion breaks camouflage; FM 21-75 Combat Skills of the Soldier (1984, search extract): use of vegetation and shadow; a man blends with a background of the same texture."
     },
     {
       "id": "scrub",
       "nameKey": "vegetation.scrub",
       "heightM": 2.0,
-      "concealmentPerM": 0.2,
+      "concealmentPerM": 0.5,
+      "exposureConcealPerM": 0.2,
+      "heatConcealPerM": 0.2,
+      "backdrop": 0.4,
       "stoppingPerM": 0.002,
       "moveCost": {
         "foot": 1.5,
@@ -46,13 +55,16 @@
       "colour": "#5e7a3a",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Sight realism step 3 (2026-11-15): concealment per metre for the line of sight 0.2 -> 0.5 (a few metres of it now hide most of a man lying behind it; owner: men were seen through bushes and fields too easily); cover seeking and routes keep the old 0.2 (exposureConcealPerM), and so do thermal sights (heatConcealPerM: the new figures are about the clutter that hides a man from the eye, not the heat that comes through); backdrop 0.4: a still man in it shows 0.4 of his size (he blends into it). Game values against the spotting lab; medium would be the most search extracts allow, low here because no source page could be opened (no URL). Sources (search extracts only, no page could be opened here): Van der Burg, Hogervorst, Toet, 'Visual search and target detection in cluttered scenes' (SPIE, search extract): a still target is much harder to pick out against clutter; motion breaks camouflage; FM 21-75 Combat Skills of the Soldier (1984, search extract): use of vegetation and shadow; a man blends with a background of the same texture."
     },
     {
       "id": "woodland",
       "nameKey": "vegetation.woodland",
       "heightM": 18,
-      "concealmentPerM": 0.06,
+      "concealmentPerM": 0.12,
+      "exposureConcealPerM": 0.06,
+      "heatConcealPerM": 0.06,
+      "backdrop": 0.3,
       "stoppingPerM": 0.004,
       "moveCost": {
         "foot": 1.25,
@@ -62,13 +74,16 @@
       "colour": "#2f4a26",
       "sources": [],
       "confidence": "low",
-      "note": "Mixed deciduous/coniferous forest; trunks stop some rounds."
+      "note": "Mixed deciduous/coniferous forest; trunks stop some rounds. Sight realism step 3 (2026-11-15): concealment per metre for the line of sight 0.06 -> 0.12 (a few metres of it now hide most of a man lying behind it; owner: men were seen through bushes and fields too easily); cover seeking and routes keep the old 0.06 (exposureConcealPerM), and so do thermal sights (heatConcealPerM: the new figures are about the clutter that hides a man from the eye, not the heat that comes through); backdrop 0.3: a still man in it shows 0.3 of his size (he blends into it). Game values against the spotting lab; medium would be the most search extracts allow, low here because no source page could be opened (no URL). Sources (search extracts only, no page could be opened here): Van der Burg, Hogervorst, Toet, 'Visual search and target detection in cluttered scenes' (SPIE, search extract): a still target is much harder to pick out against clutter; motion breaks camouflage; FM 21-75 Combat Skills of the Soldier (1984, search extract): use of vegetation and shadow; a man blends with a background of the same texture."
     },
     {
       "id": "orchard",
       "nameKey": "vegetation.orchard",
       "heightM": 5,
       "concealmentPerM": 0.03,
+      "exposureConcealPerM": 0.03,
+      "heatConcealPerM": 0.03,
+      "backdrop": 0.6,
       "stoppingPerM": 0.002,
       "moveCost": {
         "foot": 1.05,
@@ -78,13 +93,16 @@
       "colour": "#4f7a37",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Sight realism step 3 (2026-11-15): concealment per metre for the line of sight 0.03 -> 0.03 (a few metres of it now hide most of a man lying behind it; owner: men were seen through bushes and fields too easily); cover seeking and routes keep the old 0.03 (exposureConcealPerM), and so do thermal sights (heatConcealPerM: the new figures are about the clutter that hides a man from the eye, not the heat that comes through); backdrop 0.6: a still man in it shows 0.6 of his size (he blends into it). Game values against the spotting lab; medium would be the most search extracts allow, low here because no source page could be opened (no URL). Sources (search extracts only, no page could be opened here): Van der Burg, Hogervorst, Toet, 'Visual search and target detection in cluttered scenes' (SPIE, search extract): a still target is much harder to pick out against clutter; motion breaks camouflage; FM 21-75 Combat Skills of the Soldier (1984, search extract): use of vegetation and shadow; a man blends with a background of the same texture."
     },
     {
       "id": "treeline",
       "nameKey": "vegetation.treeline",
       "heightM": 14,
-      "concealmentPerM": 0.1,
+      "concealmentPerM": 0.3,
+      "exposureConcealPerM": 0.1,
+      "heatConcealPerM": 0.1,
+      "backdrop": 0.3,
       "stoppingPerM": 0.004,
       "moveCost": {
         "foot": 1.2,
@@ -94,7 +112,7 @@
       "colour": "#355a2c",
       "sources": [],
       "confidence": "low",
-      "note": "Trees and bushes along field edges and streams."
+      "note": "Trees and bushes along field edges and streams. Sight realism step 3 (2026-11-15): concealment per metre for the line of sight 0.1 -> 0.3 (a few metres of it now hide most of a man lying behind it; owner: men were seen through bushes and fields too easily); cover seeking and routes keep the old 0.1 (exposureConcealPerM), and so do thermal sights (heatConcealPerM: the new figures are about the clutter that hides a man from the eye, not the heat that comes through); backdrop 0.3: a still man in it shows 0.3 of his size (he blends into it). Game values against the spotting lab; medium would be the most search extracts allow, low here because no source page could be opened (no URL). Sources (search extracts only, no page could be opened here): Van der Burg, Hogervorst, Toet, 'Visual search and target detection in cluttered scenes' (SPIE, search extract): a still target is much harder to pick out against clutter; motion breaks camouflage; FM 21-75 Combat Skills of the Soldier (1984, search extract): use of vegetation and shadow; a man blends with a background of the same texture."
     }
   ]
 }

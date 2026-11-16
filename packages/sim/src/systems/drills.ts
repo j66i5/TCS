@@ -28,16 +28,16 @@ import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, hypot2, PI, sin } from "../math";
 
 import { navFor } from "../navctx";
-import { navCostAt } from "../nav";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
 import { firedOnTick, isCowering, scaleWhy } from "./morale";
-import { aimHeightAt, assignFireTask, friendInLine, lineOfFireTo, spareMagazines } from "./fire";
+import { aimHeightAt, assignFireTask, friendInLine, spareMagazines } from "./fire";
 import { freeSpotNear } from "./decisions";
 import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
 import { beginStack, houseCentre, stepClear } from "./clear";
 import { buildingIndex, windowPlaces } from "./occupy";
+import { forEachSidestep, lineFor } from "./peek";
 import { spared } from "../protection";
 
 // (A man gone to a wounded comrade, M10.3a, is out of his unit's drills until he comes back.)
@@ -342,50 +342,23 @@ function coverTargets(ctx: SimContext, s: SoldierState, at: { x: number; y: numb
 }
 
 /**
- * His best line of fire to a point from any of `postures` (2 clear, 1 into cover near it, 0 none), none with a
- * comrade in it (another squad bounding beside his, a man of his own half); `from`: as if he were there.
- */
-function lineFor(ctx: SimContext, state: SimState, m: EntityId, x: number, y: number, h: number, postures: Posture[], from?: { x: number; y: number; z: number }): number {
-  if (friendInLine(ctx, state, m, x, y, 0, from)) return 0;
-  let q = 0;
-  for (const p of postures) { q = Math.max(q, lineOfFireTo(ctx, state, m, x, y, h, p, ctx.catalog.behaviour.drills.suppressShortM, from)); if (q === 2) break; }
-  return q;
-}
-
-/**
  * A covering man with no shot from where he lies dashes a few metres aside to a spot that gives him one (outdoors,
  * on open ground, clear of comrades; overnight pick "covering-fire"). Once per bound. Returns whether he goes.
  */
 function sidestep(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }): boolean {
-  const t = state.transform.req(m), s = state.soldier.req(m);
-  if (t.z > 0 || indoorAt(ctx, t.x, t.y) >= 0) return false;
-  const L = hypot2(at.x - t.x, at.y - t.y);
-  if (L < 1) return false;
-  const px = -(at.y - t.y) / L, py = (at.x - t.x) / L;
-  const side = state.identity.req(m).side, grid = navFor(ctx, "foot").grid, minM = ctx.catalog.behaviour.soldier.minSpacingM;
+  const s = state.soldier.req(m);
   const cands = coverTargets(ctx, s, at);
   const postures: Posture[] = ["prone", "crouching"];
-  for (const off of ctx.catalog.behaviour.drills.sidestepM) {
-    const x = t.x + px * off, y = t.y + py * off;
-    if (x < 1 || y < 1 || x > ctx.map.widthM - 1 || y > ctx.map.heightM - 1 || navCostAt(grid, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
-    let crowded = false;
-    for (const [o, id] of state.identity.entries()) {
-      // (Men aboard a vehicle take no room on the ground.)
-      if (o === m || id.side !== side || !state.soldier.has(o) || state.soldier.get(o)!.mount !== undefined) continue;
-      const ot = state.transform.req(o);
-      if (hypot2(ot.x - x, ot.y - y) < minM) { crowded = true; break; }
-    }
-    if (crowded) continue;
+  return forEachSidestep(ctx, state, m, at, ctx.catalog.behaviour.drills.sidestepM, (x, y) => {
     const from = { x, y, z: 0 };
     const target = cands.find((c) => lineFor(ctx, state, m, c.x, c.y, aimHeightAt(ctx, c), postures, from) > 0);
-    if (!target && (cands.length > 0 || lineFor(ctx, state, m, at.x, at.y, 0.5, postures, from) === 0)) continue;
+    if (!target && (cands.length > 0 || lineFor(ctx, state, m, at.x, at.y, 0.5, postures, from) === 0)) return false;
     // (A quick dash of a few metres: crawling there took most of the bound.)
-    if (!sendTo(ctx, state, m, x, y, target ?? at, 0, "run")) continue;
+    if (!sendTo(ctx, state, m, x, y, target ?? at, 0, "run")) return false;
     // (His fire task waits for him there; he fires when he is down again.)
     if (target && assignFireTask(ctx, state, m, target.x, target.y, aimHeightAt(ctx, target))) { const ft = state.fire.req(m); ft.contact = target.target; ft.aimAuto = true; ft.suppress = "drill"; }
     return true;
-  }
-  return false;
+  });
 }
 
 /**
@@ -572,7 +545,8 @@ function enteringHouse(ctx: SimContext, state: SimState, uid: EntityId): boolean
 /**
  * The men on foot carrying this unit's move into `out`: its own men, and the men on their way (with waypoints) of
  * sub-units without a move or drill of their own (a move given to the whole platoon); returns when they last came
- * under fire anew (`Unit.ownContactTick`; a crew also by hits on its own hull, `contactTick`). A halted squad under
+ * under fire anew (`Unit.ownContactTick`; a crew also by hits on its own hull, `contactTick`) or saw an enemy anew
+ * within `drills.reactSeenM` (`Unit.seenSpellTick`, set by decisions.ts; sight realism step 2). A halted squad under
  * the platoon is not part of its headquarters' move.
  */
 function moveGroup(state: SimState, uid: EntityId, out: EntityId[], sub = false): number {
@@ -580,7 +554,8 @@ function moveGroup(state: SimState, uid: EntityId, out: EntityId[], sub = false)
   if (!u) return -1e9;
   const n0 = out.length;
   for (const m of u.members) if (state.soldier.get(m)?.mount === undefined && (!sub || (state.mover.get(m)?.waypoints.length ?? 0) > 0)) out.push(m);
-  let t = out.length > n0 || !sub ? (u.ownContactTick ?? -1e9) : -1e9;
+  // (Fired on anew, or an enemy seen anew close by: sight realism step 2, `drills.reactSeenM`.)
+  let t = out.length > n0 || !sub ? Math.max(u.ownContactTick ?? -1e9, u.seenSpellTick ?? -1e9) : -1e9;
   if (u.vehicle !== undefined && u.contactTick > t) t = u.contactTick;
   for (const c of u.children) {
     const cu = state.unit.get(c);
@@ -628,7 +603,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
         for (const m of panicked) rout(ctx, state, m, u.drill, events, knownEnemy(state, men));
       }
     }
-    // ---- react to contact: on the move, fired upon anew since the move began; only the men carrying this move
+    // ---- react to contact: on the move, fired upon anew (or an enemy seen anew close by) since the move began; only the men carrying this move
     // (its own, and sub-units without a move of their own) or a unit of the platoon close by (reactNeighbourM)
     if (D.reactToContact && u.moving && !u.drill && !u.broken && u.onContact !== "push") {
       const group: EntityId[] = [];

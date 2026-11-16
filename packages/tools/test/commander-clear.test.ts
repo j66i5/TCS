@@ -15,8 +15,9 @@ interface Mem { clearing?: Record<string, [number, number]>; taken?: number[]; h
 function battle() {
   // (Seed 2 since the M8 + M10 merge, 2026-11-14: seed 1's attack now assaults too late in 1200 s to reach a house;
   // the behaviour checked is unchanged. Seed 3 since the M10 review fixes, 2026-11-15: seed 2's attack no longer
-  // reaches a house in 1200 s.)
-  const input = buildScenario(data, { kind: "platoon-attack", seed: 3, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: 1200 });
+  // reaches a house in 1200 s. Seed 4 since the sight realism review fixes, 2026-11-16: seed 3's attack no longer
+  // reaches a house in 1200 s; seed 4's clears two.)
+  const input = buildScenario(data, { kind: "platoon-attack", seed: 4, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: 1200 });
   const atk = commanderController("blue", input), def = commanderController("red", input);
   const mems: { tick: number; mem: Mem }[] = [];
   const watched = { ...atk, think: (v: Parameters<typeof atk.think>[0], t: number) => {

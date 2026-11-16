@@ -10,6 +10,12 @@
  * thins the view — but a man moving through it shakes the plants and a man firing shows flash and dust, so
  * then at least a floor share of him shows. Every number is in core/spotting.json.
  *
+ * Sight realism step 3 (spotting.conceal; absent: as before): the kept rate falls while the man seen is quiet; a man
+ * still among plants or in a room blends in (his conspicuity, drawn from the "conspicuity" stream where he settles, and
+ * the vegetation's backdrop; thermal sights see past both); a man lying still is hidden by the ground far off; crawling
+ * shows less than walking; by day firing shows less with range; a heard or reported enemy cues the search; a room is
+ * dark by day. Per target in soldierTargets; per pair only the firing-by-range, ground and cue terms.
+ *
  * Exactly one random draw per observer, target and scan, always, from the "spotting" stream: the line-of-sight
  * check is skipped when the draw could not succeed even with a perfect view, which saves most of the cost.
  *
@@ -30,10 +36,11 @@ import { isAble } from "../impair";
 import { flareLightAt } from "../flares";
 import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
 import { atan2, cos, exp, PI, pow, sin, sqrt } from "../math";
-import { nextFloat, Streams } from "../rng";
+import { nextFloat, nextNormal, Streams } from "../rng";
+import { indoorAt } from "../interior-nav";
 import type { SimState } from "../state";
-import { heightAt, standZ } from "../terrain";
-import type { SpottingDef, VehicleDef } from "../catalog";
+import { heightAt, segmentsInRectInto, standZ } from "../terrain";
+import type { SpottingConcealDef, SpottingDef, VehicleDef } from "../catalog";
 import type { DroneState, VehicleState } from "../components";
 
 import { canFight } from "./gunnery";
@@ -78,9 +85,9 @@ let SENSOR_HEAT = 0;
 
 /** The view through vegetation (M9.2): `vis` for the best sensor `best`, or heat through it for a thermal sensor
  *  `th` if that is better; unchanged when there is no thermal sensor or nothing in the way. */
-function heatThrough(vis: number, best: number, th: number, exponent: number): number {
-  if (th <= 0 || vis <= 0 || vis >= 1 || best <= 0) return vis;
-  const v = pow(vis, exponent) * th;
+function heatThrough(vis: number, best: number, th: number, exponent: number, heatVis = vis): number {
+  if (th <= 0 || vis <= 0 || heatVis >= 1 || best <= 0) return vis;
+  const v = pow(heatVis, exponent) * th;
   return v > best * vis ? v / best : vis;
 }
 
@@ -140,6 +147,12 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
     if (sightKind !== undefined) sensors.push(D.sensors[sightKind]);
     const box = state.container.get(oid);
     if (box) for (const st of box.stacks) { const k = ctx.catalog.items[st.type]?.sensor; if (k !== undefined && st.count > 0) sensors.push(D.sensors[k]); }
+    // Sight realism step 3: a cued search — where he heard shots or was told of an enemy, he looks harder.
+    const nCue = cueContacts(os, ot.x, ot.y, CC);
+    // (The ground hides a man lying still at a grazing angle: from higher up — an upper floor, a roof — the view is
+    // steeper, as if from nearer: the range in that term is scaled by proneGroundEyeM / his eye height, squared here.)
+    const eyeUp = ez - heightAt(map, ot.x, ot.y), eyeRef = D.conceal?.proneGroundEyeM; // ground: ok (his eye above the ground)
+    const eyeK = eyeRef !== undefined && eyeUp > eyeRef ? (eyeRef / eyeUp) * (eyeRef / eyeUp) : 1;
     for (const tg of targets) {
       if (tg.side === oi.side || tg.id === oid) continue;
       const dx = tg.x - ot.x, dy = tg.y - ot.y, d2 = dx * dx + dy * dy;
@@ -152,14 +165,18 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       // (M9.2: a sight or goggle helps only within its arc of where he looks; a thermal one sees his heat.)
       for (const sn of sensors) {
         if (!sn || (sn.arcDeg !== undefined && look > (sn.arcDeg * PI) / 180)) continue;
-        const f = (dist >= sn.fromM ? sn.factor : 1) * Math.max(D.lightFloor, light, sn.nightLight, tg.flash, tg.lit) * (sn.thermal === true ? tg.heat : 1);
+        const f = (dist >= sn.fromM ? sn.factor : 1) * Math.max(D.lightFloor, light, sn.nightLight, tg.flash, tg.lit) * (sn.thermal === true ? tg.heat * tg.unblend : 1);
         if (f > sensor) sensor = f;
         if (sn.thermal === true && f > heat) heat = f;
       }
       const idx = os.seen.findIndex((e) => e.target === tg.id);
       const view = look <= front ? 1 : look <= side ? D.sideFactor : D.rearFactor;
       let rate = D.baseRatePerS * pow(D.referenceRangeM / Math.max(D.minRangeM, dist), D.rangeExponent) * tg.size * tg.motion * view * own * sensor;
-      if (idx >= 0) rate *= D.keepRateFactor;
+      if (tg.fireX > 0) rate *= firingAt(tg, dist);
+      if (tg.groundK > 0 && sensor > 0) { const g = d2 * tg.groundK * eyeK; rate *= Math.max(1 / (1 + g * g), heat / sensor); } // (thermal: heat shows through the grass)
+      // (Only while looking for him: a man already seen is kept anyway.)
+      if (nCue > 0 && idx < 0 && cued(nCue, dx, dy, dist, tg.x, tg.y)) rate *= CC.factor;
+      if (idx >= 0) rate *= tg.keep;
       const u = nextFloat(state.rng, Streams.spotting);
       if (u >= 1 - exp(-rate * scanS)) continue; // could not succeed even with a perfect view
       // He can only keep track of so many: a new one only if nearer than the farthest he watches (checked
@@ -179,17 +196,18 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       if (sg.blockedBy !== null) continue;
       let vis = sg.visibility;
       // (M9.2: heat comes through vegetation better than light does.)
-      vis = heatThrough(vis, sensor, heat, D.thermal.vegetationExponent);
+      vis = heatThrough(vis, sensor, heat, D.thermal.vegetationExponent, sg.heatVisibility);
       // Moving through vegetation shakes the plants above him, firing shows flash and dust: seen if the line to
       // the top of the vegetation over him is clear (not through a wood between).
       if ((tg.firing || tg.moving) && tg.vegTopZ > tg.z) {
         const top = sight(ctx, ot.x, ot.y, ez, tg.x, tg.y, tg.vegTopZ + 0.1);
-        if (top.blockedBy === null) vis = Math.max(vis, (tg.firing ? D.firingVisibilityFloor : D.movingVisibilityFloor) * top.visibility);
+        if (top.blockedBy === null) vis = Math.max(vis, (tg.firing ? tg.fireFloor : D.movingVisibilityFloor) * top.visibility);
       }
       // Smoke (M6.5c) between them hides him.
       if (state.smoke.length > 0) vis *= smokeTransmission(state, smokePhysics(ctx.catalog), ot.x, ot.y, ez, tg.x, tg.y, tg.z);
       if (vis < D.minVisibility) vis = 0;
       if (u >= 1 - exp(-rate * vis * scanS)) continue;
+      os.sawEnemyTick = tick; // (step 4: when he last saw an enemy)
       if (idx >= 0) { os.seen[idx]!.lastTick = tick; continue; }
       if (far >= 0) os.seen.splice(far, 1);
       os.seen.push({ target: tg.id, firstTick: tick, lastTick: tick });
@@ -212,7 +230,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
           if (sn.thermal === true && f > SENSOR_HEAT) SENSOR_HEAT = f;
         }
         return sensor * (lk <= front ? 1 : lk <= side ? D.sideFactor : D.rearFactor);
-      }, () => 1, own, vtargets, VEHICLE_SCAN_EVERY * scanS, Math.min(state.environment.visibilityM, D.maxRangeM)); // a man's eyes reach as far for a hull as for a man
+      }, () => 1, own, vtargets, VEHICLE_SCAN_EVERY * scanS, Math.min(state.environment.visibilityM, D.maxRangeM), os); // a man's eyes reach as far for a hull as for a man
     }
     // Enemy drones overhead (M9.4b): on the same slower schedule as vehicles.
     if (state.drone.size > 0 && (oid + Math.floor(tick / every)) % VEHICLE_SCAN_EVERY === 0) {
@@ -326,7 +344,8 @@ function droneScan(ctx: SimContext, state: SimState, events: EventSink, did: Ent
     if (sensor <= 0) continue;
     const idx = d.seen.findIndex((e) => e.target === tg.id);
     let rate = D.baseRatePerS * pow(D.referenceRangeM / Math.max(D.minRangeM, slant), D.rangeExponent) * tg.top * tg.motion * own * sensor * search;
-    if (idx >= 0) rate *= D.keepRateFactor;
+    if (tg.fireX > 0) rate *= firingAt(tg, slant);
+    if (idx >= 0) rate *= tg.keep;
     const u = nextFloat(state.rng, Streams.spotting);
     if (u >= 1 - exp(-rate * scanS)) continue;
     if (idx < 0) { if (looks >= DRONE_LOOKS) continue; looks++; }
@@ -334,11 +353,11 @@ function droneScan(ctx: SimContext, state: SimState, events: EventSink, did: Ent
     const under = DR !== undefined && tg.vegTopZ - tg.z > DR.canopyAboveM;
     const sg = sight(ctx, ex, ey, ez, tg.x, tg.y, tg.z);
     if (sg.blockedBy !== null) continue;
-    let vis = heatThrough(sg.visibility, sensor, heat, D.thermal.vegetationExponent);
+    let vis = heatThrough(sg.visibility, sensor, heat, D.thermal.vegetationExponent, sg.heatVisibility);
     if (under) vis *= heat >= sensor ? DR.canopyThermal : DR.canopyDay;
     if ((tg.firing || tg.moving) && tg.vegTopZ > tg.z && !under) {
       const top = sight(ctx, ex, ey, ez, tg.x, tg.y, tg.vegTopZ + 0.1);
-      if (top.blockedBy === null) vis = Math.max(vis, (tg.firing ? D.firingVisibilityFloor : D.movingVisibilityFloor) * top.visibility);
+      if (top.blockedBy === null) vis = Math.max(vis, (tg.firing ? tg.fireFloor : D.movingVisibilityFloor) * top.visibility);
     }
     if (state.smoke.length > 0) {
       const SP = smokePhysics(ctx.catalog);
@@ -382,6 +401,103 @@ interface SoldierTarget {
   heat: number;
   /** His size seen from above (M9.4a: a drone's camera), as `size`. */
   top: number;
+  /** Sight realism step 3: the factor on the kept rate once seen (falls while he is quiet). */
+  keep: number;
+  /** Firing (step 3): his firing factor - 1 (0: not firing; not in `motion`), how dark it is (the firing reveal
+   *  falls with range by day only), 1 / firingHalfM (0: no fall), and the share of him the flash shows through vegetation. */
+  fireX: number; fireDark: number; fireInvHalf: number; fireFloor: number;
+  /** 1 / the blending factors in `size` (conspicuity and backdrop): a thermal sight sees his heat, not how well he
+   *  blends in, so its factor is multiplied by this (step 3). */
+  unblend: number;
+  /** 1 / proneGroundM^2 for a man lying still (0 otherwise): at range 1 / (1 + (range / proneGroundM)^4) of him shows
+   *  to an observer on the ground (step 3; from higher up the range is scaled down, `proneGroundEyeM`); 0 also for a
+   *  man not on the ground (a roof, an upper floor). */
+  groundK: number;
+}
+
+/** How much more his firing shows him at this range (sight realism step 3): the full factor at night or close, by
+ *  day 1 + (factor - 1) / (1 + range / firingHalfM). */
+function firingAt(tg: SoldierTarget, dist: number): number {
+  return 1 + tg.fireX * (tg.fireDark + (1 - tg.fireDark) / (1 + dist * tg.fireInvHalf));
+}
+
+/** Cue scratch (step 3): unit vector toward, position and radius^2 of an observer's heard and reported contacts; the
+ *  factor and the cosine of the half-angle. */
+const CC = { n: 0, ux: [] as number[], uy: [] as number[], x: [] as number[], y: [] as number[], r2: 0, factor: 1, cosHalf: 1 };
+
+/** Fill `CC` with the observer's nearest (at most cueMax) heard or reported contacts of men (not known to be down);
+ *  their number. (He turns his attention to a few directions, not to every shot on the field.) */
+function cueContacts(os: SoldierState, ox: number, oy: number, cc: typeof CC): number {
+  cc.n = 0;
+  const C = CUE_DEF;
+  if (C === null || os.contacts.length === 0) return 0;
+  const max = C.cueMax, d2s = CUE_D2;
+  for (const c of os.contacts) {
+    if (c.kind === "seen" || c.cls !== undefined || c.down === true) continue;
+    const vx = c.x - ox, vy = c.y - oy, q = vx * vx + vy * vy;
+    if (q < 1e-12) continue;
+    // Insert by distance (ascending, ties in contact order), keeping the nearest `max`.
+    let k = cc.n;
+    if (k >= max) { if (q >= d2s[max - 1]!) continue; k = max - 1; } else cc.n++;
+    while (k > 0 && d2s[k - 1]! > q) { d2s[k] = d2s[k - 1]!; cc.ux[k] = cc.ux[k - 1]!; cc.uy[k] = cc.uy[k - 1]!; cc.x[k] = cc.x[k - 1]!; cc.y[k] = cc.y[k - 1]!; k--; }
+    const l = sqrt(q);
+    d2s[k] = q; cc.ux[k] = vx / l; cc.uy[k] = vy / l; cc.x[k] = c.x; cc.y[k] = c.y;
+  }
+  cc.r2 = C.cueRangeM * C.cueRangeM; cc.factor = C.cueFactor; cc.cosHalf = cos((C.cueBearingDeg * PI) / 180);
+  return cc.n;
+}
+
+/** Squared distances of the cues in `CC` (scratch). */
+const CUE_D2: number[] = [];
+
+/** Is the target at (dx, dy) from the observer (dist away), at (x, y), within one of the observer's cues? */
+function cued(n: number, dx: number, dy: number, dist: number, x: number, y: number): boolean {
+  const cc = CC, r2 = cc.r2, lim = cc.cosHalf * dist;
+  for (let k = 0; k < n; k++) {
+    const ex = x - cc.x[k]!, ey = y - cc.y[k]!;
+    if (ex * ex + ey * ey > r2) continue;
+    if (dx * cc.ux[k]! + dy * cc.uy[k]! >= lim) return true;
+  }
+  return false;
+}
+
+/** The conceal block of the catalog in use this tick (set by soldierTargets; null: none, as before step 3). */
+let CUE_DEF: SpottingConcealDef | null = null;
+
+/** Scratch list for the opening query of a man indoors. */
+const NEAR_SEGS: number[] = [];
+
+/**
+ * Sight realism step 3: how far (m) a man in building `bi` at (x, y), `z` above the ground, is from the nearest
+ * opening (window, door, breach) in its outer walls on his floor; Infinity if there is none within `withinM` (walls
+ * are looked for only that far: the caller asks "within backM?", review fix — any backM works, and the query is small).
+ */
+function openingDistance(ctx: SimContext, bi: number, x: number, y: number, z: number, withinM: number): number {
+  const b = ctx.map.buildings[bi];
+  if (!b) return Infinity;
+  const r = withinM + 0.5;
+  const n = segmentsInRectInto(ctx.mapIndex, x - r, y - r, x + r, y + r, NEAR_SEGS);
+  const segs = ctx.mapIndex.segments, info = ctx.ballistics.seg;
+  let best = Infinity;
+  for (let q = 0; q < n; q++) {
+    const si = NEAR_SEGS[q]!, sg = segs[si]!;
+    if (sg.owner !== "building" || sg.id !== b.id) continue;
+    const ops = info[si]!.openings;
+    if (!ops) continue;
+    const ex = sg.bx - sg.ax, ey = sg.by - sg.ay, len = info[si]!.len;
+    if (len <= 0) continue;
+    // Where along the wall he stands, and how far from it.
+    const along = ((x - sg.ax) * ex + (y - sg.ay) * ey) / len;
+    const across = Math.abs((x - sg.ax) * ey - (y - sg.ay) * ex) / len;
+    for (const o of ops) {
+      if (o.sillM > z + 1.6 || o.headM < z + 0.3) continue; // not on his floor
+      const lo = o.offsetM - o.widthM / 2, hi = o.offsetM + o.widthM / 2;
+      const off = along < lo ? lo - along : along > hi ? along - hi : 0;
+      const d = sqrt(off * off + across * across);
+      if (d < best) best = d;
+    }
+  }
+  return best;
 }
 
 /** Every man who can be seen this scan (not aboard a vehicle), ID order. */
@@ -391,6 +507,15 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
   const dark = 1 - Math.min(1, Math.max(0, state.environment.light));
   const N = D.night, TH = D.thermal;
   const flaring = state.flares !== undefined && state.flares.length > 0;
+  // Sight realism step 3 (absent `conceal`: as before).
+  const C = D.conceal ?? null;
+  CUE_DEF = C;
+  const keepK = D.keepRateFactor, keepFloor = C ? Math.min(C.keepFloorFactor, keepK) : keepK, keepT = C ? C.keepDecaySeconds : 1;
+  const fireInvHalf = C ? 1 / C.firingHalfM : 0;
+  const fireFloor = C ? C.firingVisibilityFloorDay + (D.firingVisibilityFloor - C.firingVisibilityFloorDay) * dark : D.firingVisibilityFloor;
+  const firingTicks = secondsToTicks(D.firingWithinSeconds), launchTicks = secondsToTicks(D.launchFlashSeconds);
+  const backdrop = B.vegBackdrop, hasInteriors = C !== null && map.buildings.length > 0;
+  const BP = ctx.catalog.body.postures, postureH = { standing: BP.standing.heightM, crouching: BP.crouching.heightM, prone: BP.prone.heightM };
   // (Rows are reused from tick to tick: no allocation per man per tick, M7.3.)
   const targets = TARGETS;
   let n = 0;
@@ -402,19 +527,80 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
     if (!tt || !ti) continue;
     const speed = state.mover.get(tid)?.speedMps ?? 0;
     const moving = speed > D.stillBelowMps;
-    const firing = tick - (state.weapon.get(tid)?.lastShotTick ?? -1e9) <= secondsToTicks(D.firingWithinSeconds);
+    const lastShot = state.weapon.get(tid)?.lastShotTick ?? -1e9;
+    const firing = tick - lastShot <= firingTicks;
     // Top of the vegetation he is in (where moving plants or the flash of his shots show), or -Infinity.
     const g = heightAt(map, tt.x, tt.y); // ground: ok (vegetation top; his own height below)
     const cell = Math.floor(tt.y / map.cellSizeM) * map.cols + Math.floor(tt.x / map.cellSizeM);
     const v = cell >= 0 && cell < map.vegetation.length ? map.vegetation[cell]! : 0;
     const vegTopZ = v > 0 ? g + B.vegHeightM[v - 1]! : -Infinity;
     let r = targets[n];
-    if (!r) { r = { id: 0, side: "", x: 0, y: 0, z: 0, size: 0, motion: 0, firing: false, moving: false, vegTopZ: 0, flash: 0, lit: 0, heat: 1, top: 0 }; targets[n] = r; }
+    if (!r) { r = { id: 0, side: "", x: 0, y: 0, z: 0, size: 0, motion: 0, firing: false, moving: false, vegTopZ: 0, flash: 0, lit: 0, heat: 1, top: 0, keep: 1, fireX: 0, fireDark: 1, fireInvHalf: 0, fireFloor: 0, unblend: 1, groundK: 0 }; targets[n] = r; }
     r.vegTopZ = vegTopZ; r.id = tid; r.side = ti.side; r.x = tt.x; r.y = tt.y; r.z = g + tt.z + TARGET_POINT_M[ts.posture];
     r.size = D.postureSize[ts.posture]; r.top = D.drone?.postureSize[ts.posture] ?? r.size; r.moving = moving; r.firing = firing;
-    r.motion = (firing ? D.firingFactor : 1) * (!moving ? 1 : speed > D.runningAboveMps ? D.runningFactor : D.movingFactor);
+    // (Step 3: a prone man moving slowly, crawling, shows less than one walking.)
+    const crawl = C !== null && ts.posture === "prone" && speed < C.crawlBelowMps;
+    r.motion = !moving ? 1 : speed > D.runningAboveMps ? D.runningFactor : crawl ? C!.crawlFactor : D.movingFactor;
+    let fireF = D.firingFactor;
+    r.keep = keepK; r.unblend = 1; r.groundK = 0;
+    r.fireDark = dark; r.fireInvHalf = fireInvHalf; r.fireFloor = fireFloor;
     // A guided missile launched from his post moments ago (M9.3b): its flash, dust and smoke show him more.
-    if (ts.launchTick !== undefined && tick - ts.launchTick <= secondsToTicks(D.launchFlashSeconds)) r.motion *= D.launchFlashFactor;
+    const launched = ts.launchTick !== undefined && tick - ts.launchTick <= launchTicks;
+    if (launched) r.motion *= D.launchFlashFactor;
+    if (C !== null) {
+      const still = !moving && !firing && !launched;
+      // A man seen stays seen while he is active: the kept rate falls once he is quiet (moved, fired, launched).
+      if (keepK > keepFloor) {
+        const act = Math.max(ts.movedTick ?? -1e9, lastShot, ts.launchTick ?? -1e9);
+        const quietS = moving || firing ? 0 : (tick - act) / TICK_HZ;
+        r.keep = keepFloor + (keepK - keepFloor) * exp(-quietS / keepT);
+      }
+      // A dark room (not on the roof): shade by day, less still back from the windows; his shots show less.
+      let indoors = false;
+      if (hasInteriors) {
+        const bi = indoorAt(ctx, tt.x, tt.y);
+        const bd = bi >= 0 ? map.buildings[bi] : undefined;
+        if (bd && tt.z < bd.storeys * bd.storeyHeightM - 0.5) {
+          indoors = true;
+          const I = C.indoor, day = 1 - dark;
+          let f = 1 - (1 - I.shade) * day;
+          if (openingDistance(ctx, bi, tt.x, tt.y, tt.z, I.backM) > I.backM) f *= 1 - (1 - I.backFactor) * day;
+          r.size *= f;
+          fireF = I.firingFactor;
+        }
+      }
+      // Lying still: grass, furrows and small folds of the ground hide more of him the flatter the view, i.e. the
+      // farther off the observer (crawling or firing he shows; drones look down and are not affected; not on a roof or
+      // an upper floor; an observer looking down from higher up sees him as if nearer, proneGroundEyeM).
+      if (still && ts.posture === "prone" && !indoors && tt.z < 0.5) r.groundK = 1 / (C.proneGroundM * C.proneGroundM);
+      if (still && (v > 0 || indoors)) {
+        // His conspicuity where he lies, among plants or in a room (clutter he can blend into; drawn once there for
+        // each posture he takes — review fix: kneeling to look and lying down again on the spot keeps both values —
+        // the same for every observer). On open ground his outline shows against it whatever he does.
+        const cx = ts.conspX ?? 0, cy = ts.conspY ?? 0, rm = C.conspicuityResetM;
+        if (ts.conspX === undefined || (tt.x - cx) * (tt.x - cx) + (tt.y - cy) * (tt.y - cy) > rm * rm) { ts.conspBy = {}; ts.conspX = tt.x; ts.conspY = tt.y; }
+        // (A save from before the fix: its one value, for the posture it was drawn in.)
+        else if (ts.conspBy === undefined) ts.conspBy = ts.consp !== undefined && ts.conspPosture !== undefined ? { [ts.conspPosture]: ts.consp } : {};
+        const by = ts.conspBy!;
+        let k = by[ts.posture];
+        if (k === undefined) {
+          const sg = C.conspicuitySigma;
+          k = by[ts.posture] = exp(sg * nextNormal(state.rng, Streams.conspicuity) - (sg * sg) / 2);
+        }
+        ts.consp = k; ts.conspPosture = ts.posture;
+        r.size *= k;
+        r.unblend = 1 / k;
+        if (v > 0) {
+          // Vegetation round him: he blends into it (seen from a man's eye height, the background behind him is
+          // more of it). Vegetation lower than the point an observer looks at also hides the part of him below its
+          // top (the line of sight passes over it, so it does not thin the view).
+          r.size *= backdrop[v - 1]!;
+          r.unblend /= backdrop[v - 1]!;
+          if (vegTopZ <= r.z) r.size *= Math.max(0, 1 - B.vegHeightM[v - 1]! / postureH[ts.posture]);
+        }
+      }
+    }
+    r.fireX = firing ? fireF - 1 : 0;
     r.flash = 0;
     // Flares (M9.6): the light they give him, once per target (not per observer); 0 without flares.
     r.lit = flaring ? flareLightAt(state, ctx.catalog, tt.x, tt.y, g) : 0;
@@ -482,7 +668,7 @@ function scanVehicles(
   ctx: SimContext, state: SimState, events: EventSink, oid: EntityId, side: string, seen: { target: EntityId; firstTick: number; lastTick: number }[],
   eye: { x: number; y: number; z: number; own: EntityId },
   sensorAt: (dist: number, bearing: number, flash: number, heat: number) => number, smokeAt: (dist: number, bearing: number, conv: number, ms: number, flash: number, heat: number) => number,
-  own: number, vts: readonly VehTarget[], scanS: number, rangeCap = Infinity,
+  own: number, vts: readonly VehTarget[], scanS: number, rangeCap = Infinity, os?: SoldierState,
 ): void {
   const D = ctx.catalog.spotting, V = D.vehicles, tick = state.tick;
   // A man takes a careful look at no more than one vehicle new to him per scan (cost bound with many hulls).
@@ -511,7 +697,7 @@ function scanVehicles(
     }
     // Best aim point: the hull's (full size) or a higher one (the turret's share: hull-down shows only that);
     // a hull seen well enough already is not looked at again higher up.
-    let vis = 0;
+    let vis = 0, hvis = 0;
     const aps = tg.def.signature.aimPoints;
     for (let k = 0; k < aps.length; k++) {
       const share = k === 0 ? 1 : turretShare;
@@ -520,10 +706,10 @@ function scanVehicles(
       const ax = tg.x + tg.c * ap[0] - tg.s * ap[1], ay = tg.y + tg.s * ap[0] + tg.c * ap[1], az = tg.gz + ap[2];
       const sg = sight(ctx, eye.x, eye.y, eye.z, ax, ay, az, eye.own, tg.id);
       if (sg.blockedBy !== null) continue;
-      if (sg.visibility * share > vis) vis = sg.visibility * share;
+      if (sg.visibility * share > vis) { vis = sg.visibility * share; hvis = (sg.heatVisibility ?? sg.visibility) * share; }
     }
     if (vis <= 0) continue;
-    vis = heatThrough(vis, sensor, heat, D.thermal.vegetationExponent); // (M9.2: heat through vegetation)
+    vis = heatThrough(vis, sensor, heat, D.thermal.vegetationExponent, hvis); // (M9.2: heat through vegetation)
     if (state.smoke.length > 0) {
       const SP = smokePhysics(ctx.catalog), tz = tg.gz + tg.def.signature.aimPoints[0]![2];
       const conv = smokeTransmission(state, SP, eye.x, eye.y, eye.z, tg.x, tg.y, tz, "conventional");
@@ -532,6 +718,7 @@ function scanVehicles(
     }
     if (vis < D.minVisibility) vis = 0;
     if (u >= 1 - exp(-rate * vis * scanS)) continue;
+    if (os) os.sawEnemyTick = tick; // (step 4: when he last saw an enemy)
     if (idx >= 0) { seen[idx]!.lastTick = tick; continue; }
     seen.push({ target: tg.id, firstTick: tick, lastTick: tick });
     seen.sort((a, b) => a.target - b.target);
@@ -594,12 +781,14 @@ function crewScan(
     const dx = tg.x - ex, dy = tg.y - ey, d2 = dx * dx + dy * dy;
     if (d2 > maxR * maxR) continue;
     const dist = sqrt(d2), bearing = atan2(dy, dx);
-    const sensor = sensorAt(dist, bearing, 1, 1, Math.max(tg.flash, tg.lit), tg.heat);
+    const sensor = sensorAt(dist, bearing, 1, 1, Math.max(tg.flash, tg.lit), tg.heat * tg.unblend);
     const heat = SENSOR_HEAT;
     if (sensor <= 0) continue;
     const idx = os.seen.findIndex((e) => e.target === tg.id);
     let rate = D.baseRatePerS * pow(D.referenceRangeM / Math.max(D.minRangeM, dist), D.rangeExponent) * tg.size * tg.motion * own * sensor;
-    if (idx >= 0) rate *= D.keepRateFactor;
+    if (tg.fireX > 0) rate *= firingAt(tg, dist);
+    if (tg.groundK > 0 && sensor > 0) { const g = d2 * tg.groundK; rate *= Math.max(1 / (1 + g * g), heat / sensor); } // (thermal: heat shows through the grass)
+    if (idx >= 0) rate *= tg.keep;
     const u = nextFloat(state.rng, Streams.spotting);
     if (u >= 1 - exp(-rate * scanS)) continue;
     let far = -1;
@@ -620,19 +809,20 @@ function crewScan(
     const sg = sight(ctx, ex, ey, ez, tg.x, tg.y, tg.z, os.mount!.vehicle);
     if (sg.blockedBy !== null) continue;
     let vv = sg.visibility;
-    vv = heatThrough(vv, sensor, heat, D.thermal.vegetationExponent); // (M9.2: heat through vegetation)
+    vv = heatThrough(vv, sensor, heat, D.thermal.vegetationExponent, sg.heatVisibility); // (M9.2: heat through vegetation)
     if ((tg.firing || tg.moving) && tg.vegTopZ > tg.z) {
       const top = sight(ctx, ex, ey, ez, tg.x, tg.y, tg.vegTopZ + 0.1, os.mount!.vehicle);
-      if (top.blockedBy === null) vv = Math.max(vv, (tg.firing ? D.firingVisibilityFloor : D.movingVisibilityFloor) * top.visibility);
+      if (top.blockedBy === null) vv = Math.max(vv, (tg.firing ? tg.fireFloor : D.movingVisibilityFloor) * top.visibility);
     }
     if (state.smoke.length > 0) {
       const SP = smokePhysics(ctx.catalog);
       const conv = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "conventional");
       const ms = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "multispectral");
-      vv *= sensorAt(dist, bearing, conv, ms, Math.max(tg.flash, tg.lit), tg.heat) / sensor;
+      vv *= sensorAt(dist, bearing, conv, ms, Math.max(tg.flash, tg.lit), tg.heat * tg.unblend) / sensor;
     }
     if (vv < D.minVisibility) vv = 0;
     if (u >= 1 - exp(-rate * vv * scanS)) continue;
+    os.sawEnemyTick = tick; // (step 4: when he last saw an enemy)
     if (idx >= 0) { os.seen[idx]!.lastTick = tick; continue; }
     if (far >= 0) os.seen.splice(far, 1);
     os.seen.push({ target: tg.id, firstTick: tick, lastTick: tick });
@@ -643,5 +833,5 @@ function crewScan(
   scanVehicles(ctx, state, events, oid, side, os.seen, { x: ex, y: ey, z: ez, own: os.mount!.vehicle },
     (dist, bearing, flash, heat) => sensorAt(dist, bearing, 1, 1, flash, heat),
     (dist, bearing, conv, ms, flash, heat) => { const b = sensorAt(dist, bearing, 1, 1, flash, heat); return b > 0 ? sensorAt(dist, bearing, conv, ms, flash, heat) / b : 0; },
-    own, vts, scanS, maxR);
+    own, vts, scanS, maxR, os);
 }

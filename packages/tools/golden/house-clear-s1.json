@@ -20,7 +20,7 @@
    "target": 3,
    "kind": "occupy",
    "building": 110,
-   "windowIndex": 10,
+   "windowIndex": 11,
    "mode": "walk"
   },
   {
@@ -42,14 +42,28 @@
    "issuer": "blue",
    "target": 5,
    "kind": "occupy",
-   "building": 110,
-   "windowIndex": 5,
+   "building": 39,
+   "windowIndex": 10,
    "mode": "walk"
   },
   {
    "tick": 0,
    "issuer": "blue",
    "target": 6,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 951,
+     "y": 1031,
+     "mode": "walk"
+    }
+   ],
+   "facing": 2.9798308035842465
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 7,
    "kind": "occupy",
    "building": 44,
    "windowIndex": 0,
@@ -58,30 +72,16 @@
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 7,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 963,
-     "y": 1041,
-     "mode": "walk"
-    }
-   ],
-   "facing": 2.930333154509397
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
    "target": 8,
    "kind": "move",
    "waypoints": [
     {
-     "x": 983,
-     "y": 1005,
+     "x": 969,
+     "y": 1031,
      "mode": "walk"
     }
    ],
-   "facing": 0.06981925920309015
+   "facing": 2.930333154509397
   },
   {
    "tick": 0,
@@ -149,51 +149,51 @@
    "fire": "free"
   },
   {
-   "tick": 7800,
-   "issuer": "blue",
-   "target": 3,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 971,
-     "y": 1021,
-     "mode": "run"
-    }
-   ],
-   "facing": -0.469201711133384
-  },
-  {
-   "tick": 7800,
+   "tick": 7500,
    "issuer": "blue",
    "target": 4,
    "kind": "move",
    "waypoints": [
     {
-     "x": 983,
-     "y": 1005,
+     "x": 985,
+     "y": 1033,
      "mode": "run"
     }
    ],
-   "facing": 0.05221242016186598
+   "facing": -1.1363515157539068
   },
   {
-   "tick": 7800,
+   "tick": 7500,
    "issuer": "blue",
    "target": 5,
    "kind": "move",
    "waypoints": [
     {
-     "x": 979,
-     "y": 1037,
+     "x": 991,
+     "y": 1041,
      "mode": "run"
     }
    ],
-   "facing": -1.1061111635711947
+   "facing": -1.457962304368365
   },
   {
-   "tick": 7800,
+   "tick": 7500,
    "issuer": "blue",
    "target": 6,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 971,
+     "y": 1031,
+     "mode": "run"
+    }
+   ],
+   "facing": -0.7569879939842523
+  },
+  {
+   "tick": 7500,
+   "issuer": "blue",
+   "target": 7,
    "kind": "move",
    "waypoints": [
     {
@@ -205,32 +205,18 @@
    "facing": -0.9919300768152622
   },
   {
-   "tick": 7800,
-   "issuer": "blue",
-   "target": 7,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 961,
-     "y": 1015,
-     "mode": "run"
-    }
-   ],
-   "facing": -0.6504339320328059
-  },
-  {
-   "tick": 7800,
+   "tick": 7500,
    "issuer": "blue",
    "target": 8,
    "kind": "move",
    "waypoints": [
     {
-     "x": 981,
-     "y": 1011,
+     "x": 971,
+     "y": 1037,
      "mode": "run"
     }
    ],
-   "facing": -1.5815165973555008
+   "facing": -1.155211426985889
   },
   {
    "tick": 8400,
@@ -251,24 +237,24 @@
   }
  ],
  "checkpoints": {
-  "600": "abea7b16cd6fa2e0",
-  "1200": "391d86528a934d9f",
-  "1800": "235caed52f8024bd",
-  "2400": "fdd2cf7831be32d4",
-  "3000": "e1836455fd7ed11f",
-  "3600": "9882752867fff906",
-  "4200": "70ae51e329c6259b",
-  "4800": "25b2b7ec02231db9",
-  "5400": "24d942572d8ae5b9",
-  "6000": "3e3ab7047ccea111",
-  "6600": "70d5b94a754bba50",
-  "7200": "2f68785b348aaf19",
-  "7800": "499847551d55c71f",
-  "8400": "baf798feb4a4f9eb",
-  "9000": "b20cd7f6fd1b0d52",
-  "9600": "447af0f168bfe75f",
-  "10200": "3ffd1188d616bcee",
-  "10800": "32ccf70a6763dd5b"
+  "600": "fb523016d84d331f",
+  "1200": "c472303ba3ab2f7a",
+  "1800": "dbf2f059948b1a8e",
+  "2400": "d73680a67bf6c835",
+  "3000": "16fd855213354405",
+  "3600": "ca770edff7fadd5e",
+  "4200": "50ab38df0eadeb3b",
+  "4800": "a2c11effdc286fc0",
+  "5400": "b7a50e743e9e665c",
+  "6000": "ba70be33a61c67e2",
+  "6600": "95735fda8166ff13",
+  "7200": "ab48591917277c90",
+  "7800": "d26845f0e5e912e9",
+  "8400": "26e1b517a011d9fe",
+  "9000": "024fca1799106708",
+  "9600": "6db432598b4228cb",
+  "10200": "94887930e253ee2b",
+  "10800": "fba5ad366f6d9d5e"
  },
- "catalogFingerprint": "b1c71b12c004024f"
+ "catalogFingerprint": "305b314c123b86ea"
 }

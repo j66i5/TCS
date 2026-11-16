@@ -376,7 +376,8 @@ function exposureMap(map: MapDef, terrain: TerrainCatalog, cellM: number, wc0: n
   const vegCover = map.vegetationPalette.map((id) => {
     const v = terrain.vegetation[id];
     if (!v) return 0;
-    return Math.min(1, v.concealmentPerM * v.heightM * 1.5);
+    // (Sight realism step 3: the sight's concealment rose; cover seeking keeps its own, older figure.)
+    return Math.min(1, (v.exposureConcealPerM ?? v.concealmentPerM) * v.heightM * 1.5);
   });
   for (let r = 0; r < rows; r++) {
     const mr = Math.min(map.rows - 1, Math.floor(((r + wr0 + 0.5) * cellM) / map.cellSizeM));

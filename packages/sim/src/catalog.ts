@@ -160,6 +160,14 @@ export interface VegetationDef {
   id: DefId;
   heightM: number;
   concealmentPerM: number;
+  /** Sight realism step 3: the concealment per metre cover seeking and routes use (nav exposure; the older, lower
+   *  figure); absent: concealmentPerM. */
+  exposureConcealPerM?: number;
+  /** Sight realism step 3: the concealment per metre for heat (thermal sights; absent: concealmentPerM). */
+  heatConcealPerM?: number;
+  /** Sight realism step 3: the share of his size a still man keeps against this vegetation behind and around him
+   *  (when its top is above the point an observer looks at); absent: 1. */
+  backdrop?: number;
   stoppingPerM: number;
   moveCost: MoveCost;
   colour: string;
@@ -338,6 +346,11 @@ export interface BehaviourDef {
     underFireSuppression: number; underFireMemorySeconds: number; seenWithinSeconds: number; contactLostSeconds: number;
     seekCoverSuppression: number; coverSearchM: number; coverRetrySeconds: number; threatEyeHeightM: number;
     shareRangeM: number; keepSpare: number; passSeconds: number;
+    /** Self-defence under rule "return" (sight realism step 2, 2026-11-15): not fired on lately, a man still opens
+     *  fire on his own at an enemy he sees (not spared) out to this range (in the dark no farther than the night
+     *  ranges); his unit's and his top unit's `seenContactTick` lets his comrades throw a grenade too. Absent or 0:
+     *  off (rule return waits for fire, as before). */
+    returnCloseM?: number;
     ammoIntervalFactor: Record<AmmoRule, number>;
     /** Night fire discipline (M9.6): while `environment.light` is below `belowLight` and his platoon has not been fired
      *  on lately, a man opens fire on his own only out to `engageRangeM` (by weapon, as the day ranges). Absent: none. */
@@ -350,6 +363,10 @@ export interface BehaviourDef {
     /** A moving unit also goes to ground when a unit of its platoon this close (centre to centre) comes under fire
      *  anew; 0 = only the unit fired on (overnight pick 2026-11-14). */
     reactNeighbourM: number;
+    /** React to contact on sight (sight realism step 2): a moving unit also goes to ground when one of the men
+     *  carrying its move sees (anew: after `decisions.contactLostSeconds` without) an enemy, not spared, within
+     *  reactSeenM (by day) or reactSeenNightM (below `decisions.night.belowLight`). Absent or 0: off. */
+    reactSeenM?: number; reactSeenNightM?: number;
     /** A bound ends once this share of its able, non-cowering runners have stopped, or when the last runner
      *  still moving has trailed the others (the moment the moving ones became a single man) by `stragglerS`
      *  (overnight pick "assault-tempo" 2026-11-14). */
@@ -513,8 +530,41 @@ export interface BehaviourDef {
     crawlMode: string; crawlSearchM: number; crawlSearchFarM: number; crawlRetrySeconds: number; minSpacingM: number;
     beatenNoticeM: number; beatenRadiusM: number; beatenMemorySeconds: number; beatenMoveM: number; beatenHouseM: number; beatenOpenExposure: number;
     riseBelowSuppression: number; lookEverySeconds: number; faceEnemy: boolean; rearWatchMinMen: number;
+    /**
+     * A man who has lost sight of an enemy he knows looks for him (sight realism step 4, game values, low). Halted,
+     * not pinned, with no fire task, knowing an enemy (seen or reported within contactSeconds, at most contactErrM
+     * off) within his engage range whom he has not seen for afterSeconds, in a unit with no ambush, arc, cease-fire
+     * or hold rule, not in a drill nor moving: once every everySeconds he turns to him and kneels if that clears the
+     * line; else stands for standSeconds if that does (not under fire), then back to his posture; else moves to the
+     * first spot sidestepM metres across the line (from where his look started) that sees him, the one in the
+     * least exposed cell, at `mode` (lying) or `uprightMode`. Absent: off.
+     */
+    peek?: { afterSeconds: number; standSeconds: number; everySeconds: number; contactSeconds: number; contactErrM: number; sidestepM: number[]; mode: string; uprightMode: string;
+      /** Out of a fight he turns to the enemy he lost only within this angle of his facing (absent: 90). */
+      turnMaxDeg?: number;
+      /** He stands up to look even in a fight (his platoon fired on lately); absent or false: kneels or side-steps only. */
+      standInFight?: boolean };
+    /**
+     * Indoors (sight realism step 4, game values, low): a man at a window who has not seen the enemy he knows for
+     * afterSeconds moves to another window of his house that no comrade holds and that sees him (of the
+     * routeCandidates nearest, the shortest way), at `mode`, at most once every everySeconds. Absent: off.
+     */
+    windowSwitch?: { afterSeconds: number; everySeconds: number; mode: string; routeCandidates: number;
+      /** A window is turned down when plants and smoke leave less than this of the view (absent: 0.1). */
+      minView?: number;
+      /** In the "nearest window" distance a storey counts this many times its height (absent: 2). */
+      storeyWeight?: number };
     atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
     grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
+    /**
+     * Close-range fire (sight realism step 2, game values, low). moveEngageM: a man running (`hurryMode`), in an
+     * assault or on a push fires on the move at an enemy he sees within this range. pinnedSelfDefenceM: a pinned man
+     * (not panicked) fires, lying, at an enemy he sees within this range. closeThreatM: an enemy he sees within this
+     * range in his front arc (`spotting.frontHalfAngleDeg`): he fires at him whatever else he is doing (an errand,
+     * a drill's or an order's fire at a point more than closeThreatTaskFactor times farther, care, which waits).
+     * Absent or 0: off.
+     */
+    moveEngageM?: number; pinnedSelfDefenceM?: number; closeThreatM?: number; closeThreatTaskFactor?: number;
     friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
     /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
     stepAsideM: number[];
@@ -596,11 +646,37 @@ export interface SpottingDef {
   minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number;
   /** Smoke v2 (M8.1): fade at the end of a cloud's life (s), share of the wind it drifts with, longest plume (m). */
   smokeFadeSeconds?: number; smokeDriftFactor?: number; smokeStretchMaxM?: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
+  /** Sight realism step 3 (hidden men stay hidden); absent: as before. */
+  conceal?: SpottingConcealDef;
   contacts: {
     seenErrorM: number; seenErrorPerM: number; hearingRangeM: number; bearingErrorDeg: number; rangeErrorFraction: number;
     heardEverySeconds: number; forgetSeconds: number; driftMps: number; reportEverySeconds: number; reportedErrorM: number;
     voiceDelaySeconds: number; callEverySeconds: number;
   };
+}
+
+/** Sight realism step 3 (core/spotting.json `conceal`): see the data note. */
+export interface SpottingConcealDef {
+  /** A man seen is kept at keepFloorFactor + (keepRateFactor - keepFloorFactor) x exp(-quiet s / keepDecaySeconds). */
+  keepDecaySeconds: number; keepFloorFactor: number;
+  /** Each still man's conspicuity, a lognormal factor of mean 1 (sigma), drawn anew when he changes posture or has
+   *  moved more than resetM since the last draw. */
+  conspicuitySigma: number; conspicuityResetM: number;
+  /** A prone man moving slower than crawlBelowMps shows crawlFactor (in place of movingFactor). */
+  crawlFactor: number; crawlBelowMps: number;
+  /** A man lying still shows 1 / (1 + (range / proneGroundM)^4) of himself to an observer on the ground. */
+  proneGroundM: number;
+  /** Review fix (2026-11-16): an observer whose eye is higher above the ground than this (an upper floor, a roof)
+   *  looks down more steeply: the range in that term is scaled by (proneGroundEyeM / his eye height). Absent: no
+   *  scaling (every observer as on the ground). */
+  proneGroundEyeM?: number;
+  /** By day firing shows 1 + (firingFactor - 1) / (1 + range / firingHalfM); the floor through vegetation by day. */
+  firingHalfM: number; firingVisibilityFloorDay: number;
+  /** A heard or reported contact (the cueMax nearest) within cueBearingDeg of the target's bearing and its guessed position within cueRangeM of him: x cueFactor while looking for him. */
+  cueBearingDeg: number; cueRangeM: number; cueFactor: number; cueMax: number;
+  /** A man inside a house (not on its roof): shade by day (toward 1 in the dark), x backFactor more than backM from
+   *  the nearest opening of its outer walls on his floor; firing from inside shows firingFactor (in place of the outdoor one). */
+  indoor: { shade: number; backM: number; backFactor: number; firingFactor: number };
 }
 
 /** Body outline, wounding and simple physiology parameters (core/wounds.json). */

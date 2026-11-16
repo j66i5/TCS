@@ -661,6 +661,27 @@ away — unless a wood stands between. Looking the other way, a soldier rarely n
 at long range, night-vision goggles at night, and nothing is seen beyond the fog. Once seen, an
 enemy is easy to keep in view.
 
+**Hidden men stay hidden (sight realism step 3, 2026-11-15).** A few metres of crops, tall grass or scrub between
+the two now hide most of a man lying behind them (about four times as much as before; cover seeking and routes still
+judge vegetation as before). A man who holds still among plants blends into them — the plants behind him make a
+busy background — and each man blends in a little better or worse than the next (some lie well, some do not); that
+is decided once where he settles, the same for every enemy, and decided again when he moves on or changes posture.
+A man standing still in the open is not helped by this. A man lying still is also hidden by the grass, furrows and
+small folds of open ground the farther off the watcher is (hardly at 100 m, mostly at 400 m; not from a drone, and
+not to a thermal sight). Once seen, an enemy stays easy to keep in view only while he
+is doing something: once he lies still and quiet, the watcher must find him again within seconds or lose him
+(behind scrub at 300 m he is usually lost within 20 s; in the open at 100 m he is kept). A man crawling shows far
+less than one walking. By day the flash and dust of firing are hard to see far off: firing gives a man away about as
+before close by, much less at 400 m (at night the flash shows as before). A man who heard shots from a direction
+looks three times as hard at an enemy there. A man in a house is in a dark room by day: he shows a quarter of
+himself at the window, half that again if he stays back more than a metre from it, and his shots show less. A
+weapon's magnifying sight helps only within 10 degrees of where he looks. Thermal sights see heat, not how well a
+man blends in, and vegetation hides heat as before. In numbers (spotting lab, one rifleman with a G36, 20 seeds):
+a man lying still behind 4 m of crops at 100 m is found in about a minute instead of 13 s; lying still in the open
+at 300 m in about 90 s instead of 36; standing 2 m inside a
+treeline at 100 m in 8 s instead of 2; standing still at a house window at 300 m in 33 s instead of 9; standing in
+the open at 50-200 m exactly as before (1-5 s).
+
 **Contacts.** Each man also remembers: where he last saw an enemy, the direction (and a rough distance) of shots
 he heard, and what comrades told him. He tells the men of his unit what he sees and hears — by voice to those
 nearby within a second, by radio to the others after a few seconds — and the unit calls new contacts out on
@@ -679,6 +700,62 @@ drawn: `enemyMenInSight` in `render/src/fog.ts`, the same "in sight now" test as
 `npm run screenshot -- --scene sight` shows it.)
 `npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
 to every enemy he can see.
+
+**Measuring sight (2026-11-15).** Three labs measure how well men see and react, so that every change to sight is
+judged by the same yardsticks. `npm run lab -- spotting` also prints the "sight realism" rows: how long one or more
+observers take to find a man lying in crops, grass or scrub, standing inside a treeline, crawling, firing, or
+standing at a house window, at 100 to 600 m over 20 seeds, and how long a man who was seen stays seen once he lies
+down still. `npm run lab -- engage` puts one rifleman in front of an enemy standing or lying in the open at 30-100 m
+and times his first shot: halted under each fire rule, walking, or pinned. `npm run lab -- reacquire [seeds]` runs
+whole battles (platoon, platoon-ru, village-occupy) and counts, once a second, men who know where an enemy is but
+cannot see him and do nothing about it ("blind and idle"), whether a small peek or another window would have shown
+him, squads that are blind as a whole, and men who have an enemy in clear view in front of them within 100 m and
+have not fired for over 5 s, with the reason.
+
+**Looking for an enemy he has lost (sight realism step 4, 2026-11-15).** A man who knows roughly where an enemy is
+(seen or reported in the last minute, to within 20 m) but has not seen any enemy for 4 s no longer just lies there.
+Once every 15 s, if he is halted, not pinned and not firing, and his squad is not lying in ambush, holding a sector,
+under a cease-fire or "hold fire" rule, moving or in a drill, he looks for him: he turns toward him (out of a fight — his platoon not fired on in the last 30 s — only if that is within 90 degrees of the way he was told to face); if the ground,
+a wall or the plants in between hide the enemy from where he lies, he rises to his knees if that would let him see;
+else he stands up for 3 s (only if no fire is coming near him) and goes down again; else he moves a few metres to
+the side — 2, 4 or 6 m across the line to the enemy, never closer to him, at a crawl if he was lying, on ground he
+can walk on, clear of his comrades — to the spot from which he would see the enemy that is least exposed, and takes
+his posture there. The side-steps are measured from where his first look started, so he does not wander off; his
+squad's next order puts him where it wants him. When his own fire stops because he has lost sight of the man he was
+shooting at, the look starts at once. Indoors, a man at a window who has seen no enemy for 6 s moves (at a run,
+along the rooms and stairs) to another window of his house that looks onto the enemy and that no comrade holds or
+is on his way to, the nearest by the way there, at most once every 20 s. A man still cannot see through crops: when
+nothing near him shows the enemy (most of the time in an attack through fields), he waits, and finding the enemy
+again is the squad's work (step 5). The labs: `npm run lab -- reacquire` counts the man-seconds spent standing up
+or moving to look, and the men hit while doing it; its blind spells now run through a man's own looks and end only
+when he sees an enemy again, forgets him, fires or his squad moves. (Code: `lookForLost` and `windowSwitch` in
+`sim/src/systems/decisions.ts`, `forEachSidestep` in `systems/peek.ts`, shared with the drills' side-step,
+`windowWithView` in `systems/occupy.ts`; values `behaviour.soldier.peek` and `windowSwitch`.)
+
+**Squads shifting to see a lost enemy (sight realism step 5, 2026-11-16).** A man's own look reaches only a few
+metres; when nothing near him shows the enemy, the computer commander now moves him. In defence, once its platoon
+has taken its fire positions, it looks at each squad (and at the platoon leader's own men) every 10 s, one after
+another. A man who has seen no enemy for 6 s, is not pinned, under fire or on his way somewhere, and whose squad
+knows an enemy man within the range of fire (300 m by day, 200 m in the dark) to within 40 m, may be shifted: the
+commander works out, as it did at the start, the best spot within 35 m of the place first chosen for him (inside
+the objective's ring for a squad holding one; a window of a house nearby counts too) from which a kneeling man
+would see where the enemy is known to be and the ground round it, judged by the enemy's own posture. An enemy known
+to be coming nearer counts double. Only a man whose new spot shows the enemy while his place now does not is sent, at
+most half the squad at one look, crawling if it is 8 m or less, walking otherwise, facing the enemy; the same man
+is not sent again within 20 s. A squad that has seen nothing for 30 s may reach 50 m. **A bounded follow:** when the
+enemy the squad knows best draws away by more than 30 m within 20 s and nobody of the squad sees him, a steady
+squad (morale 0.45 or more, not pinned or broken) sends up to half its men to spots up to 50 m out that see where
+he went, never more than 50 m beyond its objective's ring; they come back to their places after a minute, or at
+once when fire comes near them. Men shifted go back to their places once nothing is known of the enemy for a
+minute. **In attack**, a squad of the base of fire none of whose men has seen an enemy for a minute slides along
+the support line (20, 40 or 60 m to either side, or 20 m forward) to the spot that sees most of the enemies known
+near the objective (or its ring when none are known) instead of firing blind, at most every 30 s. Only the
+computer commander does this: your own squads find a lost enemy only through their men's own looks (step 4) and
+your orders. The lab `npm run lab -- reacquire` prints how many men each commander shifted, followed
+and sent back, and how often the base of fire slid; a man shifted by his commander is on a look, and his blind
+spell goes on until he sees the enemy again. (Code: `reacquire` and the base-of-fire slide in
+`ai/src/commander.ts`, values `COMMANDER.reacquire`; `siteDefence` in `ai/src/siting.ts` with its new `anchors`
+option.)
 
 ## Under fire
 
@@ -761,15 +838,23 @@ and break a mounted platoon within seconds.)
 ## Thinking for themselves
 
 Between orders each man decides a few things for himself, once a second. **Fire rules** (per unit, set with
-the `rules` order): *free* — fire at any enemy you see; *return* (the default) — only once your unit has been
-fired on in the last 30 s; *hold* — never without an order. A cease-fire order holds until the unit is fired on
-again. He engages an enemy he sees within the range his weapon is used at (rifle 400 m, a 4x-or-more sight
+the `rules` order): *free* — fire at any enemy you see; *return* (the default) — at any range once your unit has
+been fired on in the last 30 s, and before that only at an enemy he sees within 100 m (self-defence: an enemy close
+in front of him is shot at, not watched); *hold* — never without an order. A cease-fire order holds until the unit
+is fired on again. He engages an enemy he sees within the range his weapon is used at (rifle 400 m, a 4x-or-more sight
 600 m, machine gun 800 m), choosing the one who matters most: close, firing (a machine gun most of all),
 standing. He stops when he has lost sight of him. An order always wins over his own choice. **Under fire** and
 visible to the enemy he knows of, he runs to the nearest spot within 15 m where that enemy cannot see him lying
 down — preferably one he can fire from on his knees (a bank, a low wall). **Out of spare magazines or belts**,
 he gets one from the nearest comrade within 30 m who has more than two (or carries belts for the gun): the
-comrade runs up behind him and hands it over in 3 s. With Debug on, a line shows each man's own decision
+comrade runs up behind him and hands it over in 3 s. **An enemy close by** (added with the sight realism work,
+2026-11-15): a man who sees an enemy within 40 m in front of him fires at him whatever else he is doing — on his way
+to fetch ammunition, caring for a wounded comrade (the care waits until he has not seen such an enemy for 10 s), or
+firing on an order or a drill at a point more than twice as far away. A pinned man (not a panicked one) fires back,
+lying where he is and at his pinned rate, at an enemy he sees within 50 m. A man running, in an assault or on a
+push fires as he goes at an enemy he sees within 75 m (badly aimed, as assault fire). Carriers of a wounded man fire
+in self-defence within 40 m (30 m before), also while the party lies in cover. Hold, a cease-fire, an ambush not yet
+sprung, a range limit and a defend arc still hold for all of these. With Debug on, a line shows each man's own decision
 (orange: the enemy he engages, blue: the cover he runs to, green: the man he brings ammunition to).
 
 ## The single soldier (owner's packages, 2026-11-13)
@@ -851,8 +936,10 @@ line; he rises again just in time for the next shot, so his rate of fire is the 
 ## Squad drills
 
 **Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover
-and fire back under their fire rule; the radio says "contact! Taking cover." Only the unit whose own men are fired
-on does this, and any unit of the same platoon on the move within 25 m of it; a squad further off with its own move
+and fire back under their fire rule; the radio says "contact! Taking cover." The same happens when one of its men
+sees an enemy close by — within 150 m by day, 75 m in the dark — who had not been in sight for 10 s (an enemy
+already in sight when the move was ordered does not stop it). Only the unit whose own men are fired on (or see the
+enemy) does this, and any unit of the same platoon on the move within 25 m of it; a squad further off with its own move
 goes on (a move given to the whole platoon still stops it all). **Moving under fire.** A man on a walk or sneak leg
 who comes under fire (suppressed at least 0.1) runs the rest of his way, and walks again only after
 10 s without fire: nobody walks on into fire. This is his own reaction, so it applies to your orders too. **Assault** (order, with a point):

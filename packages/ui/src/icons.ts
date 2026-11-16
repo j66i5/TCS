@@ -28,6 +28,8 @@ const P: Record<string, string> = {
   rearRun: `<path d="M7 3.5h3v3h3v3h-3v3H7v-3H4v-3h3z"/><path d="M17 15.5H6"/><path d="M8.5 13 6 15.5 8.5 18"/>`,
   // (M11.7a "repair": a spanner.)
   repair: `<path d="M12.8 3.2a3.8 3.8 0 0 0-4.6 4.9L3.3 13a1.6 1.6 0 0 0 2.3 2.3l4.9-4.9a3.8 3.8 0 0 0 4.9-4.6l-2.2 2.2-2-.5-.5-2z"/>`,
+  // (M11.7b "recover": a tow hook on its cable.)
+  recover: `<path d="M10 2.5v8"/><path d="M7.5 2.5h5"/><path d="M10 10.5a3.6 3.6 0 1 1-3.6 3.6"/><path d="M6.4 14.1 4.6 12.3"/>`,
   // (D4b "defend arc": a sector opening from a man.)
   arc: `<circle cx="10" cy="16" r="1.6"/><path d="M10 16L4 6M10 16l6-10"/><path d="M4 6q6-4 12 0"/>`,
   ceaseFire: `<circle cx="10" cy="10" r="5"/><path d="M10 2v4M10 14v4M2 10h4M14 10h4"/><path d="M4 16L16 4" stroke-width="2.2"/>`,

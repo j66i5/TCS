@@ -9,7 +9,7 @@
  * save and load and the debug hooks live in the modules beside this file.
  */
 import { buildAppearance, formatErrors, Strings } from "@tcs/data";
-import { buildScenario, demoBattle, MAP_KINDS, vehicleBattle, type MapKind } from "@tcs/scenario";
+import { buildScenario, demoBattle, MAP_KINDS, vehicleBattle, withoutRecovery, type MapKind } from "@tcs/scenario";
 import { commanderController, vehicleWanderController, wanderController } from "@tcs/ai";
 import {
   DT, environmentAt, isOffMapMan, navFor, newBattleRecord, parseTimeOfDay, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
@@ -72,13 +72,15 @@ async function main(): Promise<void> {
   const input = scenario === "demo"
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "vehicles"
-    ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: limit, ...(vp.carriers ? { carriers: vp.carriers } : {}), ...crewParam(params.get("crew")) })
+    ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: limit, ...(vp.carriers ? { carriers: vp.carriers } : {}), ...crewParam(params.get("crew")), ...(params.get("recovery") === "1" ? { recovery: true } : {}) })
     : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: limit, ...(withVehicles ? { vehicles: true } : {}), ...(vp.carriers ? { carriers: vp.carriers } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}), ...(params.get("air") ? { airRecon: params.get("air")!.split(",").filter((x) => x === "blue" || x === "red") } : {}), ...tanksParam(params.get("tanks"), params.get("tankCrew")), ...(assault ? { assaultGroup: "red" as const, aglTeams: attacker === "red" ? "attacker" as const : "defender" as const } : {}) });
   // ?time=HH:MM (M9.1): the battle at that local time, the light following the clock; &moon=0..1 (default a half moon).
   const timeOfDay = parseTimeOfDay(params.get("time"));
   if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(params.get("moon") ?? 0.5));
   // ?repair=0 (M11.7a): no field repair by the crews.
   if (params.get("repair") === "0") input.rules.repair = false;
+  // ?recovery=0 (M11.7b): no recovery vehicles; ?recovery=1: the vehicles scenario gets them too.
+  if (params.get("recovery") === "0") withoutRecovery(input);
   const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
     : [commanderController(enemySide, input)];
@@ -116,7 +118,7 @@ async function main(): Promise<void> {
     revealAll: false, sightAt: -1, lastSeen: new LastSeenBook(), rangingBook: new RangingBook(), ordersShownFor: undefined, ordersKey: "",
   };
   const vehicleDebug = new VehicleDebug();
-  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
+  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair" | "callRecovery") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
   const hud = a.hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -141,6 +143,8 @@ async function main(): Promise<void> {
     onDischarge: () => { endPlan(a); orderFor("discharge"); },
     onRearRun: () => { endPlan(a); orderFor("rearRun"); },
     onRepair: () => { endPlan(a); orderFor("repair"); },
+    // M11.7b: a recovery vehicle for the selected crew's disabled hull (or the one it bailed out of).
+    onRecover: () => { endPlan(a); orderFor("callRecovery"); },
     onNature: (n) => { a.nature = n; },
     onCeaseFire: () => orderFor("ceaseFire"),
     onPace: (m) => { a.pace = m; },

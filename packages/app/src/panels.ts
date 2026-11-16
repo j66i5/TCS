@@ -127,6 +127,23 @@ function repairLines(a: App, vid: EntityId): string {
   return out;
 }
 
+/** The recovery line of a vehicle's card (M11.7b): a recovery vehicle called for it (minutes to come), coming,
+ *  waiting short of fire, hooking up (share), the hull under tow or towed away. "" otherwise. */
+function recoveryLine(a: App, vid: EntityId): string {
+  const st = a.sim.state, t = a.strings.t.bind(a.strings);
+  const v = st.vehicle.get(vid);
+  if (!v) return "";
+  if (v.towAway === true) return `\n${t("status.vehicle.recovery.towed")}`;
+  const r = v.recoveryBy !== undefined ? st.vehicle.get(v.recoveryBy) : undefined, o = r?.offMap;
+  if (!r || !o) return "";
+  if (v.towedBy !== undefined || o.phase === "towing") return `\n${t("status.vehicle.recovery.towing")}`;
+  if (o.phase === "called") return `\n${t("status.vehicle.recovery.called", { min: Math.max(1, Math.ceil(ticksToSeconds((o.enterTick ?? st.tick) - st.tick) / 60)) })}`;
+  if (o.phase === "inbound") return `\n${t("status.vehicle.recovery.inbound")}`;
+  if (o.phase === "waiting") return `\n${t("status.vehicle.recovery.waiting")}`;
+  if (o.phase === "hookUp") { const need = a.input.catalog.vehicles[r.def]?.recovery?.hookUpS ?? 1; return `\n${t("status.vehicle.recovery.hookUp", { pct: Math.min(100, Math.floor((100 * (o.hookDoneS ?? 0)) / need)) })}`; }
+  return "";
+}
+
 /** The selected unit's rules and state for the rules panel. */
 export function showUnit(a: App): void {
   const uid = a.overlay.selectedUnit, st = a.sim.state, t = a.strings.t.bind(a.strings), cat = a.input.catalog;
@@ -153,6 +170,7 @@ export function showUnit(a: App): void {
         ext: def.extinguisher ? vehicleItems(st, vid, def.extinguisher.item) : 0,
       })}` : "")
       + repairLines(a, vid)
+      + recoveryLine(a, vid)
       + (veh.crewReaction !== null ? `\n${t("status.vehicle.reaction", { reaction: t(`reaction.${veh.crewReaction}`), why: veh.reactionWhy.map((k) => t(k)).join(", ") })}` : "");
     settlePendingRules(a, uid);
     a.hud.setUnit({ ...rulesNow(a, uid)!, ...(a.pendingRules.get(uid) ?? {}) }, status);

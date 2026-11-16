@@ -17,7 +17,7 @@ import type { SimView } from "./state";
 import { newReviewTally, tallyReview, type ReviewTally } from "./review";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 8;
+export const RECORD_VERSION = 9;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -48,6 +48,9 @@ export interface SideRecord {
   crews: { reversedOut: number; fires: number; firesOut: number };
   /** Field repair (M11.7a): tasks started, finished, failed (beyond the crew), stopped (each time), parts used. */
   repair: { started: number; done: number; failed: number; interrupted: number; parts: number };
+  /** Recovery (M11.7b): recovery vehicles called (by the player: `ordered`), at the hull, hulls towed away, runs
+   *  lost or stood down, seconds from each call to its arrival; hulls recovered or captured at the end. */
+  recovery: { called: number; ordered: number; arrived: number; towed: number; lost: number; cancelled: number; callToArrivalS: number[]; recovered: number; captured: number };
   /** Guided missiles fired by the side's hulls and how they ended; enemy hulls penetrated by its missiles and by its
    *  shoulder-fired rockets. */
   missiles: { fired: number; hit: number; lost: number; miss: number; penetrated: number; rocketPenetrated: number };
@@ -154,6 +157,7 @@ export function newSideRecord(): SideRecord {
     firstDismountTick: null,
     crews: { reversedOut: 0, fires: 0, firesOut: 0 },
     repair: { started: 0, done: 0, failed: 0, interrupted: 0, parts: 0 },
+    recovery: { called: 0, ordered: 0, arrived: 0, towed: 0, lost: 0, cancelled: 0, callToArrivalS: [], recovered: 0, captured: 0 },
     missiles: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 },
     mortar: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 },
     care: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 },
@@ -398,6 +402,25 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         const name = v.unit !== null ? view.unit.get(v.unit)?.callsign ?? v.vehicleId : v.vehicleId;
         rec.timeline.push({ tick: e.tick, side: v.side, key: e.phase === "done" ? "aar.vehicle.repaired" : "aar.vehicle.repairFailed", vehicle: name });
       }
+    }
+    // Recovery (M11.7b): runs per side; a hull towed away, recovered or captured goes on the timeline.
+    if (e.kind === "vehicle.recovery") {
+      const r = side(e.side), o = view.vehicle.get(e.vehicle)?.offMap;
+      if (r) {
+        const R = r.recovery;
+        if (e.phase === "called") { R.called++; if (e.ordered) R.ordered++; }
+        else if (e.phase === "arrived") { R.arrived++; if (o?.callTick !== undefined) R.callToArrivalS.push(Math.round((e.tick - o.callTick) / 60)); }
+        else if (e.phase === "away" && view.vehicle.get(e.target)?.towAway === true) R.towed++;
+        else if (e.phase === "lost") R.lost++;
+        else if (e.phase === "cancelled") R.cancelled++;
+      }
+      const tv = view.vehicle.get(e.target);
+      if (tv && e.phase === "away" && tv.towAway === true) rec.timeline.push({ tick: e.tick, side: tv.side, key: "aar.vehicle.towed", vehicle: tv.unit !== null ? view.unit.get(tv.unit)?.callsign ?? tv.vehicleId : tv.vehicleId });
+    }
+    if (e.kind === "vehicle.settled" && (e.state === "recovered" || e.state === "captured")) {
+      const r = side(e.side), v = view.vehicle.get(e.vehicle);
+      if (r) { if (e.state === "recovered") r.recovery.recovered++; else r.recovery.captured++; }
+      if (v && e.state === "captured") rec.timeline.push({ tick: e.tick, side: v.side, key: "aar.vehicle.captured", vehicle: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? v.vehicleId : v.vehicleId });
     }
     if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
       const r = side(view.vehicle.get(e.vehicle)?.side);

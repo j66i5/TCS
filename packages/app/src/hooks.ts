@@ -90,6 +90,11 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
       v.lastHitTick = sim.state.tick; // (as the hit that did it: the crew waits for the quiet period)
       if (c <= 0 && (kind === "track" || kind === "wheels" || kind === "engine" || kind === "transmission") && (v.status === "ok" || v.status === "disarmed")) { v.status = "immobilised"; v.drive.route = []; v.drive.arrived = true; }
     },
+    /** M11.7b (screenshots, checks): call a recovery vehicle for the selected crew's hull (or hull `vid`); bring a
+     *  called one on now (`hurry`: its delay is over); the side's recovery vehicles and their run phase. */
+    callRecovery: (vid?: EntityId) => issue(a, { ...to(), kind: "callRecovery", ...(vid !== undefined ? { vehicle: vid } : {}) }),
+    hurryRecovery: () => { for (const [, v] of sim.state.vehicle.entries()) if (v.offMap?.kind === "recovery" && v.offMap.phase === "called") v.offMap.enterTick = sim.state.tick; },
+    recovery: () => [...sim.state.vehicle.entries()].filter(([, v]) => v.offMap?.kind === "recovery").map(([id, v]) => ({ id, side: v.side, phase: v.offMap!.phase, target: v.offMap!.target ?? null, hook: v.offMap!.hookDoneS ?? 0 })),
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */
     dismountWounded: () => issue(a, { ...to(), kind: "dismount", wounded: true }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */

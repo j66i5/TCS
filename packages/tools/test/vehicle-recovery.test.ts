@@ -12,8 +12,9 @@
 import { describe, expect, it } from "vitest";
 import {
   createSim, isOffMap, isWreck, loadSim, runBattle, saveSim, simHash, step, submitOrder, TICK_HZ,
-  type BattleInput, type Catalog, type EntityId, type RecoveryDef, type Sim, type SimEvent, type VehicleRecord,
+  type BattleInput, type Catalog, type Contact, type EntityId, type RecoveryDef, type Sim, type SimEvent, type VehicleRecord,
 } from "@tcs/sim";
+import { recoveryCalls, type RecoveryMemory } from "@tcs/ai";
 import { duel } from "../src/labs/gunnery";
 import { loadData } from "../src/scenarios";
 
@@ -374,5 +375,42 @@ describe("recovery: the end of the battle and the roster (M11.7b, D18/D19)", () 
     const rec = res.forcesOut[0]!.vehicles!.find((r) => r.vehicleId === input.forces[0]!.vehicles![0]!.vehicleId)!;
     expect(rec.recovery?.state).toBe("towed");
     expect(res.sides[0]!.vehicles!.towed).toBe(1);
+  });
+});
+
+describe("recovery: the AI commander's calls (M11.7b, plan §5)", () => {
+  const contact = (x: number, y: number) => ({ x, y }) as unknown as Contact;
+  it("calls for an abandoned or hopeless hull when it is quiet there; not under fire, not with the enemy near, not for a hull still fighting", () => {
+    const { sim, vid } = field({ timeLimitS: 3600 });
+    const v = sim.state.vehicle.req(vid);
+    const crew = v.unit!;
+    const look = (contacts: Contact[], mem: RecoveryMemory = {}) => recoveryCalls(sim.state, sim.ctx, "blue", sim.state.tick + 6000, mem, contacts, crew);
+    // Fit: nothing.
+    expect(look([])).toEqual([]);
+    // Immobilised with an engine kill (beyond the crew), its gun working, the enemy 800 m off: a pillbox, no call.
+    const def = sim.ctx.catalog.vehicles[v.def]!;
+    v.comp[def.components!.findIndex((c) => c.kind === "engine")] = 0;
+    v.status = "immobilised";
+    expect(look([contact(1200, 600)])).toEqual([]);
+    // The enemy 2 km off: a call, once.
+    const mem: RecoveryMemory = {};
+    const o = look([contact(2400, 600)], mem);
+    expect(o).toEqual([{ tick: sim.state.tick + 6000, issuer: "blue", target: crew, kind: "callRecovery", vehicle: vid }]);
+    expect(recoveryCalls(sim.state, sim.ctx, "blue", sim.state.tick + 9000, mem, [], crew)).toEqual([]);
+    // A track the crew can mend: no call (they will).
+    const v2 = field({ timeLimitS: 3600 });
+    const h2 = v2.sim.state.vehicle.req(v2.vid);
+    h2.comp[v2.sim.ctx.catalog.vehicles[h2.def]!.components!.findIndex((c) => c.kind === "track")] = 0;
+    h2.status = "immobilised";
+    expect(recoveryCalls(v2.sim.state, v2.sim.ctx, "blue", 6000, {}, [], h2.unit!)).toEqual([]);
+    // Abandoned, hit a minute ago: not yet; enemy 300 m off: no.
+    h2.status = "abandoned";
+    h2.lastHitTick = 6000 - 60 * 60;
+    expect(recoveryCalls(v2.sim.state, v2.sim.ctx, "blue", 6000, {}, [], h2.unit!)).toEqual([]);
+    h2.lastHitTick = -1e9;
+    expect(recoveryCalls(v2.sim.state, v2.sim.ctx, "blue", 6000, {}, [contact(700, 600)], h2.unit!)).toEqual([]);
+    expect(recoveryCalls(v2.sim.state, v2.sim.ctx, "blue", 6000, {}, [], h2.unit!).length).toBe(1);
+    // Too late in the battle for one to come: no call.
+    expect(recoveryCalls(v2.sim.state, v2.sim.ctx, "blue", (3600 - 100) * 60, {}, [], h2.unit!)).toEqual([]);
   });
 });

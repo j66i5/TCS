@@ -36,6 +36,22 @@ export interface VehicleBattleOptions {
 }
 
 /**
+ * The battle without recovery vehicles (M11.7b, `--no-recovery`): their crews, hulls and off-map entries taken out of
+ * every force, and `rules.recovery` off. They come after every other entity, so nothing else changes its id.
+ */
+export function withoutRecovery(input: BattleInput): BattleInput {
+  for (const f of input.forces) {
+    const ids = new Set((f.offMap ?? []).filter((a) => a.kind === "recovery").map((a) => a.vehicleId));
+    if (ids.size === 0) continue;
+    f.offMap = f.offMap!.filter((a) => !ids.has(a.vehicleId));
+    f.vehicles = f.vehicles?.filter((r) => !ids.has(r.vehicleId));
+    f.units = f.units.filter((u) => u.vehicleId === undefined || !ids.has(u.vehicleId));
+  }
+  input.rules.recovery = false;
+  return input;
+}
+
+/**
  * Recovery vehicles off the map (M11.7b): the faction manifest's `recovery` crews and hulls (fresh roster records),
  * appended to the force as off-map assets waiting to be called. Nothing without a manifest entry.
  */

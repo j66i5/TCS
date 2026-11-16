@@ -1,12 +1,13 @@
 /**
  * Headless runner: runs one battle as fast as possible and prints the result.
- *   npm run headless -- --scenario demo --seed 1 --seconds 120 [--orders file.json] [--no-ai] [--events] [--no-interiors] [--no-medical] [--no-repair]
+ *   npm run headless -- --scenario demo --seed 1 --seconds 120 [--orders file.json] [--no-ai] [--events] [--no-interiors] [--no-medical] [--no-repair] [--no-recovery]
  *     [--carriers tracked|wheeled[,tracked|wheeled]] (M7.6c: the mounted platoon scenarios' and `vehicles`' carrier class per side; ignored with a warning elsewhere)
  */
 import { readFileSync } from "node:fs";
 import { environmentAt, parseTimeOfDay, runBattle, stripInteriors, type Order, type SimEvent } from "@tcs/sim";
 import { parseArgs } from "../args";
 import { getScenario, loadData, parseCarriers } from "../scenarios";
+import { withoutRecovery } from "@tcs/scenario";
 
 const args = parseArgs(process.argv.slice(2));
 const timeOfDay = parseTimeOfDay(args["time"]);
@@ -24,6 +25,7 @@ if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfD
 if (args["no-interiors"] !== undefined) input.map = stripInteriors(input.map); // M7.5c: the map as before interiors
 if (args["no-medical"] !== undefined) input.rules.medicalCare = false; // M10.2: no care of the wounded
 if (args["no-repair"] !== undefined) input.rules.repair = false; // M11.7a: no field repair by the crews
+if (args["no-recovery"] !== undefined) withoutRecovery(input); // M11.7b: no recovery vehicles (none built)
 if (args["orders"]) input.orders = JSON.parse(readFileSync(args["orders"], "utf8")) as Order[];
 const controllers = args["no-ai"] ? [] : (sc.controllers?.(input) ?? []);
 const printEvents = args["events"] === "true";

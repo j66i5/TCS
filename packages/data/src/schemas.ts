@@ -253,6 +253,8 @@ export const WeaponSchema = withProv({
     burstRounds: z.number().int().min(2).max(50), intervalS: Num(0.1, 60),
     /** How much of a rifle's climb within a burst this weapon shows (bipod and mass hold it down). */
     recoilFactor: Num(0, 1),
+    /** M11.1 (point 7c): rapid fire for the first `rapidSeconds` of a fire task, a burst every `rapidIntervalS`. */
+    rapidIntervalS: Num(0.1, 60).optional(), rapidSeconds: Num(0, 600).optional(),
   }).strict().optional(),
 });
 export const WeaponsFile = z.object({ weapons: z.array(WeaponSchema) }).strict();
@@ -285,6 +287,9 @@ export const ShootingFile = z.object({
       intervalS: Num(0.05, 600), burstRounds: z.number().int().min(1).max(50),
     }).strict()).min(1),
     fullRateSeconds: Num(0, 3600), trickleIntervalS: Num(0.1, 600), trickleSeconds: Num(0, 3600), incomingRadiusM: Num(1, 500),
+    /** M11.1 (slice 43 point 7a): the slowdown to a trickle applies only when the man has known (seen or been told
+     *  of) no enemy within this many seconds. Absent: always after fullRateSeconds. */
+    trickleKnownS: Num(0, 3600).optional(),
     /** In a lull a man changes a magazine that is below this fraction of full, if he has a fuller one. */
     topUpBelowFraction: Num(0, 1),
     /** Enemy rounds fired past a unit within incomingRadiusM, out to this distance from the muzzle, count as incoming fire. */
@@ -499,6 +504,8 @@ export const BehaviourFile = withProv({
     windowSwitch: z.object({ afterSeconds: Num(0, 600), everySeconds: Num(0.5, 600), mode: z.string(), routeCandidates: z.number().int().min(1).max(20), minView: Num(0, 1).optional(), storeyWeight: Num(0, 20).optional() }).strict().optional(),
     atMoveM: Num(0, 200), atMoveMinRangeM: Num(0, 1000), atMoveRetrySeconds: Num(0, 600), atContactSeconds: Num(0, 600),
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
+    /** M11.1 (point 7b): defenders fire at the known place of an enemy they cannot see. See BehaviourDef. */
+    suppressKnown: z.object({ withinS: Num(0, 600), intervalS: Num(0.5, 60), mgIntervalS: Num(0.5, 60), minM: Num(0, 1000), maxErrM: Num(0, 1000) }).strict().optional(),
     moveEngageM: Num(0, 500).optional(), pinnedSelfDefenceM: Num(0, 500).optional(), closeThreatM: Num(0, 500).optional(), closeThreatTaskFactor: Num(1, 100).optional(),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), stepAsideM: z.array(Num(0.5, 20)).min(1).max(4), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
     hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),
@@ -531,6 +538,10 @@ export const BehaviourFile = withProv({
   /** Shaken men hesitate before obeying (D4b, SPEC 6.6): the same for every side. See BehaviourDef.hesitation. */
   hesitation: z.object({
     kinds: z.array(z.string()), shakenShare: Num(0, 1), baseSeconds: Num(0, 120), perSuppressionSeconds: Num(0, 120), maxSeconds: Num(0, 300),
+  }).strict().optional(),
+  /** M11.1: refilling magazines from loose rounds in quiet moments. See BehaviourDef.refill. */
+  refill: z.object({
+    belowFraction: Num(0, 1), quietS: Num(0, 600), underFireBelow: Num(0, 1), secondsPerRound: Num(0.05, 10), secondsPerRoundClips: Num(0.05, 10),
   }).strict().optional(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
@@ -859,6 +870,12 @@ export const ItemSchema = withProv({
   chargeCapacity: z.number().int().positive().optional(),
   chargeMassKg: z.number().min(0).max(100).optional(),
   chargeItem: Id.optional(),
+  /** M11.1: what the charge is when it is not rounds (`chargeItem`): litres of a fuel ("diesel"), watt-hours ("wh").
+   *  moveCharge moves charge only between items of the same kind. */
+  chargeKind: z.string().optional(),
+  /** M11.1: loose rounds on stripper clips (a bandolier): a man refills a magazine from them faster
+   *  (behaviour.refill.secondsPerRoundClips). */
+  stripperClips: z.boolean().optional(),
   /** A sensor the wearer looks through (night-vision goggle ...): a kind in core/spotting.json `sensors`. */
   sensor: z.string().optional(),
   /** Thermal blanket (M9.2): a man carrying it who is still and not firing shows this share of his heat. */

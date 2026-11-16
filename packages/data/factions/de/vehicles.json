@@ -427,6 +427,16 @@
           "item": "de-mells-round",
           "count": 2,
           "charge": 1
+        },
+        {
+          "item": "de-556-can",
+          "count": 2,
+          "charge": 840
+        },
+        {
+          "item": "de-762-can",
+          "count": 2,
+          "charge": 200
         }
       ],
       "sources": [
@@ -434,7 +444,7 @@
         "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
       ],
       "confidence": "medium",
-      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle. M7.3: gun, coaxial machine gun, 30 mm and coax stowage (game split of the published totals), 16 smoke grenades, seat sights (commander panoramic day and thermal, gunner day and thermal following the turret). The driver (buttoned up, owner Q5) drives and does not search for the enemy (game value). M9.3a: MELLS (Spike LR) on the turret, two ready and two more stowed (low), reloaded from outside by a crewman on the roof; a laser warning receiver (low: part of the Puma's protection suite in search extracts).",
+      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle. M7.3: gun, coaxial machine gun, 30 mm and coax stowage (game split of the published totals), 16 smoke grenades, seat sights (commander panoramic day and thermal, gunner day and thermal following the turret). The driver (buttoned up, owner Q5) drives and does not search for the enemy (game value). M9.3a: MELLS (Spike LR) on the turret, two ready and two more stowed (low), reloaded from outside by a crewman on the roof; a laser warning receiver (low: part of the Puma's protection suite in search extracts). M11.1: also cans of loose rounds for the squad (2 x de-556-can, 2 x de-762-can): what is really carried is not sourced (low).",
       "dischargers": {
         "item": "de-76mm-smoke",
         "perSalvo": 4,
@@ -2526,6 +2536,16 @@
         {
           "item": "de-boxer-extinguisher",
           "count": 2
+        },
+        {
+          "item": "de-556-can",
+          "count": 2,
+          "charge": 840
+        },
+        {
+          "item": "de-762-can",
+          "count": 2,
+          "charge": 200
         }
       ],
       "sources": [
@@ -2540,7 +2560,7 @@
         "https://knds.de/en/systems-products/armament-systems/remote-controlled-weapon-stations/flw-200"
       ],
       "confidence": "medium",
-      "note": "GTK Boxer GTFz (Gruppentransportfahrzeug), A2 standard, with the KNDS FLW 200 and a 12.7 mm sMG (M7.6c, slice 41): the Jaeger battalions' group carrier (Bundeswehr GTK page, esut.de; search extracts only). Crew of two (driver; commander working the remote weapon station) and eight dismounts: the Bundeswehr page gives at most ten persons (spec sites '3 (+8)'; the 2 + 8 split is an inference, low). Infantry stowage as the Puma's (game value, low). The RCT30 Schwerer Waffentraeger is a different vehicle (no dismounts) and is not modelled.",
+      "note": "GTK Boxer GTFz (Gruppentransportfahrzeug), A2 standard, with the KNDS FLW 200 and a 12.7 mm sMG (M7.6c, slice 41): the Jaeger battalions' group carrier (Bundeswehr GTK page, esut.de; search extracts only). Crew of two (driver; commander working the remote weapon station) and eight dismounts: the Bundeswehr page gives at most ten persons (spec sites '3 (+8)'; the 2 + 8 split is an inference, low). Infantry stowage as the Puma's (game value, low). The RCT30 Schwerer Waffentraeger is a different vehicle (no dismounts) and is not modelled. M11.1: also cans of loose rounds for the squad (2 x de-556-can, 2 x de-762-can): what is really carried is not sourced (low).",
       "dischargers": {
         "item": "de-76mm-smoke",
         "perSalvo": 6,
@@ -3291,6 +3311,16 @@
         {
           "item": "de-boxer-extinguisher",
           "count": 2
+        },
+        {
+          "item": "de-556-can",
+          "count": 2,
+          "charge": 840
+        },
+        {
+          "item": "de-762-can",
+          "count": 2,
+          "charge": 200
         }
       ],
       "sources": [
@@ -3306,7 +3336,7 @@
         "https://www.bundeswehr.de/de/meldungen/fernbedienbare-waffenstationen-5572956"
       ],
       "confidence": "medium",
-      "note": "GTK Boxer infantry carrier with the 40 mm GMW on its FLW 200 (M7.6d): everything as de-boxer-gtk (a test keeps the two equal) except the station's weapon and its stowed boxes: four boxes of 32 (128 rounds) in place of the 12.7 mm belts (stowage inside the hull not sourced, low).",
+      "note": "GTK Boxer infantry carrier with the 40 mm GMW on its FLW 200 (M7.6d): everything as de-boxer-gtk (a test keeps the two equal) except the station's weapon and its stowed boxes: four boxes of 32 (128 rounds) in place of the 12.7 mm belts (stowage inside the hull not sourced, low). M11.1: also cans of loose rounds for the squad (2 x de-556-can, 2 x de-762-can): what is really carried is not sourced (low).",
       "dischargers": {
         "item": "de-76mm-smoke",
         "perSalvo": 6,

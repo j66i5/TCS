@@ -28,6 +28,8 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.chargeCapacity !== undefined) d.chargeCapacity = it.chargeCapacity;
       if (it.chargeMassKg !== undefined) d.chargeMassKg = it.chargeMassKg;
       if (it.chargeItem !== undefined) d.chargeItem = it.chargeItem;
+      if (it.chargeKind !== undefined) d.chargeKind = it.chargeKind;
+      if (it.stripperClips === true) d.stripperClips = true;
       if (it.sensor !== undefined) d.sensor = it.sensor;
       if (it.thermalCover !== undefined) d.thermalCover = it.thermalCover;
       if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;

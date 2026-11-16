@@ -52,6 +52,10 @@ export interface ItemTypeDef {
   chargeMassKg?: number;
   /** Which ammunition type the charge consists of (for magazines and belts). */
   chargeItem?: DefId;
+  /** M11.1: the charge's kind when it is not rounds (litres of "diesel", "wh"); moveCharge matches it. */
+  chargeKind?: string;
+  /** M11.1: loose rounds on stripper clips (faster to load into a magazine). */
+  stripperClips?: boolean;
   /** A sensor kind the wearer looks through (core/spotting.json `sensors`). */
   sensor?: string;
   /** Thermal blanket (M9.2): the share of his heat a still man carrying it shows. */
@@ -294,7 +298,7 @@ export interface WeaponDef {
   /** Ammunition ID -> muzzle velocity from this weapon, m/s. */
   ammo: Record<DefId, number>;
   /** Machine guns: always fires bursts of this many rounds, this many seconds apart, whatever the range. */
-  sustained?: { burstRounds: number; intervalS: number; recoilFactor: number };
+  sustained?: { burstRounds: number; intervalS: number; recoilFactor: number; /** M11.1: rapid fire at the start of a task. */ rapidIntervalS?: number; rapidSeconds?: number };
 }
 
 /** Aiming error and fire control parameters (core/shooting.json). */
@@ -309,6 +313,8 @@ export interface ShootingDef {
   fire: {
     bands: { maxRangeM: number; mode: "aimed" | "rapid" | "burst"; intervalS: number; burstRounds: number }[];
     fullRateSeconds: number; trickleIntervalS: number; trickleSeconds: number; incomingRadiusM: number;
+    /** M11.1: trickle only when no enemy was known within this many seconds (absent: always). */
+    trickleKnownS?: number;
     topUpBelowFraction: number; incomingReachM: number; topUpAfterSeconds: number; clearStoppageSeconds: number; aimPointHeightM: number; safetyConeDeg: number;
     /** Aim height above the ground at a man seen in each posture (soldier AI package A). */
     aimHeightByPostureM: Record<"standing" | "crouching" | "prone", number>;
@@ -441,6 +447,10 @@ export interface BehaviourDef {
    * order to the same men replaces it. Absent: nobody hesitates.
    */
   hesitation?: { kinds: string[]; shakenShare: number; baseSeconds: number; perSuppressionSeconds: number; maxSeconds: number };
+  /** M11.1: a man refills a spare magazine below `belowFraction` full from loose rounds of its cartridge when he has
+   *  not fired for `quietS`, is not under fire (suppression below `underFireBelow`) and stands still; one round per
+   *  `secondsPerRound` by hand, `secondsPerRoundClips` from stripper clips. Absent: never. */
+  refill?: { belowFraction: number; quietS: number; underFireBelow: number; secondsPerRound: number; secondsPerRoundClips: number };
   surrender: {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     /** Morale rework 2026-11-15: a broken, outflanked unit (not attacking) gives up together with a known enemy this close (absent/0: never). */
@@ -565,6 +575,11 @@ export interface BehaviourDef {
      * Absent or 0: off.
      */
     moveEngageM?: number; pinnedSelfDefenceM?: number; closeThreatM?: number; closeThreatTaskFactor?: number;
+    /** M11.1 (slice 43 point 7b): a halted defender (his side's posture "defend") with no enemy in sight to fire at
+     *  fires at the known place of one he knew within `withinS` (heard, reported or seen and lost), at least `minM`
+     *  off, its place known to within `maxErrM`, within his engage range, no faster than one shot per `intervalS` (a machine gun one burst per
+     *  `mgIntervalS`). Absent: off. */
+    suppressKnown?: { withinS: number; intervalS: number; mgIntervalS: number; minM: number; maxErrM: number };
     friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
     /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
     stepAsideM: number[];

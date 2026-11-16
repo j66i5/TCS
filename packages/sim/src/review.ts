@@ -4,8 +4,9 @@
  * after-action review and the batch report read events, never internals). The tally is plain JSON data: the app
  * saves it with its after-action record.
  */
+import type { Catalog } from "./catalog";
 import type { SimEvent } from "./events";
-import type { EntityId } from "./ids";
+import { TICK_HZ, type DefId, type EntityId } from "./ids";
 import type { LocationMethod, SimView } from "./state";
 
 export interface SideReview {
@@ -26,6 +27,35 @@ export interface SideReview {
   /** Morale (rework 2026-11-15): times a man of this side panicked, units of it that broke, rallies by its leaders.
    *  Optional: tallies saved before the rework have none. */
   morale?: { panicked: number; broken: number; rallies: number };
+  /** Batteries and water (M11.6). Optional: absent until the first such event, and in tallies saved before it. */
+  supply?: SupplyReview;
+}
+
+/** The kinds of powered device a man carries, for the review (M11.6): radios, sights and goggles, anything else. */
+export type DeviceClass = "radio" | "sight" | "other";
+
+export interface SupplyReview {
+  /** Batteries changed in men's devices (`power.swapped`), and drones relaunched by a man who had brought one back
+   *  (a fresh battery each time). */
+  swaps: Record<DeviceClass | "drone", number>;
+  /** Device batteries that went flat (`power.flat`); a drone's flat battery is `drones.lostBattery`. */
+  flat: Record<DeviceClass, number>;
+  /** Unit-seconds off the net of units on foot (none of their men aboard a hull): flat radios (comms.ts). */
+  offNetS: number;
+  /** Water drunk (`water.drunk`), ml. */
+  waterMl: number;
+  /** Men who brought a drone back (ascending ids): their next launch is a relaunch on a fresh battery. */
+  recovered: EntityId[];
+}
+
+export function newSupplyReview(): SupplyReview {
+  return { swaps: { radio: 0, sight: 0, other: 0, drone: 0 }, flat: { radio: 0, sight: 0, other: 0 }, offNetS: 0, waterMl: 0, recovered: [] };
+}
+
+/** Which kind of device an item is (a radio item, an item with a sensor, else other; unknown without a catalog). */
+export function deviceClass(catalog: Catalog | undefined, device: DefId): DeviceClass {
+  const d = catalog?.items[device];
+  return d?.radio === true ? "radio" : d?.sensor !== undefined ? "sight" : "other";
 }
 
 export interface ReviewTally {
@@ -51,9 +81,20 @@ function addSorted(xs: EntityId[], id: EntityId): boolean {
   return true;
 }
 
-/** Add one tick's events to the tally (`view`: the state after that tick). */
-export function tallyReview(t: ReviewTally, events: readonly SimEvent[], view: SimView): void {
+/** Add one tick's events to the tally (`view`: the state after that tick; `catalog` sorts powered devices by kind,
+ *  M11.6). */
+export function tallyReview(t: ReviewTally, events: readonly SimEvent[], view: SimView, catalog?: Catalog): void {
   const side = (s: string) => (t.sides[s] ??= newSide());
+  const supply = (s: string) => (side(s).supply ??= newSupplyReview());
+  // M11.6: once a second, units on foot that are off the net (a few units: one pass, no allocation).
+  if (view.tick % TICK_HZ === 0) {
+    for (const [, u] of view.unit.entries()) {
+      if (u.vehicle !== undefined || u.comms.link !== "none" || u.members.length === 0) continue;
+      let aboard = false;
+      for (const m of u.members) if (view.soldier.get(m)?.mount !== undefined) { aboard = true; break; }
+      if (!aboard) supply(u.side).offNetS++;
+    }
+  }
   if (view.environment.sky !== undefined) {
     const l = view.environment.light;
     if (t.light === null) t.light = { start: l, min: l };
@@ -61,8 +102,16 @@ export function tallyReview(t: ReviewTally, events: readonly SimEvent[], view: S
   }
   for (const e of events) {
     switch (e.kind) {
-      case "drone.launched": side(e.side).drones.launched++; break;
-      case "drone.landed": side(e.side).drones.landed++; break;
+      case "drone.launched": {
+        side(e.side).drones.launched++;
+        const r = t.sides[e.side]!.supply?.recovered;
+        if (r !== undefined && r.includes(e.operator)) supply(e.side).swaps.drone++;
+        break;
+      }
+      case "drone.landed": side(e.side).drones.landed++; addSorted(supply(e.side).recovered, e.by); break;
+      case "power.swapped": { const sd = view.identity.get(e.soldier)?.side; if (sd !== undefined) supply(sd).swaps[deviceClass(catalog, e.device)]++; break; }
+      case "power.flat": supply(e.side).flat[deviceClass(catalog, e.device)]++; break;
+      case "water.drunk": supply(e.side).waterMl += e.ml; break;
       case "drone.lost": {
         const d = side(e.side).drones;
         if (e.reason === "battery") d.lostBattery++;

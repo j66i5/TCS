@@ -342,6 +342,9 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   4.8 L (6 %); he sips 250 ml when 0.72 L down and not under fire (suppression <= 0.1); at full deficit fatigue builds
   x2, recovers x0.5, aim error x1.3 (low). Drinking is instant (no action). A man who comes in dry (roster) into a short
   battle can still drink but loses no more water.
+  Stage 5 (review, batch, lab): the review's supply rows (batteries changed and flat by kind, drone relaunches, unit
+  time off the net, water drunk) and `npm run lab -- batteries` (3 h night patrol, both platoons; `reports/lab-batteries.md`).
+  Should the lab's night be static (a defence) instead of a patrol? Static, nobody drinks within 3 h.
 
 - Sight realism step 3 (2026-11-15, all low; `core/spotting.json` `conceal`, `core/terrain/vegetation.json`): the
   vegetation concealment and backdrop figures, the conspicuity spread (sigma 0.8), the kept-sight decay (5 s, floor

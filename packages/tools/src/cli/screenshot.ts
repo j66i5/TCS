@@ -2066,6 +2066,13 @@ try {
     await page.waitForTimeout(700);
     const q0 = `${outDir}/platoon-${seed}-${name}-0-start.png`;
     await page.screenshot({ path: q0 }); shots.push(q0);
+    // M11.6 (`--scene aar` only): the review's battery and water rows, which a 10 min battle never fills (batteries
+    // last hours, water counts from 2 h): a supply tally put into the record before the battle ends (made-up counts).
+    if (args["scene"] === "aar") {
+      await page.evaluate(new Function(`const r = globalThis.__tcs.record().review;
+        for (const sd of ["blue", "red"]) { const x = r.sides[sd] ??= { drones: { launched: 0, landed: 0, lostBattery: 0, lostNoOperator: 0, shotDown: 0, downedEnemy: 0 }, found: { total: 0, byDrone: 0 }, calls: {}, rounds: {}, missiles: { fired: 0, hit: 0 }, seen: [] };
+          x.supply = { swaps: { radio: 5, sight: 3, other: 0, drone: 4 }, flat: { radio: 1, sight: 0, other: 0 }, offNetS: 754, waterMl: 25250, recovered: [] }; }`) as () => void);
+    }
     await page.evaluate(new Function("globalThis.__tcs.stepTicks(600 * 60);") as () => void);
     await page.waitForTimeout(900);
     const q1 = `${outDir}/platoon-${seed}-${name}-1-after-action.png`;

@@ -180,7 +180,7 @@ export function readRecord(x: unknown): BattleRecord | null {
 
 /** Fold one tick's events into the record; `view` is the state after that tick. */
 export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], view: SimView, catalog: Catalog): void {
-  tallyReview(rec.review, events, view); // (M9.6; it samples the light on quiet ticks too)
+  tallyReview(rec.review, events, view, catalog); // (M9.6; it samples the light on quiet ticks too)
   if (events.length === 0) return;
   tallyExpenditure(rec.exp, events, view, catalog);
   const sideIdx = (side: string) => Math.max(0, view.sides.findIndex((x) => x.id === side));

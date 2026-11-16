@@ -7264,3 +7264,31 @@ extracts only: medium at most).
   `power-data.test.ts` checks the block is loaded. `npm run golden:update`: the ten goldens with interiors changed
   (fingerprint only; a headless platoon-vehicles 120 s event stream compared identical before and after).
 
+
+## 2026-11-16 — M11.6 stage 5: review and batch lines, the batteries and water lab
+
+Software decisions (owner to review). No data change except two review strings (`core/strings.en.json`
+`aar.batteries`, `aar.offNet`, `aar.water`); no behaviour change: goldens unchanged.
+
+- **Review tally** (`sim/src/review.ts`): optional `SideReview.supply` (no `RECORD_VERSION` bump, like `morale`),
+  created at the first such event: batteries changed (`power.swapped`) and gone flat (`power.flat`) by kind of device
+  (`deviceClass`: an item with `radio` = radio, with a `sensor` = sight (goggles and thermal sights), else other; the
+  catalog now goes into `tallyReview`, optional), drone relaunches (a `drone.launched` by a man who has brought a
+  drone back before: a fresh battery each time; a drone's flat battery stays `drones.lostBattery`), unit-seconds off
+  the net (sampled once a second: units on foot with `comms.link` "none" and none of their men aboard a hull, so a
+  wrecked hull radio's crew is not counted) and water drunk (ml, `water.drunk`).
+- **Batch** (`tools/src/cli/batch.ts`): one line "Batteries and water (M11.6; per battle)". **App review**: rows only
+  when non-zero (batteries changed and flat, time off the net as a duration, water in L).
+- **Lab** `npm run lab -- batteries [seed] [speedup]` (`tools/src/labs/batteries.ts`): the platoon scenario's two
+  platoons on foot moved onto a flat 3 x 1.2 km map 2.4 km apart, fire held, from 21:00 on a moonless night for 3 h;
+  every unit walks a 300 m beat to and fro (so the men lose water: a static night would lose about 0.45 L a man and
+  never reach the 0.85 drinking threshold); each platoon's quadcopter kept up over its men (a lab controller every
+  60 s: the AI's drone use needs objectives). Books: Wh at the start = left (loads, device slots, drones in the air)
+  + drained in devices (per slot, from the swap events and the end charge) + flown by drones (per tick) + lost with a
+  drone; battery item counts; water ml = left + drunk. `speedup` k (tests only): battery hours / k, drone draw x k,
+  water loss x k and `fromBattleS` / k, the night k times shorter.
+- **Screenshots:** `--scene aar` puts a made-up supply tally into the record before the 10 min battle ends, to show
+  the rows (a short battle never fills them).
+- **Tests:** `packages/tools/test/lab-batteries.test.ts` (the lab compressed 12x: swaps of radios and sights, drone
+  relaunches and drinking on both sides; Wh balance within 1e-6, water exact, no battery lost; radios with no spare go
+  flat and the review counts flats and time off the net; the tally by kind from synthetic events).

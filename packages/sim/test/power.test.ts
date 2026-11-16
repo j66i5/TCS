@@ -210,4 +210,18 @@ describe("batteries (M11.6)", () => {
     const full = createSim(input([{ type: "radio", count: 1 }, { type: "rbat", count: 2 }]));
     expect(whIn(full, "rbat")).toBe(WH);
   });
+  it("a unit arriving late (M11.1) has its batteries fitted at its arrival, not drained since the start", () => {
+    const inp = testInput(1, 600);
+    inp.catalog = catalog;
+    inp.forces[1]!.units[0]!.members[0] = rec("b.0", [{ type: "radio", count: 1 }, { type: "rbat", count: 1, charge: WH }]);
+    inp.forces[1]!.units[0]!.arriveS = 20;
+    const sim = createSim(inp);
+    run(sim, 21 * TICK_HZ);
+    let man: EntityId | undefined;
+    for (const [id, i] of sim.state.identity.entries()) if (i.personId === "b.0") man = id;
+    const slot = sim.state.soldier.req(man!).power![0]!;
+    expect(slot.since).toBe(20 * TICK_HZ);
+    expect(slot.flatTick).toBe(slot.since + Math.ceil((slot.wh0 * TICKS_PER_WH) / DRAW));
+    expect(chargeAt(slot, sim.state.tick)).toBeCloseTo(slot.wh0 - (DRAW * TICK_HZ) / TICKS_PER_WH, 9);
+  });
 });

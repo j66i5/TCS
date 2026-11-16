@@ -84,9 +84,10 @@ export function fullestSpare(c: Container | undefined, battery: DefId): number {
  * Setup (setup.ts): one slot per powered device type in the man's load (more than one of a type share it), its fullest
  * battery taken out of the load into the slot. A fresh record (`fitted` false: not out of an earlier battle) has that
  * battery partly used: a share of full drawn from [installedMin, 1] (stream "power"; spares stay full). No battery:
- * the slot is empty (a dead device).
+ * the slot is empty (a dead device). `tick`: when he enters the battle (0 at the start; a unit arriving late, M11.1,
+ * at its arrival, so its batteries do not drain before it is there).
  */
-export function fitBatteries(catalog: Catalog, rng: RngState, s: SoldierState, c: Container, light: number, fitted: boolean): void {
+export function fitBatteries(catalog: Catalog, rng: RngState, s: SoldierState, c: Container, light: number, fitted: boolean, tick = 0): void {
   let slots: PowerSlot[] | undefined;
   const P = catalog.behaviour.soldier.power;
   for (const st of c.stacks) {
@@ -106,7 +107,7 @@ export function fitBatteries(catalog: Catalog, rng: RngState, s: SoldierState, c
       wh = taken.charge ?? 0;
       if (!fitted && P !== undefined && P.installedMin < 1) wh = settle(Math.min(wh, pw.capWh * (P.installedMin + (1 - P.installedMin) * nextFloat(rng, Streams.power))));
     }
-    stampSlot(slot, wh, wantOn(pw.def, light), 0);
+    stampSlot(slot, wh, wantOn(pw.def, light), tick);
   }
   s.power = slots;
 }

@@ -7466,3 +7466,12 @@ regenerates the goldens. No code or data changed in this entry.
   are now within noise of main after the line-of-sight work, not because of M11.6; the power system walks a man once a
   second and a scan checks a powered sensor with one compare). Merged origin/main (M11.1 consumption, assault group,
   AGL teams) after the review; goldens regenerated; `npm test` 1448 pass.
+
+## 2026-11-16 — After merging M11.1 into M11.6: late units' batteries
+
+Checked the merge of main (M11.1) into M11.6 for silent clashes. Schema: only M11.6 bumped it (21 -> 22, one
+migration; M11.1's `arrived` is optional). RNG streams and events do not overlap. Batteries (Wh) and water (ml) have no
+`chargeKind`, so moveCharge does not move them and the conservation guard (ammunition only) ignores them consistently.
+One real clash fixed: a unit arriving late (M11.1 waves) had its batteries stamped at tick 0, so its radios and goggles
+drained from the start of the battle while it was not yet there; `fitBatteries` now takes the tick he enters at
+(`state.tick`). `npm run golden:update`: every golden unchanged.

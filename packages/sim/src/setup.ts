@@ -356,7 +356,7 @@ function addSoldier(
     if (mag && (mag.charge ?? 0) <= 0) addItems(c, mag.type, 1, mag.charge);
   }
   // M11.6: the batteries in his powered devices (a fresh record's partly used, stream "power").
-  fitBatteries(catalog, state.rng, s, c, state.environment.light, rec.powerFitted === true);
+  fitBatteries(catalog, state.rng, s, c, state.environment.light, rec.powerFitted === true, state.tick);
   return id;
 }
 

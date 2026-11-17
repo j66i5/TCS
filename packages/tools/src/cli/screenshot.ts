@@ -571,7 +571,9 @@ async function repairScenes(page: Page, name: string, errors: string[], shots: s
  * 3 men); 1 a search (searcher beside a prisoner, hands up), 2 an escort walking the 3 men back, 3 the collection point
  * with its three groups apart and a guard, 4 the squad's card line and the guard's man box. M11.9b: 5 the military
  * police hull at the point (called when the first prisoner was held; brought on at once), its men out taking over the
- * guard; 6 a prisoner at its door boarding (officers first).
+ * guard; 6 a prisoner at its door boarding (officers first). M11.9c: 8 the point moving under fire (a mortar round 20 m
+ * from it, 8 s later), both looks; 4b the Rules panel's row "Prisoners: escort automatically / ask me"; 7 the review's Conduct tab with
+ * the Prisoners block (the battle run to its end).
  */
 async function prisonerScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const shot = async (label: string) => {
@@ -619,6 +621,16 @@ async function prisonerScenes(page: Page, name: string, errors: string[], shots:
       const p = [...s.rear.values()].find((x) => x.kind === "prisoners"); if (p) t.focusScale(p.x, p.y + 2, 16); t.stepTicks(1);
       return { held: held(), guards: [...s.soldier.values()].filter((x) => x.guard && x.guard.phase === "guard").length, point: p };`) as () => object);
     await shot(`${look}-3-point`);
+    // M11.9c: 8 the point moving under fire: the enemy's mortar round bursts 20 m from it; 8 s later the guard and
+    // the prisoners are on their way to the new spot (the radio line says so).
+    info[`${look}-underFire`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      const p = [...s.rear.values()].find((x) => x.kind === "prisoners"); const x0 = p.x, y0 = p.y;
+      const fired = t.burst(x0 + 20, y0); t.stepTicks(60 * 8);
+      // (Close on the prisoners and their guard setting off, the burst's smoke beside them.)
+      let cx = 0, cy = 0, n = 0; for (const [id, x] of s.soldier.entries()) if ((x.captive && x.captive.point !== undefined) || (x.guard && x.guard.phase === "guard")) { const q = s.transform.get(id); cx += q.x; cy += q.y; n++; }
+      t.select(null); t.focusScale(n ? cx / n + 6 : x0, n ? cy / n : y0, 14); t.stepTicks(1);
+      return { fired, from: [Math.round(x0), Math.round(y0)], to: [Math.round(p.x), Math.round(p.y)], held: [...s.soldier.values()].filter((x) => x.captive && x.captive.point !== undefined).length };`) as () => object);
+    await shot(`${look}-8-under-fire`);
     // M11.9b: 5 the military police at the point (its men out, taking over the guard), 6 a prisoner boarding.
     info[`${look}-mp`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
       const mp = () => [...s.vehicle.entries()].find(([, v]) => v.offMap && v.offMap.kind === "mp" && v.side === "blue");
@@ -645,6 +657,17 @@ async function prisonerScenes(page: Page, name: string, errors: string[], shots:
     if (g) t.inspect(g[0]); t.stepTicks(1);
     return { orders: t.orderSet(), guard: g ? g[0] : null };`) as () => object);
   await shot("flat-4-card");
+  // M11.9c: the Rules panel with its new row "Prisoners: escort automatically / ask me".
+  await page.evaluate(new Function(`globalThis.__tcs.inspect(null);`) as () => void);
+  await page.click('.hud-card [data-card="rules"]');
+  await shot("flat-4b-rules");
+  await page.click('.hud-card [data-card="rules"]');
+  // M11.9c: 7 the review's Conduct tab with the Prisoners block (the battle run to its end, ~60 min).
+  info["review"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; t.inspect(null);
+    for (let k = 0; k < 4000 && !s.ended; k++) t.stepTicks(60);
+    t.reviewTab("conduct"); return { ended: s.ended, tab: t.reviewTab() };`) as () => object);
+  await page.waitForTimeout(500);
+  await shot("flat-7-review-prisoners");
   if (errors.length > 0) console.error(`prisoners ${name}: page errors: ${errors.join(" | ")}`);
   console.log(`prisoners ${name}: ${JSON.stringify(info)}`);
 }

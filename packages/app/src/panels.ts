@@ -88,7 +88,7 @@ export function selectAndCentre(a: App, uid: EntityId): void {
 function rulesNow(a: App, uid: EntityId): UnitRules | null {
   const u = a.sim.state.unit.get(uid);
   if (!u) return null;
-  return { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, a.sim.state, uid), ambush: u.ambush?.rangeM ?? 0, supply: u.supplyRule ?? "auto" };
+  return { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, a.sim.state, uid), ambush: u.ambush?.rangeM ?? 0, supply: u.supplyRule ?? "auto", prisoners: u.prisonerRule ?? "auto" };
 }
 
 /**

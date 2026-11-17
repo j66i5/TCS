@@ -885,6 +885,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (order.ammo !== undefined) x.ammoRule = order.ammo;
         if (order.at !== undefined) x.atRule = order.at;
         if (order.supply !== undefined) x.supplyRule = order.supply;
+        if (order.prisoners !== undefined) x.prisonerRule = order.prisoners;
         // (A new fire rule ends an ambush laid, D4b: the player has decided otherwise.)
         if (order.fire !== undefined) delete x.ambush;
       };

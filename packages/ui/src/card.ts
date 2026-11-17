@@ -232,7 +232,7 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   if (!s) return { key: "unknown" };
   // (M11.9a: a prisoner held at a collection point, or being searched.)
   // (M11.9b: boarding the military police hull, aboard it, taken away by it.)
-  if (s.captive !== null) return { key: s.captive.evacTick !== undefined ? "powEvacuated" : s.captive.vehicle !== undefined ? (s.mount !== undefined ? "powAboard" : "boarding") : s.captive.point !== undefined && s.atNest === undefined ? "held" : s.captive.state };
+  if (s.captive !== null) return { key: s.captive.escape !== undefined ? "powEscaping" : s.captive.evacTick !== undefined ? "powEvacuated" : s.captive.vehicle !== undefined ? (s.mount !== undefined ? "powAboard" : "boarding") : s.captive.point !== undefined && s.atNest === undefined ? "held" : s.captive.state };
   if (s.casualty === "killed" || !s.physiology.alive) return { key: "killed" };
   if (s.casualty === "incapacitated" || !isAble(s)) return { key: "incapacitated" };
   if (s.mount !== undefined) return { key: "aboard" };
@@ -366,7 +366,7 @@ export function fireChoiceRules(c: FireChoice, now: Pick<UnitRules, "fire" | "am
 export function settleRules(pend: Partial<UnitRules>, now: UnitRules, kind?: string): boolean {
   if (kind === "ambush") delete pend.ambush;
   if (kind === "rules") {
-    delete pend.fire; delete pend.maxEngageM; delete pend.onContact; delete pend.ammo; delete pend.at; delete pend.supply;
+    delete pend.fire; delete pend.maxEngageM; delete pend.onContact; delete pend.ammo; delete pend.at; delete pend.supply; delete pend.prisoners;
     if (pend.ambush === 0) delete pend.ambush;
   }
   for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === (now[k] ?? 0)) delete pend[k];
@@ -380,7 +380,7 @@ export function rulesOrder(base: { tick: number; issuer: string; target: EntityI
   return {
     ...base, kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}),
     ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}), ...(r.at ? { at: r.at } : {}),
-    ...(r.supply ? { supply: r.supply } : {}),
+    ...(r.supply ? { supply: r.supply } : {}), ...(r.prisoners ? { prisoners: r.prisoners } : {}),
   };
 }
 

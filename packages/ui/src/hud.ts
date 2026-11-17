@@ -39,6 +39,8 @@ export interface UnitRules {
   ambush?: number;
   /** M11.4a: a request for ammunition sends bearers at once ("auto") or waits for the player ("ask"). */
   supply?: "auto" | "ask";
+  /** M11.9c: prisoners get escorts on their own ("auto") or wait for the player's "Escort prisoners" ("ask"). */
+  prisoners?: "auto" | "ask";
 }
 
 export interface HudCallbacks {
@@ -500,6 +502,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     { key: "ammo", label: "rules.ammo", options: [["conserve", "rules.ammo.conserve"], ["normal", "rules.ammo.normal"], ["max", "rules.ammo.max"]] },
     { key: "at", label: "rules.at", options: [["vehicles", "rules.at.vehicles"], ["vehiclesAndPositions", "rules.at.vehiclesAndPositions"], ["hold", "rules.at.hold"]] },
     { key: "supply", label: "rules.supply", options: [["auto", "rules.supply.auto"], ["ask", "rules.supply.ask"]] },
+    { key: "prisoners", label: "rules.prisoners", options: [["auto", "rules.prisoners.auto"], ["ask", "rules.prisoners.ask"]] },
   ];
   const ruleBtns: { key: keyof UnitRules; value: UnitRules[keyof UnitRules]; b: HTMLButtonElement }[] = [];
   panel.append(el("div", "hud-panel-title", s.t("rules.title")), status);

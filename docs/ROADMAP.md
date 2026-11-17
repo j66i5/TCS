@@ -397,7 +397,7 @@ back (far casualties now reachable, no reassignment loops, the nest medic re-tag
 commander; numbers there. **M10 is complete** (all slices built, reviewed and fixed; the open targets above wait
 for the owner's numbers answer after playing, not for more building).
 
-- **M11 Logistics** (SPEC 9.2) 🔨 plan written 2026-11-16: `docs/plans/m11-logistics.md` (owner answers, measured
+- **M11 Logistics** (SPEC 9.2) ✅ (complete 2026-11-17 with MP/POW, slice 55) plan written 2026-11-16: `docs/plans/m11-logistics.md` (owner answers, measured
   consumption, slices 43-48 and 52; 49 and 50-51 in parallel sessions)
   - ✅ **M11.1 (slice 43)** consumption lab, moveCharge, ledger and conservation guard, packaging, loose rounds,
     refillMagazines, late arrival and `hold-resupply`, machine-gun rates (DECISIONS "M11.1"; balance points open)
@@ -442,7 +442,11 @@ for the owner's numbers answer after playing, not for more building).
     short under fire; takes over the guard; boards officers first, never over its places; evacuates off the map; a
     second run for the rest; stranded = ordinary hull), roster `heldBy` / `powEvacuated`, `BattleResult.prisoners`,
     `SideResult` counts, end settlement of men never taken (DECISIONS "M11.9b")
-  - **Military police and prisoners of war** (owner request 2026-11-15; plan `docs/plans/m11-mp-pow.md`, slices 53-55; placed with logistics
+  - ✅ **M11.9c (slice 55)** prisoners under fire (the point moved when rounds land within 30 m), `law.exposure`,
+    rare escapes (stream "prisoners", recapture, guards never fire, free beside his own side), the rule "Prisoners:
+    escort automatically / ask me", the AI's guards, battle record version 12, the Conduct tab's Prisoners block, the
+    batch line (DECISIONS "M11.9c"). **MP/POW done; M11 complete.** Optional slice 56 (more prisoners) waits for owner Q1.
+  - ✅ **Military police and prisoners of war** (owner request 2026-11-15; plan `docs/plans/m11-mp-pow.md`, slices 53-55; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):
     - *Prisoner collection point* behind each company, like the Verwundetennest: the capturing squad walks or

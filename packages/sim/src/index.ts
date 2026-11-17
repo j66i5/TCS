@@ -46,7 +46,7 @@ export * from "./medical";
 export { careEnabled, medicalSystem, startTreatment, treatedNow, underFireForCare } from "./systems/medical";
 export { carryLeader, carryParams, carrySpeedMps, carrySystem, coverSpotNear, endCarry, isCarried, leaveCarry, payloadMassKg, startCarry, type CarryOptions } from "./systems/carry";
 export { casualtyPointOrder, evacuateOrder, nestFor, nestOf, nestSystem, prisonerPointOf, setNest, siteNest, supplyPointOf } from "./systems/nest";
-export { escortPrisonersOrder, groupSpot, pointCounts, prisonerForNest, prisonerGroup, prisonerPointOrder, prisonersSystem, releaseGuardOrder, searchPrisoner, setPrisonerPoint, sitePrisonerPoint } from "./systems/prisoners";
+export { escapeChance, escortPrisonersOrder, groupSpot, heldPrisoner, pointCounts, prisonerForNest, prisonerGroup, prisonerPointOrder, prisonerRule, prisonersSystem, rankGroup, releaseGuardOrder, searchPrisoner, setPrisonerPoint, sitePrisonerPoint, watched } from "./systems/prisoners";
 export { cacheBurst, cacheHolds, cookoffChance, ensureSupplyPoint, ignite, nearNest, newCache, putInCache, mortarTake, resupplyAtOrder, roundsInContainer, roundsOfMan, siteSupply, supplyPointOrder, supplySystem, takePlan } from "./systems/supply";
 export { isAssetMan, isAssetUnit, isOffMap, isOffMapMan, OFF_MAP_PARK, parkOffMap } from "./offmap";
 export { callAmbulance, callAmbulanceOrder, driveTo, entryPoint, evacuationSystem, onRun } from "./systems/evacuation";

@@ -73,7 +73,7 @@ export function reviewModel(a: App): AarModel {
     }),
     timeline: record.timeline.map((e) => ({ time: fmtClock(ticksToSeconds(e.tick)), text: timelineText(a, e), colour: e.side ? sideColour(a, e.side) : "#ffd23d" })),
     medical: medicalLines(a),
-    conduct: conductLines(a),
+    conduct: [...conductLines(a), ...prisonerLines(a)],
     logistics: logisticsLines(a),
   };
 }
@@ -157,6 +157,32 @@ export function conductLines(a: App): AarSection[] {
     const more = c.misidentified + c.deliberate - Math.min(c.breaches.length, CONDUCT_LINES_MAX);
     if (more > 0) rows.push({ sub: true, text: s.t("aar.conduct.more", { n: more }) });
     out.push({ heading: sideName(a, sd.id), colour: sideColour(a, sd.id), rows });
+  }
+  return out;
+}
+
+/** The Conduct tab's Prisoners block (M11.9c, plan 4.12): per side, the prisoners it HELD (a heading per side): taken by
+ *  group, searched and what was taken, escorts and guard minutes, wounded prisoners treated, carried and evacuated,
+ *  handed to the military police and taken away, escapes, still held at the end, seconds under fire at a collection
+ *  point, exposures (a breach) and hits on them. Nothing for a side that held nobody. */
+export function prisonerLines(a: App): AarSection[] {
+  const { sim, strings: s, record } = a;
+  const out: AarSection[] = [];
+  for (const sd of sim.state.sides) {
+    const p = record.sides[sd.id]?.pow;
+    if (!p) continue;
+    const taken = p.taken.officer + p.taken.nco + p.taken.man;
+    if (taken + p.settled + p.heldEnd + p.escapes + p.evacuated + p.medEvac + p.hitsAimed + p.hitsIncidental === 0) continue;
+    const rows: AarSection["rows"] = [];
+    const mean = p.walkS.length > 0 ? Math.round(p.walkS.reduce((x, y) => x + y, 0) / p.walkS.length) : 0;
+    rows.push({ text: s.t("aar.pow.taken", { n: taken, officers: p.taken.officer, ncos: p.taken.nco, men: p.taken.man, end: p.settled }) });
+    if (p.searched > 0) rows.push({ text: s.t("aar.pow.searched", { n: p.searched, weapons: p.weapons, rounds: p.rounds, documents: p.documents }) });
+    if (p.escorts + p.dutyS > 0) rows.push({ text: s.t("aar.pow.escorts", { n: p.escorts, walk: mean, held: p.walkS.length, min: Math.round(p.dutyS / 6) / 10 }) });
+    if (p.treated + p.carried + p.medEvac > 0) rows.push({ text: s.t("aar.pow.wounded", { treated: p.treated, carried: p.carried, evac: p.medEvac }) });
+    if (p.mp + p.evacuated > 0) rows.push({ text: s.t("aar.pow.mp", { boarded: p.mp, evac: p.evacuated }) });
+    rows.push({ text: s.t("aar.pow.escapes", { tried: p.escapes, escaped: p.escaped, recaptured: p.recaptured, held: p.heldEnd }) });
+    rows.push({ text: s.t("aar.pow.law", { fire: p.underFireS, exposures: p.exposures, aimed: p.hitsAimed, incidental: p.hitsIncidental }) });
+    out.push({ heading: s.t("aar.pow.heading", { side: sideName(a, sd.id) }), colour: sideColour(a, sd.id), rows });
   }
   return out;
 }

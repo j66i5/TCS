@@ -1,10 +1,20 @@
 # State — handover note
 
-_Last updated: 2026-11-17 (M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-17 (M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.9c (slice 55) built (2026-11-17, branch `claude/m11-mp`): MP/POW done, M11 complete.** A collection point is
+  moved at once when rounds land within 30 m of it (at least 60 m from them; not one the player placed); prisoners kept
+  over 60 s near a known enemy or under fire without being moved are a `law.exposure` (review only). Rare escapes (Q5
+  built with option (a)): an unwatched walking prisoner tries once a minute (2 %, x2 dark, x2 smoke, x2 groups mixed,
+  x0.5 searched; stream "prisoners"; `rules.prisonerEscapes`), runs to his side, the enemy keeps the surrendered flag
+  10 s, guards never fire, free within 30 m of his own men (`captive` null: the one way back), recaptured within 5 m.
+  Rules row "Prisoners: escort automatically / ask me". Record version 12 (`pow` per holding side), the Conduct tab's
+  Prisoners block, the batch's Prisoners line. Lab parts 3-4 met; batches identical to slice 54 but one hold battle;
+  perf 20/24 alone (container noise, base 23/24 in between; re-run on a quieter machine). Numbers in DECISIONS
+  "M11.9c". Optional slice 56 waits for owner Q1.
 - **M11.9b (slice 54) built (2026-11-17, branch `claude/m11-mp`).** The military police: each side's MP team waits off
   the map (DE Feldjägertrupp in a Dingo-class `de-dingo2-feldjaeger`, 5 places; RU military police section in a KamAZ
   "Patrul", 7 places; created after every other entity), is called when a collection point holds its first prisoner
@@ -487,8 +497,12 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   point; **Q3** one escort per 4 on the move, one guard per 6 at the point; **Q8** guards fire only in self-defence
   within 50 m. M11.9b built with the recommended option, to be confirmed: **Q4** MP vehicles DE Dingo-class
   Feldjäger vehicle (5 places), RU KamAZ "Patrul" (7 places); **Q6** MP delay 15-30 min; **Q7** a man who gave up but
-  was never taken goes to the side holding the ground at the end. Still open for slices 55-56: Q1 (prisoners are rare:
-  leave / collect wounded enemies / more surrenders), Q5 escapes. New low data (M11.9b): the two MP hulls (mass,
+  was never taken goes to the side holding the ground at the end. M11.9c built with the recommended option, to be
+  confirmed: **Q5** rare escapes from unguarded prisoners, more at night or in smoke (2 % a minute unwatched, game
+  values). Still open for slice 56: **Q1** (prisoners are rare: leave / collect wounded enemies / more surrenders). New
+  low data (M11.9c): point moved when rounds land within 30 m (60 m away), exposure after 60 s, escape factors
+  (x2 dark below light 0.3, x2 smoke, x2 mixed within 5 m, x0.5 searched), watched within 25 m, grace 10 s, free within
+  30 m, recaptured within 5 m. New low data (M11.9b): the two MP hulls (mass,
   drive, seats, armour 12 / 8 mm all low), `mp` (delay 900-1800 s, 20 s a prisoner, back 1,800 s, wait 300 m short,
   give up after 1,200 s), three men per MP team. New low data:
   `core/prisoners.json` (point 150 m back (100-200), 50 m apart, 250 m from the enemy; search 30 s, 15 kg; groups 10 m

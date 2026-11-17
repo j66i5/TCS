@@ -1201,11 +1201,15 @@ export interface SupplyDef {
 /** Prisoners of war (core/prisoners.json, M11.9) without provenance; see the schema (data/src/schemas.ts). */
 export interface PrisonersDef {
   stepS: number;
-  pcp: { backM: number; searchM: number; minBackM: number; maxBackM: number; apartM: number; enemyM: number; checkS: number; arriveM: number };
+  pcp: { backM: number; searchM: number; minBackM: number; maxBackM: number; apartM: number; enemyM: number; checkS: number; arriveM: number; /** M11.9c */ fireM?: number; fireClearM?: number };
   search: { seconds: number; maxKg: number; reachM: number };
   escort: { perGuard: number; gapMinM: number; gapMaxM: number; quietS: number; minLeft: number };
-  guard: { perGuard: number; standM: number; selfDefenceM: number };
+  guard: { perGuard: number; standM: number; selfDefenceM: number; /** M11.9c */ watchM?: number };
   segregation: { ncoFrom: string; apartM: number };
+  /** M11.9c: escapes (absent: none). */
+  escape?: { perMinute: number; darkFactor: number; darkBelowLight: number; smokeFactor: number; smokeBelow: number; mixedFactor: number; mixedM: number; searchedFactor: number; seeMin: number; graceSeconds: number; freeM: number; recaptureM: number; routeS: number };
+  /** M11.9c: `law.exposure` after this long (absent: never). */
+  exposure?: { seconds: number };
   /** M11.9b: the military police team off the map (absent: none is called). */
   mp?: { delayMinS: number; delayMaxS: number; pace: DefId; nearPace: DefId; standM: number; waitShortM: number; enemyNearM: number; quietS: number; giveUpS: number; loadS: number; backS: number; edgeM: number; heldMaxS: number; retryS: number };
 }

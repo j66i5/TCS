@@ -145,6 +145,16 @@ export function settleBattle(ctx: SimContext, state: SimState, events: EventSink
     // mounted: ok a man aboard is settled where his hull stands
     for (const [id, ident] of state.identity.entries()) {
       const s = state.soldier.get(id);
+      // (M11.9c: a prisoner still escaping at the end is settled the same way: free on ground his side holds, else
+      // held again by the side that held him.)
+      if (s?.captive?.escape !== undefined && s.physiology.alive) {
+        const t = pos(id), by = s.captive.by ?? ident.side;
+        const holder = t ? holderAt(able, t.x, t.y, holdM) ?? by : by;
+        if (holder === ident.side) { s.captive = null; s.mental.behaviour = "shaken"; }
+        else { delete s.captive.escape; s.captive.by = holder; }
+        events.emit({ kind: "pow.settled", tick: state.tick, soldier: id, side: ident.side, holder, outcome: holder === ident.side ? "returned" : "captured" });
+        continue;
+      }
       if (!s || !s.physiology.alive || s.captive?.state !== "surrendered" || s.evacuated !== undefined || isAssetUnit(state, ident.unit) || isOffMapMan(state, s)) continue;
       const t = pos(id);
       const holder = t ? holderAt(able, t.x, t.y, holdM) ?? ident.side : ident.side;

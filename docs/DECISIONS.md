@@ -8455,3 +8455,104 @@ block `mp`, faction manifest `mp`, two hulls and two crew templates.
   24 (spotting 7.8x / 7.8x, bench-tanks 7.9x, the hull-hit variant): the floors this container misses on the base as
   well; `lint:data` no errors (run after, as the chain stops at `test:perf`). To be re-run on a quieter machine before
   the merge.
+
+## 2026-11-17 — M11.9c (slice 55): prisoners under fire, escapes, laws-of-war records, AI, review tab and batch line (goldens regenerated)
+Plan `docs/plans/m11-mp-pow.md` sections 4.7-4.8, 4.11-4.12. `sim/systems/prisoners.ts` (still 1 Hz, only over
+prisoners), `core/prisoners.json` (`pcp.fireM` 30, `pcp.fireClearM` 60, `guard.watchM` 25, blocks `escape` and
+`exposure`; all game values, low), battle record version 12. MP/POW complete; M11 complete.
+- **Owner question Q5 built with the recommended option (a), as a software decision for the owner to review:** rare
+  escapes from unguarded prisoners, more at night or in smoke. Q1 (more prisoners, slice 56) still open.
+- **Under fire:** a burst within `pcp.fireM` 30 m of a collection point is noted on it (`explosions.ts
+  notePointFire`, one pass over the rear points per burst); rounds cracking past a man held or guarding there (his
+  `fireFrom` stamped within the last step) count too. The point (not one the player placed, not while the military
+  police is loading there, at most once per `pcp.checkS` 10 s) is re-sited at least `pcp.fireClearM` 60 m from where
+  they landed (`pow.point` "underFire", radio `radio.powPointUnderFire`); the guard walks there at his pace, the
+  prisoners at theirs, a suppressed prisoner crawling out of the line of fire first (the existing surrender crawl).
+  Each second with prisoners held and fire there (or a man there suppressed) is a `pow.underFire` event (the review's
+  seconds). **Decided without the owner:** a point the player placed stays under fire (his decision, recorded as an
+  exposure below); rounds from the prisoners' own side do not suppress them (the existing own-side burst rule), so they
+  are moved by the guard rather than crawling then.
+- **`law.exposure`** (review only, no radio): prisoners held at a point more than `exposure.seconds` 60 within
+  `pcp.enemyM` 250 m of a known enemy, or suppressed there, without being moved (`RearPoint.exposedTick`, reset by
+  any move of the point, recorded once per episode: `exposureNoted`); `cause` enemy / fire, `placed`.
+- **Escapes** (`rules.prisonerEscapes`, default on): once a minute per prisoner (staggered by id within the 1 Hz
+  step) a walking prisoner held (searched or not, at the point or waiting) whom no fit man of the holding side on foot
+  within `guard.watchM` 25 m sees (`sight` x smoke transmission >= `escape.seeMin` 0.3) draws from the new stream
+  "prisoners" against `perMinute` 0.02 x `darkFactor` 2 (light below `darkBelowLight` 0.3; a threshold, not a slope)
+  x `smokeFactor` 2 (a 10 m line across him lets through less than `smokeBelow` 0.7) x `mixedFactor` 2 (a prisoner of
+  another group within `mixedM` 5 m) x `searchedFactor` 0.5. Only an unwatched man draws (a battle without escape
+  chances draws nothing). Nobody of his side fit anywhere: no attempt (nowhere to run). He runs (no hands-up pace) to
+  the nearest fit man of his side on foot, re-routing every `routeS` 10 s. **`captive` stays set while he runs**
+  (`captive.escape`; not able, not ordered, takes no part in the fight; `held()`, the MP, the nest and the point skip
+  him). The enemy keeps seeing a man giving up for `graceSeconds` 10 (`impair.ts showsSurrender`, used where contacts
+  are flagged); then the flag is taken back from every enemy man **except guards**, and the existing target choice may
+  fire at him. Guards never fire at a prisoner escaping (decisions.ts self-defence, explicit check). A hit on an
+  escaping man is not a `law.hit` (GC III art. 42: weapons as the last resort). **Free** (`captive` null, behaviour
+  "shaken", every enemy's flag taken back) within `freeM` 30 m of a fit man of his side: **the one exception to
+  "captive moves forward only"**, logged here; he is back in his own unit, unarmed if searched (kit by the existing
+  routes). **Recaptured** within `recaptureM` 5 m of a fit man of the holding side: "surrendered" again (holder,
+  unit and point cleared; `searched` kept), surrender.ts takes him as before. Hurt so that he cannot walk: he gives up
+  where he lies ("stopped", "surrendered"). At the end a man still running is settled like a man never taken (the
+  side holding the ground: free or held, `pow.settled`). Events `pow.escape` started / free / recaptured / stopped;
+  timeline lines for started and free.
+- **Player rule** "Prisoners: escort automatically / ask me" (`Unit.prisonerRule`, the `rules` order's `prisoners`,
+  the Rules panel row; absent "auto", a unit without one takes its top unit's): "ask" only gates escorts; the order
+  "Escort prisoners" sends them; guards for a point are still found on their own.
+- **AI:** `commander.ts` already counted men on prisoner duty as committed (slice 53: not in squad strength, never
+  given orders); it has no order that releases a guard. Test: three minutes of the commander with an enemy known near
+  the point: no `releaseGuard`, no order to the guard, he keeps his duty.
+- **Record version 12** (`SideRecord.pow`, by the HOLDING side): taken by group, searched (weapons, rounds,
+  documents), escorts and each prisoner's walk (escort sent to held), duty seconds (escort sent or guard posted to
+  released or lost, open duties closed at `battle.ended`), wounded prisoners treated by its men / carried to its nest /
+  evacuated with its wounded, handed to its MP and evacuated, escape attempts, escaped, recaptured, `pow.underFire`
+  seconds, exposures, hits on its prisoners (`law.hit` "prisoner", aimed / incidental), taken at the end (`pow.settled`)
+  and still held on the map at the end (sampled from the view at `battle.ended`; includes men captured at the end by
+  the medical settlement). An app save with record version 11 starts a fresh review record (as always on a bump).
+- **Review:** Conduct tab, a "Prisoners held by <side>" block after the breach blocks (`app/review.ts
+  prisonerLines`); nothing for a side that held nobody.
+- **Batch:** the slice 53 line (own tally, guard minutes sampled from the state) replaced by the record's
+  "Prisoners" line: taken (+ at the end), searched, escorts, guard and escort minutes, handed to MP, evacuated (wounded),
+  escaped (tried), held at the end, under fire, exposures, hits. `Row.pow` is now the record's block.
+- **Lab** `npm run lab -- prisoners --part 3,4`. Part 3 (10 per faction and kind; the other side's mortar HE round
+  every 10 s): 20 m from the point for 60 s: the point moved on the first round in 20 of 20 (0 s); every walking
+  prisoner held there more than 30 m from the bursts within 60 s in 18 of 20 (median 42 s; one 144 s and one not within
+  180 s: wounded walkers at the hands-up pace with a leg wound, 0.36 m/s); the first bursts wounded 39 prisoners in 20
+  runs (fragments at 20 m before anyone could move; not `law.hit`: their own side's rounds). 300 m away for 120 s: no
+  prisoner hit or wounded in 20 of 20, the point never moved, no exposure. Part 4 (100 prisoners 6 m apart, nobody
+  escorting them, 30 min, 5 seeds per condition; the conditions share seeds, so their draws are correlated):
+  day 11,471 prisoner-minutes, 222 escapes against 229.4 expected (-3.2 %); night 344 / 356.7 (-3.6 %, the rate
+  x1.99 the day's); searched 119 / 131.8 (-9.7 %, x0.47); smoke 346 / 358 (-3.3 %); guarded (four men among them,
+  held in place) 15,000 prisoner-minutes, none. All within +-30 %. Parts 1-2 not re-run (their code paths are unchanged
+  but for the escape roll, which their watched prisoners never make; the tests cover them).
+- **Tests** `tools/test/prisoners-escape.test.ts` (10): escape within a minute, flag only for the grace time, free only
+  beside his own side; none watched, none with the rule off; recapture; save/load mid-escape; guards never fire at an
+  escaping man (flag taken from the guard too); the point moved by a burst 20 m away and not when placed; exposure only
+  past 60 s with a placed point, never with the automatic one (it moves); rule "ask" and the escort order; the AI's last
+  guard; the record's block. Slice 53-54 tests unchanged and passing.
+- **Goldens:** `npm run golden:update`: only the catalog fingerprint changed (data); the 12 goldens' event streams are
+  byte-identical to slice 54's (cdcfe29) and the state differs only in `catalogFingerprint`. `golden/no-interiors`
+  untouched.
+- **Batches** (same seeds, base slice 54 cdcfe29 and this slice in the same container; attacker wins; the hold battle:
+  the German side's wins):
+
+  | scenario (runs x s) | base | slice 55 |
+  |---|---|---|
+  | platoon (20 x 1,200) | 10; 16.8 / 10.7 | 10; 16.8 / 10.7 (identical) |
+  | platoon-ru (20 x 1,200) | 9; 14.6 / 10.7 | 9 (identical) |
+  | platoon-vehicles (10 x 1,200) | 7 | 7 (identical) |
+  | platoon-ru-vehicles (10 x 1,200) | 0 | 0 (identical) |
+  | hold-resupply (10 x 3,600) | blue 6 | blue 6 (identical) |
+  | hold-resupply-ru (10 x 3,600) | blue 5 | blue 5 (one battle with prisoners differs: casualties 12.2 / 35.2 -> 11.9 / 35.8) |
+
+  Prisoners are rare in AI battles (plan section 2): hold-resupply-ru, the German attackers' prisoners: 0.7 taken a
+  battle, 10.6 guard and escort minutes, 0.1 handed to the MP; no escape attempt, no exposure, no seconds under fire in
+  any of the 80 battles; one hit on a prisoner (hold-resupply).
+- **Perf** (`npm run test:perf` alone, twice): 20 of 24 each time, different misses (spotting 7.9x / 7.8x, spotting
+  with smoke 7.6x / 7.4x, bench-caches 5.5 % vs 5 %, parked hulls 35.06 % vs 35 %, bench-vehicles 7.7x, the hull-hit
+  variant); slice 54 alone in between: 23 of 24 (spotting with smoke 7.7x). Per tick the slice adds nothing in a battle
+  without prisoners but one property check where contacts are flagged and in the movement pace, and one pass over the
+  rear points per burst. The misses are within the run-to-run spread this container showed in slices 53-54; to be
+  re-run on a quieter machine before the merge.
+- **Checks** (`npm run check` alone): typecheck, lint, `npm test` 1,571 pass (6 skipped); `test:perf` inside it 20 of 24
+  (spotting 7.x, spotting with smoke, bench-vehicles, the hull-hit variant); `lint:data` no errors (run after, as the
+  chain stops at `test:perf`).

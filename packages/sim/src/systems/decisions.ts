@@ -961,7 +961,8 @@ function guardSelfDefence(ctx: SimContext, state: SimState, id: EntityId, s: Sol
   const still = !m || m.waypoints.length === 0;
   const R = ctx.catalog.prisoners?.guard.selfDefenceM ?? 50;
   const pick = still && !isCowering(s) && s.impair.canFight && !state.action.has(id) ? pickTarget(ctx, state, id, s, R, false) : null;
-  if (!pick) { if (cur) state.fire.delete(id); return; }
+  // (M11.9c: never at a prisoner escaping, flag or not: GC III art. 42; our guards let him go.)
+  if (!pick || state.soldier.get(pick.target)?.captive?.escape !== undefined) { if (cur) state.fire.delete(id); return; }
   if (cur?.contact === pick.target) return;
   if (assignFireTask(ctx, state, id, pick.x, pick.y, aimHeightAt(ctx, pick))) {
     const ft = state.fire.get(id)!;

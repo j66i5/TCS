@@ -3,8 +3,9 @@
 **Progress:** plan written 2026-11-17 (this file, branch `claude/m11-mp`, from main after the balance pass, merge
 659292a). **Slice 53 (M11.9a) built 2026-11-17** (DECISIONS "M11.9a"; owner questions Q2, Q3 and Q8 built with the
 recommended option (a) as software decisions for the owner to review). **Slice 54 (M11.9b) built 2026-11-17**
-(DECISIONS "M11.9b"; Q4, Q6 and Q7 built with option (a) as software decisions). Slice 55 next; an optional slice 56
-waits for an owner answer.
+(DECISIONS "M11.9b"; Q4, Q6 and Q7 built with option (a) as software decisions). **Slice 55 (M11.9c) built
+2026-11-17** (DECISIONS "M11.9c"; Q5 built with option (a) as a software decision): MP/POW done, M11 complete. The
+optional slice 56 waits for the owner's answer to Q1.
 
 The last part of M11 (ROADMAP "Military police and prisoners of war", owner request 2026-11-15, placed with logistics
 because it shares the rear transport and collection points). Today a man who gives up is taken where he stands and

@@ -131,6 +131,14 @@ export interface Captive {
   evacTick?: number;
   /** M11.9b: documents items taken from him in his search (`BattleResult.prisoners`). */
   documents?: number;
+  /**
+   * M11.9c: he is escaping (systems/prisoners.ts "escapes"; the one way back from "captured": free, `captive` null, when
+   * he reaches a fit man of his side; recaptured, back to "surrendered", when a fit man of the holding side reaches
+   * him). `tick` he set off; `openTick`: from then on the enemy no longer sees a man giving up (`surrendered` flag);
+   * `open`: the flags have been taken back; `routeTick`: when his way was last set. His `point` and `escort` are gone,
+   * `by`, `unit`, `group` and `searched` stay (for the record and a recapture).
+   */
+  escape?: { tick: number; openTick: number; open?: true; routeTick: number };
 }
 
 /** Individual soldier state (SPEC 6.4). M0 holds the fields; systems that change them come in M1-M4. */
@@ -397,6 +405,12 @@ export interface RearPoint {
   placed?: true;
   /** kind "prisoners" (M11.9b): the military police hull at the point that has taken over the guard. */
   mp?: EntityId;
+  /** kind "prisoners" (M11.9c): where and when rounds last landed within `pcp.fireM` of it; since when its prisoners
+   *  have been exposed (a known enemy within `pcp.enemyM`, or suppressed) without being moved, and whether that
+   *  exposure has been recorded (`law.exposure`). */
+  fire?: { tick: number; x: number; y: number };
+  exposedTick?: number;
+  exposureNoted?: true;
   /** When it was sited (or last moved) and last checked. */
   sitedTick: number;
   checkTick: number;
@@ -560,7 +574,8 @@ export interface Contact {
   tick: number;
   /** When he last passed this contact on (reports are not passed on again: no gossip chains). */
   reportedTick: number;
-  /** He knows this enemy has given up: he saw it, or a comrade told him. Absent until set; never cleared while the contact lasts. */
+  /** He knows this enemy has given up: he saw it, or a comrade told him. Absent until set; never cleared while the contact
+   *  lasts, except for a prisoner escaping (M11.9c: after `escape.graceSeconds`, never by a guard) or one back free. */
   surrendered?: true;
   /**
    * He knows this enemy is down (soldier AI package A): he saw him lying hit or saw him fall, or a comrade told him.
@@ -734,6 +749,9 @@ export interface Unit {
   /** M11.4a standing rule: a squad's request sends bearers at once ("auto") or waits for the player ("ask"). Absent:
    *  "auto". */
   supplyRule?: "auto" | "ask";
+  /** M11.9c standing rule: the unit's prisoners get escorts on their own ("auto") or only on the player's
+   *  `escortPrisoners` ("ask"). Absent: "auto" (its top unit's rule when it has none). */
+  prisonerRule?: "auto" | "ask";
 }
 
 /**

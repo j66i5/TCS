@@ -36,6 +36,17 @@ export function isCaptive(s: Man | undefined): boolean {
   return s !== undefined && s.captive !== null;
 }
 
+/** Does an enemy who sees him now see a man giving up (the contact's `surrendered` flag)? A prisoner escaping (M11.9c)
+ *  only until `escape.openTick`. */
+export function showsSurrender(s: Man | undefined, tick: number): boolean {
+  return s !== undefined && s.captive !== null && (s.captive.escape === undefined || tick < s.captive.escape.openTick);
+}
+
+/** A prisoner escaping (M11.9c), held still or not. */
+export function isEscaping(s: Man | undefined): boolean {
+  return s !== undefined && s.captive?.escape !== undefined;
+}
+
 /** Alive, conscious and still in the fight (not a prisoner): can take orders and act for his side. */
 export function isAble(s: Man | undefined): boolean {
   // (Review fix: an evacuated man is in the rear, whether or not he still sits in the hull that took him back.)

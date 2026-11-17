@@ -22,7 +22,7 @@ import type { Contact, SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
-import { canReport, isAble, isCaptive } from "../impair";
+import { canReport, isAble, showsSurrender } from "../impair";
 import { atan2, cos, PI, sin, sqrt } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -143,7 +143,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       const range = sqrt((t.x - me.x) * (t.x - me.x) + (t.y - me.y) * (t.y - me.y));
       const k = findContact(s.contacts, e.target), isNew = k < 0;
       // With his own eyes, this tick: he sees that the man has given up (the only place the flag is created).
-      const gaveUp = isCaptive(state.soldier.get(e.target));
+      const gaveUp = showsSurrender(state.soldier.get(e.target), tick);
       const c: Omit<Contact, "reportedTick"> = { target: e.target, x: t.x, y: t.y, errM: K.seenErrorM + K.seenErrorPerM * range, kind: "seen", tick, ...(gaveUp ? { surrendered: true as const } : {}) };
       // A man on foot upstairs (M7.5 review fix): the height he was seen at.
       const ts = state.soldier.get(e.target);
@@ -396,7 +396,7 @@ function droneFeed(ctx: SimContext, state: SimState, events: EventSink, called: 
       const dx = t.x - me.x, dy = t.y - me.y, slant = sqrt(dx * dx + dy * dy + me.z * me.z);
       const ts = state.soldier.get(e.target);
       const c: Omit<Contact, "reportedTick"> = { target: e.target, x: t.x, y: t.y, errM: K.seenErrorM + K.seenErrorPerM * slant + feedErr, kind: "reported", tick };
-      if (isCaptive(ts)) c.surrendered = true;
+      if (showsSurrender(ts, tick)) c.surrendered = true;
       if (ts !== undefined && ts.casualty !== "none") c.down = true;
       if (ts !== undefined && ts.mount === undefined) { c.posture = ts.posture; if (t.z > 0) c.z = t.z; }
       const veh = state.vehicle.size > 0 ? state.vehicle.get(e.target) : undefined;

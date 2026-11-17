@@ -5,7 +5,7 @@
  * are screenshot-only shortcuts, as before.
  */
 import { buildAppearance, type DataSet } from "@tcs/data";
-import { EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, newCache, refreshStatus, simHash, startCarry, supportLeft, surrender, type EntityId, type Wound } from "@tcs/sim";
+import { detonate, EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, newCache, refreshStatus, simHash, startCarry, supportLeft, surrender, type EntityId, type Wound } from "@tcs/sim";
 import { enemyMenInSight, SIDE_COLOURS, worldToScreen } from "@tcs/render";
 import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
@@ -168,6 +168,17 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     },
     /** M11.9a (screenshots, checks): man `id` gives up now (as a panicked man would). */
     giveUp: (id: EntityId) => surrender(sim.ctx, sim.state, new EventSink(), id, "panicked"),
+    /** M11.9c (screenshots, checks): the enemy's mortar HE round bursts at (x, y) now (drawn as any burst). */
+    burst: (x: number, y: number) => {
+      // mounted: ok (any man of the other side owns the round)
+      const foe = [...sim.state.identity.entries()].find(([, i]) => i.side !== playerSide);
+      const he = foe ? sim.ctx.catalog.factions[foe[1].faction]?.fireSupport?.heAmmo : undefined;
+      if (!foe || he === undefined) return false;
+      const sink = new EventSink();
+      detonate(sim.ctx, sim.state, sink, x, y, 0, sim.ctx.catalog.ammoIds.indexOf(he), foe[0]);
+      renderer.onEvents(sink.events, sim.state, overlay);
+      return true;
+    },
     /** M10.4b (screenshots, checks): `carriers` carry `payload` to (x, y) (a carry method by id, else the best). */
     carry: (payload: EntityId, carriers: EntityId[], x: number, y: number, method?: string) =>
       startCarry(sim.ctx, sim.state, new EventSink(), payload, carriers, { x, y, z: 0 }, method !== undefined ? { method } : {}) !== null,

@@ -60,6 +60,8 @@ export type OrderBody =
     at?: "vehicles" | "vehiclesAndPositions" | "hold";
     /** M11.4a: a squad's request for ammunition sends bearers at once ("auto") or waits for the player ("ask"). */
     supply?: "auto" | "ask";
+    /** M11.9c: the unit's prisoners get escorts on their own ("auto") or only on `escortPrisoners` ("ask"). */
+    prisoners?: "auto" | "ask";
   }
   /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs.
    *  M7.5e: `building` (a building's id, with an interior) makes it a house clearing: the halves close in by bounds

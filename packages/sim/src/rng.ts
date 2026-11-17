@@ -62,6 +62,8 @@ export const Streams = {
   recovery: "recovery",
   /** M11.9b: the military police team's delay from the call. Created on first use (battles without a call never draw). */
   mp: "mp",
+  /** M11.9c: prisoners' escape attempts (only an unwatched walking prisoner draws, once a minute). Created on first use. */
+  prisoners: "prisoners",
   /** M11.3: caches (whether a burst or a fire sets one off, how long a cook-off lasts, where its bursts go). Created on
    *  first use (battles without caches never draw). */
   supply: "supply",

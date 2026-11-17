@@ -1269,7 +1269,7 @@ while your men see him now, otherwise as his contact marker with a white flag at
 flag fades with the marker). A surrendered or captured man costs his side the same as a man
 down. Your fire tap on an enemy your men know has surrendered gives no order.
 
-## Prisoners (M11.9a-b)
+## Prisoners (M11.9a-c)
 
 What happens to a man once he has been taken prisoner (the Third Geneva Convention as the owner listed it: humane
 treatment, out of the combat zone as soon as possible, not exposed to fire, the wounded treated like one's own,
@@ -1280,15 +1280,22 @@ both sides; the numbers are in `core/prisoners.json` (game values; the research 
   disc with a small fenced square, "PW" and the number held there under it): about 150 m behind the platoon, away
   from the enemy it knows and hidden from it, where a wheeled vehicle can drive in, never within 50 m of its
   Verwundetennest or its supply point (and they keep 50 m from it), and never within 250 m of a known enemy. When
-  a known enemy comes within 250 m it is moved back and the prisoners and their guard walk to the new spot. You can
-  put it somewhere else with **Prisoner point** in the Move tray (refused next to the nest or the supply point).
+  a known enemy comes within 250 m it is moved back and the prisoners and their guard walk to the new spot. **Fire
+  moves it too (M11.9c):** when rounds land within 30 m of it (a burst there, or rounds cracking past a man held or
+  guarding there) it is moved at once to a spot at least 60 m from where they landed ("fire on the prisoner
+  collection point, moving the prisoners back"); the guard walks there at his pace and the prisoners at theirs, and a
+  prisoner pinned down crawls out of the line of fire first. You can put it somewhere else with **Prisoner point** in
+  the Move tray (refused next to the nest or the supply point); a point you placed stays where you put it, under fire
+  or not: keeping prisoners there is then your decision (see "exposed" below).
 - **Groups.** Officers (NATO rank codes OF-), NCOs (OR-5 and up) and men each have their own spot at the point, 10 m
   apart; a man whose rank has no NATO code counts as a man. One escort never walks two groups.
 - **Escorts.** Once the squad that took them has not been fired on for 30 seconds and is not in an assault, it
   sends one man per four prisoners of a group (the capturing squad's own men first, then another squad of the
   platoon that is not fighting). Never the leader, a machine gunner, a medic or first responder, a man carrying or
   busy, and no squad is left with fewer than two other men. While men are still giving up close by, the escort waits
-  so that they go together. **Escort prisoners** on the card's bar sends escorts at once, even under fire.
+  so that they go together. **Escort prisoners** on the card's bar sends escorts at once, even under fire. The
+  Rules panel's row **Prisoners: escort automatically / ask me** (M11.9c) lets a unit's prisoners wait for that
+  order instead (guards for the point are still found on their own).
 - **The search.** The escort searches each of his prisoners where they stand, 30 seconds a man (standing; fire
   interrupts it and he goes on where he stopped). He takes the weapon (with the magazine in it), every magazine,
   belt, round, grenade, rocket and launcher, the radio, goggles, thermal sight, drone and batteries, and the
@@ -1326,8 +1333,27 @@ both sides; the numbers are in `core/prisoners.json` (game values; the research 
   end: its prisoner, or back to his own side if that is his. The battle result lists every prisoner each side holds
   (his group, wounded or not, how he left: military police, medical, or still held, documents taken from him) and
   counts per side the prisoners taken and evacuated.
-- **Not yet built** (slice 55): escapes, moving the point when rounds land near it, the exposure record and the
-  review's Prisoners block.
+- **Escapes (M11.9c; rare).** A prisoner who can walk and whom no fit man of the holding side within 25 m can see
+  (smoke counts) may try to get away: once a minute a chance of 2 %, doubled in the dark, doubled in smoke, doubled
+  when a prisoner of another group stands beside him (leaders organise), halved once he has been searched. A guard in
+  sight means no attempt at all. An escaping man runs to the nearest fit man of his side. For 10 seconds the enemy
+  still sees a man who gave up; after that anyone but a guard may fire at him (the Geneva Convention allows weapons
+  against escaping prisoners only as the last resort; **guards never fire at him**, and a hit on him is not recorded
+  as a hit on a prisoner). Within 30 m of a fit man of his side he is **free** and back in the fight, unarmed if he
+  had been searched (he can pick kit up as anyone can). A fit man of the holding side who gets within 5 m of him
+  recaptures him (he gives up again and is taken); hurt so that he cannot walk he gives up where he lies. A man still
+  running at the end goes to the side holding the ground around him. The radio says nothing; the review lists it.
+- **Exposed prisoners (M11.9c).** Prisoners kept more than 60 seconds at a point within 250 m of a known enemy, or
+  pinned down by fire there, without being moved, are a breach of the law of war ("kept exposed", review only, no
+  radio line). The automatic point moves away and never causes it; a point you placed and kept there can.
+- **The review's Prisoners block (M11.9c).** The Conduct tab has a block per side for the prisoners it held: taken by
+  group (and taken at the end), searched and what was taken (weapons, rounds, documents), escorts sent and the mean
+  walk to the point, minutes of guard and escort duty (men out of the fight), wounded prisoners treated, carried to
+  the nest and evacuated, handed to the military police and taken away, escape attempts, escapes and recaptures,
+  still held at the end, seconds the point was under fire, exposures and hits on prisoners. The batch report has the
+  same as its "Prisoners" line.
+- **The computer's side** does all of this on its own as well; it never counts guards and escorts as fighting men
+  and never sends a guard away (it gives no orders to men on prisoner duty).
 
 ## Vehicles and riding in them (M7)
 A **vehicle** (so far the German Puma and the Russian BMP-2) is a thing on the map with a fuel tank and stowed

@@ -92,6 +92,10 @@ export type SimEvent =
   | { kind: "law.misuse"; tick: number; side: SideId; vehicle: EntityId; cause: "ammunitionInAmbulance"; ordered: boolean }
   /** A protected man or marked ambulance hit by fire of `side` (Q-8: incidental hits are a separate list in the review):
    *  `aimed` when the fire was at him; `fragment` a fragment's hit. Never shown live. */
+  /** M11.9c: side `side` kept `prisoners` prisoners at collection point `point` (of platoon `unit`) for more than
+   *  `prisoners.exposure.seconds` within `pcp.enemyM` of a known enemy ("enemy") or under fire ("fire") without moving
+   *  them; `placed`: the player put the point there. Review only (no radio line). */
+  | { kind: "law.exposure"; tick: number; side: SideId; point: EntityId; unit: EntityId; prisoners: number; cause: "enemy" | "fire"; seconds: number; placed: boolean }
   | { kind: "law.hit"; tick: number; side: SideId; by: EntityId; target: EntityId; protection: "medical" | "carrying" | "point" | "surrendered" | "wounded" | "prisoner"; aimed: boolean; fragment: boolean }
   | { kind: "medical.evacuated"; tick: number; side: SideId; casualty: EntityId; vehicle: EntityId; woundedTick: number; via?: "ambulance" | "vehicle" }
   /**
@@ -144,8 +148,14 @@ export type SimEvent =
   /** A surrendered man has been taken prisoner by the enemy soldier `by`. `side` is the prisoner's. */
   | { kind: "captured"; tick: number; soldier: EntityId; side: SideId; by: EntityId }
   /** M11.9: side `side`'s platoon `unit` has its prisoner collection point `point` at (x, y): sited, moved back
-   *  (a known enemy near it) or put there by an order. */
-  | { kind: "pow.point"; tick: number; side: SideId; point: EntityId; unit: EntityId; x: number; y: number; reason: "sited" | "threatened" | "ordered" }
+   *  (a known enemy near it; M11.9c: rounds landing near it, "underFire") or put there by an order. */
+  | { kind: "pow.point"; tick: number; side: SideId; point: EntityId; unit: EntityId; x: number; y: number; reason: "sited" | "threatened" | "underFire" | "ordered" }
+  /** M11.9c: a second in which collection point `point` of side `side` (the holding side) with `held` prisoners was
+   *  under fire (rounds landing within `pcp.fireM`, or a man held or guarding there suppressed). */
+  | { kind: "pow.underFire"; tick: number; side: SideId; point: EntityId; held: number }
+  /** M11.9c: prisoner `soldier` (side `side`, his own) held by side `by`: set off to escape (`chance` the roll he
+   *  made; `point` where he was held), reached his own side ("free"), recaptured, or gave it up hurt ("stopped"). */
+  | { kind: "pow.escape"; tick: number; soldier: EntityId; side: SideId; by: SideId; phase: "started" | "free" | "recaptured" | "stopped"; chance?: number; point?: EntityId; searched?: boolean }
   /** M11.9: man `escort` of side `side` is sent to search and walk back `prisoners` (one group); `ordered`: by the
    *  player's escortPrisoners. */
   | { kind: "pow.escort"; tick: number; side: SideId; escort: EntityId; point: EntityId; group: "officer" | "nco" | "man"; prisoners: EntityId[]; ordered?: true }

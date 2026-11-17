@@ -48,6 +48,9 @@ export interface BattleRules {
    *  support top-up); false switches them off and leaves resupply on foot (`--no-deliveries`, comparison batches:
    *  "foot only"). Default on; off too with `resupply: false`. */
   deliveries?: boolean;
+  /** M11.9c: prisoners may escape (owner question Q5, option (a)); false switches escapes off (labs). Default on
+   *  whenever the data has core/prisoners.json `escape`. */
+  prisonerEscapes?: boolean;
   /** M11 hold battle: a side whose positions were prepared before the battle: each of its men who halts on the
    *  ground outdoors between `fromS` and `untilS` is in a dug fighting position there (`positions.ts`). */
   prepared?: { side: SideId; fromS: number; untilS: number }[];

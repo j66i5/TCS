@@ -15,7 +15,7 @@
 import { buildCatalog, type DataSet } from "@tcs/data";
 import { addMpAssets, buildForce, withoutVehicles } from "@tcs/scenario";
 import {
-  checkConservation, consumedFromEvents, createSim, DEFAULT_COMMS, mpApproach, mpThere, emptyConsumption, flatMap, ledgerOf, loadKg, step, TICK_HZ, tracerMap,
+  addSmoke, checkConservation, consumedFromEvents, createSim, DEFAULT_COMMS, detonate, EventSink, heldPrisoner, mpApproach, mpThere, emptyConsumption, flatMap, ledgerOf, loadKg, step, TICK_HZ, tracerMap,
   type BattleInput, type Catalog, type EntityId, type SimEvent, type SoldierRecord, type UnitInput, type Wound,
 } from "@tcs/sim";
 
@@ -361,6 +361,204 @@ export function mpLabMarkdown(rows: readonly MpRunRow[], catalog: Catalog): stri
     const within = rs.filter((r) => r.runs[0] !== undefined && Math.abs(r.runs[0].errPct) <= 10).length;
     const rel = all.filter((x) => x.releasedS !== null);
     out.push(`Summary ${f}: ${rs.length} battles, ${all.length} runs; call to edge = the drawn delay (to the second) in ${edge} of ${all.length}; first run's call to arrival within 10 % of delay + drive alone in ${within} of ${rs.length}; guards released within 30 s in ${rel.filter((x) => x.releasedS! <= 30).length} of ${rel.length} runs that found guards; places exceeded in ${rs.filter((r) => r.maxAboard > r.places).length}; officers first in ${rs.filter((r) => r.officersFirst).length}; everyone aboard evacuated in ${rs.filter((r) => r.allEvacuated).length}; second run in ${rs.filter((r) => r.secondRun).length}; ledger exact in ${rs.filter((r) => r.ledgerExact).length}.`);
+  }
+  return out.join("\n");
+}
+
+// ---------------------------------------------------------------- part 3: under fire (M11.9c)
+
+export interface FireRow {
+  faction: string; seed: number; kind: "near" | "far";
+  /** Seconds from the first round to the point moving (`pow.point` "underFire"), and to every prisoner held there being
+   *  more than `pcp.fireM` from where the rounds land; null: never (within the trial). */
+  movedS: number | null; clearS: number | null; held: number;
+  /** Prisoners hit (law.hit "prisoner") and wounded by the rounds; crawls out of the fire; exposures. */
+  hits: number; wounded: number; crawls: number; exposures: number; underFireS: number;
+}
+
+/** The ammunition of the other side's mortar (its HE round): the rounds land near the point. */
+function mortarHe(catalog: Catalog, faction: string): string {
+  const he = catalog.factions[faction]?.fireSupport?.heAmmo;
+  if (he === undefined) throw new Error(`no fire support HE for ${faction}`);
+  return he;
+}
+
+/** Part 3: six walking prisoners held at the platoon's point, then the enemy's mortar rounds land `distM` from it every
+ *  10 s for `forS` (near: 20 m east of it, 60 s; far: 300 m east, 120 s). */
+export function fireTrial(data: DataSet, faction: string, template: string, seed: number, kind: "near" | "far"): FireRow {
+  const { input } = prisonersBattle(data, faction, template, seed, { limitS: 3600 });
+  const catalog = input.catalog, P = catalog.prisoners!;
+  const sim = createSim(input);
+  for (const [uid] of sim.state.unit.entries()) sim.state.unit.req(uid).fireRule = "hold";
+  const red = [...sim.state.identity.entries()].filter(([, i]) => i.side === "red").map(([id]) => id);
+  const walkers = red.filter((m) => sim.state.soldier.req(m).wounds.length === 0);
+  const heldAll = () => walkers.every((m) => { const s = sim.state.soldier.get(m); return !s?.physiology.alive || s.captive?.point !== undefined; });
+  let t = 0;
+  for (; t < 1800 * TICK_HZ && !(t % TICK_HZ === 0 && heldAll() && t > 0); t++) step(sim);
+  const ammo = catalog.ammoIds.indexOf(mortarHe(catalog, faction === "de" ? "ru" : "de"));
+  const [pid, p0] = [...sim.state.rear.entries()].find(([, p]) => p.kind === "prisoners")!;
+  const dist = kind === "near" ? 20 : 300, forS = kind === "near" ? 60 : 120;
+  const fx = p0.x + dist, fy = p0.y;
+  const held = walkers.filter((m) => sim.state.soldier.get(m)?.captive?.point === pid).length;
+  const t0 = sim.state.tick;
+  let movedS: number | null = null, clearS: number | null = null, hits = 0, wounded = 0, crawls = 0, exposures = 0, underFireS = 0;
+  const hurt = new Set<EntityId>();
+  for (let k = 0; k < (forS + 120) * TICK_HZ; k++) {
+    const dt = sim.state.tick - t0;
+    if (dt % (10 * TICK_HZ) === 0 && dt <= forS * TICK_HZ) {
+      const ev = new EventSink();
+      detonate(sim.ctx, sim.state, ev, fx, fy, 0, ammo, walkers[0]!);
+    }
+    for (const e of step(sim)) {
+      if (e.kind === "pow.point" && e.reason === "underFire" && movedS === null) movedS = Math.round((e.tick - t0) / TICK_HZ);
+      if (e.kind === "law.hit" && e.protection === "prisoner") hits++;
+      if (e.kind === "wound" && walkers.includes(e.soldier) && !hurt.has(e.soldier)) { hurt.add(e.soldier); wounded++; }
+      if (e.kind === "surrender.crawl" && walkers.includes(e.soldier)) crawls++;
+      if (e.kind === "law.exposure") exposures++;
+      if (e.kind === "pow.underFire") underFireS++;
+    }
+    if (clearS === null && sim.state.tick % TICK_HZ === 0) {
+      // (Those who can still walk: a prisoner the rounds put down waits for the nest's bearers.)
+      const far = walkers.every((m) => { const s = sim.state.soldier.get(m), tr = sim.state.transform.get(m); return !s?.physiology.alive || !s.impair.canWalk || s.physiology.consciousness < 0.5 || s.captive?.point !== pid || !tr || Math.hypot(tr.x - fx, tr.y - fy) > (P.pcp.fireM ?? 30); });
+      if (far && (kind === "far" || movedS !== null)) clearS = Math.round((sim.state.tick - t0) / TICK_HZ);
+    }
+  }
+  return { faction, seed, kind, movedS, clearS: kind === "far" ? null : clearS, held, hits, wounded, crawls, exposures, underFireS };
+}
+
+export function fireLab(data: DataSet, runs: number): FireRow[] {
+  const rows: FireRow[] = [];
+  for (const kind of ["near", "far"] as const) for (const [f, tpl] of [["de", "pzgren-zug"], ["ru", "motor-rifle-platoon"]] as const) for (let s = 1; s <= runs; s++) rows.push(fireTrial(data, f, tpl, s, kind));
+  return rows;
+}
+
+export function fireLabMarkdown(rows: readonly FireRow[], catalog: Catalog): string {
+  const P = catalog.prisoners!;
+  const out: string[] = [];
+  out.push(`The other side's mortar HE round bursts every 10 s: "near" 20 m east of the collection point for 60 s (the point moves when rounds land within ${P.pcp.fireM} m, at least ${P.pcp.fireClearM} m away from them), "far" 300 m east of it for 120 s. Moved: first round to the point moving; clear: to every prisoner held there who can walk more than ${P.pcp.fireM} m from the bursts. Hits: law.hit on a prisoner; wounded: prisoners wounded.`);
+  out.push("");
+  out.push("| Faction | Seed | Fire | Held | Moved (s) | Clear (s) | Prisoners hit | Wounded | Crawled | Under fire (s) | Exposures |");
+  out.push("|---|---|---|---|---|---|---|---|---|---|---|");
+  for (const r of rows) out.push(`| ${r.faction} | ${r.seed} | ${r.kind} | ${r.held} | ${r.movedS ?? "-"} | ${r.clearS ?? "-"} | ${r.hits} | ${r.wounded} | ${r.crawls} | ${r.underFireS} | ${r.exposures} |`);
+  const near = rows.filter((r) => r.kind === "near"), far = rows.filter((r) => r.kind === "far");
+  out.push("");
+  out.push(`Summary: near ${near.length} runs, point moved within 60 s in ${near.filter((r) => r.movedS !== null && r.movedS <= 60).length}, prisoners clear within 60 s in ${near.filter((r) => r.clearS !== null && r.clearS <= 60).length} (median ${medianS(near.map((r) => r.clearS))} s); far ${far.length} runs, prisoners hit in ${far.filter((r) => r.hits + r.wounded > 0).length}, point moved in ${far.filter((r) => r.movedS !== null).length}, exposures ${far.reduce((n, r) => n + r.exposures, 0)}.`);
+  return out.join("\n");
+}
+
+function medianS(xs: readonly (number | null)[]): string {
+  const v = xs.filter((x): x is number => x !== null).sort((a, b) => a - b);
+  return v.length === 0 ? "-" : String(v[Math.floor(v.length / 2)]);
+}
+
+// ---------------------------------------------------------------- part 4: escapes (M11.9c)
+
+export interface EscapeRow {
+  condition: "day" | "night" | "searched" | "smoke" | "guarded"; seed: number;
+  /** Prisoner-minutes at risk (a walking prisoner held at his minute's roll), escapes started, the data chance a minute. */
+  minutes: number; escapes: number; chance: number; expected: number; free: number; recaptured: number;
+}
+
+/**
+ * Part 4: `n` prisoners of the other side (taken by the platoon's first squad, rule "ask": nobody escorts them) stand
+ * 6 m apart in a field 300 m from the platoon, one man of their side 1,200 m east (where they run). Day (light 1),
+ * night (light 0.05), searched, smoke over them, or guarded (four of the platoon's men among them). `minutes` long.
+ */
+/** Part 4's battle (also for tests): `n` prisoners of the Russian side held by the German platoon's first squad (rule
+ *  "ask": nobody escorts them) 6 m apart at x 600, the platoon at x 300, the man they run to at x 1,800. */
+export function escapeSetup(data: DataSet, seed: number, n: number, minutes: number, searched = false) {
+  const catalog = buildCatalog(data, ["de", "ru"]);
+  const plt = withoutVehicles(buildForce(data, { faction: "de", template: "pzgren-zug", seed, keyPrefix: "b" }));
+  const foes: UnitInput[] = [];
+  for (let k = 0; foes.reduce((x, u) => x + members(u).length, 0) < n + 1; k++) foes.push(withoutVehicles(buildForce(data, { faction: "ru", template: "motor-rifle-platoon", seed: seed * 10 + k, keyPrefix: `r${k}` })));
+  const red = foes.flatMap(members).slice(0, n + 1);
+  const own = members(plt);
+  const place: { personId: string; x: number; y: number; heading: number }[] = [];
+  own.forEach((m, i) => place.push({ personId: m.personId, x: 300 + (i % 6) * 4, y: 200 + Math.floor(i / 6) * 5, heading: 0 }));
+  const side = Math.ceil(Math.sqrt(n));
+  red.forEach((m, i) => place.push(i === n ? { personId: m.personId, x: 1800, y: 300, heading: Math.PI } : { personId: m.personId, x: 600 + (i % side) * 6, y: 270 + Math.floor(i / side) * 6, heading: Math.PI }));
+  const input: BattleInput = {
+    map: flatMap("escapes", 2000, 600, 4), catalog, seed, orders: [],
+    rules: { timeLimitSeconds: (minutes + 5) * 60, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "medical", physiologyParams: {}, objectives: [] },
+    forces: [
+      { side: "blue", faction: "de", units: [plt], placements: place.filter((p) => own.some((m) => m.personId === p.personId)) },
+      { side: "red", faction: "ru", units: foes, placements: place.filter((p) => red.some((m) => m.personId === p.personId)).concat(foes.flatMap(members).filter((m) => !red.includes(m)).map((m, i) => ({ personId: m.personId, x: 1900, y: 100 + i * 3, heading: 0 }))) },
+    ],
+  };
+  const sim = createSim(input);
+  const st = sim.state;
+  for (const [, u] of st.unit.entries()) { u.fireRule = "hold"; if (u.side === "blue") u.prisonerRule = "ask"; }
+  const pid = (p: string): EntityId => [...st.identity.entries()].find(([, i]) => i.personId === p)![0];
+  const pris = red.slice(0, n).map((m) => pid(m.personId));
+  const squad = st.identity.req(pid(plt.subunits[0]!.members[0]!.personId)).unit;
+  for (const m of pris) {
+    const s = st.soldier.req(m);
+    s.captive = { state: "captured", tick: 0, by: "blue", unit: squad, ...(searched ? { searched: 0 } : {}) };
+    s.mental.behaviour = "surrendered";
+  }
+  const dest = pid(red[n]!.personId);
+  // (The rest of the other side's men, apart from the one they run to, are out of it: far away and taken too.)
+  for (const [id, i] of st.identity.entries()) if (i.side === "red" && !pris.includes(id) && id !== dest) { const s = st.soldier.req(id); s.captive = { state: "captured", tick: 0, by: "blue", unit: squad }; s.mental.behaviour = "surrendered"; }
+  const ownIds = own.map((m) => pid(m.personId)), hq = plt.members.map((m) => pid(m.personId));
+  return { input, sim, pris, dest, own: ownIds, hq, squad, side, catalog };
+}
+
+export function escapeTrial(data: DataSet, condition: EscapeRow["condition"], seed: number, n = 100, minutes = 30): EscapeRow {
+  const { sim, pris, own, hq, side, catalog } = escapeSetup(data, seed, n, minutes, condition === "searched");
+  const E = catalog.prisoners!.escape!, st = sim.state;
+  if (condition === "night") st.environment.light = 0.05;
+  // (Guards stay where they are put: held there each second, whatever their squad does.)
+  const pinned: { id: EntityId; x: number; y: number }[] = [];
+  const pin = () => { for (const p of pinned) { const tr = st.transform.req(p.id); tr.x = p.x; tr.y = p.y; const mv = st.mover.get(p.id); if (mv) mv.waypoints = []; } };
+  if (condition === "guarded") {
+    // Four of the platoon's men stand among them (their quarters' middles).
+    const g = own.filter((m) => !hq.includes(m)).slice(0, 4);
+    const q = (side * 6) / 4;
+    g.forEach((m, k) => pinned.push({ id: m, x: 600 + q + (k % 2) * 2 * q - 3, y: 270 + q + Math.floor(k / 2) * 2 * q - 3 }));
+  }
+  let minutes0 = 0, escapes = 0, free = 0, recaptured = 0, smokeLaid = false;
+  const everyT = Math.max(1, Math.round(catalog.prisoners!.stepS * TICK_HZ)), per = Math.max(1, Math.round(60 / catalog.prisoners!.stepS));
+  for (let t = 0; t < minutes * 60 * TICK_HZ; t++) {
+    if (condition === "smoke" && (!smokeLaid || t % (60 * TICK_HZ) === 0)) {
+      // (A thick cloud over the field, renewed every minute.)
+      for (let k = 0; k < 4; k++) addSmoke(sim.ctx, st, 600 + side * 1.5 + (k % 2) * side * 3, 270 + side * 1.5 + Math.floor(k / 2) * side * 3, side * 3, 120, 6, 60);
+      smokeLaid = true;
+    }
+    if (st.tick % everyT === 0) {
+      pin();
+      const slot = Math.floor(st.tick / everyT);
+      for (const m of pris) {
+        if ((slot + m) % per !== 0) continue;
+        const s = st.soldier.req(m);
+        if (heldPrisoner(s) && s.impair.canWalk && s.physiology.consciousness >= 0.5) minutes0++;
+      }
+    }
+    for (const e of step(sim)) if (e.kind === "pow.escape" && pris.includes(e.soldier)) { if (e.phase === "started") escapes++; else if (e.phase === "free") free++; else if (e.phase === "recaptured") recaptured++; }
+  }
+  const chance = Math.min(1, E.perMinute * (condition === "night" ? E.darkFactor : 1) * (condition === "searched" ? E.searchedFactor : 1) * (condition === "smoke" ? E.smokeFactor : 1)) * (condition === "guarded" ? 0 : 1);
+  return { condition, seed, minutes: minutes0, escapes, chance, expected: Math.round(minutes0 * chance * 10) / 10, free, recaptured };
+}
+
+export function escapeLab(data: DataSet, seeds: number): EscapeRow[] {
+  const rows: EscapeRow[] = [];
+  for (const c of ["day", "night", "searched", "smoke", "guarded"] as const) for (let s = 1; s <= seeds; s++) rows.push(escapeTrial(data, c, s));
+  return rows;
+}
+
+export function escapeLabMarkdown(rows: readonly EscapeRow[], catalog: Catalog): string {
+  const E = catalog.prisoners!.escape!;
+  const out: string[] = [];
+  out.push(`Data: ${E.perMinute} a minute unwatched; x ${E.darkFactor} below light ${E.darkBelowLight}, x ${E.smokeFactor} in smoke, x ${E.searchedFactor} searched; watched (a fit man of the holding side within ${catalog.prisoners!.guard.watchM} m who sees him): none. Prisoner-minutes: a walking prisoner held at his minute's roll.`);
+  out.push("");
+  out.push("| Condition | Seed | Prisoner-minutes | Chance a minute | Expected | Escapes | Free | Recaptured |");
+  out.push("|---|---|---|---|---|---|---|---|");
+  for (const r of rows) out.push(`| ${r.condition} | ${r.seed} | ${r.minutes} | ${r.chance} | ${r.expected} | ${r.escapes} | ${r.free} | ${r.recaptured} |`);
+  out.push("");
+  for (const c of [...new Set(rows.map((r) => r.condition))]) {
+    const rs = rows.filter((r) => r.condition === c);
+    const m = rs.reduce((x, r) => x + r.minutes, 0), e = rs.reduce((x, r) => x + r.escapes, 0), x = rs.reduce((y, r) => y + r.minutes * r.chance, 0);
+    const dev = x > 0 ? Math.round(((e - x) / x) * 1000) / 10 : 0;
+    out.push(`Summary ${c}: ${m} prisoner-minutes, ${e} escapes, expected ${Math.round(x * 10) / 10}${x > 0 ? ` (${dev > 0 ? "+" : ""}${dev} %, ${Math.abs(dev) <= 30 ? "within" : "OUTSIDE"} +-30 %)` : e === 0 ? " (none, as it should be)" : " (SHOULD BE NONE)"}; rate ${m > 0 ? Math.round((e / m) * 100000) / 100000 : 0} a minute.`);
   }
   return out.join("\n");
 }

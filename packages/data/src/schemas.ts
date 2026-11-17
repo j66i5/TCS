@@ -1494,7 +1494,10 @@ export const PrisonersFile = z.object({
      *  for a spot hidden from the enemy the platoon knows, never within `apartM` of the platoon's Verwundetennest or
      *  supply point (both ways), nor within `enemyM` of a known enemy; checked every `checkS` (moved back when a known
      *  enemy comes within `enemyM`). Men within `arriveM` of their spot are there. */
-    pcp: z.object({ backM: Num(10, 1000), searchM: Num(0, 500), minBackM: Num(0, 1000), maxBackM: Num(10, 2000), apartM: Num(0, 500), enemyM: Num(0, 2000), checkS: Num(1, 600), arriveM: Num(0.5, 20) }).strict(),
+    pcp: z.object({ backM: Num(10, 1000), searchM: Num(0, 500), minBackM: Num(0, 1000), maxBackM: Num(10, 2000), apartM: Num(0, 500), enemyM: Num(0, 2000), checkS: Num(1, 600), arriveM: Num(0.5, 20),
+      /** M11.9c: rounds landing within `fireM` of the point move it to a spot at least `fireClearM` from where they
+       *  landed (absent: only a known enemy moves it). */
+      fireM: Num(0, 500).optional(), fireClearM: Num(0, 1000).optional() }).strict(),
     /** The search: `seconds` a man, by a searcher within `reachM`; he takes up to `maxKg` himself, the rest goes into a
      *  captured cache at the collection point when he gets there. */
     search: z.object({ seconds: Num(1, 600), maxKg: Num(0, 200), reachM: Num(0.5, 10) }).strict(),
@@ -1503,10 +1506,25 @@ export const PrisonersFile = z.object({
     escort: z.object({ perGuard: z.number().int().min(1).max(20), gapMinM: Num(0, 20), gapMaxM: Num(0, 50), quietS: Num(0, 600), minLeft: z.number().int().min(0).max(20) }).strict(),
     /** Guards at the point: one per `perGuard` prisoners held there, standing `standM` from the prisoners; a guard fires
      *  only in self-defence within `selfDefenceM`. */
-    guard: z.object({ perGuard: z.number().int().min(1).max(50), standM: Num(0, 50), selfDefenceM: Num(0, 500) }).strict(),
+    guard: z.object({ perGuard: z.number().int().min(1).max(50), standM: Num(0, 50), selfDefenceM: Num(0, 500),
+      /** M11.9c: a fit man of the holding side within `watchM` who sees a prisoner keeps him from trying to escape. */
+      watchM: Num(0, 500).optional() }).strict(),
     /** Segregation: officers (NATO code OF-*), NCOs (OR codes from `ncoFrom` up), men (the rest, and ranks without a
      *  NATO code); each group has its own spot `apartM` from the others at the point. */
     segregation: z.object({ ncoFrom: z.string().regex(/^OR-[1-9]$/), apartM: Num(0, 100) }).strict(),
+    /** M11.9c escapes (absent: none): a walking prisoner nobody of the holding side watches (`guard.watchM`, a view
+     *  through smoke of at least `seeMin`) tries once a minute with chance `perMinute`, times `darkFactor` below light
+     *  `darkBelowLight`, `smokeFactor` when the view across him lets through less than `smokeBelow`, `mixedFactor` with
+     *  a prisoner of another group within `mixedM`, `searchedFactor` once searched (stream "prisoners"). Enemies keep
+     *  the "surrendered" flag `graceSeconds`; he is free within `freeM` of a fit man of his side, recaptured within
+     *  `recaptureM` of a fit man of the holding side; he re-routes every `routeS`. */
+    escape: z.object({
+      perMinute: Num(0, 1), darkFactor: Num(0, 20), darkBelowLight: Num(0, 1), smokeFactor: Num(0, 20), smokeBelow: Num(0, 1), mixedFactor: Num(0, 20),
+      mixedM: Num(0, 50), searchedFactor: Num(0, 20), seeMin: Num(0, 1), graceSeconds: Num(0, 600), freeM: Num(0, 500), recaptureM: Num(0, 50), routeS: Num(1, 600),
+    }).strict().optional(),
+    /** M11.9c: prisoners kept more than `seconds` within `pcp.enemyM` of a known enemy or suppressed, without being
+     *  moved, are a `law.exposure` (absent: never recorded). */
+    exposure: z.object({ seconds: Num(1, 3600) }).strict().optional(),
     /** The military police team off the map (M11.9b; absent: none is ever called): it comes on `delayMinS`-`delayMaxS`
      *  after the call (stream "mp"), drives at `pace` (`nearPace` the last stretch) to `standM` short of the collection
      *  point; it waits `waitShortM` short while the point is not quiet (a known enemy within `enemyNearM`, or a man

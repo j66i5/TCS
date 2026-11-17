@@ -143,6 +143,24 @@ export type SimEvent =
   | { kind: "surrender.crawl"; tick: number; soldier: EntityId; side: SideId; distanceM: number }
   /** A surrendered man has been taken prisoner by the enemy soldier `by`. `side` is the prisoner's. */
   | { kind: "captured"; tick: number; soldier: EntityId; side: SideId; by: EntityId }
+  /** M11.9: side `side`'s platoon `unit` has its prisoner collection point `point` at (x, y): sited, moved back
+   *  (a known enemy near it) or put there by an order. */
+  | { kind: "pow.point"; tick: number; side: SideId; point: EntityId; unit: EntityId; x: number; y: number; reason: "sited" | "threatened" | "ordered" }
+  /** M11.9: man `escort` of side `side` is sent to search and walk back `prisoners` (one group); `ordered`: by the
+   *  player's escortPrisoners. */
+  | { kind: "pow.escort"; tick: number; side: SideId; escort: EntityId; point: EntityId; group: "officer" | "nco" | "man"; prisoners: EntityId[]; ordered?: true }
+  /** M11.9: prisoner `soldier` (side `side`, his own) has been searched by `by`: `weapons` weapons, `rounds` rounds and
+   *  `documents` documents items taken, `kg` in all; `kept` items left with him. */
+  | { kind: "pow.searched"; tick: number; soldier: EntityId; side: SideId; by: EntityId; weapons: number; rounds: number; documents: number; kg: number; kept: number }
+  /** M11.9: documents taken from prisoner `soldier` (a hook for intelligence, M13). */
+  | { kind: "pow.documents"; tick: number; soldier: EntityId; side: SideId; by: EntityId; count: number }
+  /** M11.9: prisoner `soldier` has reached collection point `point` (his escort `escort`). */
+  | { kind: "pow.held"; tick: number; soldier: EntityId; side: SideId; point: EntityId; group: "officer" | "nco" | "man"; escort?: EntityId }
+  /** M11.9: man `soldier` of side `side` stays at collection point `point` as a guard ("guard"), goes back to his squad
+   *  ("released"; `ordered` by releaseGuard), or his duty ended because he can no longer do it ("lost"). */
+  | { kind: "pow.guard"; tick: number; soldier: EntityId; side: SideId; point: EntityId; phase: "guard" | "released" | "lost"; ordered?: true }
+  /** M11.9: escort `soldier` put what he took beyond `search.maxKg` into the collection point's cache `cache`. */
+  | { kind: "pow.cached"; tick: number; soldier: EntityId; side: SideId; point: EntityId; cache: EntityId; kg: number }
   | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }
   | { kind: "items.transferred"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number }
   /** M11.1: items gone from the battle other than by being fired (`count` items of `item` held by `holder`; the

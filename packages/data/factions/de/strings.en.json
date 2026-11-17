@@ -172,5 +172,6 @@
   "item.de-dm51-crate": "Hand grenade crate (20)",
   "vehicle.de.hx2-truck": "HX2 truck (UTF 5 t)",
   "item.de-hx2-diesel": "Diesel (HX2 tank)",
-  "item.de-jerrycan": "Fuel can (20 l)"
+  "item.de-jerrycan": "Fuel can (20 l)",
+  "item.de-dokumente": "Documents (Dokumente: map, orders, notebook)"
 }

@@ -27,12 +27,12 @@ import { HELP_SECTIONS } from "./mapfeel";
 import { createSupportPopup, type SupportOffer } from "./support";
 
 /** (Step fire-support, S11: one "support" mode for mortar fire; HE or smoke is picked in a pop-up at the point.) */
-export type OrderMode = "move" | "assault" | "withdraw" | "occupy" | "clear" | "fire" | "antitank" | "grenade" | "grenades" | "smoke" | "support" | "arc" | "supply";
+export type OrderMode = "move" | "assault" | "withdraw" | "occupy" | "clear" | "fire" | "antitank" | "grenade" | "grenades" | "smoke" | "support" | "arc" | "supply" | "prisoners";
 /** The two order groups of the slim bar (S4): Move and its variants, Fire and the weapons. */
 export type OrderGroup = "move" | "fire";
-export const GROUP_OF: Readonly<Record<OrderMode, OrderGroup>> = { move: "move", assault: "move", withdraw: "move", occupy: "move", clear: "move", fire: "fire", antitank: "fire", grenade: "fire", grenades: "fire", smoke: "fire", support: "fire", arc: "fire", supply: "move" };
-const MODE_ICON: Readonly<Record<OrderMode, string>> = { move: "move", assault: "assault", withdraw: "withdraw", occupy: "occupy", clear: "clear", fire: "fire", antitank: "antitank", grenade: "grenade", grenades: "grenades", smoke: "smoke", support: "support", arc: "arc", supply: "supply" };
-const MODE_KEY: Readonly<Record<OrderMode, string>> = { move: "order.move", assault: "order.assault", withdraw: "order.withdraw", occupy: "order.occupy", clear: "order.clear", fire: "order.fire", antitank: "order.antitank", grenade: "order.grenade", grenades: "order.grenades", smoke: "order.smoke", support: "order.support", arc: "order.arc", supply: "order.supplyPoint" };
+export const GROUP_OF: Readonly<Record<OrderMode, OrderGroup>> = { move: "move", assault: "move", withdraw: "move", occupy: "move", clear: "move", fire: "fire", antitank: "fire", grenade: "fire", grenades: "fire", smoke: "fire", support: "fire", arc: "fire", supply: "move", prisoners: "move" };
+const MODE_ICON: Readonly<Record<OrderMode, string>> = { move: "move", assault: "assault", withdraw: "withdraw", occupy: "occupy", clear: "clear", fire: "fire", antitank: "antitank", grenade: "grenade", grenades: "grenades", smoke: "smoke", support: "support", arc: "arc", supply: "supply", prisoners: "prisoners" };
+const MODE_KEY: Readonly<Record<OrderMode, string>> = { move: "order.move", assault: "order.assault", withdraw: "order.withdraw", occupy: "order.occupy", clear: "order.clear", fire: "order.fire", antitank: "order.antitank", grenade: "order.grenade", grenades: "order.grenades", smoke: "order.smoke", support: "order.support", arc: "order.arc", supply: "order.supplyPoint", prisoners: "order.prisonerPoint" };
 export interface UnitRules {
   fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max"; /** Anti-tank weapons on their own (M7.4a). */ at: "vehicles" | "vehiclesAndPositions" | "hold";
   /** The range of an ambush laid and not yet sprung (D4b); 0 or absent: none. */
@@ -75,6 +75,9 @@ export interface HudCallbacks {
   /** M11.4b: "Restock" (the selected crew's hull goes back for ammunition). */
   onSupplyRun?(): void;
   onSendBearers?(): void;
+  /** M11.9a: "Escort prisoners" (the selected unit's prisoners waiting get escorts now) and "Release guard". */
+  onEscortPrisoners?(): void;
+  onReleaseGuard?(): void;
   onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
@@ -371,11 +374,11 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       g.main.classList.toggle("locked", mine && locked === m);
       g.main.title = `${s.t(MODE_KEY[shown])}${mine && locked === m ? ` · ${s.t("order.lockedHint")}` : shown !== "move" ? ` · ${s.t("order.lockHint")}` : ""}`;
     }
-    hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : m === "clear" ? "plan.tapClear" : m === "support" ? "plan.support" : m === "smoke" ? "plan.tapSmoke" : m === "arc" ? "plan.tapArc" : m === "supply" ? "plan.tapSupply" : "plan.tapTarget");
+    hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : m === "clear" ? "plan.tapClear" : m === "support" ? "plan.support" : m === "smoke" ? "plan.tapSmoke" : m === "arc" ? "plan.tapArc" : m === "supply" ? "plan.tapSupply" : m === "prisoners" ? "plan.tapPrisoners" : "plan.tapTarget");
   };
   const moveG = group("move", "move"), fireG = group("fire", "fire");
   // (M11.3: Supply point — a tap on the map puts the platoon's supply point there.)
-  for (const m of ["move", "assault", "withdraw", "occupy", "clear", "supply"] as const) trayMode(moveG, m);
+  for (const m of ["move", "assault", "withdraw", "occupy", "clear", "supply", "prisoners"] as const) trayMode(moveG, m);
   const postureBtns = (["standing", "crouching", "prone"] as const).map((p) => trayAction(moveG, p, `order.posture.${p}`, "posture", () => cb.onPosture(p)));
   // (D4b: Defend arc — a tap on the map sets where the arc faces.)
   for (const m of ["fire", "antitank", "grenade", "grenades", "smoke", "support", "arc"] as const) trayMode(fireG, m);
@@ -416,13 +419,20 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const supplyRunBtn = verb("supplyRun", "order.supplyRun", "supplyRun", () => cb.onSupplyRun?.());
   supplyRunBtn.title = s.t("order.supplyRunTitle");
   supplyRunBtn.hidden = true;
+  // (M11.9a: prisoners.)
+  const escortBtn = verb("escort", "order.escortPrisoners", "escortPrisoners", () => cb.onEscortPrisoners?.());
+  escortBtn.title = s.t("order.escortPrisonersTitle");
+  escortBtn.hidden = true;
+  const releaseBtn = verb("releaseGuard", "order.releaseGuard", "releaseGuard", () => cb.onReleaseGuard?.());
+  releaseBtn.title = s.t("order.releaseGuardTitle");
+  releaseBtn.hidden = true;
   mountBtn.hidden = true; dismountBtn.hidden = true; dischargeBtn.hidden = true; natureBtn.hidden = true;
   // Display order in the bar; and the order in which items move behind "⋯" when the strip is too short.
-  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn];
-  const OVERFLOW_FIRST = ["callDelivery", "supplyRun", "bearers", "resupplyAt", "takeKit", "callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
+  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn, escortBtn, releaseBtn];
+  const OVERFLOW_FIRST = ["releaseGuard", "escortPrisoners", "callDelivery", "supplyRun", "bearers", "resupplyAt", "takeKit", "callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
   const allButtons = (): HTMLButtonElement[] => [...dock.querySelectorAll("button")];
   orders.append(grip, ...barItems, moreBtn);
-  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
+  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn, escortBtn, releaseBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
 
   // ---- plan bar (S3: the pace of the next leg is chosen on the unit card)
   const plan = el("div", "hud-plan");
@@ -732,6 +742,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true; repairBtn.hidden = set.repair !== true; takeKitBtn.hidden = set.takeKit !== true; resupplyBtn.hidden = set.resupply !== true; fetchAmmoBtn.hidden = set.fetchAmmo !== true;
       recoverBtn.hidden = set.recover !== true;
       deliveryBtn.hidden = set.delivery !== true; supplyRunBtn.hidden = set.supplyRun !== true;
+      escortBtn.hidden = set.escortPrisoners !== true; releaseBtn.hidden = set.releaseGuard !== true;
       if (set.delivery === true) deliveryBtn.title = s.t("order.callDeliveryTitle", { n: set.deliveryLeft ?? 0 });
       if (set.recover === true) recoverBtn.title = s.t("order.recoverTitle", { n: set.recoverLeft ?? 0 });
       dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;

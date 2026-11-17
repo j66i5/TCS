@@ -60,6 +60,8 @@ export function isOut(s: Man): boolean {
 /** His status for the roster, the review and the result: killed > captured > surrendered > incapacitated > wounded > fit. */
 export function rosterStatus(s: Man): "fit" | "wounded" | "incapacitated" | "surrendered" | "captured" | "killed" | "evacuated" {
   if (!s.physiology.alive) return "killed";
+  // (M11.9: a prisoner taken back by his captors' ambulance stays "captured".)
+  if (s.captive !== null && s.evacuated !== undefined) return s.captive.state;
   // (M10.6a: taken off the map by ambulance; the aid station's outcome comes in M10.6b.)
   if (s.evacuated !== undefined) return "evacuated";
   if (s.captive !== null) return s.captive.state;

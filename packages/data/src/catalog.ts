@@ -1,5 +1,5 @@
 /** Turns a validated DataSet into the Catalog the simulation runs with. */
-import { canonicalJson, hashText, PI, type BodyDef, type Catalog, type FactionDef, type ItemTypeDef, type MedicalDef, type MovementModeDef, type RecoveryDef, type RepairDef, type SupplyDef, type TerrainCatalog, type VehicleDef } from "@tcs/sim";
+import { canonicalJson, hashText, PI, type BodyDef, type Catalog, type FactionDef, type ItemTypeDef, type MedicalDef, type MovementModeDef, type RecoveryDef, type RepairDef, type SupplyDef, type PrisonersDef, type TerrainCatalog, type VehicleDef } from "@tcs/sim";
 import type { MedicalT, VehicleT } from "./schemas";
 import type { DataSet } from "./loader";
 
@@ -18,6 +18,9 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     if (Object.keys(medRoles).length > 0) factions[fid]!.medicalRoles = medRoles;
     if (pack.doctrine.fireSupport) factions[fid]!.fireSupport = { ...pack.doctrine.fireSupport };
     if (pack.doctrine.artillery) factions[fid]!.artillery = { ...pack.doctrine.artillery };
+    const codes: Record<string, string> = {};
+    for (const r of Object.values(pack.ranks).sort((a, b) => (a.id < b.id ? -1 : 1))) if (r.natoCode !== undefined) codes[r.id] = r.natoCode;
+    if (data.prisoners && Object.keys(codes).length > 0) factions[fid]!.natoCodes = codes;
     if (pack.doctrine.identityTag) { const g = pack.doctrine.identityTag; factions[fid]!.identityTag = { item: g.item, perMan: g.perMan, taken: g.taken }; }
     if (pack.doctrine.dismount) {
       factions[fid]!.dismountM = pack.doctrine.dismount.distanceM;
@@ -44,6 +47,8 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.tracerItem !== undefined && it.tracerEvery !== undefined) { d.tracerItem = it.tracerItem; d.tracerEvery = it.tracerEvery; }
       if (it.medical !== undefined) d.medical = { tags: [...it.medical.tags], timeFactor: it.medical.timeFactor, successFactor: it.medical.successFactor };
       if (it.emblem === true) d.emblem = true;
+      if (it.prisonerKeeps === true) d.prisonerKeeps = true;
+      if (it.documents === true) d.documents = true;
       items[it.id] = d;
     }
   }
@@ -86,7 +91,8 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
   const repair = data.repair ? noProv(data.repair.repair) as RepairDef : undefined;
   const recovery = data.repair?.recovery ? noProv(data.repair.recovery) as RecoveryDef : undefined;
   const supply = data.supply ? noProv(data.supply.supply) as SupplyDef : undefined;
-  const body = { ...(medical ? { medical } : {}), ...(repair ? { repair } : {}), ...(recovery ? { recovery } : {}), ...(supply ? { supply } : {}), items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, spotting, behaviour, ammo, ammoIds, weapons, vehicles };
+  const prisoners = data.prisoners ? noProv(data.prisoners.prisoners) as PrisonersDef : undefined;
+  const body = { ...(prisoners ? { prisoners } : {}), ...(medical ? { medical } : {}), ...(repair ? { repair } : {}), ...(recovery ? { recovery } : {}), ...(supply ? { supply } : {}), items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, spotting, behaviour, ammo, ammoIds, weapons, vehicles };
   return { fingerprint: hashText(canonicalJson(body)), ...body };
 }
 

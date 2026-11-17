@@ -73,7 +73,7 @@ import { coveredFrom } from "./decisions";
 import { detonate } from "./explosions";
 import { isCowering } from "./morale";
 import { tubeOf } from "./mortars";
-import { nestOf, sitePoint, supplyPointOf, topOf } from "./nest";
+import { nestOf, prisonerPointOf, sitePoint, supplyPointOf, topOf } from "./nest";
 
 type Supply = NonNullable<SimContext["catalog"]["supply"]>;
 
@@ -188,6 +188,13 @@ export function siteSupply(ctx: SimContext, state: SimState, top: EntityId): { x
   if (!S) return null;
   const nid = nestOf(state, top);
   const nest = nid === null ? undefined : state.rear.req(nid);
+  // (M11.9: nor within `prisoners.pcp.apartM` of its prisoner collection point.)
+  const pp = prisonerPointOf(state, top), PA = ctx.catalog.prisoners?.pcp.apartM ?? 0;
+  if (pp !== null && PA > 0) {
+    const q = state.rear.req(pp), zones = [{ x: q.x, y: q.y, r: PA }];
+    if (nest) zones.push({ x: nest.x, y: nest.y, r: S.nestApartM });
+    return sitePoint(ctx, state, top, S.site, zones);
+  }
   return sitePoint(ctx, state, top, S.site, nest ? { x: nest.x, y: nest.y, r: S.nestApartM } : undefined);
 }
 
@@ -724,7 +731,7 @@ export function roundsOfMan(ctx: { catalog: SimContext["catalog"] }, state: SimV
 }
 
 /** The squad's able men on foot (its own members, ascending id). */
-function footMen(state: SimState, uid: EntityId): EntityId[] {
+export function footMen(state: SimState, uid: EntityId): EntityId[] {
   const out: EntityId[] = [];
   for (const m of state.unit.get(uid)?.members ?? []) {
     const s = state.soldier.get(m);
@@ -882,9 +889,10 @@ export function loadFor(ctx: SimContext, state: SimState, uid: EntityId, point: 
 /** Can he be an ammunition bearer: able, free, not a leader, a gunner, a medic or first responder (they would lose
  *  their protection), not a crew-served weapon's man. `ownFire`: a man firing on his own (not on an order) may go (his
  *  squad's or the headquarters' man: one rifle less for a few minutes). */
-function bearerOk(ctx: SimContext, state: SimState, id: EntityId, ownFire = false): boolean {
+export function bearerOk(ctx: SimContext, state: SimState, id: EntityId, ownFire = false): boolean {
   const s = state.soldier.get(id);
-  if (!s || !isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.evade !== null || s.captive !== null || state.action.has(id)) return false;
+  // (M11.9: nor a man escorting or guarding prisoners.)
+  if (!s || s.guard !== undefined || !isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.evade !== null || s.captive !== null || state.action.has(id)) return false;
   const f = state.fire.get(id);
   if ((s.intent !== null && s.intent.kind !== "cover" && s.intent.kind !== "engage") || (f !== undefined && !(ownFire && f.self === true)) || s.carrying !== undefined || s.atNest !== undefined || state.tick < s.stunnedUntilTick) return false;
   if (s.mental.behaviour === "panicked" || s.mental.behaviour === "routed" || s.mental.behaviour === "pinned") return false;

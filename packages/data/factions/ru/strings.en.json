@@ -196,5 +196,6 @@
   "item.ru-rgd5-crate": "Hand grenade crate (20)",
   "vehicle.ru.ural4320": "Ural-4320",
   "item.ru-ural-diesel": "Diesel (Ural tank)",
-  "item.ru-jerrycan": "Fuel can (20 l)"
+  "item.ru-jerrycan": "Fuel can (20 l)",
+  "item.ru-dokumenty": "Documents (dokumenty: map, orders, notebook)"
 }

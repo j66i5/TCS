@@ -98,6 +98,9 @@ interface Row {
   supply: Record<string, SideRecord["supply"]>;
   /** M11.8: `BattleResult.logistics` (per side: consumed, delivered, captured, destroyed). */
   logistics: BattleResult["logistics"];
+  /** M11.9a per holding side: prisoners taken, searched, held at a collection point, escorts sent, and minutes its men
+   *  spent on prisoner duty (escorting and guarding: men out of the fight). */
+  pow: Record<string, { taken: number; searched: number; held: number; escorts: number; dutyMin: number }>;
   /** M11.8 per side: the orders `supplyPoint` and `resupplyAt` in the order stream (the commander's logistics and the player's). */
   supplyOrders: Record<string, { points: number; errands: number }>;
   role1: Record<string, SideRecord["role1"]>;
@@ -134,6 +137,8 @@ for (let i = 0; i < runs; i++) {
   const m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number }> = { blue: { lifeThreat: 0, preventable: 0, killedAfter: 0 }, red: { lifeThreat: 0, preventable: 0, killedAfter: 0 } };
   const threatened = new Set<number>(), died = new Set<number>();
   const prot: Row["prot"] = {};
+  const pow: Row["pow"] = { blue: { taken: 0, searched: 0, held: 0, escorts: 0, dutyMin: 0 }, red: { taken: 0, searched: 0, held: 0, escorts: 0, dutyMin: 0 } };
+  const other = (side: string) => (side === "blue" ? "red" : "blue");
   // M10.5: who is to be taken back at the last look (living, not captured; at the nest counts).
   let evacEnd: { id: number; side: string }[] = [];
   // M7.6b: vehicles by type, the last penetrating hit on each hull (shooter label), tiles used, tank gun rounds.
@@ -169,6 +174,12 @@ for (let i = 0; i < runs; i++) {
     controllers: ctls,
     onEvents: (ev) => {
       pending = ev; houses.onEvents(ev);
+      for (const e of ev) {
+        if (e.kind === "captured") { const k = pow[other(e.side)]; if (k) k.taken++; }
+        else if (e.kind === "pow.searched") { const k = pow[other(e.side)]; if (k) k.searched++; }
+        else if (e.kind === "pow.held") { const k = pow[other(e.side)]; if (k) k.held++; }
+        else if (e.kind === "pow.escort") { const k = pow[e.side]; if (k) k.escorts++; }
+      }
       for (const e of ev) if (e.kind === "protection.recognised") { const p = prot[e.side] ??= { marked: 0, carrying: 0, atPoint: 0, markedM: [] }; if (e.marked) { p.marked++; p.markedM.push(e.rangeM); } if (e.carrying) p.carrying++; if (e.atPoint) p.atPoint++; }
     },
     onTick: (sim) => {
@@ -195,6 +206,9 @@ for (let i = 0; i < runs; i++) {
         }
       }
       if (sim.state.tick % 60 === 0) {
+        // (M11.9a: men on prisoner duty, counted each second.)
+        // mounted: ok a man on duty is on foot
+        for (const [id, s] of sim.state.soldier.entries()) if (s.guard !== undefined) { const k = pow[sideOfSoldier(sim, id) ?? ""]; if (k) k.dutyMin += 1 / 60; }
         evacEnd = [];
         for (const [id, s] of sim.state.soldier.entries()) if (s.physiology.alive && s.captive === null && (needsEvacuation(s) || s.atNest !== undefined)) evacEnd.push({ id, side: sideOfSoldier(sim, id) ?? "" });
       }
@@ -262,6 +276,7 @@ for (let i = 0; i < runs; i++) {
     recovery: perSide((x) => x.recovery),
     supply: perSide((x) => x.supply),
     logistics: r.logistics,
+    pow,
     supplyOrders: Object.fromEntries(["blue", "red"].map((x) => [x, { points: r.orders.filter((o) => o.issuer === x && o.kind === "supplyPoint").length, errands: r.orders.filter((o) => o.issuer === x && o.kind === "resupplyAt").length }])),
     role1: perSide((x) => x.role1),
     settled: perSide((x) => x.settled),
@@ -303,6 +318,7 @@ const md = [
   `- Mean orders per battle: ${mean(rows.map((r) => r.orders)).toFixed(1)}`,
   `- Mean casualties per side: ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.casualties[s] ?? 0)).toFixed(2)}`).join(", ")}`,
   `- Mean surrendered or taken prisoner per side: ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.prisoners[s] ?? 0)).toFixed(2)}`).join(", ")}`,
+  `- Prisoners held per battle (M11.9a; by the holding side): ${["blue", "red"].map((s) => `${s} taken in battle ${mean(rows.map((r) => r.pow[s]?.taken ?? 0)).toFixed(2)}, searched ${mean(rows.map((r) => r.pow[s]?.searched ?? 0)).toFixed(2)}, at the collection point ${mean(rows.map((r) => r.pow[s]?.held ?? 0)).toFixed(2)}, escorts sent ${mean(rows.map((r) => r.pow[s]?.escorts ?? 0)).toFixed(2)}, guard and escort minutes ${mean(rows.map((r) => r.pow[s]?.dutyMin ?? 0)).toFixed(1)}`).join("; ")}`,
   "",
   `- Winners: ${["blue", "red"].map((w) => `${w} ${rows.filter((r) => r.winner === w).length}`).join(", ")}, draw ${rows.filter((r) => r.winner === null).length}; mean score ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.scores[s] ?? 0)).toFixed(1)}`).join(", ")}`,
   "(Winner and score: objectives held at the end minus men down, M6; without objectives every battle is a draw.)",

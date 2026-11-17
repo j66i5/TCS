@@ -430,6 +430,13 @@ for the owner's numbers answer after playing, not for more building).
     quiet squad's shortest half to an own cache in reach), the review's Logistics tab (fired by weapon type, delivered,
     taken, captured and lost, requests and waits, dry men, fuel; the M11.6-M11.7 rows moved there), batch logistics
     columns, `BattleResult.logistics`; balance on hold-resupply (DECISIONS "M11.8")
+  - ✅ **M11.9a (slice 53)** prisoners: the platoon's prisoner collection point (sited behind it, hidden, wheeled-reachable,
+    50 m from its nest and supply point, 250 m from known enemies, moved back when threatened; `prisonerPoint`), the
+    search (30 s a man: weapons, ammunition, radios, sights, documents taken as counted items; `prisonerKeeps` items
+    kept; overflow into a captured cache at the point), groups by NATO rank code kept apart, escorts (one per 4 of one
+    group, the bearer filter, not under fire or in an assault; `escortPrisoners`), guards (one per 6, self-defence
+    only; `releaseGuard`), wounded prisoners carried to the captors' nest and evacuated with their wounded; card and
+    man-box lines, the point's marker; `lab -- prisoners`, `--scene prisoners` (DECISIONS "M11.9a")
   - **Military police and prisoners of war** (owner request 2026-11-15; plan `docs/plans/m11-mp-pow.md`, slices 53-55; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

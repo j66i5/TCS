@@ -15,6 +15,7 @@ import { endRepairByOrder, repairOrder } from "./repair";
 import { callRecoveryOrder, towGate } from "./recovery";
 import { kitSource, takeKitOrder } from "./consolidate";
 import { resupplyAtOrder, sendBearers, supplyPointOrder } from "./supply";
+import { escortPrisonersOrder, prisonerPointOrder, releaseGuardOrder } from "./prisoners";
 import { aglOf, crewServedKind, startSetup } from "./mortars";
 import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
@@ -179,6 +180,18 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.own !== undefined && typeof o.own !== "boolean") return "invalid-params";
       if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
       return ctx.catalog.supply?.bearers && ctx.rules.resupply !== false ? null : "not-applicable";
+    case "prisonerPoint":
+      // (M11.9: the target's platoon.)
+      if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
+      if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
+      return ctx.catalog.prisoners ? null : "not-applicable";
+    case "escortPrisoners":
+      if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
+      return ctx.catalog.prisoners ? null : "not-applicable";
+    case "releaseGuard":
+      if (o.confirm !== undefined && typeof o.confirm !== "boolean") return "invalid-params";
+      if (!state.unit.has(o.target) && !state.soldier.has(o.target)) return "invalid-params";
+      return ctx.catalog.prisoners ? null : "not-applicable";
     case "callDelivery":
       // (M11.4b) A unit (its platoon calls), or a man of one; a vehicle named must exist.
       if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
@@ -356,7 +369,7 @@ function hesitationTicks(ctx: SimContext, state: SimState, p: PendingOrder): num
   const men = (own ? [...state.unit.req(o.target).members].sort((a, b) => a - b) : isUnit ? reachedSoldiers(state, o.target) : [o.target]).filter((m) => {
     const s = state.soldier.get(m);
     return isAble(s) && s!.mental.behaviour !== "routed" && s!.mount === undefined
-      && !(isUnit && (s!.intent?.kind === "care" || s!.carrying !== undefined || s!.atNest !== undefined));
+      && !(isUnit && (s!.intent?.kind === "care" || s!.carrying !== undefined || s!.atNest !== undefined)) && s!.guard === undefined;
   });
   if (men.length === 0) return 0;
   let shaken = 0, supp = 0;
@@ -449,6 +462,10 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     const men = isUnit ? (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : unitSoldiers(state, order.target)) : [order.target];
     return takeKitOrder(ctx, state, events, men, order.source);
   }
+  // Prisoners (M11.9): the platoon's collection point, escorts now, a guard released; nothing else of the unit changes.
+  if (order.kind === "prisonerPoint") { const r = prisonerPointOrder(ctx, state, events, order.target, order.x, order.y); return r === true ? true : r === false ? "unable" : r; }
+  if (order.kind === "escortPrisoners") return escortPrisonersOrder(ctx, state, events, order.target);
+  if (order.kind === "releaseGuard") return releaseGuardOrder(ctx, state, events, order.target, order.confirm === true);
   // Supply points and caches (M11.3): the platoon's point; the men's errand to a cache (only men on foot go).
   if (order.kind === "supplyPoint") { const r = supplyPointOrder(ctx, state, events, order.target, order.x, order.y); return r === true ? true : r === false ? "unable" : r; }
   // Ammunition bearers (M11.4a): the platoon's errand; nothing else of the unit changes.
@@ -511,7 +528,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // mounted: ok what men aboard know counts too
       const men = (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : isUnit ? reachedSoldiers(state, order.target) : [order.target])
         .filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed"
-          && !(isUnit && order.kind !== "callFire" && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)));
+          && !(isUnit && order.kind !== "callFire" && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)) && state.soldier.get(s)!.guard === undefined);
       const named = order.kind === "fire" ? order.contact : undefined;
       if (refusesFireAt(state, men, order.x, order.y, named, order.kind === "callFire" ? P.missionSpareM : P.aimSpareM)) return { unable: "radio.refuseProtected" };
     }
@@ -546,7 +563,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // his unit pass him by (an order to him alone ends the errand, below).
   // (M11.6 review fix: men of a sub-unit off the net do not hear an order to a unit above them.)
   const soldiers = (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : isUnit ? reachedSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined
-    && !(isUnit && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.intent?.kind === "bear" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)));
+    && !(isUnit && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.intent?.kind === "bear" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined))
+    // (M11.9: a man escorting or guarding prisoners takes no orders but "Release guard", to him or his unit.)
+    && state.soldier.get(s)!.guard === undefined);
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
   // An order ends a walk to take a prisoner (M6.6): orders always win.

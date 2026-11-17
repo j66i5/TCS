@@ -30,6 +30,10 @@
             {
               "item": "de-dm51",
               "count": 2
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -222,6 +226,10 @@
               "item": "de-556-bandolier",
               "count": 1,
               "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -771,6 +779,10 @@
               "item": "de-556-bandolier",
               "count": 1,
               "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -1054,6 +1066,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -1132,6 +1148,10 @@
             },
             {
               "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-dokumente",
               "count": 1
             }
           ],
@@ -1218,6 +1238,10 @@
             },
             {
               "item": "de-armband",
+              "count": 1
+            },
+            {
+              "item": "de-dokumente",
               "count": 1
             }
           ],
@@ -1387,6 +1411,10 @@
             {
               "item": "de-120-smoke",
               "count": 4
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ]
         },
@@ -1577,6 +1605,10 @@
               "item": "de-40x53-belt",
               "count": 1,
               "charge": 32
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ]
         },
@@ -1709,6 +1741,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -1825,6 +1861,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -1883,6 +1923,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -1940,6 +1984,10 @@
             },
             {
               "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-dokumente",
               "count": 1
             }
           ],
@@ -2065,6 +2113,10 @@
               "item": "de-556-bandolier",
               "count": 1,
               "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -2783,6 +2835,10 @@
               "item": "de-556-bandolier",
               "count": 1,
               "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -3070,6 +3126,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -3147,6 +3207,10 @@
             },
             {
               "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-dokumente",
               "count": 1
             }
           ],

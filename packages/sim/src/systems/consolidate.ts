@@ -63,7 +63,7 @@ function spare(c: Container | undefined, type: DefId): number {
 function freeMan(state: SimState, id: EntityId): boolean {
   const s = state.soldier.get(id);
   if (!s || !isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.evade !== null || state.action.has(id)) return false;
-  if ((s.intent !== null && s.intent.returning !== true) || state.fire.has(id) || s.carrying !== undefined || s.atNest !== undefined || state.tick < s.stunnedUntilTick) return false;
+  if ((s.intent !== null && s.intent.returning !== true) || state.fire.has(id) || s.carrying !== undefined || s.atNest !== undefined || s.guard !== undefined || state.tick < s.stunnedUntilTick) return false;
   if (s.mental.behaviour === "panicked" || s.mental.behaviour === "routed" || s.mental.behaviour === "pinned") return false;
   return s.intent?.returning === true || (state.mover.get(id)?.waypoints.length ?? 0) === 0;
 }

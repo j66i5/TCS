@@ -1,10 +1,22 @@
 # State — handover note
 
-_Last updated: 2026-11-17 (balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-17 (M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.9a (slice 53) built (2026-11-17, branch `claude/m11-mp`; plan `docs/plans/m11-mp-pow.md`).** Prisoners of war:
+  a platoon taking a prisoner sets up a prisoner collection point (150 m back, hidden, wheeled-reachable, 50 m from
+  its nest and supply point both ways, 250 m from known enemies, moved back when one comes near; `prisonerPoint`);
+  once its squad has been quiet 30 s an escort (one per 4 of one group, the bearer filter) searches each prisoner
+  (30 s: weapon, ammunition, radios, sights, batteries, documents taken as counted items, `prisonerKeeps` kit kept;
+  what he took beyond 15 kg into a captured cache at the point) and walks them back 3-5 m behind at their pace; groups
+  officer / NCO / man by NATO rank code, 10 m apart; one guard per 6 stays, out of the fight (self-defence within 50
+  m); wounded prisoners who cannot walk are carried to the captors' nest and evacuated with their wounded. Orders
+  `escortPrisoners`, `releaseGuard`; card and man-box lines; the point's marker; documents for every leader; weapon
+  items for MG5, G28, PKP, SVD. `lab -- prisoners` 40 of 40 on every check; batches within noise; goldens regenerated.
+  Owner questions Q2, Q3, Q8 built with option (a) for review. Numbers in DECISIONS "M11.9a". Slice 54 (the MP team,
+  roster and result) next.
 - **Balance pass after M11 (2026-11-17, branch `claude/balance-m11`; owner: "Rebalance next").** The platoon battle's
   defender is now a prepared defence (`rules.prepared`, the hold battle's fighting positions dug where the commander
   sites its men in the first 60-90 s; `ScenarioDef.prepared: false` for the old open defence). 20 seeds x 1,200 s,
@@ -459,6 +471,15 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+- M11.9a prisoners (2026-11-17; plan `docs/plans/m11-mp-pow.md` section 6): built with the recommended option, to be
+  confirmed: **Q2** search automatic for every prisoner, kit to the searcher, beyond 15 kg into a captured cache at the
+  point; **Q3** one escort per 4 on the move, one guard per 6 at the point; **Q8** guards fire only in self-defence
+  within 50 m. Still open for slices 54-56: Q1 (prisoners are rare: leave / collect wounded enemies / more
+  surrenders), Q4 MP vehicles, Q5 escapes, Q6 MP delay, Q7 surrendered-never-taken at the end. New low data:
+  `core/prisoners.json` (point 150 m back (100-200), 50 m apart, 250 m from the enemy; search 30 s, 15 kg; groups 10 m
+  apart; guard 5 m off), documents 0.3 kg per leader; NCOs from OR-5 (the Russian mladshiy serzhant, OR-4 in the data,
+  counts as a man: should OR-4 be NCO?). A defence under fire never sends escorts (30 s quiet rule): its prisoners wait
+  where they were taken until it is quiet or the player orders "Escort prisoners".
 - M11.5 re-arming and refuelling (2026-11-17; new data low: `de-jerrycan` 4.2 kg / `ru-jerrycan` 4.5 kg empty, 20 l;
   core/supply.json `rearm` (60 s to start, 1.2 s a kg, quiet 20 s, ask below 50 %, drive up to 300 m), `refuel` (cans
   20 l a minute, pump 100 l a minute, 60 s set-up, ask below 25 %, truck keeps 100 l), `mortarFetch` (below 10 rounds,

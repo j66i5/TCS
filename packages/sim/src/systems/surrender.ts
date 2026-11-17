@@ -227,7 +227,7 @@ function handOverTarget(ctx: SimContext, state: SimState, id: EntityId, s: Soldi
 /**
  * Under fire, out of the line of fire (header "crawl"): true while he crawls to cover (started now or on his way).
  */
-function crawlOutOfFire(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState): boolean {
+export function crawlOutOfFire(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState): boolean {
   const R = ctx.catalog.behaviour.surrender, D = ctx.catalog.behaviour.decisions, crawl = ctx.catalog.behaviour.soldier.crawlMode;
   const m = state.mover.get(id);
   if (!m || !(R.crawlSearchM !== undefined && R.crawlSearchM > 0) || !ctx.catalog.movementModes[crawl]) return false;
@@ -344,6 +344,8 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
         const by = captor(ctx, state, id);
         if (by !== null) {
           s.captive.state = "captured";
+          // (M11.9: who holds him, and whose man took him: his escort, collection point and nest come from there.)
+          if (ctx.catalog.prisoners) { const bi = state.identity.req(by); s.captive.by = bi.side; s.captive.unit = bi.unit; }
           // He stops where he is; his captor, if idle, turns to cover him.
           if (s.handOver) { delete s.handOver; halt(state, id); }
           const bm = state.mover.get(by);
@@ -365,7 +367,7 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
           const seen = secondsToTicks(D.seenWithinSeconds);
           let best: EntityId | null = null, bestD = Infinity;
           for (const [m, ms] of state.soldier.entries()) {
-            if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms) || ms.intent !== null || ms.evade !== null) continue;
+            if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms) || ms.intent !== null || ms.evade !== null || ms.guard !== undefined) continue;
             if (ms.mental.suppression >= D.underFireSuppression || state.fire.has(m) || state.action.has(m)) continue;
             if ((state.mover.get(m)?.waypoints.length ?? 0) > 0) continue;
             const c = ms.contacts.find((k) => k.target === id);

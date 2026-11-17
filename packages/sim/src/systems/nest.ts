@@ -41,6 +41,7 @@ import { bearersBack, endCarry, startCarry } from "./carry";
 import { inPosition } from "../positions";
 import { coveredFrom } from "./decisions";
 import { assignCarer, careEnabled, releaseCarer, treatedNow, underFireForCare } from "./medical";
+import { prisonerForNest } from "./prisoners";
 
 /** Eight directions for the search rings around the nest's ideal spot. */
 const DIRS: readonly (readonly [number, number])[] = [[1, 0], [0.7071, 0.7071], [0, 1], [-0.7071, 0.7071], [-1, 0], [-0.7071, -0.7071], [0, -1], [0.7071, -0.7071]];
@@ -71,6 +72,11 @@ export function nestFor(state: SimState, target: EntityId): EntityId | null {
   return uid === undefined ? null : nestOf(state, topOf(state, uid));
 }
 
+/** Is he to be taken to a nest: an own casualty (`needsEvacuation`) or a prisoner who cannot walk (M11.9)? */
+function needsNest(s: SoldierState): boolean {
+  return s.captive === null ? needsEvacuation(s) : prisonerForNest(s);
+}
+
 /** Is he leading a unit? */
 function leads(state: SimState, id: EntityId): boolean {
   const u = state.identity.get(id)?.unit;
@@ -81,7 +87,7 @@ function leads(state: SimState, id: EntityId): boolean {
 function freeMan(state: SimState, id: EntityId, s: SoldierState): boolean {
   if (!isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.evade !== null || state.action.has(id)) return false;
   if (s.intent !== null && s.intent.kind !== "engage" && s.intent.kind !== "cover") return false;
-  if (s.carrying !== undefined || s.atNest !== undefined || state.tick < s.stunnedUntilTick) return false;
+  if (s.carrying !== undefined || s.atNest !== undefined || s.guard !== undefined || state.tick < s.stunnedUntilTick) return false;
   return s.mental.behaviour !== "panicked" && s.mental.behaviour !== "routed";
 }
 
@@ -100,7 +106,16 @@ export function siteNest(ctx: SimContext, state: SimState, top: EntityId): { x: 
     const t = state.transform.req(k);
     avoid.push({ x: t.x, y: t.y, r: S.nestClearM + 1 });
   }
+  // (M11.9: nor within `prisoners.pcp.apartM` of its prisoner collection point.)
+  const pp = prisonerPointOf(state, top), PA = ctx.catalog.prisoners?.pcp.apartM ?? 0;
+  if (pp !== null && PA > 0) avoid.push({ x: state.rear.req(pp).x, y: state.rear.req(pp).y, r: PA });
   return sitePoint(ctx, state, top, ctx.catalog.medical!.nest!, avoid);
+}
+
+/** The prisoner collection point (a `rear` point of kind "prisoners") of top unit `top`, or null (M11.9). */
+export function prisonerPointOf(state: SimState, top: EntityId): EntityId | null {
+  for (const [id, p] of state.rear.entries()) if (p.kind === "prisoners" && p.unit === top) return id;
+  return null;
 }
 
 /** Does a container hold ammunition (rounds in a magazine or package, or whole rounds)? */
@@ -263,9 +278,11 @@ export function nestSystem(ctx: SimContext, state: SimState, events: EventSink):
   let groups: Map<EntityId, EntityId[]> | null = null;
   for (const [id, s] of state.soldier.entries()) {
     if (s.wounds.length === 0 || !s.physiology.alive) continue;
-    if (isMounted(s) || s.captive !== null) { if (s.atNest !== undefined) delete s.atNest; continue; }
-    if (s.atNest === undefined && !needsEvacuation(s)) continue;
-    const uid = state.identity.get(id)?.unit;
+    // (M11.9: a searched prisoner who cannot walk goes to the HOLDING platoon's nest, taken back with its own wounded.)
+    const pow = s.captive !== null && !isMounted(s) && prisonerForNest(s);
+    if (isMounted(s) || (s.captive !== null && !pow)) { if (s.atNest !== undefined) delete s.atNest; continue; }
+    if (s.atNest === undefined && !needsNest(s)) continue;
+    const uid = pow ? s.captive!.unit : state.identity.get(id)?.unit;
     if (uid === undefined) continue;
     const top = topOf(state, uid);
     const g = (groups ??= new Map()).get(top);
@@ -321,8 +338,8 @@ function stepPlatoon(ctx: SimContext, state: SimState, events: EventSink, top: E
   for (const c of wounded) {
     const s = state.soldier.req(c);
     if (s.atNest !== undefined && (s.atNest !== pid || !near(c, far2))) { delete s.atNest; continue; }
-    // Fit to fight again after care at the nest: back to his squad (returned to duty).
-    if (s.atNest === pid && !needsEvacuation(s) && isConscious(s)) {
+    // Fit to fight again after care at the nest: back to his squad (returned to duty). (A prisoner stays.)
+    if (s.atNest === pid && s.captive === null && !needsEvacuation(s) && isConscious(s)) {
       treating ??= treatedNow(state);
       if (treating.has(c)) continue;
       delete s.atNest;
@@ -333,7 +350,7 @@ function stepPlatoon(ctx: SimContext, state: SimState, events: EventSink, top: E
   // ---- taking them back: T1 first (the player's orders before all)
   const queue = wounded.filter((c) => {
     const s = state.soldier.req(c);
-    return s.atNest === undefined && needsEvacuation(s) && !state.carry.has(c) && s.carrying === undefined && state.tick >= (s.evacRetryTick ?? 0);
+    return s.atNest === undefined && needsNest(s) && !state.carry.has(c) && s.carrying === undefined && state.tick >= (s.evacRetryTick ?? 0);
   });
   if (queue.length > 0) {
     const busy = treatedNow(state);

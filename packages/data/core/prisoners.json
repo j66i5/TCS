@@ -1,0 +1,42 @@
+{
+  "prisoners": {
+    "stepS": 1,
+    "pcp": {
+      "backM": 150,
+      "searchM": 40,
+      "minBackM": 100,
+      "maxBackM": 200,
+      "apartM": 50,
+      "enemyM": 250,
+      "checkS": 10,
+      "arriveM": 2
+    },
+    "search": {
+      "seconds": 30,
+      "maxKg": 15,
+      "reachM": 2
+    },
+    "escort": {
+      "perGuard": 4,
+      "gapMinM": 3,
+      "gapMaxM": 5,
+      "quietS": 30,
+      "minLeft": 2
+    },
+    "guard": {
+      "perGuard": 6,
+      "standM": 5,
+      "selfDefenceM": 50
+    },
+    "segregation": {
+      "ncoFrom": "OR-5",
+      "apartM": 10
+    },
+    "sources": [
+      "https://www.globalsecurity.org/military/library/policy/army/fm/3-19-40/ch3.htm",
+      "https://www.icrc.org/en/doc/assets/files/publications/icrc-002-0173.pdf"
+    ],
+    "confidence": "low",
+    "note": "M11.9a (plan docs/plans/m11-mp-pow.md, slice 53). Research from search extracts only (pages could not be opened from the container), so nothing here is above medium, and every number is a game value (low). The order of the steps (search, segregate, speed to the rear, safeguard) follows the US/NATO 'five S' doctrine extracts (FM 3-19.40); the capturing unit guards its prisoners until relieved and takes them to a collecting point, non-walking wounded go to the nearest medical aid post (FM 3-19.40 extracts, medium). GC III art. 18 (extracts): personal effects, protective equipment and identity documents stay with him; weapons, military equipment and military documents are taken (item field prisonerKeeps). The collection point 100-200 m behind the platoon (backM 150), 50 m apart from the Verwundetennest and the supply point, 250 m from known enemies: plan values. The search 30 s a man, the searcher taking up to 15 kg (the rest into a captured cache at the point): plan values. One escort per 4 prisoners of one group on the move, one guard per 6 at the point: no sourced figure found (owner question Q3; the recommended option (a) built). A guard fires only in self-defence within 50 m (owner question Q8; option (a) built, the medic rule's gate). Officers OF-*, NCOs from OR-5 (NATO STANAG 2116 codes in ranks.json); a rank without a code counts as a man; groups 10 m apart at the point (plan). Segregation of officers from other ranks is GC III camp practice (art. 79/97 by memory, not confirmed by the extracts: low)."
+  }
+}

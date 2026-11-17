@@ -1269,6 +1269,46 @@ while your men see him now, otherwise as his contact marker with a white flag at
 flag fades with the marker). A surrendered or captured man costs his side the same as a man
 down. Your fire tap on an enemy your men know has surrendered gives no order.
 
+## Prisoners (M11.9a)
+
+What happens to a man once he has been taken prisoner (the Third Geneva Convention as the owner listed it: humane
+treatment, out of the combat zone as soon as possible, not exposed to fire, the wounded treated like one's own,
+officers, NCOs and men kept apart, searched for weapons and documents, personal effects kept). The same rules for
+both sides; the numbers are in `core/prisoners.json` (game values; the research came from search extracts only).
+
+- **The collection point.** When a platoon takes its first prisoner it sets up a prisoner collection point (a pale
+  disc with a small fenced square, "PW" and the number held there under it): about 150 m behind the platoon, away
+  from the enemy it knows and hidden from it, where a wheeled vehicle can drive in, never within 50 m of its
+  Verwundetennest or its supply point (and they keep 50 m from it), and never within 250 m of a known enemy. When
+  a known enemy comes within 250 m it is moved back and the prisoners and their guard walk to the new spot. You can
+  put it somewhere else with **Prisoner point** in the Move tray (refused next to the nest or the supply point).
+- **Groups.** Officers (NATO rank codes OF-), NCOs (OR-5 and up) and men each have their own spot at the point, 10 m
+  apart; a man whose rank has no NATO code counts as a man. One escort never walks two groups.
+- **Escorts.** Once the squad that took them has not been fired on for 30 seconds and is not in an assault, it
+  sends one man per four prisoners of a group (the capturing squad's own men first, then another squad of the
+  platoon that is not fighting). Never the leader, a machine gunner, a medic or first responder, a man carrying or
+  busy, and no squad is left with fewer than two other men. While men are still giving up close by, the escort waits
+  so that they go together. **Escort prisoners** on the card's bar sends escorts at once, even under fire.
+- **The search.** The escort searches each of his prisoners where they stand, 30 seconds a man (standing; fire
+  interrupts it and he goes on where he stopped). He takes the weapon (with the magazine in it), every magazine,
+  belt, round, grenade, rocket and launcher, the radio, goggles, thermal sight, drone and batteries, and the
+  **documents** every leader carries (team leader and up: map, orders, notebook). The prisoner keeps his helmet,
+  vest, load-carrying kit, water, rations, first-aid kit and medical items, identity tag, armband and rescue blanket.
+  Everything moves as counted items: nothing appears or vanishes. Whatever the escort took beyond 15 kg he puts
+  into a captured cache at the collection point when he gets there (your men can take from it).
+- **The walk back.** The searched prisoners walk ahead at the slow hands-up pace, the escort 3-5 m behind them at
+  the same pace. Under fire everyone goes down and the prisoners crawl out of the line of fire, then they go on.
+- **Guards.** At the point one man per six prisoners stays as a guard; the other escorts go back to their squad
+  leaders. A man escorting or guarding is out of the fight: he fires only in self-defence within 50 m, orders to his
+  squad pass him by (it fights one man short), and only **Release guard** sends him back (refused for the last guard
+  while an enemy is known within 250 m of the point, unless confirmed). The card shows "Prisoners 5 (1 officer,
+  1 NCO) · guard 1"; a man's box says "escorting 3 prisoners" or "guard (5 prisoners)".
+- **Wounded prisoners.** The captors' medics treat them by urgency like their own men; one who cannot walk is
+  searched where he lies, then carried by the platoon's bearers to **its** Verwundetennest and taken back with its
+  own wounded, by urgency alone. He stays "captured" in the roster.
+- **Not yet built** (slices 54-55): the military police team that comes to collect the prisoners, escapes, moving
+  the point when rounds land near it, the exposure record and the review's Prisoners block.
+
 ## Vehicles and riding in them (M7)
 A **vehicle** (so far the German Puma and the Russian BMP-2) is a thing on the map with a fuel tank and stowed
 ammunition, crewed by a small unit of its own: commander, gunner, driver. It drives by a physical model (engine

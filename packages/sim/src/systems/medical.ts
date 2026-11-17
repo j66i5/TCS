@@ -149,7 +149,7 @@ export function careSide(state: SimState, c: EntityId): string | undefined {
 /** Is this man free to treat a comrade now (not firing, busy, on the move, pinned down by panic)? */
 function freeHelper(state: SimState, id: EntityId): boolean {
   const s = state.soldier.get(id);
-  if (!s || !isAble(s) || !s.impair.canUseArms || isMounted(s) || state.action.has(id) || state.fire.has(id) || s.evade !== null || s.intent?.kind === "care") return false;
+  if (!s || !isAble(s) || !s.impair.canUseArms || isMounted(s) || state.action.has(id) || state.fire.has(id) || s.evade !== null || s.intent?.kind === "care" || s.guard !== undefined) return false;
   if (state.tick < s.stunnedUntilTick || s.mental.behaviour === "panicked" || s.mental.behaviour === "routed") return false;
   return (state.mover.get(id)?.waypoints.length ?? 0) === 0;
 }

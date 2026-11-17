@@ -102,8 +102,30 @@ export interface UnitMorale {
 /** Why a man gave up (carried by the `surrendered` event). */
 export type SurrenderReason = "wounded" | "panicked" | "routed";
 
-/** A man who has given up. Moves forward only: null -> surrendered -> captured. Never back. */
-export interface Captive { state: "surrendered" | "captured"; /** Tick at which he gave up. */ tick: number }
+/** A prisoner's group by rank (M11.9 segregation): from his rank's NATO code (OF-* officer, from
+ *  `prisoners.segregation.ncoFrom` NCO, else man; a rank without a code: man). */
+export type PrisonerGroup = "officer" | "nco" | "man";
+
+/**
+ * A man who has given up. Moves forward only: null -> surrendered -> captured. Never back.
+ * M11.9 (systems/prisoners.ts; all optional, set once he is taken): `by` the side holding him; `unit` the unit whose
+ * man took him (its squad sends his escort; its platoon's collection point and Verwundetennest are his);
+ * `group` officer / NCO / man; `searchTicks` how long he has been searched so far (kept when a search is
+ * interrupted); `searched` the tick his search ended; `escort` the man walking him back (or guarding him on the way);
+ * `point` the collection point (a `rear` point of kind "prisoners") he has reached and is held at.
+ */
+export interface Captive {
+  state: "surrendered" | "captured";
+  /** Tick at which he gave up. */
+  tick: number;
+  by?: SideId;
+  unit?: EntityId;
+  group?: PrisonerGroup;
+  searchTicks?: number;
+  searched?: number;
+  escort?: EntityId;
+  point?: EntityId;
+}
 
 /** Individual soldier state (SPEC 6.4). M0 holds the fields; systems that change them come in M1-M4. */
 /**
@@ -291,6 +313,14 @@ export interface SoldierState {
    */
   carrying?: EntityId;
   /**
+   * Escorting or guarding prisoners (M11.9, systems/prisoners.ts): the collection point `point` he works for; `phase`
+   * "search" (searching his prisoners where they were taken), "escort" (walking them back, 3-5 m behind them),
+   * "guard" (at the point until relieved; then the field is cleared and he walks back to his squad leader). `men`: the prisoners he searches and walks (one group). `took`: what he took from them in the search
+   * (whatever is beyond `search.maxKg` goes into the point's cache when he gets there). While set he is out of the fight: he fires only in self-defence within `guard.selfDefenceM`, and orders to his unit
+   * pass him by. Absent: no such duty.
+   */
+  guard?: { point: EntityId; phase: "search" | "escort" | "guard"; men: EntityId[]; took?: { type: DefId; count: number; charge?: number }[]; tick: number };
+  /**
    * He lies (or sits) at this rear point (M10.5, the Verwundetennest; the `rear` store's key): brought there by bearers
    * or walked there himself. His unit's orders and drills pass him by. Cleared when he is more than twice the nest's
    * `arriveM` from it (the nest moved, an order to him alone). Absent: not at a nest.
@@ -348,10 +378,13 @@ export interface Aftercare {
  * player's `casualtyPoint` order (it stays; an automatic one moves when threatened or left behind).
  */
 export interface RearPoint {
-  kind: "medical" | "supply";
+  /** M11.9: "prisoners", the platoon's prisoner collection point (systems/prisoners.ts). */
+  kind: "medical" | "supply" | "prisoners";
   side: SideId;
   unit: EntityId;
-  /** kind "supply" (M11.3): the cache (an entity of the `cache` store) that is the platoon's supply point. */
+  /** kind "supply" (M11.3): the cache (an entity of the `cache` store) that is the platoon's supply point. kind
+   *  "prisoners" (M11.9): the captured cache at the point where searchers leave what they cannot carry (absent: none
+   *  yet). */
   cache?: EntityId;
   x: number;
   y: number;

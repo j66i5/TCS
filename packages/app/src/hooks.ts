@@ -5,7 +5,7 @@
  * are screenshot-only shortcuts, as before.
  */
 import { buildAppearance, type DataSet } from "@tcs/data";
-import { EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, newCache, refreshStatus, simHash, startCarry, supportLeft, type EntityId, type Wound } from "@tcs/sim";
+import { EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, newCache, refreshStatus, simHash, startCarry, supportLeft, surrender, type EntityId, type Wound } from "@tcs/sim";
 import { enemyMenInSight, SIDE_COLOURS, worldToScreen } from "@tcs/render";
 import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
@@ -166,6 +166,8 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
       if (unconscious) s.physiology.consciousness = 0;
       refreshStatus(sim.ctx, sim.state, new EventSink(), id);
     },
+    /** M11.9a (screenshots, checks): man `id` gives up now (as a panicked man would). */
+    giveUp: (id: EntityId) => surrender(sim.ctx, sim.state, new EventSink(), id, "panicked"),
     /** M10.4b (screenshots, checks): `carriers` carry `payload` to (x, y) (a carry method by id, else the best). */
     carry: (payload: EntityId, carriers: EntityId[], x: number, y: number, method?: string) =>
       startCarry(sim.ctx, sim.state, new EventSink(), payload, carriers, { x, y, z: 0 }, method !== undefined ? { method } : {}) !== null,

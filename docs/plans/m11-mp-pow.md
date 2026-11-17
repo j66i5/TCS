@@ -1,7 +1,9 @@
 # M11 end: Military Police and prisoners of war (MP/POW): build plan
 
 **Progress:** plan written 2026-11-17 (this file, branch `claude/m11-mp`, from main after the balance pass, merge
-659292a). No code or data changed yet. Slices 53-55 below; an optional slice 56 waits for an owner answer.
+659292a). **Slice 53 (M11.9a) built 2026-11-17** (DECISIONS "M11.9a"; owner questions Q2, Q3 and Q8 built with the
+recommended option (a) as software decisions for the owner to review). Slices 54-55 next; an optional slice 56 waits
+for an owner answer.
 
 The last part of M11 (ROADMAP "Military police and prisoners of war", owner request 2026-11-15, placed with logistics
 because it shares the rear transport and collection points). Today a man who gives up is taken where he stands and

@@ -16,7 +16,7 @@ import {
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
-import { ageLabel, cacheMarkers, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
+import { ageLabel, cacheMarkers, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, prisonerMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
 import { loadBundledData } from "./data";
 import type { App } from "./app";
 import { centredOn, centreOn, centreOnDrone, droneCentred, followStep, keepSelectedClear, startFollow, stopFollow } from "./camera";
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
     revealAll: false, sightAt: -1, lastSeen: new LastSeenBook(), rangingBook: new RangingBook(), ordersShownFor: undefined, ordersKey: "",
   };
   const vehicleDebug = new VehicleDebug();
-  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair" | "callRecovery" | "callDelivery") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
+  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair" | "callRecovery" | "callDelivery" | "escortPrisoners" | "releaseGuard") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
   const hud = a.hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -155,6 +155,8 @@ async function main(): Promise<void> {
     onFetchAmmo: () => { endPlan(a); fetchAmmo(a); },
     // M11.4b: a delivery from the rear to the selected unit's platoon's supply point; a hull's supply run.
     onDelivery: () => { endPlan(a); orderFor("callDelivery"); },
+    onEscortPrisoners: () => { endPlan(a); orderFor("escortPrisoners"); },
+    onReleaseGuard: () => { endPlan(a); orderFor("releaseGuard"); },
     onSupplyRun: () => { endPlan(a); if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind: "rearRun", cargo: "supplies" }); },
     onSendBearers: () => { sendBearers(a); },
     onNature: (n) => { a.nature = n; },
@@ -364,6 +366,7 @@ async function main(): Promise<void> {
       overlay.vehicleDebug = vid === undefined ? null : { vehicle: vid, ...vehicleDebug.view(sim.state, vid, strings) };
     }
     // M10.5: the side's Verwundetennester (one being dragged: its ghost where it would go).
+    overlay.prisonerPoints = prisonerMarkers(sim.state, playerSide).map((m) => ({ x: m.x, y: m.y, held: m.held, guards: m.guards, label: a.strings.t("map.powPoint") }));
     { const gs = a.gesture; overlay.nests = nestMarkers(sim.state, playerSide).map((n) => ({ x: n.x, y: n.y, count: n.count, drag: gs?.kind === "nest" && gs.unit === n.unit ? gs.at : null })); }
     // M11.3: the caches the side knows of (its supply point being dragged: its ghost where it would go).
     { const gs = a.gesture; overlay.caches = cacheMarkers(sim.state, a.input.catalog, playerSide).map((m) => ({ x: m.x, y: m.y, side: m.side, own: m.own, point: m.point, rounds: m.rounds, fill: m.fill, empty: m.empty, burning: m.burning, burnt: m.burnt, ...(m.carried === true ? { carried: true } : {}), drag: gs?.kind === "supply" && m.point && gs.unit === m.unit ? gs.at : null })); }

@@ -979,6 +979,12 @@ export const ItemSchema = withProv({
   /** Medical supplies (M10.1): tags matched by core/medical.json `consumes`; slower / less reliable than the
    *  reference item by these factors (e.g. a rubber tourniquet against the CAT). */
   medical: z.object({ tags: z.array(Id).min(1), timeFactor: Num(0.2, 5).default(1), successFactor: Num(0, 2).default(1) }).strict().optional(),
+  /** M11.9: a prisoner keeps it when he is searched (GC III art. 18: protective equipment, personal effects, identity
+   *  documents and tags). Absent or false: taken from him (weapons, ammunition, radios, sights, documents ...). Every
+   *  item of the categories armour, kit, medical, identity, load and documents says it explicitly (lint). */
+  prisonerKeeps: z.boolean().optional(),
+  /** M11.9: military papers (maps, orders, notebooks) a leader carries: taken in the search (`pow.documents`). */
+  documents: z.literal(true).optional(),
   /** A protective emblem worn by medical personnel (red cross armband). */
   emblem: z.literal(true).optional(),
 });
@@ -1471,3 +1477,32 @@ export const SupplyFile = z.object({
   }),
 }).strict();
 export type SupplyT = z.infer<typeof SupplyFile>;
+
+/**
+ * core/prisoners.json (M11.9, plan docs/plans/m11-mp-pow.md section 4; optional file): the prisoner collection point,
+ * the search, escorts and guards, segregation by rank. Game values (low) unless a source says more.
+ */
+export const PrisonersFile = z.object({
+  prisoners: withProv({
+    /** The prisoners are looked at every `stepS` (s). */
+    stepS: Num(0.1, 60),
+    /** The collection point: `backM` behind the platoon (between `minBackM` and `maxBackM`), searched within `searchM`
+     *  for a spot hidden from the enemy the platoon knows, never within `apartM` of the platoon's Verwundetennest or
+     *  supply point (both ways), nor within `enemyM` of a known enemy; checked every `checkS` (moved back when a known
+     *  enemy comes within `enemyM`). Men within `arriveM` of their spot are there. */
+    pcp: z.object({ backM: Num(10, 1000), searchM: Num(0, 500), minBackM: Num(0, 1000), maxBackM: Num(10, 2000), apartM: Num(0, 500), enemyM: Num(0, 2000), checkS: Num(1, 600), arriveM: Num(0.5, 20) }).strict(),
+    /** The search: `seconds` a man, by a searcher within `reachM`; he takes up to `maxKg` himself, the rest goes into a
+     *  captured cache at the collection point when he gets there. */
+    search: z.object({ seconds: Num(1, 600), maxKg: Num(0, 200), reachM: Num(0.5, 10) }).strict(),
+    /** Escorts: one man walks up to `perGuard` prisoners of one group, `gapMinM`-`gapMaxM` behind them; none from a unit
+     *  fired on within `quietS` or in an assault, none leaving a unit below `minLeft` able men. */
+    escort: z.object({ perGuard: z.number().int().min(1).max(20), gapMinM: Num(0, 20), gapMaxM: Num(0, 50), quietS: Num(0, 600), minLeft: z.number().int().min(0).max(20) }).strict(),
+    /** Guards at the point: one per `perGuard` prisoners held there, standing `standM` from the prisoners; a guard fires
+     *  only in self-defence within `selfDefenceM`. */
+    guard: z.object({ perGuard: z.number().int().min(1).max(50), standM: Num(0, 50), selfDefenceM: Num(0, 500) }).strict(),
+    /** Segregation: officers (NATO code OF-*), NCOs (OR codes from `ncoFrom` up), men (the rest, and ranks without a
+     *  NATO code); each group has its own spot `apartM` from the others at the point. */
+    segregation: z.object({ ncoFrom: z.string().regex(/^OR-[1-9]$/), apartM: Num(0, 100) }).strict(),
+  }),
+}).strict();
+export type PrisonersT = z.infer<typeof PrisonersFile>;

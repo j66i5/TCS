@@ -16,7 +16,7 @@ import {
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   MedicalFile, type MedicalT,
   RepairFile, type RepairT,
-  SupplyFile, type SupplyT,
+  SupplyFile, type SupplyT, PrisonersFile, type PrisonersT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
   StringsFile, UnitsFile, VehiclesFile, type VehicleT,
   CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT,
@@ -67,6 +67,8 @@ export interface DataSet {
   repair?: RepairT;
   /** Supply points and caches (M11.3; optional file core/supply.json). */
   supply?: SupplyT;
+  /** Prisoners of war (M11.9; optional file core/prisoners.json). */
+  prisoners?: PrisonersT;
   shooting: ShootingT | null;
   spotting: SpottingT | null;
   behaviour: BehaviourT | null;
@@ -196,6 +198,12 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     if (S.site.minBackM > S.site.maxBackM) errors.push({ file: "core/supply.json", path: "supply.site.minBackM", message: "minBackM above maxBackM", severity: "error" });
     if (S.nestClearM > S.nestApartM) errors.push({ file: "core/supply.json", path: "supply.nestClearM", message: "nestClearM above nestApartM", severity: "error" });
   }
+  const prisoners = files["core/prisoners.json"] === undefined ? null : parse(PrisonersFile, "core/prisoners.json", files["core/prisoners.json"], errors);
+  if (prisoners) {
+    const P = prisoners.prisoners;
+    if (P.pcp.minBackM > P.pcp.maxBackM) errors.push({ file: "core/prisoners.json", path: "prisoners.pcp.minBackM", message: "minBackM above maxBackM", severity: "error" });
+    if (P.escort.gapMinM > P.escort.gapMaxM) errors.push({ file: "core/prisoners.json", path: "prisoners.escort.gapMinM", message: "gapMinM above gapMaxM", severity: "error" });
+  }
   const data: DataSet = {
     wounds,
     shooting,
@@ -212,6 +220,7 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     ...(medical ? { medical } : {}),
     ...(repair ? { repair } : {}),
     ...(supply ? { supply } : {}),
+    ...(prisoners ? { prisoners } : {}),
   };
   // Appearance (M7.5): presentation only, outside the catalog; its keys must name terrain entries.
   if (files["core/appearance.json"] !== undefined) {

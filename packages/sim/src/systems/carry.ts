@@ -402,7 +402,8 @@ function stepParty(ctx: SimContext, state: SimState, events: EventSink, payload:
     if (ctx.catalog.medical?.down !== undefined && c.carriers.length > 0 && ps.checked?.dead !== true) ps.checked = { tick: state.tick, by: c.carriers[0]!, dead: true };
     endCarry(ctx, state, events, payload, "dead"); return;
   }
-  if (ps && (isMounted(ps) || ps.captive !== null)) { endCarry(ctx, state, events, payload, "gone"); return; }
+  // (M11.9: a prisoner held by a unit's men is carried to its nest like its own wounded.)
+  if (ps && (isMounted(ps) || (ps.captive !== null && (ps.captive.unit === undefined || c.point === undefined)))) { endCarry(ctx, state, events, payload, "gone"); return; }
   if (c.untilTick !== undefined && state.tick > c.untilTick) { endCarry(ctx, state, events, payload, "gave-up"); return; }
   let def = carryMethodDef(ctx, c.method);
   if (!def) { endCarry(ctx, state, events, payload, "gone"); return; }

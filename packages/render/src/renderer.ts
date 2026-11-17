@@ -106,6 +106,9 @@ export interface Overlay {
   /** M10.5: the player's Verwundetennester (a red cross on white; the number of men lying there). `drag`: the marker
    *  being dragged there (a ghost and a line from where it stands). */
   nests?: readonly { x: number; y: number; count: number; drag?: { x: number; y: number } | null }[] | null;
+  /** M11.9a: the player's prisoner collection points (a fenced square on a dark ring, the letter pair of the string table
+   *  `map.powPoint` and the prisoners held there below it). */
+  prisonerPoints?: readonly { x: number; y: number; held: number; guards: number; label: string }[] | null;
   /** M11.3: the caches the player's side knows of: its own (a supply point flies a pennant and shows how full its crates
    *  are and the rounds in them), the enemy's its men have seen; empty ones grey; burning ones a burning pile (its
    *  smoke is the state's smoke); burnt out ones charred. `drag`: a supply point being dragged there. */
@@ -1279,6 +1282,11 @@ export class BattleRenderer {
       drawNestMarker(g, s.x, s.y, n.drag ? 0.45 : 1);
       if (n.count > 0) this.request(String(n.count), s.x, s.y + 17, 4, 0xf4f1ea, 1, k++);
     }
+    for (const p of overlay.prisonerPoints ?? []) {
+      const s = worldToScreen(c, p.x, p.y);
+      drawPrisonerPointMarker(g, s.x, s.y, 1);
+      this.request(p.held > 0 ? `${p.label} ${p.held}` : p.label, s.x, s.y + 17, 4, 0xf4f1ea, 1, k++);
+    }
     for (const m of overlay.caches ?? []) {
       const s = worldToScreen(c, m.x, m.y);
       // (M11.4a: a crate in bearers' hands rides above them, so the men carrying it show.)
@@ -1920,6 +1928,17 @@ export function drawNestMarker(g: Graphics, x: number, y: number, alpha: number)
   g.roundRect(x - h, y - h, 2 * h, 2 * h, 2.5).fill({ color: 0xf4f1ea, alpha });
   g.rect(x - a, y - b, 2 * a, 2 * b).fill({ color: 0xd22a22, alpha });
   g.rect(x - b, y - a, 2 * b, 2 * a).fill({ color: 0xd22a22, alpha });
+}
+
+/** The prisoner collection point's marker (M11.9a, original art): a fenced square (posts and two wires) on a pale
+ *  disc with a dark rim, a fixed size on screen; the same in both looks. */
+export function drawPrisonerPointMarker(g: Graphics, x: number, y: number, alpha: number): void {
+  const r = 11, h = 6;
+  g.circle(x, y, r + 1.5).fill({ color: 0x14110f, alpha: 0.85 * alpha });
+  g.circle(x, y, r).fill({ color: 0xd9d2bf, alpha });
+  g.rect(x - h, y - h, 2 * h, 2 * h).stroke({ width: 1.6, color: 0x2a2622, alpha });
+  g.moveTo(x - h, y - 2).lineTo(x + h, y - 2).moveTo(x - h, y + 2).lineTo(x + h, y + 2).stroke({ width: 1, color: 0x2a2622, alpha });
+  g.moveTo(x - 2, y - h).lineTo(x - 2, y + h).moveTo(x + 2, y - h).lineTo(x + 2, y + h).stroke({ width: 1.2, color: 0x2a2622, alpha });
 }
 
 function drawWhiteFlag(g: Graphics, x: number, y: number, r: number, alpha = 1): void {

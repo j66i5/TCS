@@ -8246,3 +8246,102 @@ is relaxed:** 10-17 percentage points more holds with resupply than without is a
   origin/main run alone the same way right before: 22 of 24 (bench-caches 16.0 against 16.9, one 8x floor 7.3x): the
   container's noise around the floors, as in the M11 entries. No new per-tick work but one comparison per decision
   (`rangeRule`), and fighting positions only in the scenarios that now have them.
+
+## 2026-11-17 — M11.9a (slice 53): prisoner collection point, search, segregation, escorts, wounded prisoners to the nest (goldens regenerated)
+Plan `docs/plans/m11-mp-pow.md` sections 4.1-4.6, 4.13-4.15 (owner: MP/POW at the end of M11, scope named by him; GC III
+as he listed it). New `sim/systems/prisoners.ts` (1 Hz, after surrender), `core/prisoners.json`, `ui/prisoners.ts`.
+- **Owner questions built with the recommended option (a), as software decisions for the owner to review:** Q2 the
+  search is automatic for every prisoner, kit to the searcher (beyond 15 kg into a captured cache at the point); Q3 one
+  escort per 4 prisoners of one group on the move, one guard per 6 at the point (no sourced figure); Q8 guards and
+  escorts fire only in self-defence within 50 m (`guardSelfDefence` in decisions.ts, the carrier's rule with its own
+  range). Q1 and Q4-Q7 belong to slices 54-56.
+- **State (no store added, no schema bump):** `Captive` grows optional `by` (holding side), `unit` (the unit whose man
+  took him: its squad sends the escort, its platoon's point and nest are his; **not in the plan's field list**, needed
+  to find the platoon), `group`, `searchTicks` (an interrupted search's progress), `searched`, `escort`, `point` (the
+  point he is held at). `SoldierState.guard` (point, phase search / escort / guard, his prisoners, what he took) marks
+  the man on duty; `RearPoint.kind` "prisoners" (its `cache`: the captured cache at the point). Set only when
+  `core/prisoners.json` is loaded: without it nothing changes (a test).
+- **Segregation:** officer from OF-*, NCO from `segregation.ncoFrom` OR-5 up (WO-* too), else man; a rank without a code is
+  a man; the catalog gets each faction's `natoCodes` (ranks.json) only when prisoners data is loaded. Note: the Russian
+  mladshiy serzhant is OR-4 in ranks.json, so he counts as a man (the plan's rule; owner may want OR-4 NCOs).
+- **Siting:** `sitePoint` (the nest's) with `pcp` 150 m back (100-200), zones of 50 m round the nest and the supply point
+  and 250 m round every known enemy; the nest and the supply point now also keep 50 m from the prisoner point (only when
+  one exists: no change in battles without prisoners). Moved back (not when placed by the order) when a known enemy is
+  within 250 m (checked every 10 s); the held walk to the new spot. **Deviation:** no building preferred (the point is
+  outdoors as the nest); rounds landing near it move it only in slice 55 (`pcp.fireM`).
+- **Escorts:** assigned when the capturing unit has not been fired on (own or by the enemy) within 30 s and has no drill
+  and is not broken; `bearerOk` (M11.4a, now exported and refusing men on duty) picks the man nearest the prisoners,
+  capturing unit first, then the platoon's units not fighting; a unit keeps 2 able men. **Added:** while a man who gave
+  up (and can walk) is still not taken within 80 m (`surrender.walkToEnemyM`) the escort waits, so men giving up one
+  after another are walked together (without it the lab sent 1-man escorts, 5 escorts for 6 men).
+- **Search:** action `searchPrisoner` (30 s, standing, reach 2 m; suppression interrupts it; progress kept). The weapon in
+  his hands becomes its `weaponItem` (magazine into his load first), the batteries fitted in his devices go back into his
+  load (settled charge), then every stack without `prisonerKeeps` moves by `transferItems` to the searcher (`items.taken`
+  source "enemy"; `pow.searched`; `pow.documents`). **Deviation:** the escort carries everything to the point and leaves
+  what he took beyond 15 kg (last taken first) in the point's captured cache there (`pow.cached`); the plan's "up to 15
+  kg on him" is so at the point, not on the walk (an escort of 4 men carries 60-80 kg back and walks slower; measured
+  in the lab's hand calculation). A searcher of only non-walking prisoners goes back to his squad with what he took.
+- **Data (add-data-entry; search extracts only, nothing above medium):** `core/prisoners.json` (all low; the sources are
+  for the steps, not the numbers); item fields `prisonerKeeps` (true on helmet, vest, basic load, webbing, water,
+  rations, IFAK, every medical item and the armband, identity tags, thermal blankets, xf vest/remedies/cloak; false on
+  goggles, radios, thermal sights; lint: every armour/kit/medical/identity/load/documents item says it) and
+  `documents`; new items `de-dokumente`, `ru-dokumenty` (0.3 kg, low), fixture `xf-papers`, in the load of every unit
+  template's leader (team leader and up, crew commanders too); weapon items `de-mg5-carried`, `de-g28-carried`,
+  `ru-pkp-carried`, `ru-svd-carried` (the weapon's mass and sources) so that every personal weapon can be taken.
+  **Every leader is 0.3 kg heavier: event streams change in every battle** (the goldens' state hashes from tick 600).
+- **Wounded prisoners:** once searched, one who cannot walk (or is incapacitated) is grouped with the HOLDING platoon's
+  casualties in nest.ts (`prisonerForNest`), carried by its bearers (carry.ts lets a held prisoner be a payload),
+  treated by its medic, taken by its ambulance with its own wounded by urgency (`waitingAt`), handed over at Role 1 "by
+  captor"; `rosterStatus` keeps an evacuated prisoner "captured". A prisoner at the nest never "returns to duty".
+- **Orders:** `prisonerPoint` (Move tray "Prisoner point"; refused `radio.powNearNest` / `radio.powNearSupply`),
+  `escortPrisoners` (the gate waived; `radio.powNone`, `radio.powNoEscort`), `releaseGuard` (a man or a unit's men on
+  duty; the last guard of held prisoners with a known enemy within 250 m refused `radio.powLastGuard` unless `confirm`;
+  `radio.powNoGuard`). Orders to a unit pass its men on duty by (all three filters in orders.ts), drills skip them, the
+  AI counts them committed, medics, bearers, consolidation and the fetch errand never take them.
+- **UI:** card line "Prisoners 5 (1 officer, 1 NCO) · 2 waiting · escorts 1 · guard 1"; man box "searching a prisoner",
+  "escorting 3 prisoners", "guard (5 prisoners)", a prisoner "held at the collection point"; bar "Escort prisoners",
+  "Release guard" (phone: under "⋯"); the point's marker (original art: a fenced square on a pale disc, "PW" from the
+  string table and the number held), drawn the same in both looks and only where a point exists (flat elsewhere
+  unchanged). **Not built:** the enemy's point when known, the Rules panel option "escort automatically / ask me"
+  (slice 55), a sidebar tile mark for a guard.
+- **Lab** `npm run lab -- prisoners 20` (part 1; 20 runs per faction, the prisoners' spot moved a few metres per seed):
+  searches 30.00 s each in 40 of 40 battles; the walk of each group from its escort's last search to held within 10 %
+  of the hand calculation (distance / (walk x 0.6 x the slower load factor of the group and its escort)) in 120 of 120
+  (-2.4 % to +6.3 %); taken-class items left on searched prisoners 0; kept items missing 0; groups mixed 0; guards =
+  ceil(held / 6) in 40 of 40; the point never within 50 m of the nest or the supply point (52 m to the nest, 278-312 m
+  to the supply point); the man with a broken leg at the captors' nest in 40 of 40; ledger exact in 40 of 40.
+- **Tests** `tools/test/prisoners.test.ts` (9): groups by NATO code and the fallbacks; documents for every leader of
+  both factions and the fixture; the whole chain for each faction (point, escorts' filter and groups, search taken and
+  kept, 30 s exact, documents, overflow cache, segregation at the point, guards, the nest, ledger); no escort while the
+  squad is fired on, the order sends one; orders and refusals; an order to a guard's unit passes him by; save/load
+  mid-search and mid-escort; without prisoners data nothing changes. Fixture and architecture tests updated (xf-papers,
+  `mounted: ok` markers).
+- **Batches** (same seeds, main 659292a as base vs this slice; attacker wins; casualties attacker / defender; prisoners
+  held per battle by the holding side: taken in battle, escorts sent, guard-and-escort minutes):
+
+  | scenario (runs x s) | base | slice 53 | prisoners (slice 53) |
+  |---|---|---|---|
+  | platoon (20 x 1,200) | blue 9; 16.1 / 9.7 | blue 7; 17.1 / 9.4 | blue took 0.05, no escort (squad never quiet 30 s) |
+  | platoon-ru (20 x 1,200) | red 12; 11.1 / 12.7 | red 12; 11.5 / 11.2 | none |
+  | platoon-vehicles (10 x 1,200) | blue 8; 8.4 / 26.2 | blue 9; 10.7 / 25.7 | blue took 0.1, escorts 0.1, 0.3 min |
+  | platoon-ru-vehicles (10 x 1,200) | red 1; 34.4 / 7.5 | red 0; 35.2 / 8.1 | none |
+  | hold-resupply (10 x 3,600; German defence) | defender holds 6 | holds 6 | red took 0.5, searched 0.4, held 0.1, escorts 0.7, 3.0 min |
+  | hold-resupply-ru (10 x 3,600; Russian defence) | defender holds 6 | holds 6 | none |
+
+  Winners within noise everywhere (prisoners are rare in AI battles: plan section 2); every battle differs from main
+  through the leaders' 0.3 kg documents. A hold-resupply trace (seed 6): a wounded prisoner taken at 24 min waited 6
+  minutes for an escort (escorts lost twice when their unit broke), was searched and then, unable to walk, carried to
+  the captors' nest; a German defender's prisoner never got one (the defence is never quiet for 30 s).
+- **Conservation** exact in `lab -- prisoners` (40 battles) and in hold-resupply and hold-resupply-ru seeds 1-6 x 3,600 s
+  (a scratch run of `conservationRun`; `lab -- consumption --conservation` runs the hold battle 2 x 1,200 s only).
+- `npm run golden:update`: every golden changed (fingerprint; state hashes from tick 600: the documents in the
+  leaders' loads); `golden/no-interiors` untouched.
+- **Perf** (`npm run test:perf` alone): 22 of 24; the two spotting benches at 7.1x and 7.1x (floor 8x). main (the same
+  container, alone, right after): 18 of 24 (spotting 7.9x and 7.3x, bench-vehicles 7.7x, bench-tanks 8.0x, bench-caches
+  10 % slower than the bench, bench-combined 2.9x); repeated runs of each: spotting 7.8-7.9x both, bench-vehicles
+  7.2-7.8x (slice) and 7.7-7.9x (main). The container sits round the floors; the slice adds one pass over the men a
+  second (nothing else without prisoners), one field test per moving man and per decision.
+- **Checks** (`npm run check` alone): typecheck, lint, `npm test` 1,554 pass (6 skipped), `lint:data` no errors;
+  `test:perf` inside it 19 of 24 (bench-caches 7.6 % slower than the bench, spotting 7.7x / 7.6x, bench-vehicles 7.4x,
+  bench-tanks 8.0x read as below): the same floors main misses alone in this container (above). Not a regression
+  measured by this slice; to be re-run on a quieter machine before the merge.

@@ -132,6 +132,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       if (mode.exertion > B.movement.hardPaceExertion && s.physical.winded) speed *= B.movement.exhaustedSpeedFactor;
       speed *= s.impair.move; // wounds: a leg wound, blood loss
       if (s.captive !== null && modeId !== SB.crawlMode) speed *= handOverPace; // hands up, slowly (surrender.ts; not his crawl to cover)
+      else if (s.guard !== undefined && s.guard.phase === "escort") speed *= handOverPace; // an escort keeps his prisoners' pace (M11.9)
     }
     // Formation keeping: a follower ahead of his slot eases off; one behind it hurries, but never beyond his
     // own unimpaired pace (tired or loaded men cannot buy their penalties back). The leader slows for laggards.

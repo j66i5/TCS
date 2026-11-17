@@ -566,6 +566,69 @@ async function repairScenes(page: Page, name: string, errors: string[], shots: s
  * truck unloading at the supply point, both looks. M11.5: a vehicle re-arming at a cache beside it (card: fuel and
  * "re-arming"), both looks, then refuelling from cans (flat).
  */
+/**
+ * M11.9a prisoners (`--scene prisoners`, both looks): five enemy men give up in front of an own squad (1 officer, 1 NCO,
+ * 3 men); 1 a search (searcher beside a prisoner, hands up), 2 an escort walking the 3 men back, 3 the collection point
+ * with its three groups apart and a guard, 4 the squad's card line and the guard's man box.
+ */
+async function prisonerScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => {
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p = `${outDir}/prisoners-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  };
+  const info: Record<string, object> = {};
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=platoon&seed=${seed}&look=${look}&vehicles=0&ai=0`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    info[`${look}-setup`] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state, cat = t.sim.ctx.catalog;
+      for (const [, u] of s.unit.entries()) u.fireRule = "hold";
+      t.stepTicks(60 * 5);
+      const sq = t.units().find((u) => u.kind === "infantry" && u.depth === 1) || t.units().find((u) => u.kind === "infantry");
+      const lead = s.unit.get(sq.unit).leader; const lt = s.transform.get(lead);
+      // Five enemy men with a weapon: officer, NCO, 3 men, 18 m in front of the squad leader (toward the enemy).
+      const reds = [...s.identity.entries()].filter(([id, i]) => i.side !== "blue" && s.soldier.get(id) && s.soldier.get(id).physiology.alive && s.weapon.has(id) && !s.soldier.get(id).mount).slice(0, 5).map(([id]) => id);
+      let ex = 0, ey = 0; for (const r of reds) { const q = s.transform.get(r); ex += q.x; ey += q.y; } ex /= reds.length; ey /= reds.length;
+      const L = Math.hypot(ex - lt.x, ey - lt.y) || 1, ux = (ex - lt.x) / L, uy = (ey - lt.y) / L;
+      const codes = cat.factions[s.identity.get(reds[0]).faction].natoCodes;
+      const rk = (w) => Object.keys(codes).sort().find((r) => w === "of" ? codes[r].startsWith("OF-") : w === "nco" ? codes[r].startsWith("OR-") && Number(codes[r].slice(3)) >= 5 : codes[r].startsWith("OR-") && Number(codes[r].slice(3)) <= 3);
+      reds.forEach((r, k) => { const q = s.transform.get(r); q.x = lt.x + ux * 18 - uy * (k - 2) * 2.5; q.y = lt.y + uy * 18 + ux * (k - 2) * 2.5; q.z = 0; const m = s.mover.get(r); if (m) m.waypoints = [];
+        s.identity.get(r).rank = k === 0 ? rk("of") : k === 1 ? rk("nco") : rk("man"); t.giveUp(r); });
+      for (let k = 0; k < 120 && ![...s.action.values()].some((a) => a.kind === "searchPrisoner"); k++) t.stepTicks(60);
+      t.stepTicks(60 * 8);
+      const a = [...s.action.entries()].find(([, x]) => x.kind === "searchPrisoner");
+      const at = a ? s.transform.get(a[0]) : lt; t.select(null); t.focusScale(at.x, at.y, 40); t.stepTicks(1);
+      globalThis.__pw = { reds, squad: sq.unit };
+      return { reds, searching: a ? a[0] : null, captured: reds.filter((r) => s.soldier.get(r).captive && s.soldier.get(r).captive.state === "captured").length };`) as () => object);
+    await shot(`${look}-1-search`);
+    info[`${look}-escort`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      const big = () => [...s.soldier.entries()].find(([, x]) => x.guard && x.guard.phase === "escort" && x.guard.men.length >= 3);
+      for (let k = 0; k < 400 && !big(); k++) t.stepTicks(60);
+      t.stepTicks(60 * 25);
+      const e = big(); let cx = 0, cy = 0; const grp = e ? [e[0], ...e[1].guard.men] : [];
+      for (const m of grp) { const q = s.transform.get(m); cx += q.x / grp.length; cy += q.y / grp.length; }
+      if (e) t.focusScale(cx, cy, 28); t.stepTicks(1);
+      return { escort: e ? e[0] : null, men: e ? e[1].guard.men.length : 0 };`) as () => object);
+    await shot(`${look}-2-escort`);
+    info[`${look}-point`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; const { reds } = globalThis.__pw;
+      const held = () => reds.filter((r) => s.soldier.get(r).captive && s.soldier.get(r).captive.point !== undefined).length;
+      for (let k = 0; k < 1500 && held() < reds.length; k++) t.stepTicks(60);
+      t.stepTicks(60 * 20);
+      const p = [...s.rear.values()].find((x) => x.kind === "prisoners"); if (p) t.focusScale(p.x, p.y + 2, 16); t.stepTicks(1);
+      return { held: held(), guards: [...s.soldier.values()].filter((x) => x.guard && x.guard.phase === "guard").length, point: p };`) as () => object);
+    await shot(`${look}-3-point`);
+  }
+  // 4: the capturing squad's card ("Prisoners 5 (1 officer, 1 NCO) · guard 1") and the guard's man box (photo).
+  info["card"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; const { squad } = globalThis.__pw;
+    t.select(squad); t.stepTicks(1);
+    const g = [...s.soldier.entries()].find(([, x]) => x.guard && x.guard.phase === "guard");
+    if (g) t.inspect(g[0]); t.stepTicks(1);
+    return { orders: t.orderSet(), guard: g ? g[0] : null };`) as () => object);
+  await shot("flat-4-card");
+  if (errors.length > 0) console.error(`prisoners ${name}: page errors: ${errors.join(" | ")}`);
+  console.log(`prisoners ${name}: ${JSON.stringify(info)}`);
+}
+
 async function supplyScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const shot = async (label: string) => {
     await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
@@ -2156,6 +2219,7 @@ try {
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "repair") { await repairScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "supply") { await supplyScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "prisoners") { await prisonerScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "recovery") { await recoveryScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks") { await tankScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
@@ -2301,7 +2365,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "prisoners" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

@@ -362,7 +362,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
         for (const r of amb?.rows ?? []) {
           const e = document.createElement("div");
           e.className = `hud-ambulance ph-${r.phase}`;
-          e.textContent = s.t(r.kind === "rearRun" ? `rearRun.${r.phase}` : `ambulance.${r.phase}`, { callsign: r.callsign, min: Math.max(1, Math.ceil(r.dueS / 60)), n: r.aboard });
+          e.textContent = s.t(r.kind !== undefined ? `${r.kind}.${r.phase}` : `ambulance.${r.phase}`, { callsign: r.callsign, min: Math.max(1, Math.ceil(r.dueS / 60)), n: r.aboard });
           wlist.append(e);
         }
         if (amb && amb.ready > 0 && wounded?.onCallAmbulance) {

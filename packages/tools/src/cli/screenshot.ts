@@ -561,7 +561,9 @@ async function repairScenes(page: Page, name: string, errors: string[], shots: s
  * point behind the village (crates in the side's colour, its pennant, the fill bar, the rounds), a squad selected (order
  * bar: Resupply; the Move tray: Supply point), the men on their way to it; in both looks. Then (photo) the supply point
  * moved by the order (the old crates stay as a plain cache, the new point empty, grey), the crates set off (a burning
- * pile with its smoke), and from the Russian side the German cache once seen (the enemy's colour).
+ * pile with its smoke), and from the Russian side the German cache once seen (the enemy's colour). M11.4a: the card's
+ * "Send bearers", the Rules row, bearers carrying a crate. M11.4b: "Order a delivery" (phone: under "⋯") and the supply
+ * truck unloading at the supply point, both looks.
  */
 async function supplyScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const shot = async (label: string) => {
@@ -630,6 +632,32 @@ async function supplyScenes(page: Page, name: string, errors: string[], shots: s
     t.stepTicks(60 * 25); const c = t.caches().find((x) => x.carried); if (c) t.focusScale(c.x, c.y, 20); t.select(null); t.stepTicks(1);
     return { crate: c, bearers: [...s.soldier.values()].filter((x) => x.intent && x.intent.kind === "bear").length };`) as () => object);
   await shot("photo-6-bearers-crate");
+  // M11.4b: "Order a delivery" on the bar (phone: under "⋯"), then the supply truck unloading at the supply point (both looks).
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    info[`delivery-${look}`] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(60 * 100);
+      const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit); t.stepTicks(1);
+      const c = t.caches().find((x) => x.kind === "point"); t.focus(c.x, c.y, 90); t.stepTicks(1);
+      return { delivery: t.orderSet().delivery ?? false, left: t.orderSet().deliveryLeft };`) as () => object);
+    if (look === "photo") {
+      if (name === "phone" && await page.isVisible(".hud-orders .hud-more-btn")) { await page.click(".hud-orders .hud-more-btn"); await shot(`${look}-7-delivery-button`); }
+      else await shot(`${look}-7-delivery-button`);
+    }
+    // (The button itself, wherever it sits: on a phone under "⋯".)
+    await page.evaluate(new Function(`document.querySelector('.hud-btn[data-order="callDelivery"]').click();`) as () => void);
+    // (Hurried as in the recovery scene: its delay over, and it comes on from the south edge below the point — with the
+    // player's squads standing where they were placed, the west entry's hedges hold a wheeled truck up on this map.)
+    info[`truck-${look}`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      const truck = () => [...s.vehicle.entries()].find(([, v]) => v.offMap && v.offMap.cargo === "supplies");
+      t.stepTicks(60 * 3); const tr0 = truck();
+      if (tr0) { const o = tr0[1].offMap, p = s.rear.get(o.point); o.enterTick = s.tick + 60; o.entry = { x: p.x + 30, y: t.sim.ctx.map.heightM - 34, heading: -Math.PI / 2 }; }
+      const seen = []; for (let k = 0; k < 2400 && !(truck() && truck()[1].offMap.phase === "loading"); k++) { t.stepTicks(60); const ph = truck() ? truck()[1].offMap.phase : "none"; if (seen[seen.length - 1] !== ph) seen.push(ph); }
+      t.stepTicks(60 * 5); const tr = truck(); t.select(null);
+      if (tr) { const p = s.transform.get(tr[0]); t.focusScale(p.x, p.y, 12); } t.stepTicks(1);
+      return { seen, truck: tr ? { id: tr[0], phase: tr[1].offMap.phase, def: tr[1].def } : null };`) as () => object);
+    await shot(`${look}-8-delivery-truck`);
+  }
   console.log(`${name}: supply scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 

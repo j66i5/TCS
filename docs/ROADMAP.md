@@ -415,6 +415,11 @@ for the owner's numbers answer after playing, not for more building).
     two bearers (headquarters first, never a gunner, leader or medic, never a squad in a fight) with a crate through
     the carry store; "Fetch ammunition", the card's "Send bearers", the rule "Ammunition requests"; `lab -- resupply`
     (DECISIONS "M11.4a")
+  - ✅ **M11.4b (slice 47)** resupply by vehicle and off the map: each side's off-map stock (`stock` store, schema 24;
+    `items.delivered` balances it), the supply truck (HX2, Ural-4320) called by a low supply point or "Order a
+    delivery", combat vehicles' rear runs restock and bring a share ("Restock"), the mortar allotment topped up, an
+    ambulance with ammunition a recorded breach without protection; `lab -- resupply` part 2, `--no-deliveries`
+    (DECISIONS "M11.4b")
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

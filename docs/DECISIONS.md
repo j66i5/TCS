@@ -7923,3 +7923,83 @@ ammunition at the red cross. Everything else is a software decision (values in `
   7d6a531 in a scratch worktree alternating with this branch, those two tests alone: bench-vehicles base 7.1, 7.9 /
   this 7.6, 7.6; smoke base 7.5 (and once above 8) / this 7.5 (and once above 8): no regression (the new per-tick work
   is one modulo test per unit; a squad is looked at once per 2 s; bearers move through the existing carry system).
+
+## 2026-11-16 — M11.4b (slice 47): resupply by vehicle and from off the map; mortar top-up; ammunition in an ambulance (goldens regenerated)
+Owner answers (binding): delivery by bearers, vehicle runs and off-map deliveries; control automatic plus player orders;
+mortar and artillery allotments topped up by deliveries; an ambulance carrying ammunition is a breach of the law of
+war. Everything else is a software decision (values in `core/supply.json` `delivery`, `vehicleRun`, `topUpCheckS`:
+game values, low; the trucks' data from search extracts, low). Built from the interrupted earlier attempt (uncommitted
+work found in the worktree after a container restart), reviewed, fixed and finished.
+- **Off-map stock** (`BattleInput` `ForceInput.stock`, new store `stock`, state schema 23 -> 24 with a migration: an
+  empty store in an older save): an entity with a container per side, outside the ledger. Everything that leaves it
+  goes by `transferItems` with an `items.delivered` event, so the conservation guard stays exact. `stock.supportTopUp`
+  moves rounds into the side's off-map mortar / artillery section every `everyS` (event `supply.topUp`).
+- **Supply vehicles**: faction manifest `supply` (Bundeswehr `hx2-besatzung`, HX2 5 t truck; Russia `ural-ekipazh`,
+  Ural-4320; vehicles with the new `cargo.kg`; fixture faction: none). Off-map asset kind `"supply"`, added by the hold
+  battle (`addSupplyAssets`). Called automatically when a platoon's supply point falls below `callBelow` 30 % of its
+  standard fill (`Cache.fill`: what it held at the first look, or after its first delivery), or when a platoon
+  without a point asked for ammunition lately (a point is sited); or by the player's **Order a delivery** (order
+  `callDelivery`, a full point's worth). Loaded at the call with whole packages of the cartridges the platoon's men
+  fire (fullest first, one per cartridge in turn) up to its cargo; comes on after 600-1,200 s (stream `supply`), drives
+  at the "walk" pace to within 15 m, unloads 60 s + 0.3 s/kg into the point's cache, drives back; ready again 1,200 s
+  after it left. One delivery per side at a time; gives up after 900 s held up (load stays aboard for the next run).
+  Four radio refusals (none waiting, one coming, nothing in the stock, no way / no point).
+- **Combat vehicles' rear runs** (`RearRun.cargo` `"casualties" | "supplies"`, phase `unloading`): off the map, every
+  run (also one with wounded) refills the hull's stowage from the stock up to what the data stows (ammunition only)
+  and loads up to `shareKg` 400 kg for its platoon's supply point, which it drives to and unloads first (30 s + 0.3
+  s/kg). An idle hull below `stowageBelow` 50 % of its stowed ammunition starts a run of its own (casualty-run limits
+  per platoon); the player's **Restock** (order `rearRun` with `cargo: "supplies"`) at once. Never on its own for a
+  marked ambulance.
+- **Ammunition in an ambulance**: the computer never does it. A player's delivery naming an ambulance
+  (`callDelivery.vehicle`, up to `ambulanceKg` 500 kg) or a player's supply run by a marked hull is carried out but
+  recorded: event `law.misuse` (cause `ammunitionInAmbulance`; the plan called it `conduct.breach`: the existing
+  `law.*` family is used), `VehicleState.misuse` while it carries it, `protectionNow` gives it no protection then (the
+  recognition code clears enemies' flags within the recognition range as for a medic who fired), protected again once
+  unloaded. Review: Conduct tab line per case (`SideRecord.conduct.misuse`).
+- **Record, batch, UI:** `SideRecord.supply` gains deliveries, rounds off the map, vehicle runs, rounds to the point and
+  into stowage, top-up; batch line "Supply (M11.3-M11.4b)"; `--no-deliveries` (headless, batch, consumption lab):
+  resupply on foot only. Order bar "Order a delivery" (phone under "⋯") while a supply vehicle waits and the stock
+  holds something; "Restock" for a crew's hull; the wounded list shows deliveries and supply runs; review vehicles tab
+  row.
+- **Hold battle data** (`HOLD.stockLoads` 2, `topUpRounds` 6 per `topUpEveryS` 600 s): the defender's stock is twice
+  the point's starting load plus the mortar rounds of the top-up; one supply truck.
+- **Deviations from the plan:** an on-map mortar section gets no delivery to its tubes yet (slice 48 "rounds to
+  mortars"); the "transfer into an ambulance" case does not exist as an order (no player transfer into a hull), so the
+  breach covers the delivery and the supply run; the truck is drawn as a plain hull (no truck art); the AI calls
+  deliveries through the sim's automatic rule (the same for both sides), no `ai/src` code (slice 52).
+- **Lab** `npm run lab -- resupply` part 2: delivery 400 m from the edge, HX2 measured 991 s vs hand 988 s (+0.3 %),
+  Ural 1,000 vs 998 (+0.2 %); supply run Puma 1,030 vs 1,026 (+0.4 %), BMP-2 1,037 vs 1,032 (+0.4 %); ledger exact in
+  all (target ±10 %: met).
+- **Measured.** Platoon batches 10 x 1,200 s (platoon, platoon-ru, platoon-vehicles, platoon-ru-vehicles), base 6038e77
+  in a scratch worktree vs this branch: every battle the same winner, end second and casualties (no stock in those
+  scenarios; attacker wins 9 / 10 / 9 / 1 both). Hold battle, 20 seeds x 3,600 s each, resupply off / on foot only
+  (`--no-deliveries`) / all (squads at the end with able men: below 40 % of their standard load, below 10 %; summed over
+  20 battles):
+
+  | | German defence: none / foot / all | Russian defence: none / foot / all |
+  |---|---|---|
+  | defender holds | 10 / 12 / 15 | 13 / 13 / 15 |
+  | squads below 40 % at the end (median per battle) | 5 / 5 / 6 (0 / 0 / 0) | 1 / 3 / 2 (0 / 0 / 0) |
+  | squads below 10 % at the end | 0 / 1 / 2 | 1 / 0 / 0 |
+  | men dry at the end | 8 / 5 / 7 | 3 / 2 / 2 |
+  | bearer trips | 0 / 17 / 18 | 0 / 12 / 8 |
+  | deliveries from off the map (rounds) | - / - / 1 (2,920) | - / - / 0 |
+  | mortar rounds topped up | - / - / 528 | - / - / 510 |
+  | ammunition put into an ambulance by the AI | 0 | 0 |
+
+  **Not met:** "fewer squads dry at the end with all three ways than with none" — almost no squad is dry at the end in
+  any mode (medians 0 / 0 / 0), because the defence still rarely runs short (the open point of the stronger-defence
+  slice) and the point's starting load rarely falls below 30 %: one automatic delivery in 40 battles. What the routes
+  do show is in the holds: 10 -> 12 -> 15 and 13 -> 13 -> 15 of 20 (the mortar top-up is most of the difference).
+  Whether the hold battle should start with a smaller supply point (so deliveries matter) is for the owner (slice 52
+  balance).
+- **Tests** (`packages/tools/test/delivery.test.ts`): automatic call below 30 % and unloading with the guard exact; one
+  delivery at a time; the top-up and `rules.deliveries` off; the ambulance breach (event, no protection while loaded,
+  protected again after unloading); save and load mid-delivery; a schema-23 save; the lab within 10 %. Goldens: the
+  non-hold replays change only their state hashes (the new empty `stock` store), orders and event streams as before; the
+  two hold replays change (stock, truck, top-up).
+- **Checks**: typecheck, lint, data lint (no errors), `npm test` 1528 pass. `npm run test:perf` alone: 22 of 24; the
+  spotting bench (8.0x) and spotting-with-smoke (7.5x) floors (8x) missed. Base 6038e77 in a scratch worktree
+  alternating with this branch, those two tests alone four times each: full load base 8.4, 9.0, 8.6, 8.9 / this 8.2,
+  8.4, 8.6, 8.9; smoke base 7.8, 8.5, 7.7, 7.9 / this 7.9, 7.7, 7.8, 6.8: noise around the floor as in the earlier M11
+  slices (the only per-tick work added is an early return while no side has a stock).

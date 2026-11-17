@@ -3122,6 +3122,64 @@
       ],
       "confidence": "low",
       "note": "Bueffel crew (M11.7b): commander, driver and a recovery mechanic (Bergetrupp of NCOs, search extracts; the third man fills the extra seat: game value). Ranks typical, not sourced; loads as the tank crews'. Not in any platoon: the recovery vehicle comes from off the map."
+    },
+    {
+      "id": "hx2-besatzung",
+      "echelon": "vehicle",
+      "callsign": "Versorger {n}",
+      "leaderIndex": 0,
+      "vehicle": "de-hx2-truck",
+      "subunits": [],
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "unteroffizier",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "sources": [
+        "https://www.rheinmetall.com/en/products/logistic-vehicles/logistic-vehicles/hx-family",
+        "https://de.wikipedia.org/wiki/Rheinmetall_MAN_HX"
+      ],
+      "confidence": "low",
+      "note": "Supply truck crew (M11.4b): a driver and a co-driver in charge (game values: ranks typical, not sourced; loads as the recovery crews'). Not in any platoon: the truck comes from off the map."
     }
   ]
 }

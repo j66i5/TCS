@@ -5,7 +5,7 @@
  * `hashState` hashes the canonical serialisation: equal hash <=> equal state. Used for the determinism
  * test, golden replays, saves and battle results.
  */
-import type { Action, Cache, Carry, ContactReport, DroneState, FireTask, Identity, Mover, RearPoint, SoldierState, TerrainState, Transform, Unit, VehicleState, WeaponState } from "./components";
+import type { Action, Cache, Carry, ContactReport, DroneState, FireTask, Identity, Mover, RearPoint, SoldierState, Stock, TerrainState, Transform, Unit, VehicleState, WeaponState } from "./components";
 import { MORALE_SOURCES } from "./components";
 import { defaultEnvironment, type Environment } from "./environment";
 import type { SmokeCloud } from "./smoke";
@@ -87,7 +87,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 23;
+export const STATE_SCHEMA_VERSION = 24;
 
 /**
  * Older schemas this build can still load, each with its migration to the next (M10.1 onwards).
@@ -106,6 +106,9 @@ export const STATE_SCHEMA_VERSION = 23;
  * 22 -> 23 (M11.3 supply points and caches): a new store, `cache`, empty in an older save; `RearPoint.cache` and the
  * "resupply" intent are new optional values. A crate entity of an older save (a transform and a container only) stays a
  * plain container on the ground.
+ * 23 -> 24 (M11.4b off-map stock): a new store, `stock` (each side's supplies at the rear), empty in an older save;
+ * `Cache.fill`, `VehicleState.misuse`, `OffMapAsset.cargo/unloadTick/backTick`, `RearRun.share/supplyPoint/unloadTick`
+ * and the off-map kind "supply" are new optional values.
  */
 function migrateMorale20(d: SerializedState): SerializedState {
   const soldiers = (d.stores.soldier ?? []) as [EntityId, { casualty?: string; captive?: unknown; mental: Record<string, unknown> }][];
@@ -136,6 +139,7 @@ const MIGRATIONS: Record<number, (d: SerializedState) => SerializedState> = {
   20: migrateMorale20,
   21: (d) => ({ ...d, schema: 22 }),
   22: (d) => ({ ...d, schema: 23, stores: { ...d.stores, cache: d.stores.cache ?? [] } }),
+  23: (d) => ({ ...d, schema: 24, stores: { ...d.stores, stock: d.stores.stock ?? [] } }),
 };
 
 /** Bring a save up to the current schema, or throw if it is too old or too new. */
@@ -210,11 +214,13 @@ export interface SimState {
   rear: Store<RearPoint>;
   /** Caches (M11.3): supply points and piles of supplies on the ground, keyed by their own entity. */
   cache: Store<Cache>;
+  /** Off-map stocks (M11.4b): one per side with supplies at the rear, keyed by their own entity (with a container). */
+  stock: Store<Stock>;
   /** M11.1: keys of the late units (`UnitInput.arriveS`) that have entered. Absent: none (or none late). */
   arrived?: string[];
 }
 
-const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire", "vehicle", "carry", "drone", "rear", "cache"] as const;
+const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire", "vehicle", "carry", "drone", "rear", "cache", "stock"] as const;
 type StoreKey = (typeof STORE_KEYS)[number];
 
 export function createState(seed: number, catalogFingerprint = "", mapFingerprint = ""): SimState {
@@ -253,6 +259,7 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     drone: new Store(),
     rear: new Store(),
     cache: new Store(),
+    stock: new Store(),
   };
 }
 
@@ -388,6 +395,7 @@ export function deserializeState(data: SerializedState): SimState {
     drone: st("drone") as Store<DroneState>,
     rear: st("rear") as Store<RearPoint>,
     cache: st("cache") as Store<Cache>,
+    stock: st("stock") as Store<Stock>,
   };
 }
 

@@ -45,6 +45,12 @@ export interface OrderSet {
   resupply?: boolean;
   /** "Fetch ammunition" (M11.4a): two of the squad's men bring a crate from the platoon's supply point. */
   fetchAmmo?: boolean;
+  /** "Order a delivery" (M11.4b): the side's supply vehicle waits off the map (`deliveryLeft` of them) and its stock
+   *  holds supplies. Absent: not offered. */
+  delivery?: boolean;
+  deliveryLeft?: number;
+  /** "Restock" (M11.4b): the hull goes back for ammunition (its side has a stock). Absent: not offered. */
+  supplyRun?: boolean;
 }
 
 /** What the selected unit can do about vehicles now (M7.2). */
@@ -99,6 +105,11 @@ export interface UnitCapabilities {
   bearers?: boolean;
   /** M11.4a: its request for ammunition waits for the player (rule "ask"): "Send bearers" on the card. */
   supplyAsk?: boolean;
+  /** M11.4b: supply vehicles of its side waiting off the map with a stock to bring (none on its way): "Order a
+   *  delivery". */
+  deliveryLeft?: number;
+  /** M11.4b: the crew's hull can go back for ammunition (its side has an off-map stock): "Restock". */
+  canSupplyRun?: boolean;
 }
 
 const NONE: UnitCapabilities = { kind: "none", vehicleClass: null, ableMen: 0, hasLauncherRounds: false, handGrenades: 0, rifleGrenades: 0, smokeGrenades: 0, supportHe: 0, supportSmoke: 0, canMount: false, canDismount: false, passengers: 0, hasSmokeDischargers: false, natures: [] };
@@ -165,7 +176,11 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     out.ableMen = veh.seats.filter((o, i) => o !== null && vdef.seats[i]?.station !== "passenger" && isAble(view.soldier.get(o))).length;
     out.passengers = veh.seats.filter((o, i) => o !== null && vdef.seats[i]?.station === "passenger").length;
     out.hasSmokeDischargers = vdef.dischargers !== undefined && countIn(view, u.vehicle, vdef.dischargers.item) > 0;
-    if (catalog.medical?.rearRun !== undefined && veh.offMap === undefined && veh.rearRun === undefined && (veh.status === "ok" || veh.status === "disarmed")) out.canRearRun = true;
+    if (catalog.medical?.rearRun !== undefined && veh.offMap === undefined && veh.rearRun === undefined && (veh.status === "ok" || veh.status === "disarmed")) {
+      out.canRearRun = true;
+      // (M11.4b: "Restock" when its side has an off-map stock; never offered for a marked ambulance.)
+      if (catalog.supply?.vehicleRun !== undefined && vdef.ambulance === undefined && hasStock(view, u.side)) out.canSupplyRun = true;
+    }
     if (catalog.repair !== undefined && veh.offMap === undefined && veh.rearRun === undefined && veh.repair?.working !== true && veh.fire === null && (veh.status !== "abandoned" && veh.status !== "destroyed")
       && typeof repairTaskFor(catalog, view, u.vehicle, veh, vdef) !== "string") out.canRepair = true;
     // The natures its guns offer: a coaxial machine gun "mg"; a cannon "ap" / "he" by the feed's round.
@@ -215,10 +230,31 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     if (src !== null) out.supplySource = src;
     if (catalog.supply.bearers !== undefined && u.parent !== null && u.vehicle === undefined && u.members.length > 0 && platoonPointHasSupplies(view, unitId)) out.bearers = true;
     if (u.supplyAsk?.pending === true) out.supplyAsk = true;
+    const left = deliveriesLeft(view, catalog, u.side);
+    if (left > 0 && u.members.length > 0 && u.vehicle === undefined) out.deliveryLeft = left;
   }
   if (out.ableMen === 1) out.kind = "man";
   if (out.ableMen === 0) out.kind = "none"; // nobody left to take an order
   return out;
+}
+
+/** M11.4b: does the side have an off-map stock with anything in it? */
+function hasStock(view: SimView, side: string): boolean {
+  for (const [id, st] of view.stock.entries()) if (st.side === side && (view.container.get(id)?.stacks.some((x) => x.count > 0) ?? false)) return true;
+  return false;
+}
+
+/** M11.4b: supply vehicles of the side waiting off the map, 0 when a delivery is under way or the side has no stock. */
+export function deliveriesLeft(view: SimView, catalog: Catalog, side: string): number {
+  if (catalog.supply?.delivery === undefined || !hasStock(view, side)) return 0;
+  let n = 0;
+  for (const [, v] of view.vehicle.entries()) {
+    const o = v.offMap;
+    if (v.side !== side || o === undefined) continue;
+    if (o.cargo === "supplies" && (o.phase === "called" || o.phase === "inbound" || o.phase === "loading" || o.phase === "outbound")) return 0;
+    if (o.kind === "supply" && o.phase === "ready") n++;
+  }
+  return n;
 }
 
 /** M11.7b: can a recovery vehicle be called for this hull now (disabled, not burning, none coming, one waiting)? */
@@ -298,6 +334,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     o.nature = cap.natures.length > 1;
     if (cap.hasLauncherRounds) o.modes = [...o.modes, "antitank"];
     if (cap.canRearRun) o.rearRun = true;
+    if (cap.canSupplyRun) o.supplyRun = true;
     if (cap.canRepair) o.repair = true;
     if (cap.canRecover) { o.recover = true; o.recoverLeft = cap.recoverLeft ?? 0; }
     return o;
@@ -313,7 +350,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     if (cap.supportHe > 0 || cap.supportSmoke > 0) m.push("support");
     if (onFoot(cap)) m.push("arc"); // (D4b: Defend arc, a unit's; not for men all aboard)
     if (cap.supply === true) m.push("supply"); // (M11.3: the platoon's supply point)
-    return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.kitSource !== undefined ? { takeKit: true } : {}), ...(cap.supplySource !== undefined ? { resupply: true } : {}), ...(cap.bearers === true ? { fetchAmmo: true } : {}) };
+    return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.kitSource !== undefined ? { takeKit: true } : {}), ...(cap.supplySource !== undefined ? { resupply: true } : {}), ...(cap.bearers === true ? { fetchAmmo: true } : {}), ...(cap.deliveryLeft !== undefined ? { delivery: true, deliveryLeft: cap.deliveryLeft } : {}) };
   }
   if (cap.kind === "man") {
     return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.canRecover ? { recover: true, recoverLeft: cap.recoverLeft ?? 0 } : {}), ...(cap.kitSource !== undefined ? { takeKit: true } : {}), ...(cap.supplySource !== undefined ? { resupply: true } : {}), ...(cap.bearers === true ? { fetchAmmo: true } : {}) };
@@ -332,7 +369,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
   if (onFoot(cap)) m.push("arc");
   // (M11.3: Supply point — the platoon's, put where the player taps.)
   if (cap.supply === true) m.push("supply");
-  return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.canRecover ? { recover: true, recoverLeft: cap.recoverLeft ?? 0 } : {}), ...(cap.kitSource !== undefined ? { takeKit: true } : {}), ...(cap.supplySource !== undefined ? { resupply: true } : {}), ...(cap.bearers === true ? { fetchAmmo: true } : {}) };
+  return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false, ...(cap.canRecover ? { recover: true, recoverLeft: cap.recoverLeft ?? 0 } : {}), ...(cap.kitSource !== undefined ? { takeKit: true } : {}), ...(cap.supplySource !== undefined ? { resupply: true } : {}), ...(cap.bearers === true ? { fetchAmmo: true } : {}), ...(cap.deliveryLeft !== undefined ? { delivery: true, deliveryLeft: cap.deliveryLeft } : {}) };
 }
 
 /** Has the unit able men on foot (D4b)? */

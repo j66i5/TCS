@@ -82,8 +82,31 @@
         }
       }
     },
+    "delivery": {
+      "checkS": 10,
+      "callBelow": 0.3,
+      "delayMinS": 600,
+      "delayMaxS": 1200,
+      "pace": "walk",
+      "nearPace": "walk",
+      "standM": 15,
+      "unloadBaseS": 60,
+      "unloadSecondsPerKg": 0.3,
+      "turnaroundS": 1200,
+      "heldMaxS": 900,
+      "edgeM": 20,
+      "ambulanceKg": 500
+    },
+    "vehicleRun": {
+      "stowageBelow": 0.5,
+      "shareKg": 400,
+      "unloadBaseS": 30,
+      "unloadSecondsPerKg": 0.3,
+      "standM": 15
+    },
+    "topUpCheckS": 10,
     "sources": [],
     "confidence": "low",
-    "note": "M11.3 (plan slice 45): game-design values, no source. Separation from the Verwundetennest and caches as legitimate targets are owner answers (2026-11-16); the 50 m apart and the 15 m clear zone are software choices. Cook-off: a light vehicle's ammunition rack as model (M7.4a); a burst sets a crate off with a chance per kg of filling (a 120 mm round on it about 0.6, a 152/155 mm round 0.9 and destroyed outright), within 5 m x filling^(1/3); a fire burns 30-120 s (plan), rifle rounds burn and pop without fragments (general knowledge, low). Taking at a crate: 0.4 s a round into a magazine (stripper clips and a loader, as refillMagazines with clips), 0.02 s a round of loose clips into a bandolier. Capture after 10 s with an enemy within 10 m and none of its side within 50 m (plan). M11.4a (plan slice 46): a squad asks for ammunition when its able men hold below `request.below` 40 % of their standard load (every magazine, belt and bandolier full) or a machine gunner below `request.beltsBelow` one belt, at most every `everyS` 120 s, looked at every `stepS` 2 s (plan); men short of `useMinRounds` take from an own cache within `useM` 60 m themselves when quiet. Bearers: two men carry a crate of up to `crateMaxKg` 40 kg (two-hand carry, one each side: a game value; the plan's 25 kg is for one man, `maxKg`), loading `loadS` 30 s at the point; delivered within `deliverM` of the squad's leader; a squad fired on within `contactS` 30 s gives no bearer. Carry methods `crate` and `load`: speeds as the medical two-man carry, scaled by mass as a casualty's (game values, low)."
+    "note": "M11.3 (plan slice 45): game-design values, no source. Separation from the Verwundetennest and caches as legitimate targets are owner answers (2026-11-16); the 50 m apart and the 15 m clear zone are software choices. Cook-off: a light vehicle's ammunition rack as model (M7.4a); a burst sets a crate off with a chance per kg of filling (a 120 mm round on it about 0.6, a 152/155 mm round 0.9 and destroyed outright), within 5 m x filling^(1/3); a fire burns 30-120 s (plan), rifle rounds burn and pop without fragments (general knowledge, low). Taking at a crate: 0.4 s a round into a magazine (stripper clips and a loader, as refillMagazines with clips), 0.02 s a round of loose clips into a bandolier. Capture after 10 s with an enemy within 10 m and none of its side within 50 m (plan). M11.4a (plan slice 46): a squad asks for ammunition when its able men hold below `request.below` 40 % of their standard load (every magazine, belt and bandolier full) or a machine gunner below `request.beltsBelow` one belt, at most every `everyS` 120 s, looked at every `stepS` 2 s (plan); men short of `useMinRounds` take from an own cache within `useM` 60 m themselves when quiet. Bearers: two men carry a crate of up to `crateMaxKg` 40 kg (two-hand carry, one each side: a game value; the plan's 25 kg is for one man, `maxKg`), loading `loadS` 30 s at the point; delivered within `deliverM` of the squad's leader; a squad fired on within `contactS` 30 s gives no bearer. Carry methods `crate` and `load`: speeds as the medical two-man carry, scaled by mass as a casualty's (game values, low). M11.4b (plan slice 47): a platoon's supply point below `delivery.callBelow` 30 % of its standard fill calls the side's supply truck (plan), which comes on after 600-1200 s (plan: game values), drives at the 'walk' pace (as the ambulances and the recovery vehicles) to within 15 m, is unloaded in 60 s + 0.3 s a kg (two men handing down crates: about 25 minutes for a full 5 t truck, low) and drives back; ready again 1200 s after it left the map. A combat vehicle whose stowed ammunition is below `vehicleRun.stowageBelow` 50 % of what the data stows goes on a rear run (away 900 s, core/medical.json `rearRun`); it comes back with its stowage full and up to `shareKg` 400 kg for the platoon's supply point (a carrier's spare room, low), unloaded in 30 s + 0.3 s a kg. The support top-up is set by the scenario (rounds per 10 minutes), looked at every `topUpCheckS` 10 s. An ambulance the player sends with supplies (a breach) carries up to `delivery.ambulanceKg` 500 kg (its stretcher space; game value)."
   }
 }

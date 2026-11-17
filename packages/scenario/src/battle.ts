@@ -15,7 +15,7 @@ import {
 import { defaultRules, freeSpot, SIDES } from "./demo";
 import { allMembers, buildForceWithVehicles, withoutVehicles, type ForceVehicle } from "./forces";
 import { generateMap, type MapKind } from "./mapgen/index";
-import { addRecoveryAssets, platoonTemplateOf, type CarrierClass } from "./vehicles";
+import { addRecoveryAssets, addSupplyAssets, platoonTemplateOf, type CarrierClass } from "./vehicles";
 
 export interface ScenarioDef {
   kind: "platoon-attack";
@@ -487,7 +487,12 @@ function placeVehicles(
 }
 
 /** M11.1 hold-resupply: what the waves and the supply point are (game values). */
-export const HOLD = { waveS: [0, 900, 1800], timeLimitSeconds: 3600, supplyBehindM: 150, canMaxRounds: 1200, attackerMortarShare: 1 / 6, preparedS: [60, 90] } as const;
+export const HOLD = {
+  waveS: [0, 900, 1800], timeLimitSeconds: 3600, supplyBehindM: 150, canMaxRounds: 1200, attackerMortarShare: 1 / 6, preparedS: [60, 90],
+  /** M11.4b: the defender's off-map stock holds this many times the supply point's starting load (deliveries by its
+   *  supply vehicle), and tops its mortar allotment up by `topUpRounds` every `topUpEveryS` (game values). */
+  stockLoads: 2, topUpRounds: 6, topUpEveryS: 600,
+} as const;
 
 export interface HoldDef {
   seed: number;
@@ -498,6 +503,8 @@ export interface HoldDef {
   timeLimitSeconds?: number;
   /** When each wave (an attacking platoon) enters, s after the start (default HOLD.waveS). */
   waveS?: number[];
+  /** M11.4b: false: no off-map stock and no supply vehicle (the battle as in slice 46). Default true. */
+  deliveries?: boolean;
 }
 
 /**
@@ -547,6 +554,18 @@ export function holdBattle(data: DataSet, def: HoldDef): BattleInput {
   }
   const merged = new Map<string, { type: string; count: number; charge: number }>();
   for (const l of loads) { const m = merged.get(l.type); if (m) m.count += l.count; else merged.set(l.type, { ...l }); }
-  df.caches = [{ x: sp.x, y: sp.y, load: [...merged.values()].sort((a, b) => (a.type < b.type ? -1 : 1)), point: true }];
+  const pointLoad = [...merged.values()].sort((a, b) => (a.type < b.type ? -1 : 1));
+  df.caches = [{ x: sp.x, y: sp.y, load: pointLoad, point: true }];
+  // M11.4b: the defender's stock at the rear (deliveries of `stockLoads` times the point's load, and the mortar
+  // rounds of the top-up over the whole battle) and its supply vehicle off the map.
+  if (def.deliveries !== false) {
+    const limit = def.timeLimitSeconds ?? HOLD.timeLimitSeconds;
+    const fsDef = cat.factions[df.faction]?.fireSupport;
+    const mortarRounds = HOLD.topUpRounds * Math.floor(limit / HOLD.topUpEveryS);
+    const load: { type: string; count: number; charge?: number }[] = pointLoad.map((l) => ({ ...l, count: l.count * HOLD.stockLoads }));
+    if (fsDef && mortarRounds > 0) load.push({ type: fsDef.heAmmo, count: mortarRounds });
+    df.stock = { load, ...(fsDef ? { supportTopUp: { rounds: HOLD.topUpRounds, everyS: HOLD.topUpEveryS } } : {}) };
+    addSupplyAssets(data, cat, df, def.seed * 53 + 7);
+  }
   return input;
 }

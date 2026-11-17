@@ -53,7 +53,10 @@ export interface SideRecord {
   recovery: { called: number; ordered: number; arrived: number; towed: number; lost: number; cancelled: number; callToArrivalS: number[]; recovered: number; captured: number };
   /** Supply (M11.3): enemy caches captured and the rounds in them, own caches set off and the rounds they lost, men
    *  sent to a cache and the rounds they took there. Optional: records before version 10 have none. */
-  supply?: { captured: number; roundsCaptured: number; cookoffs: number; roundsDestroyed: number; sent: number; roundsTaken: number; requests?: number; trips?: number; roundsDelivered?: number };
+  supply?: { captured: number; roundsCaptured: number; cookoffs: number; roundsDestroyed: number; sent: number; roundsTaken: number; requests?: number; trips?: number; roundsDelivered?: number;
+    /** M11.4b: deliveries from off the map unloaded and their rounds, combat vehicles' rear runs that unloaded supplies
+     *  and their rounds, rounds into the vehicles' own stowage, mortar and artillery rounds topped up. Optional. */
+    deliveries?: number; roundsOffMap?: number; vehicleRuns?: number; roundsVehicle?: number; roundsRestocked?: number; topUp?: number };
   /** Guided missiles fired by the side's hulls and how they ended; enemy hulls penetrated by its missiles and by its
    *  shoulder-fired rockets. */
   missiles: { fired: number; hit: number; lost: number; miss: number; penetrated: number; rocketPenetrated: number };
@@ -102,7 +105,9 @@ export interface SideRecord {
   settled: { evacuated: number; captured: number; prisoner: number; stays: number };
   /** Laws of war (M10.7b; by the side that fired): breaches with their circumstances (the first `BREACHES_MAX`),
    *  counts by cause, and hits on protected people by kind, aimed at them or incidental (Q-8). */
-  conduct: { breaches: BreachEntry[]; misidentified: number; deliberate: number; hits: Record<string, { aimed: number; incidental: number }>; /** Orders to fire at a recognised protected target the men refused (owner Q-7; M10.8). */ refused: number };
+  conduct: { breaches: BreachEntry[]; misidentified: number; deliberate: number; hits: Record<string, { aimed: number; incidental: number }>; /** Orders to fire at a recognised protected target the men refused (owner Q-7; M10.8). */ refused: number;
+    /** M11.4b: ammunition put into a marked ambulance (a breach; optional): when and which hull. */
+    misuse?: { tick: number; vehicle: string; ordered: boolean }[] };
 }
 
 /**
@@ -443,6 +448,23 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
     if (e.kind === "supply.request") { const r = side(e.side)?.supply; if (r) r.requests = (r.requests ?? 0) + 1; }
     if (e.kind === "supply.bearers") { const r = side(e.side)?.supply; if (r) r.trips = (r.trips ?? 0) + 1; }
     if (e.kind === "supply.delivered") { const r = side(e.side)?.supply; if (r) r.roundsDelivered = (r.roundsDelivered ?? 0) + e.rounds; }
+    // (M11.4b: deliveries from off the map, vehicle runs, the support top-up.)
+    if (e.kind === "supply.delivery" && e.phase === "unloaded") {
+      const r = side(e.side)?.supply;
+      if (r) { r.deliveries = (r.deliveries ?? 0) + 1; r.roundsOffMap = (r.roundsOffMap ?? 0) + (e.rounds ?? 0); }
+      rec.timeline.push({ tick: e.tick, side: e.side, key: "timeline.supply.delivery" });
+    }
+    if (e.kind === "medical.rearRun" && (e.phase === "unloaded" || e.phase === "restocked")) {
+      const r = side(e.side)?.supply;
+      if (r && e.phase === "unloaded") { r.vehicleRuns = (r.vehicleRuns ?? 0) + 1; r.roundsVehicle = (r.roundsVehicle ?? 0) + (e.rounds ?? 0); }
+      if (r && e.phase === "restocked") r.roundsRestocked = (r.roundsRestocked ?? 0) + (e.rounds ?? 0);
+    }
+    if (e.kind === "supply.topUp") { const r = side(e.side)?.supply; if (r) r.topUp = (r.topUp ?? 0) + e.count; }
+    if (e.kind === "law.misuse") {
+      const r = side(e.side);
+      const v = view.vehicle.get(e.vehicle);
+      if (r) (r.conduct.misuse ??= []).push({ tick: e.tick, vehicle: v ? (v.unit !== null ? view.unit.get(v.unit)?.callsign ?? v.vehicleId : v.vehicleId) : "", ordered: e.ordered });
+    }
     if (e.kind === "items.taken" && e.source === "cache" && view.cache.has(e.from)) { const r = side(sideOfMan(e.to))?.supply; if (r) r.roundsTaken += e.rounds; }
     if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
       const r = side(view.vehicle.get(e.vehicle)?.side);

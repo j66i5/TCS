@@ -4542,6 +4542,389 @@
       ],
       "confidence": "medium",
       "note": "BREM-1 (M11.7b): armoured recovery vehicle on the T-72 chassis (winch 25 t, crane, dozer blade; crew 3: commander, driver, mechanic; search extracts, medium). Unarmed in the game (its machine gun is left out, D11): an off-map asset called from the battalion's repair and evacuation group, outside the side's strength. The BREM-L / BREM-K of the BMP and BTR battalions are later data."
+    },
+    {
+      "id": "ru-ural4320",
+      "nameKey": "vehicle.ru.ural4320",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 7.37,
+        "widthM": 2.5,
+        "heightM": 2.87,
+        "groundClearanceM": 0.4,
+        "hull": {
+          "f": [
+            -3.685,
+            3.685
+          ],
+          "r": [
+            -1.25,
+            1.25
+          ],
+          "u": [
+            0.4,
+            2.87
+          ]
+        },
+        "wheelbaseM": 3.69,
+        "sources": [
+          "https://en.wikipedia.org/wiki/Ural-4320",
+          "https://www.military-today.com/trucks/ural_4320.htm"
+        ],
+        "confidence": "low",
+        "note": "Ural-4320: 7.37 x 2.5 x 2.87 m (search extracts of the factory figures; low). Hull box and wheelbase are game values."
+      },
+      "mass": {
+        "kg": 13300,
+        "sources": [
+          "https://en.wikipedia.org/wiki/Ural-4320",
+          "https://www.military-today.com/trucks/ural_4320.htm"
+        ],
+        "confidence": "low",
+        "note": "Gross combat mass about 13300 kg loaded (Search extracts only (the pages could not be opened here): game values, low.)"
+      },
+      "drive": {
+        "powerKw": 176,
+        "efficiency": 0.75,
+        "topSpeedKmh": 82,
+        "reverseTopSpeedKmh": 12,
+        "brakeMps2": 5,
+        "gears": [
+          {
+            "toKmh": 8
+          },
+          {
+            "toKmh": 16
+          },
+          {
+            "toKmh": 28
+          },
+          {
+            "toKmh": 42
+          },
+          {
+            "toKmh": 60
+          },
+          {
+            "toKmh": 82
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          }
+        ],
+        "shiftSeconds": 0.8,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 30,
+          "steerRateDegS": 30,
+          "maxLatAccelMps2": 3
+        },
+        "idleKw": 10,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://en.wikipedia.org/wiki/Ural-4320",
+          "https://www.military-today.com/trucks/ural_4320.htm"
+        ],
+        "confidence": "low",
+        "note": "YaMZ-238M2 diesel about 176 kW (240 hp), 82 km/h on roads (search extracts; low). Gear bands, braking, steering and fuel use are game values."
+      },
+      "fuel": {
+        "item": "ru-ural-diesel",
+        "capacityL": 300
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            2.4,
+            0.6,
+            1.8
+          ],
+          "part": "hull",
+          "hatch": false,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                2.4,
+                0.6,
+                2.2
+              ],
+              "arcDeg": 180,
+              "sideFactor": 0.6,
+              "rearFactor": 0.05,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.4,
+            -0.6,
+            1.8
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            2.185,
+            1.85
+          ],
+          [
+            2.185,
+            -1.85
+          ]
+        ],
+        "openSeconds": 1,
+        "mountSecondsPerMan": 3,
+        "dismountSecondsPerMan": 2,
+        "bailOutSeconds": 4,
+        "seatSwapSeconds": 10,
+        "loadCasualtySeconds": 40,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: two cab doors; the cargo bed has no seats in this game (M11.4b)."
+      },
+      "stations": [],
+      "stowed": [
+        {
+          "item": "ru-ak74-mag",
+          "count": 4,
+          "charge": 30
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        }
+      ],
+      "sources": [
+        "https://en.wikipedia.org/wiki/Ural-4320",
+        "https://www.military-today.com/trucks/ural_4320.htm"
+      ],
+      "confidence": "low",
+      "note": "M11.4b (plan slice 47): the side's supply vehicle, off the map until a delivery is called; it drives to the platoon's supply point, the load is put down there and it drives back. Russia: the Ural-4320 6x6 cross-country truck that carries ammunition forward (the plan allowed a Ural or KamAZ truck or an MT-LB).",
+      "signature": {
+        "sizeFactor": 1.1,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 250,
+        "noiseMovingM": 800,
+        "aimPoints": [
+          [
+            2.4850000000000003,
+            0,
+            1.8
+          ],
+          [
+            -1,
+            0,
+            1.6
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a tall truck with a tarpaulin over the bed."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 3,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 3,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 3,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 3,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "An unarmoured truck (soft skin): 3 mm steel equivalent everywhere (the cab sheet and the cargo bed); every rifle round goes through. Game value."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                2.085,
+                3.485
+              ],
+              "r": [
+                -0.8,
+                0.8
+              ],
+              "u": [
+                0.6,
+                1.6
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 30,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.4849999999999999,
+                2.085
+              ],
+              "r": [
+                -0.5,
+                0.5
+              ],
+              "u": [
+                0.5,
+                1.0
+              ]
+            },
+            "toughnessMm": 25,
+            "absorbMm": 20
+          },
+          {
+            "id": "wheels-left",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.085,
+                3.085
+              ],
+              "r": [
+                -1.25,
+                -0.85
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "wheels-right",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.085,
+                3.085
+              ],
+              "r": [
+                0.85,
+                1.25
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -0.5,
+                0.5
+              ],
+              "r": [
+                0.55,
+                1.05
+              ],
+              "u": [
+                0.5,
+                1.1
+              ]
+            },
+            "toughnessMm": 5,
+            "absorbMm": 10,
+            "fireChance": 0.3
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.085,
+                1.4849999999999999
+              ],
+              "r": [
+                0.2,
+                0.7
+              ],
+              "u": [
+                1.4,
+                1.9
+              ]
+            },
+            "toughnessMm": 5,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: engine under the cab at the front, the cargo bed behind; no fire suppression."
+      },
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "wheels": [],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair as the other wheeled hulls (game values, low)."
+      },
+      "cargo": {
+        "kg": 5000,
+        "sources": [
+          "https://en.wikipedia.org/wiki/Ural-4320",
+          "https://www.military-today.com/trucks/ural_4320.htm"
+        ],
+        "confidence": "low",
+        "note": "5 t payload across country (search extracts, low): what one delivery can carry."
+      }
     }
   ]
 }

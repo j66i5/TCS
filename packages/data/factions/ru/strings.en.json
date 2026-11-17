@@ -193,5 +193,7 @@
   "item.ru-762r-pack": "7.62x54R pack (20)",
   "item.ru-762r-tin": "7.62x54R sealed tin (440)",
   "item.ru-vog25-crate": "VOG-25 grenade crate (20)",
-  "item.ru-rgd5-crate": "Hand grenade crate (20)"
+  "item.ru-rgd5-crate": "Hand grenade crate (20)",
+  "vehicle.ru.ural4320": "Ural-4320",
+  "item.ru-ural-diesel": "Diesel (Ural tank)"
 }

@@ -797,6 +797,40 @@ point 400 m behind, the first squad's spare magazines empty: request, bearers at
 against a hand calculation (walk there with their load, load, carry back with rests, the men's run to the crate and
 taking). Both within 1 % (target 10 %).
 
+## Resupply by vehicle and from off the map (M11.4b)
+
+**The stock at the rear.** A side may have a stock behind the map (the scenario gives it; later the campaign): the only
+place anything arriving during a battle comes from. Nothing is made out of nothing: every can, tin or mortar bomb that
+comes forward leaves that stock and is counted as delivered, so the ammunition check (start minus end equals fired plus
+destroyed minus delivered) stays exact.
+
+**Deliveries.** Each side with a stock has a supply truck waiting off the map (Bundeswehr: an HX2 5-tonne truck;
+Russia: a Ural-4320). When a platoon's supply point holds less than 30 % of what it held at first, or a squad of a
+platoon without a supply point asked for ammunition lately (a point is sited then), the platoon calls it; the player can
+also press **Order a delivery** (order bar; on a phone under "⋯"), which brings a full point's worth. It is loaded at the
+call with whole cans and tins of what the platoon's men fire (up to its 5 t), comes onto the map 10-20 minutes later at
+the edge behind the point, drives there, is unloaded (a minute plus 0.3 s a kilogram), drives back and is ready for the
+next call 20 minutes after it left. One delivery per side at a time. The list of wounded and vehicles on runs shows it
+("delivery on its way, about N min", "unloading at the supply point").
+
+**Combat vehicles' rear runs.** A carrier or tank that goes off the map with wounded comes back with its stowage filled
+from the stock up to what the data stows, and with up to 400 kg for its platoon's supply point, which it drives to and
+unloads first. An idle hull whose stowed ammunition is below half goes back for it on its own (the same limits as the
+casualty runs: one per platoon at a time, one hull stays); the player's **Restock** does it at once. A marked ambulance
+never does this on its own.
+
+**Mortar rounds.** A stock can top up the side's off-map mortar or artillery allotment: so many rounds every ten
+minutes (the hold battle: six 120 mm bombs for the defender). The fire support panel shows the rounds as before.
+
+**The ambulance and ammunition.** The computer never puts ammunition into an ambulance. If the player orders a delivery
+with an ambulance (the order names it), it is carried out but recorded as a breach of the law of war, listed on the
+review's Conduct tab, and the ambulance has no protection while it carries the ammunition: an enemy who sees it close
+enough no longer spares it. Unloaded, it is protected again.
+
+**Measuring it.** `npm run lab -- resupply` also times a delivery 400 m from the edge and a Puma's and a BMP-2's supply
+run against a hand calculation (the wait, the drive at the run's pace, unloading): all within 1 % (target 10 %), the
+ammunition check exact. Batches take `--no-deliveries` (resupply on foot only) besides `--no-resupply`.
+
 ## Grenades
 
 A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one

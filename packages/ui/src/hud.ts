@@ -70,6 +70,10 @@ export interface HudCallbacks {
   onResupply?(): void;
   /** M11.4a: "Fetch ammunition" (two of the squad's men bring a crate) and the card's "Send bearers". */
   onFetchAmmo?(): void;
+  /** M11.4b: "Order a delivery" (the selected unit's platoon calls the supply vehicle). */
+  onDelivery?(): void;
+  /** M11.4b: "Restock" (the selected crew's hull goes back for ammunition). */
+  onSupplyRun?(): void;
   onSendBearers?(): void;
   onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
@@ -407,13 +411,18 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const fetchAmmoBtn = verb("resupply", "order.fetchAmmo", "bearers", () => cb.onFetchAmmo?.());
   fetchAmmoBtn.title = s.t("order.fetchAmmoTitle");
   fetchAmmoBtn.hidden = true;
+  const deliveryBtn = verb("delivery", "order.callDelivery", "callDelivery", () => cb.onDelivery?.());
+  deliveryBtn.hidden = true;
+  const supplyRunBtn = verb("supplyRun", "order.supplyRun", "supplyRun", () => cb.onSupplyRun?.());
+  supplyRunBtn.title = s.t("order.supplyRunTitle");
+  supplyRunBtn.hidden = true;
   mountBtn.hidden = true; dismountBtn.hidden = true; dischargeBtn.hidden = true; natureBtn.hidden = true;
   // Display order in the bar; and the order in which items move behind "⋯" when the strip is too short.
-  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn];
-  const OVERFLOW_FIRST = ["bearers", "resupplyAt", "takeKit", "callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
+  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn];
+  const OVERFLOW_FIRST = ["callDelivery", "supplyRun", "bearers", "resupplyAt", "takeKit", "callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
   const allButtons = (): HTMLButtonElement[] => [...dock.querySelectorAll("button")];
   orders.append(grip, ...barItems, moreBtn);
-  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
+  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
 
   // ---- plan bar (S3: the pace of the next leg is chosen on the unit card)
   const plan = el("div", "hud-plan");
@@ -722,6 +731,8 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       for (const b of postureBtns) b.hidden = !set.posture;
       mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true; repairBtn.hidden = set.repair !== true; takeKitBtn.hidden = set.takeKit !== true; resupplyBtn.hidden = set.resupply !== true; fetchAmmoBtn.hidden = set.fetchAmmo !== true;
       recoverBtn.hidden = set.recover !== true;
+      deliveryBtn.hidden = set.delivery !== true; supplyRunBtn.hidden = set.supplyRun !== true;
+      if (set.delivery === true) deliveryBtn.title = s.t("order.callDeliveryTitle", { n: set.deliveryLeft ?? 0 });
       if (set.recover === true) recoverBtn.title = s.t("order.recoverTitle", { n: set.recoverLeft ?? 0 });
       dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;
       // A group shows while one of its modes is offered; its caret while its tray has more than the button itself.

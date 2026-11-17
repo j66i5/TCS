@@ -263,7 +263,8 @@ export function evacuationSystem(ctx: SimContext, state: SimState, events: Event
   if (state.tick % Math.max(1, secondsToTicks(M.care.stepS)) !== 0) return;
   // The ambulances (ascending id); nothing to do in a battle without any.
   let assets: EntityId[] | null = null;
-  for (const [vid, v] of state.vehicle.entries()) if (v.offMap?.kind === "ambulance") (assets ??= []).push(vid);
+  // (M11.4b: an ambulance the player sent with supplies is on a delivery run: delivery.ts steps it.)
+  for (const [vid, v] of state.vehicle.entries()) if (v.offMap?.kind === "ambulance" && v.offMap.cargo === undefined) (assets ??= []).push(vid);
   if (assets === null) return;
   // Who lies at which nest (one pass over the men).
   let atNest: Map<EntityId, EntityId[]> | null = null;

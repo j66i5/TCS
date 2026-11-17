@@ -69,6 +69,24 @@ export function addRecoveryAssets(data: DataSet, catalog: BattleInput["catalog"]
   }
 }
 
+/**
+ * Supply vehicles off the map (M11.4b): the faction manifest's `supply` crews and hulls (fresh roster records), appended
+ * to the force as off-map assets waiting to be called for a delivery. Nothing without a manifest entry.
+ */
+export function addSupplyAssets(data: DataSet, catalog: BattleInput["catalog"], force: ForceInput, seed: number): void {
+  const sup = data.factions[force.faction]?.manifest.supply;
+  const vtype = sup ? data.factions[force.faction]!.units[sup.template]?.vehicle : undefined;
+  const def = vtype === undefined ? undefined : catalog.vehicles[vtype];
+  if (!sup || !def) return;
+  for (let k = 0; k < sup.count; k++) {
+    const crew = buildForceWithVehicles(data, { faction: force.faction, template: sup.template, seed: seed + k, keyPrefix: `${force.side}-sup${k + 1}`, number: k + 1 }).unit;
+    crew.vehicleId = crew.key;
+    force.units.push(crew);
+    (force.vehicles ??= []).push(newVehicleRecord(catalog, vtype!, crew.key));
+    (force.offMap ??= []).push({ vehicleId: crew.key, kind: "supply" });
+  }
+}
+
 /** Carrier class of a generated platoon (M7.6c): which of the manifest's `platoonTemplates` a battle uses. */
 export type CarrierClass = "tracked" | "wheeled";
 

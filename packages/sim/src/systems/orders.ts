@@ -9,6 +9,7 @@ import { leaveCarry } from "./carry";
 import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
 import { callAmbulanceOrder } from "./evacuation";
 import { rearRunGate, rearRunOrder } from "./rearrun";
+import { callDeliveryOrder, deliveriesEnabled } from "./delivery";
 import { endRepairByOrder, repairOrder } from "./repair";
 import { callRecoveryOrder, towGate } from "./recovery";
 import { kitSource, takeKitOrder } from "./consolidate";
@@ -177,9 +178,15 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.own !== undefined && typeof o.own !== "boolean") return "invalid-params";
       if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
       return ctx.catalog.supply?.bearers && ctx.rules.resupply !== false ? null : "not-applicable";
+    case "callDelivery":
+      // (M11.4b) A unit (its platoon calls), or a man of one; a vehicle named must exist.
+      if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
+      if (o.vehicle !== undefined && (!Number.isInteger(o.vehicle) || !state.vehicle.has(o.vehicle))) return "invalid-params";
+      return ctx.catalog.supply?.delivery && deliveriesEnabled(ctx) ? null : "not-applicable";
     case "rearRun":
       // A vehicle crew's hull (M10.6b).
       if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
+      if (o.cargo !== undefined && o.cargo !== "supplies") return "invalid-params";
       return ctx.catalog.medical?.nest && ctx.catalog.medical.rearRun ? null : "not-applicable";
     case "repair":
       // A vehicle crew's hull (M11.7a).
@@ -432,7 +439,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "callAmbulance") return callAmbulanceOrder(ctx, state, events, order.target, order.player === true);
   // A combat vehicle's rear run (M10.6b): the hull's own task; an order to a hull away on one is refused, on the map
   // it ends the run.
-  if (order.kind === "rearRun") return rearRunOrder(ctx, state, events, order.target);
+  if (order.kind === "rearRun") return rearRunOrder(ctx, state, events, order.target, order.cargo);
+  // A delivery from off the map (M11.4b): the platoon's call; nothing of the unit changes.
+  if (order.kind === "callDelivery") return callDeliveryOrder(ctx, state, events, order);
   // Take enemy kit (M11.2): one man's errand; nothing else of the unit changes.
   if (order.kind === "takeKit") {
     // mounted: ok takeKitOrder sends only men on foot

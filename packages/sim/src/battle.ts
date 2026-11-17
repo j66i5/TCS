@@ -134,6 +134,10 @@ export interface ForceInput {
   /** M11.1: crates and cans of this side on the ground: each a cache (M11.3: an entity with a place, a container and
    *  a `cache` record of this side). `point`: the supply point of the side's nearest platoon. */
   caches?: { x: number; y: number; load: ItemStack[]; point?: boolean }[];
+  /** M11.4b: what the rear holds for this side (its off-map stock): the only source of deliveries during the battle
+   *  (supply vehicle runs, combat vehicles' rear runs, the support top-up). `supportTopUp`: `rounds` moved into the
+   *  side's off-map mortar or artillery section every `everyS` (owner: allotments topped up by deliveries). */
+  stock?: { load: ItemStack[]; supportTopUp?: { rounds: number; everyS: number } };
 }
 
 export interface BattleInput {

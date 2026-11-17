@@ -27,5 +27,9 @@
   "recovery": {
     "template": "brem1-ekipazh",
     "count": 1
+  },
+  "supply": {
+    "template": "ural-ekipazh",
+    "count": 1
   }
 }

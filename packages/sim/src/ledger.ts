@@ -6,7 +6,8 @@
  *   charge under its `chargeItem` (the cartridge); a whole item whose id is an ammunition id (a hand grenade, a
  *   rocket, a mortar bomb, a missile) counts one each. Wherever they are: containers (men, vehicles, crates, support
  *   sections, off-map assets, casualties, carried men), the magazine in a weapon, a vehicle's ready feeds, the box on
- *   an automatic grenade launcher, and an off-map fire mission's rounds already taken from the section.
+ *   an automatic grenade launcher, and an off-map fire mission's rounds already taken from the section. Not a side's
+ *   off-map stock (M11.4b): it is outside the battle; what leaves it for the battle is "delivered".
  * - `charge`: other charge by its `chargeKind` (litres of diesel, watt-hours).
  * - `items`: whole items by item id (every stack, magazines and tanks too, regardless of charge).
  *
@@ -43,7 +44,9 @@ export function ledgerOf(catalog: Catalog, state: SimView): Ledger {
     if (d?.chargeItem !== undefined) add(out.ammo, d.chargeItem, n);
     else if (d?.chargeKind !== undefined) add(out.charge, d.chargeKind, n);
   };
-  for (const [, c] of state.container.entries()) {
+  for (const [id, c] of state.container.entries()) {
+    // (M11.4b: a side's off-map stock is outside the battle: what leaves it is delivered, `items.delivered`.)
+    if (state.stock.has(id)) continue;
     for (const s of c.stacks) {
       add(out.items, s.type, s.count);
       if (s.charge !== undefined) rounds(s.type, s.charge * s.count);

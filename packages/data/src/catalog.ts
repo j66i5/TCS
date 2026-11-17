@@ -171,6 +171,7 @@ export function vehicleDef(v: VehicleT): VehicleDef {
     ...(v.laserWarner ? { laserWarner: true } : {}),
     ...(v.repair ? { repair: noProv(v.repair) as NonNullable<VehicleDef["repair"]> } : {}),
     ...(v.recovery ? { recovery: { towMaxKg: v.recovery.towMaxKg, towMaxMps: v.recovery.towMaxSpeedKmh / 3.6, hookUpS: v.recovery.hookUpS, hookUpMen: v.recovery.hookUpMen } } : {}),
+    ...(v.cargo ? { cargo: { kg: v.cargo.kg } } : {}),
     ...(v.ambulance ? { ambulance: { layouts: v.ambulance.layouts.map((l) => ({ lying: l.lying, sitting: l.sitting, lyingOutside: l.lyingOutside ?? 0 })), marked: v.ambulance.marked } } : {}),
     // A vehicle without signature data: plain defaults (its boxes give the area), aimed at the middle of its hull.
     signature: v.signature

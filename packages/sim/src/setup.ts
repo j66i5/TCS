@@ -18,7 +18,7 @@ import { createState, newEntity, type SimState, type SimView } from "./state";
 import type { SimContext } from "./context";
 import { EventSink } from "./events";
 import { newCache, pointForCache } from "./systems/supply";
-import { TICK_HZ } from "./ids";
+import { secondsToTicks, TICK_HZ } from "./ids";
 import { ammoOf } from "./ledger";
 import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
@@ -70,6 +70,16 @@ export function buildInitialState(input: BattleInput): SimState {
     }
   }
   for (const id of points) pointForCache(state, new EventSink(), id);
+  // M11.4b: each side's off-map stock (an entity with a container, after everything else so no other id moves).
+  for (const force of input.forces) {
+    if (!force.stock) continue;
+    const id = newEntity(state);
+    const c = emptyContainer();
+    for (const st of force.stock.load) addItems(c, st.type, st.count, st.charge);
+    state.container.set(id, c);
+    const tu = force.stock.supportTopUp;
+    state.stock.set(id, { side: force.side, ...(tu && tu.rounds > 0 && tu.everyS > 0 ? { topUp: { rounds: tu.rounds, everyS: tu.everyS }, nextTopUpTick: secondsToTicks(tu.everyS) } : {}) });
+  }
   return state;
 }
 

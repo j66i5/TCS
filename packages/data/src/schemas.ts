@@ -854,6 +854,9 @@ export const FactionManifest = withProv({
   /** Recovery vehicles off the map (M11.7b): generated battles give each side with vehicles of its own `count` of
    *  this crew template's vehicle (a template with `vehicle`, a recovery vehicle), waiting at the rear to be called. */
   recovery: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
+  /** Supply vehicles off the map (M11.4b): battles with an off-map stock give the side `count` of this crew template's
+   *  vehicle (a template with `vehicle`, a vehicle with `cargo`), waiting at the rear to be called for a delivery. */
+  supply: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -1151,6 +1154,8 @@ export const VehicleSchema = withProv({
   recovery: withProv({
     towMaxKg: Num(1000, 200000), towMaxSpeedKmh: Num(1, 60), hookUpS: Num(1, 3600), hookUpMen: z.number().int().min(1).max(4),
   }).optional(),
+  /** A supply vehicle (M11.4b): it carries up to `kg` of supplies on a delivery. Absent: it carries none. */
+  cargo: withProv({ kg: Num(1, 100000) }).optional(),
 });
 export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();
 export type VehicleT = z.infer<typeof VehicleSchema>;
@@ -1429,6 +1434,27 @@ export const SupplyFile = z.object({
         load: z.object({ carriers: z.literal(1), speedMps: Num(0.1, 3), enduranceM: Num(1, 10000), restS: Num(0, 600), setupS: Num(0, 600), upright: z.boolean() }).strict(),
       }).strict(),
     }).strict().optional(),
+    /** M11.4b off-map deliveries: a platoon's supply point below `callBelow` of its standard fill (what it held when it
+     *  became the point, or its first delivery) calls the side's supply vehicle (looked at every `checkS`), which comes
+     *  on after `delayMinS`-`delayMaxS` (drawn), drives at `pace` to within `standM` of the point, is unloaded for
+     *  `unloadBaseS` + `unloadSecondsPerKg` per kg and drives back; it is ready again `turnaroundS` after it left the
+     *  map. It gives up on the way after `heldMaxS`. One delivery per side at a time. The load: whole packages from the
+     *  side's off-map stock of the cartridges the platoon's men fire, up to the vehicle's `cargo.kg` (the point's
+     *  standard fill at most). */
+    delivery: z.object({
+      checkS: Num(1, 600), callBelow: Num(0, 1), delayMinS: Num(0, 7200), delayMaxS: Num(0, 7200), pace: Id, nearPace: Id, standM: Num(0, 200),
+      unloadBaseS: Num(0, 3600), unloadSecondsPerKg: Num(0, 60), turnaroundS: Num(0, 36000), heldMaxS: Num(10, 7200), edgeM: Num(1, 200),
+      /** What an ambulance can carry when the player sends one with supplies (a breach; kg). */
+      ambulanceKg: Num(0, 10000),
+    }).strict().optional(),
+    /** M11.4b combat vehicles' rear runs with supplies: away for `awayS` (as with casualties), an idle hull whose
+     *  stowed ammunition is below `stowageBelow` of its standard stowage (what the data stows) goes on a supply run;
+     *  coming back it brings its stowage up to standard from the side's stock and up to `shareKg` of supplies for its
+     *  platoon's supply point, unloaded there in `unloadBaseS` + `unloadSecondsPerKg` per kg. */
+    vehicleRun: z.object({ stowageBelow: Num(0, 1), shareKg: Num(0, 20000), unloadBaseS: Num(0, 3600), unloadSecondsPerKg: Num(0, 60), standM: Num(0, 200) }).strict().optional(),
+    /** M11.4b mortar and artillery top-up: off-map stocks with `supportTopUp` move that many rounds into the side's
+     *  off-map support section every `supportTopUp.everyS` (the scenario sets it); looked at every `topUpCheckS`. */
+    topUpCheckS: Num(1, 600).optional(),
   }),
 }).strict();
 export type SupplyT = z.infer<typeof SupplyFile>;

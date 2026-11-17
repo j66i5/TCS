@@ -109,8 +109,9 @@ export type OrderBody =
    *  its side's next waiting ambulance now, even before anyone lies at the nest (the nest is sited if it has none). */
   | { kind: "callAmbulance" }
   /** Evacuate with this vehicle (M10.6b, owner Q-9): the target crew's hull takes the casualties at its platoon's
-   *  Verwundetennest (or the wounded aboard) off the map, then comes back. */
-  | { kind: "rearRun" }
+   *  Verwundetennest (or the wounded aboard) off the map, then comes back. M11.4b `cargo` "supplies": a supply run
+   *  (its stowage filled from the side's off-map stock, a share for its platoon's supply point). */
+  | { kind: "rearRun"; cargo?: "supplies" }
   /** Repair the hull now (M11.7a): the target crew starts its next field repair task at once, without waiting for
    *  the quiet period (not within seconds of a hit, not while burning). A move order ends it (progress kept). */
   | { kind: "repair" }
@@ -143,7 +144,12 @@ export type OrderBody =
    *  `own`: "Fetch ammunition", two of the squad's own men go; absent: "Send bearers", the platoon sends them (its
    *  headquarters first, never a squad in a fight). Refused on the radio: no supply point, nothing there for them,
    *  nobody free, bearers already coming. */
-  | { kind: "bearers"; own?: boolean };
+  | { kind: "bearers"; own?: boolean }
+  /** Order a delivery (M11.4b): the target's platoon calls the side's supply vehicle with supplies from the side's
+   *  off-map stock to its supply point (sited now if it has none). `vehicle`: the vehicle to send (an ambulance waiting
+   *  off the map: carried out, but a breach of the law of war; the computer never names one). Refused on the radio:
+   *  none waiting, one already coming, nothing in the stock for them, no way in. */
+  | { kind: "callDelivery"; vehicle?: EntityId };
 
 export type OrderKind = OrderBody["kind"];
 

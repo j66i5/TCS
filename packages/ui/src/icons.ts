@@ -36,6 +36,10 @@ const P: Record<string, string> = {
   supply: `<path d="M3 11h10v6H3z"/><path d="M3 13.5h10"/><path d="M15.5 17V3"/><path d="M15.5 3.5l3 1.5-3 1.5"/>`,
   // (M11.3 "resupply": an ammunition crate with an arrow out of it.)
   resupply: `<path d="M3 11h10v6H3z"/><path d="M3 13.5h10"/><path d="M8 9V2.5"/><path d="M5.5 5 8 2.5 10.5 5"/>`,
+  // (M11.4b "order a delivery": a truck with a crate on its bed.)
+  delivery: `<path d="M2.5 6h9.5v8H2.5z"/><path d="M12 9h3.2l2.3 2.6V14H12"/><circle cx="5.5" cy="15" r="1.6"/><circle cx="14.5" cy="15" r="1.6"/><path d="M4.5 8.5h5v3.5h-5z"/>`,
+  // (M11.4b "restock": a crate with an arrow going back.)
+  supplyRun: `<path d="M3 3.5h9v6H3z"/><path d="M3 6h9"/><path d="M17 15.5H6"/><path d="M8.5 13 6 15.5 8.5 18"/>`,
   // (D4b "defend arc": a sector opening from a man.)
   arc: `<circle cx="10" cy="16" r="1.6"/><path d="M10 16L4 6M10 16l6-10"/><path d="M4 6q6-4 12 0"/>`,
   ceaseFire: `<circle cx="10" cy="10" r="5"/><path d="M10 2v4M10 14v4M2 10h4M14 10h4"/><path d="M4 16L16 4" stroke-width="2.2"/>`,

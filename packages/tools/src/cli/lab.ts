@@ -38,7 +38,7 @@ import { batteriesLab, batteriesLabMarkdown } from "../labs/batteries";
 import { consumptionLab, consumptionOptions } from "../labs/consumption";
 import { redistributeLab, redistributeLabMarkdown } from "../labs/redistribute";
 import { cacheBurnLab, cacheChanceLab, cacheLabMarkdown } from "../labs/cache";
-import { resupplyLab, resupplyLabMarkdown } from "../labs/resupply";
+import { resupplyLab, resupplyLabMarkdown, vehicleResupplyLab, vehicleResupplyLabMarkdown } from "../labs/resupply";
 import { loadData, SCENARIOS } from "../scenarios";
 
 const LABS: Record<string, () => string> = {
@@ -49,7 +49,7 @@ const LABS: Record<string, () => string> = {
   },
   cache: () => { const n = Number(process.argv[3] ?? 40), d = loadData(); return `# Cache lab (M11.3)\n\n${cacheLabMarkdown(cacheChanceLab(d, n), cacheBurnLab(d), n)}\n`; },
   redistribute: () => `# Redistribution lab (M11.2)\n\n${redistributeLabMarkdown(redistributeLab(loadData(), Number(process.argv[3] ?? 4)))}\n`,
-  resupply: () => `# Resupply lab (M11.4a)\n\n${resupplyLabMarkdown(resupplyLab(loadData(), (process.argv[3] ?? "400").split(",").map(Number)))}\n`,
+  resupply: () => { const d = (process.argv[3] ?? "400").split(",").map(Number); return `# Resupply lab (M11.4a-b)\n\n## On foot (M11.4a)\n\n${resupplyLabMarkdown(resupplyLab(loadData(), d))}\n\n## By vehicle and from off the map (M11.4b)\n\n${vehicleResupplyLabMarkdown(vehicleResupplyLab(loadData(), d))}\n`; },
   movement: () => `# Movement and fatigue lab\n\n${movementLabMarkdown(movementLab(loadData()))}\n`,
   carry: () => `# Carry lab\n\n${carryLabMarkdown(carryLab(loadData()))}\n`,
   medevac: () => { const n = Number(process.argv[3] ?? 10); return `# Medevac lab\n\n${medevacLabMarkdown(medevacLab(loadData(), n), n)}\n`; },

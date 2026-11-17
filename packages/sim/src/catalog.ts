@@ -1145,6 +1145,8 @@ export interface VehicleDef {
   /** A recovery vehicle (M11.7b): tows hulls up to `towMaxKg` at no more than `towMaxMps`; `hookUpMen` work `hookUpS`
    *  outside to hook one up. Absent: it tows nothing. */
   recovery?: { towMaxKg: number; towMaxMps: number; hookUpS: number; hookUpMen: number };
+  /** A supply vehicle (M11.4b): carries up to `kg` of supplies on a delivery. Absent: none. */
+  cargo?: { kg: number };
 }
 
 /** One field repair task (core/repair.json, M11.7a). */
@@ -1171,6 +1173,15 @@ export interface SupplyDef {
   request?: { stepS: number; below: number; beltsBelow: number; everyS: number; useM: number; useMinRounds: number };
   /** M11.4a: bearers on foot and their carry methods (keyed `crate`, `load`; looked up beside the medical methods). */
   bearers?: { maxKg: number; crateMaxKg: number; loadS: number; deliverM: number; waitMateS: number; giveUpS: number; contactS: number; methods: { crate: CarryMethodDef; load: CarryMethodDef } };
+  /** M11.4b: off-map deliveries by the side's supply vehicle (absent: none). */
+  delivery?: {
+    checkS: number; callBelow: number; delayMinS: number; delayMaxS: number; pace: DefId; nearPace: DefId; standM: number;
+    unloadBaseS: number; unloadSecondsPerKg: number; turnaroundS: number; heldMaxS: number; edgeM: number; ambulanceKg: number;
+  };
+  /** M11.4b: combat vehicles' rear runs with supplies (absent: casualties only). */
+  vehicleRun?: { stowageBelow: number; shareKg: number; unloadBaseS: number; unloadSecondsPerKg: number; standM: number };
+  /** M11.4b: how often the off-map stocks' support top-up is looked at (s; absent: 10). */
+  topUpCheckS?: number;
 }
 /** Recovery from the rear (core/repair.json `recovery`, M11.7b) without provenance (see the schema). */
 export interface RecoveryDef {

@@ -39,6 +39,7 @@ import { rearRunSystem } from "./systems/rearrun";
 import { recoverySystem, settleVehicles, towSystem } from "./systems/recovery";
 import { consolidateSystem } from "./systems/consolidate";
 import { requestSystem, supplySystem } from "./systems/supply";
+import { deliverySystem } from "./systems/delivery";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
@@ -181,6 +182,7 @@ export function step(sim: Sim): SimEvent[] {
   // Supply points and caches (M11.3): who sees them, capture, fire beside them, cook-offs (nothing without caches).
   supplySystem(ctx, state, events);
   requestSystem(ctx, state, events);
+  deliverySystem(ctx, state, events);
   // Ambushes (D4b): sprung before the decisions, so the men open fire at once.
   ambushSystem(ctx, state, events);
   decisionSystem(ctx, state, events);

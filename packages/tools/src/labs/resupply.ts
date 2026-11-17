@@ -11,9 +11,9 @@
  * and taking (`take.baseS` + 0.4 s a round into a magazine). Target: within 10 %.
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
-import { buildForce, withoutVehicles } from "@tcs/scenario";
+import { addSupplyAssets, buildForce, defaultRules, vehicleBattle, withoutVehicles } from "@tcs/scenario";
 import {
-  createSim, DEFAULT_COMMS, flatMap, ledgerOf, loadKg, step, TICK_HZ,
+  checkConservation, consumedFromEvents, createSim, DEFAULT_COMMS, emptyConsumption, flatMap, ledgerOf, loadKg, step, submitOrder, TICK_HZ, tracerMap,
   type BattleInput, type Catalog, type EntityId, type SimEvent, type UnitInput,
 } from "@tcs/sim";
 
@@ -164,6 +164,156 @@ export function resupplyLabMarkdown(rows: ResupplyRow[]): string {
     out.push(`| ${r.faction} | ${r.distanceM} | ${r.bearers.join(", ")} | ${f1(r.requestS)} | ${f1(r.atPointS)} | ${f1(r.loadedS)} | ${f1(r.deliveredS)} | ${f1(r.fullS)} | ${r.crateKg.toFixed(1)} / ${r.crateRounds} | ${r.carryMps.toFixed(2)} | ${h.walkS.toFixed(0)} + ${h.loadS.toFixed(0)} + ${h.carryS.toFixed(0)} + ${h.takeS.toFixed(0)} = ${h.totalS.toFixed(0)} | ${f1(r.measuredS)} | ${r.errPct === null ? "-" : `${r.errPct >= 0 ? "+" : ""}${r.errPct.toFixed(1)} %`}${miss ? " **miss**" : ""} | ${r.ledgerExact ? "exact" : "**changed**"} |`);
   }
   const met = rows.filter((r) => r.errPct !== null && Math.abs(r.errPct) <= 10 && r.ledgerExact).length;
+  out.push("", `Met in ${met} of ${rows.length} trials.`);
+  return out.join("\n");
+}
+
+// ---------------------------------------------------------------- M11.4b: by vehicle and from off the map
+
+export interface VehicleResupplyRow {
+  kind: "delivery" | "vehicle run"; faction: string; vehicle: string; distanceM: number;
+  /** Delay drawn (delivery) or time away (run), the drive(s), unloading. */
+  hand: { waitS: number; driveS: number; unloadS: number; totalS: number };
+  measured: { driveS: number | null; totalS: number | null };
+  kg: number; rounds: number; restocked: number; errPct: number | null; conservation: boolean;
+}
+
+/** A vehicle pace's speed for this hull type (m/s), as the drive model takes it (drive.ts `paceSpeed`). */
+function vehicleSpeed(catalog: Catalog, type: string, mode: string): number {
+  const def = catalog.vehicles[type]!, m = catalog.movementModes[mode];
+  let frac = 1;
+  if (m && m.class === "foot") { const p = catalog.movementModes[m.vehiclePace[def.class]]; frac = p && p.class !== "foot" ? p.speedFraction : 0.3; }
+  else if (m) frac = m.speedFraction;
+  return frac * def.drive.topSpeedMps;
+}
+
+function conserved(catalog: Catalog, start: ReturnType<typeof ledgerOf>, end: ReturnType<typeof ledgerOf>, ev: readonly SimEvent[]): boolean {
+  const c = emptyConsumption();
+  consumedFromEvents(c, ev, tracerMap(catalog));
+  return Object.keys(checkConservation(start, end, c)).length === 0;
+}
+
+/**
+ * An off-map delivery: a platoon on foot on open flat ground (2000 x 1200 m), its (empty) supply point `distanceM` from
+ * the west edge; the side's stock at the rear; the player orders a delivery at once. Hand calculation: the delay drawn
+ * (the call's `dueS`), the drive from where it comes on to `delivery.standM` short of the point at its pace, unloading
+ * (`unloadBaseS` + `unloadSecondsPerKg` x kg). Measured: call to unloaded.
+ */
+function deliveryTrial(data: DataSet, catalog: Catalog, faction: string, template: string, distanceM: number): VehicleResupplyRow {
+  const D = catalog.supply!.delivery!;
+  const plt = withoutVehicles(buildForce(data, { faction, template, seed: 1, keyPrefix: "b" }));
+  const px = distanceM, py = 600;
+  const place = members(plt).map((m, i) => ({ personId: m.personId, x: px + 150 + (i % 6) * 5, y: 560 + Math.floor(i / 6) * 8, heading: 0 }));
+  const packages = Object.values(catalog.items).filter((d) => d.category === "ammo-package" && d.id.startsWith(`${faction}-`) && (d.chargeCapacity ?? 0) <= 1200);
+  const carts = new Set<string>();
+  for (const m of members(plt)) for (const l of m.load) { const d = catalog.items[l.type]; if (d?.category === "magazine" && d.chargeItem !== undefined) carts.add(d.chargeItem); }
+  const stock = [...carts].sort().map((c) => packages.filter((d) => d.chargeItem === c).sort((a, b) => (b.chargeCapacity ?? 0) - (a.chargeCapacity ?? 0))[0]).filter((d) => d !== undefined).map((d) => ({ type: d!.id, count: 4, charge: d!.chargeCapacity! }));
+  const force: BattleInput["forces"][number] = { side: "blue", faction, units: [plt], placements: place, caches: [{ x: px, y: py, load: [], point: true }], stock: { load: stock } };
+  addSupplyAssets(data, catalog, force, 1);
+  const input: BattleInput = { map: flatMap("delivery-lab", 2000, 1200, 4), catalog, seed: 1, orders: [], rules: { ...defaultRules(3 * 3600) }, forces: [force] };
+  const sim = createSim(input);
+  const top = [...sim.state.unit.entries()].find(([, u]) => u.parent === null && u.asset === undefined)![0];
+  const start = ledgerOf(catalog, sim.state);
+  submitOrder(sim, { tick: 0, issuer: "blue", target: top, kind: "callDelivery", player: true });
+  const ev: SimEvent[] = [];
+  let called: Extract<SimEvent, { kind: "supply.delivery" }> | null = null, entered: number | null = null, arrived: number | null = null, unloaded: Extract<SimEvent, { kind: "supply.delivery" }> | null = null;
+  let entry: { x: number; y: number } | null = null, vtype = "";
+  for (let t = 0; t < 2 * 3600 * TICK_HZ && unloaded === null; t++) {
+    for (const e of step(sim)) {
+      ev.push(e);
+      if (e.kind !== "supply.delivery") continue;
+      if (e.phase === "called") { called = e; const v = sim.state.vehicle.req(e.vehicle); entry = v.offMap!.entry!; vtype = v.def; }
+      if (e.phase === "entered") entered = e.tick;
+      if (e.phase === "arrived") arrived = e.tick;
+      if (e.phase === "unloaded") unloaded = e;
+    }
+  }
+  const end = ledgerOf(catalog, sim.state);
+  const speed = vtype ? vehicleSpeed(catalog, vtype, D.pace) : 1;
+  const driveM = entry ? Math.max(0, Math.hypot(entry.x - px, entry.y - py) - D.standM) : 0;
+  const kg = called?.kg ?? 0;
+  const hand = { waitS: called?.dueS ?? 0, driveS: driveM / speed, unloadS: D.unloadBaseS + D.unloadSecondsPerKg * kg, totalS: 0 };
+  hand.totalS = hand.waitS + hand.driveS + hand.unloadS;
+  const totalS = unloaded && called ? (unloaded.tick - called.tick) / TICK_HZ : null;
+  return {
+    kind: "delivery", faction, vehicle: vtype, distanceM, hand, measured: { driveS: entered !== null && arrived !== null ? (arrived - entered) / TICK_HZ : null, totalS },
+    kg, rounds: unloaded?.rounds ?? 0, restocked: 0, errPct: totalS !== null ? (100 * (totalS - hand.totalS)) / hand.totalS : null, conservation: conserved(catalog, start, end, ev),
+  };
+}
+
+/**
+ * A combat vehicle's supply run: the faction's carrier platoon with one vehicle on open flat ground (1200 x 900 m), its
+ * supply point 150 m from the west edge, half its stowed rifle magazines gone; the player orders "Restock". Hand
+ * calculation: the drive to the map edge (where it leaves), `rearRun.awayS` off the map, the drive back to the point
+ * (`vehicleRun.standM` short) at the run's pace, unloading the share (`unloadBaseS` + `unloadSecondsPerKg` x kg).
+ * Measured: the run's start to its share unloaded.
+ */
+function runTrial(data: DataSet, faction: string): VehicleResupplyRow {
+  const input = vehicleBattle(data, { seed: 1, factions: faction === "de" ? ["de", "ru"] : ["ru", "de"], platoonsPerSide: 1, vehiclesPerPlatoon: 1, timeLimitSeconds: 3 * 3600 });
+  const catalog = input.catalog, R = catalog.medical!.rearRun!, V = catalog.supply!.vehicleRun!;
+  const blue = input.forces[0]!;
+  const rec = blue.vehicles![0]!, def = catalog.vehicles[rec.type]!;
+  // Half its stowed rifle magazines gone (the first magazine stowed).
+  const mag = def.stowed.find((s) => catalog.items[s.item]?.category === "magazine");
+  if (mag) rec.load = rec.load.map((l) => (l.type === mag.item ? { ...l, count: Math.ceil(l.count / 2) } : l));
+  const packages = Object.values(catalog.items).filter((d) => d.category === "ammo-package" && d.id.startsWith(`${faction}-`) && (d.chargeCapacity ?? 0) <= 1200);
+  const stock = [...def.stowed.filter((s) => s.charge !== undefined && catalog.items[s.item]?.chargeItem !== undefined).map((s) => ({ type: s.item, count: s.count, charge: s.charge! })), ...packages.map((d) => ({ type: d.id, count: 4, charge: d.chargeCapacity! }))];
+  const px = 150, py = 450;
+  blue.caches = [{ x: px, y: py, load: [], point: true }];
+  blue.stock = { load: stock };
+  for (const f of input.forces) f.vehiclePlacements = f.vehiclePlacements?.map((p) => ({ ...p }));
+  const sim = createSim(input);
+  for (const [uid] of sim.state.unit.entries()) sim.state.unit.req(uid).fireRule = "hold";
+  const vid = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "blue" && v.offMap === undefined)![0];
+  const crew = sim.state.vehicle.req(vid).unit!;
+  const start = ledgerOf(catalog, sim.state);
+  const t0 = sim.state.transform.req(vid);
+  const from = { x: t0.x, y: t0.y };
+  submitOrder(sim, { tick: 0, issuer: "blue", target: crew, kind: "rearRun", cargo: "supplies", player: true });
+  const ev: SimEvent[] = [];
+  let started: number | null = null, unloaded: Extract<SimEvent, { kind: "medical.rearRun" }> | null = null, restocked = 0, exit: { x: number; y: number } | null = null, kg = 0;
+  for (let t = 0; t < 2 * 3600 * TICK_HZ && unloaded === null; t++) {
+    for (const e of step(sim)) {
+      ev.push(e);
+      if (e.kind !== "medical.rearRun" || e.vehicle !== vid) continue;
+      if (e.phase === "started") { started = e.tick; exit = sim.state.vehicle.req(vid).rearRun?.exit ?? null; }
+      if (e.phase === "restocked") { restocked = e.rounds ?? 0; const sh = sim.state.vehicle.req(vid).rearRun?.share ?? []; for (const s of sh) { const d = catalog.items[s.type]!; kg += s.count * (d.massKg + (s.charge ?? 0) * (d.chargeMassKg ?? 0)); } }
+      if (e.phase === "unloaded") unloaded = e;
+    }
+    if (exit === null && started !== null) exit = sim.state.vehicle.req(vid).rearRun?.exit ?? null;
+  }
+  const end = ledgerOf(catalog, sim.state);
+  const speed = vehicleSpeed(catalog, rec.type, R.pace);
+  const outM = exit ? Math.hypot(exit.x - from.x, exit.y - from.y) : 0;
+  const backM = exit ? Math.max(0, Math.hypot(exit.x - px, exit.y - py) - V.standM) : 0;
+  const hand = { waitS: R.awayS, driveS: (outM + backM) / speed, unloadS: V.unloadBaseS + V.unloadSecondsPerKg * kg, totalS: 0 };
+  hand.totalS = hand.waitS + hand.driveS + hand.unloadS;
+  const totalS = unloaded && started !== null ? (unloaded.tick - started) / TICK_HZ : null;
+  return {
+    kind: "vehicle run", faction, vehicle: rec.type, distanceM: Math.round(outM), hand, measured: { driveS: totalS !== null ? totalS - hand.waitS - hand.unloadS : null, totalS },
+    kg, rounds: unloaded?.rounds ?? 0, restocked, errPct: totalS !== null ? (100 * (totalS - hand.totalS)) / hand.totalS : null, conservation: conserved(catalog, start, end, ev),
+  };
+}
+
+export function vehicleResupplyLab(data: DataSet, distances: readonly number[] = [400]): VehicleResupplyRow[] {
+  const catalog = buildCatalog(data, ["de", "ru"]);
+  const rows: VehicleResupplyRow[] = [];
+  for (const d of distances) for (const [f, t] of [["de", "pzgren-zug"], ["ru", "motor-rifle-platoon"]] as const) rows.push(deliveryTrial(data, catalog, f, t, d));
+  for (const f of ["de", "ru"]) rows.push(runTrial(data, f));
+  return rows;
+}
+
+export function vehicleResupplyLabMarkdown(rows: VehicleResupplyRow[]): string {
+  const out = [
+    "M11.4b. **Delivery**: a platoon on foot, its empty supply point the given distance from the west edge, the side's stock at the rear; the player orders a delivery at tick 0. Hand: the delay drawn + the drive from where it comes on to `delivery.standM` short of the point at its pace + unloading (`unloadBaseS` + `unloadSecondsPerKg` x kg). **Vehicle run**: the carrier platoon with one vehicle, half its stowed rifle magazines gone, the supply point 150 m from the west edge; the player orders \"Restock\". Hand: the drive to the edge + `rearRun.awayS` + the drive back to the point + unloading its share. Target: measured within 10 % of the hand calculation; the conservation guard exact (`items.delivered` balances the stock).", "",
+    "| kind | side | vehicle | distance (m) | hand: wait + drive + unload = total (s) | measured drive (s) | measured total (s) | difference | load kg / rounds to the point | rounds into its own stowage | conservation |",
+    "|---|---|---|---|---|---|---|---|---|---|---|",
+  ];
+  for (const r of rows) {
+    const h = r.hand, miss = r.errPct === null || Math.abs(r.errPct) > 10;
+    out.push(`| ${r.kind} | ${r.faction} | ${r.vehicle} | ${r.distanceM} | ${h.waitS.toFixed(0)} + ${h.driveS.toFixed(0)} + ${h.unloadS.toFixed(0)} = ${h.totalS.toFixed(0)} | ${f1(r.measured.driveS)} | ${f1(r.measured.totalS)} | ${r.errPct === null ? "-" : `${r.errPct >= 0 ? "+" : ""}${r.errPct.toFixed(1)} %`}${miss ? " **miss**" : ""} | ${r.kg.toFixed(0)} / ${r.rounds} | ${r.restocked} | ${r.conservation ? "exact" : "**leak**"} |`);
+  }
+  const met = rows.filter((r) => r.errPct !== null && Math.abs(r.errPct) <= 10 && r.conservation).length;
   out.push("", `Met in ${met} of ${rows.length} trials.`);
   return out.join("\n");
 }

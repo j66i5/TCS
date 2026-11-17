@@ -29,6 +29,8 @@ const noRepair = args["no-repair"] !== undefined;
 const noRecovery = args["no-recovery"] !== undefined;
 /** `--no-resupply` (M11.1): no refilling of magazines and no resupply route (`rules.resupply: false`). */
 const noResupply = args["no-resupply"] !== undefined;
+/** `--no-deliveries` (M11.4b): resupply on foot only (no deliveries from off the map, no vehicle supply runs, no top-up). */
+const noDeliveries = args["no-deliveries"] !== undefined;
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
@@ -113,6 +115,7 @@ for (let i = 0; i < runs; i++) {
   if (noRepair) input.rules.repair = false;
   if (noRecovery) withoutRecovery(input);
   if (noResupply) input.rules.resupply = false;
+  if (noDeliveries) input.rules.deliveries = false;
   const s0 = performance.now();
   // D2: the battle record (`@tcs/sim` record.ts) folds the event stream exactly as the app's review does; the counts
   // below come from it. What it cannot see from events (needs looked at once a second) is kept here.
@@ -284,7 +287,7 @@ const md = [
   `- Care of the wounded: ${noMedical ? "off (--no-medical)" : "on"}`,
   `- Field repair: ${noRepair ? "off (--no-repair)" : "on"}`,
   `- Recovery: ${noRecovery ? "off (--no-recovery)" : "on"}`,
-  `- Resupply: ${noResupply ? "off (--no-resupply)" : "on"}`,
+  `- Resupply: ${noResupply ? "off (--no-resupply)" : noDeliveries ? "on foot only (--no-deliveries)" : "on"}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   ...(timeOfDay !== null ? [`- Local time at the start: ${args["time"]} (moon ${args["moon"] ?? 0.5}; M9.1, light from the clock)`] : []),
   `- Wall time: ${(totalMs / 1000).toFixed(1)} s total, mean ${mean(rows.map((r) => r.wallMs)).toFixed(1)} ms per battle`,
@@ -382,9 +385,9 @@ const md = [
     const cta = rows.flatMap((r) => r.recovery[s]?.callToArrivalS ?? []).sort((a, b) => a - b);
     return `${s} called ${sum((r) => r.recovery[s]?.called ?? 0)} (by the player ${sum((r) => r.recovery[s]?.ordered ?? 0)}), at the hull ${sum((r) => r.recovery[s]?.arrived ?? 0)} (call to arrival median ${cta.length ? `${cta[Math.floor(cta.length / 2)]} s` : "-"}), towed away ${sum((r) => r.recovery[s]?.towed ?? 0)}, lost ${sum((r) => r.recovery[s]?.lost ?? 0)}, stood down ${sum((r) => r.recovery[s]?.cancelled ?? 0)}; at the end recovered ${sum((r) => r.recovery[s]?.recovered ?? 0)}, captured ${sum((r) => r.recovery[s]?.captured ?? 0)}`;
   }).join("; ")}`,
-  `- Supply (M11.3-M11.4a, by side, per battle): ${["blue", "red"].map((s) => {
+  `- Supply (M11.3-M11.4b, by side, per battle): ${["blue", "red"].map((s) => {
     const m = (f: (x: NonNullable<SideRecord["supply"]>) => number) => mean(rows.map((r) => { const x = r.supply?.[s]; return x ? f(x) : 0; })).toFixed(1);
-    return `${s} requests for ammunition ${m((x) => x.requests ?? 0)}, bearer trips ${m((x) => x.trips ?? 0)}, rounds brought ${m((x) => x.roundsDelivered ?? 0)}; men sent to a cache ${m((x) => x.sent)}, rounds taken at caches ${m((x) => x.roundsTaken)}; caches captured ${m((x) => x.captured)}, set off ${m((x) => x.cookoffs)}`;
+    return `${s} requests for ammunition ${m((x) => x.requests ?? 0)}, bearer trips ${m((x) => x.trips ?? 0)}, rounds brought ${m((x) => x.roundsDelivered ?? 0)}; men sent to a cache ${m((x) => x.sent)}, rounds taken at caches ${m((x) => x.roundsTaken)}; caches captured ${m((x) => x.captured)}, set off ${m((x) => x.cookoffs)}; deliveries from off the map ${m((x) => x.deliveries ?? 0)} (${m((x) => x.roundsOffMap ?? 0)} rounds), vehicle supply runs ${m((x) => x.vehicleRuns ?? 0)} (${m((x) => x.roundsVehicle ?? 0)} rounds to the point, ${m((x) => x.roundsRestocked ?? 0)} restocked), mortar rounds topped up ${m((x) => x.topUp ?? 0)}`;
   }).join("; ")}`,
   `- Rear runs and Role 1 (M10.6b, by side): ${["blue", "red"].map((s) => {
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
@@ -424,7 +427,7 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noResupply ? "-no-resupply" : ""}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noResupply ? "-no-resupply" : ""}${noDeliveries ? "-no-deliveries" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
 console.log(md.split("\n").slice(0, 20).join("\n"));

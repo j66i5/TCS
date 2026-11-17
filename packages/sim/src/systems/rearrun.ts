@@ -17,11 +17,19 @@
  * takes the nest's men along) that stands idle starts a run with them. Same rules for every side, player and AI.
  * While away the hull is off the map (`isOffMap`); an order to its crew then is refused, on the map an order ends the
  * run (the player takes it back).
+ *
+ * Supplies (M11.4b, plan slice 47): when its side has an off-map stock (`state.stock`), a hull away on a run comes back
+ * with its stowage refilled from the stock up to its standard stowage (what the data stows: ammunition only) and up
+ * to `supply.vehicleRun.shareKg` of supplies for its platoon's supply point; on the map again it drives there first,
+ * is unloaded (`unloadBaseS` + `unloadSecondsPerKg` per kg; the crates into the point's cache) and goes back to its
+ * squad. An idle hull whose stowed ammunition is below `vehicleRun.stowageBelow` of standard (and whose side's stock has
+ * some for it) starts a run of its own (`cargo` "supplies"), as does the player's `rearRun` with `cargo` "supplies".
+ * Never on its own for a marked ambulance; on a player's order ammunition put into one is a breach (`law.misuse`).
  */
 import type { RearRun, SoldierState, VehicleState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
-import { secondsToTicks, ticksToSeconds, type EntityId } from "../ids";
+import { secondsToTicks, ticksToSeconds, type DefId, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { needsEvacuation } from "../medical";
 import { hypot2 } from "../math";
@@ -36,7 +44,9 @@ import {
   STOP_SLACK_M, waitingAt,
 } from "./evacuation";
 import { careEnabled, treatedNow } from "./medical";
-import { nestOf, topOf } from "./nest";
+import { nestOf, supplyPointOf, topOf } from "./nest";
+import { ammunitionIntoAmbulance, deliveriesEnabled, fromStock, loadForPlatoon, markedHull, stockOf, unloadInto } from "./delivery";
+import { roundsInContainer } from "./supply";
 
 /** Off the map within this of the exit when no ambulance data says otherwise (m). */
 const EDGE_M = 20;
@@ -103,11 +113,11 @@ function topOfHull(state: SimState, v: VehicleState): EntityId | null {
 }
 
 /** Start a run for hull `vid` of platoon `top` (to its nest `pid`, or straight back with the men aboard). */
-function start(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, top: EntityId, pid: EntityId | null, ordered: boolean): void {
+function start(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, top: EntityId, pid: EntityId | null, ordered: boolean, cargo: RearRun["cargo"] = "casualties"): void {
   const v = state.vehicle.req(vid), t = state.transform.req(vid);
-  v.rearRun = { phase: "toPoint", cargo: "casualties", top, startTick: state.tick, from: { x: t.x, y: t.y }, ...(pid !== null ? { point: pid } : {}), ...(ordered ? { ordered: true as const } : {}) };
-  events.emit({ kind: "medical.rearRun", tick: state.tick, side: v.side, vehicle: vid, phase: "started", unit: top, ...(pid !== null ? { point: pid } : {}), ...(ordered ? { ordered: true } : {}) });
-  if (!ordered && v.unit !== null) radio(state, events, v.unit, "radio.rearRun");
+  v.rearRun = { phase: "toPoint", cargo, top, startTick: state.tick, from: { x: t.x, y: t.y }, ...(pid !== null ? { point: pid } : {}), ...(ordered ? { ordered: true as const } : {}) };
+  events.emit({ kind: "medical.rearRun", tick: state.tick, side: v.side, vehicle: vid, phase: "started", unit: top, ...(pid !== null ? { point: pid } : {}), ...(ordered ? { ordered: true } : {}), ...(cargo === "supplies" ? { cargo } : {}) });
+  if (!ordered && v.unit !== null) radio(state, events, v.unit, cargo === "supplies" ? "radio.supplyRun" : "radio.rearRun");
   if (pid === null) leaveFor(ctx, state, events, vid);
 }
 
@@ -125,7 +135,7 @@ function leaveFor(ctx: SimContext, state: SimState, events: EventSink, vid: Enti
   const R = ctx.catalog.medical!.rearRun!;
   const v = state.vehicle.req(vid), r = v.rearRun!, t = state.transform.req(vid);
   const p = r.point !== undefined ? state.rear.get(r.point) : undefined;
-  if (woundedAboard(ctx, state, v).length === 0) { end(state, events, vid, "cancelled"); return; }
+  if (r.cargo !== "supplies" && woundedAboard(ctx, state, v).length === 0) { end(state, events, vid, "cancelled"); return; }
   const exit = r.exit ?? entryPoint(ctx, state, r.top, p?.x ?? t.x, p?.y ?? t.y);
   if (!exit) { end(state, events, vid, "cancelled"); return; }
   r.exit = exit;
@@ -162,6 +172,8 @@ export function rearRunSystem(ctx: SimContext, state: SimState, events: EventSin
     if (top === null) continue;
     start(ctx, state, events, vid, top, null, false);
   }
+  // ---- M11.4b: idle hulls short of ammunition go back for it (when their side's stock has some for them)
+  if (state.stock.size > 0 && deliveriesEnabled(ctx) && ctx.catalog.supply?.vehicleRun) supplyStarts(ctx, state, events, hulls);
   // ---- idle hulls: a nest with T1 (or several) waiting and no ambulance there or due soon
   if (!atNest) return;
   for (const pid of [...atNest.keys()].sort((a, b) => a - b)) {
@@ -286,6 +298,34 @@ function stepRun(ctx: SimContext, state: SimState, events: EventSink, vid: Entit
     }
     return;
   }
+  if (r.phase === "unloading") {
+    if (tick < (r.unloadTick ?? 0)) return;
+    unloadShare(ctx, state, events, vid);
+    return;
+  }
+  if (r.phase === "return" && r.share !== undefined) {
+    // (M11.4b: first to the platoon's supply point with its share.)
+    const V = ctx.catalog.supply?.vehicleRun;
+    const sp = r.supplyPoint !== undefined ? state.rear.get(r.supplyPoint) : undefined;
+    if (!V || !sp || sp.cache === undefined || !state.cache.has(sp.cache)) { delete r.share; delete r.supplyPoint; toSquad(ctx, state, events, vid); return; }
+    const dP = hypot2(t.x - sp.x, t.y - sp.y);
+    let near = dP <= V.standM + 10 || (r.goal !== undefined && hypot2(t.x - r.goal.x, t.y - r.goal.y) <= 6);
+    if (!near && dP <= HELD_UP_NEAR_M && v.drive.arrived && (v.drive.stuckTicks > 0 || v.drive.replans >= 2)) near = true;
+    if (near) {
+      vehicleHalt(state, vid);
+      r.phase = "unloading"; r.arriveTick = tick;
+      r.unloadTick = tick + secondsToTicks(V.unloadBaseS + V.unloadSecondsPerKg * shareKg(ctx, r.share));
+      return;
+    }
+    if (ticksToSeconds(tick - (r.backTick ?? tick)) >= R.maxStayS * 2) { unloadShare(ctx, state, events, vid); return; }
+    if (!r.goal || hypot2(r.goal.px - sp.x, r.goal.py - sp.y) > V.standM || (v.drive.arrived && tick >= (r.retryTick ?? 0))) {
+      const g = standSpot(ctx, t, sp.x, sp.y, V.standM, ctx.catalog.vehicles[v.def]?.class);
+      r.goal = { x: g.x, y: g.y, px: sp.x, py: sp.y };
+      driveTo(ctx, state, vid, g.x, g.y, false, R.pace, R.pace);
+      r.retryTick = tick + secondsToTicks(30);
+    }
+    return;
+  }
   if (r.phase === "return") {
     const g = r.goal!;
     if (hypot2(t.x - g.x, t.y - g.y) <= R.backM || ticksToSeconds(tick - (r.backTick ?? tick)) >= R.maxStayS * 2) { end(state, events, vid, "back"); return; }
@@ -305,13 +345,13 @@ function offMap(ctx: SimContext, state: SimState, events: EventSink, vid: Entity
   r.phase = "away"; r.awayTick = state.tick; r.backTick = state.tick + secondsToTicks(R.awayS);
   delete r.goal; delete r.retryTick; delete r.loading;
   parkOffMap(state, vid);
+  restock(ctx, state, events, vid);
   if (v.unit !== null) { const u = state.unit.get(v.unit); if (u) u.moving = false; }
   events.emit({ kind: "medical.rearRun", tick: state.tick, side: v.side, vehicle: vid, phase: "away", unit: r.top, aboard: n, ...(r.point !== undefined ? { point: r.point } : {}) });
 }
 
 /** Back onto the map where it left, driving to its squad's leader (or where it set off from). */
 function comeBack(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId): void {
-  const R = ctx.catalog.medical!.rearRun!;
   const v = state.vehicle.req(vid), r = v.rearRun!, exit = r.exit!;
   const t = state.transform.req(vid);
   t.x = exit.x; t.y = exit.y; t.z = 0; t.heading = exit.heading;
@@ -320,6 +360,18 @@ function comeBack(ctx: SimContext, state: SimState, events: EventSink, vid: Enti
   v.movedTick = state.tick;
   // Its men aboard come with it (their places follow the hull).
   for (const sid of v.seats) { if (sid === null) continue; const mt = state.transform.get(sid); if (mt) { mt.x = exit.x; mt.y = exit.y; mt.z = 0; } }
+  r.phase = "return"; r.backTick = state.tick;
+  events.emit({ kind: "medical.rearRun", tick: state.tick, side: v.side, vehicle: vid, phase: "returned", unit: r.top });
+  // (M11.4b: with a share for the platoon's supply point it drives there first: stepRun.)
+  if (r.share !== undefined) { delete r.goal; r.retryTick = state.tick; return; }
+  toSquad(ctx, state, events, vid);
+}
+
+/** Drive back to its squad's leader (or where it set off from): the last leg of the run. */
+function toSquad(ctx: SimContext, state: SimState, _events: EventSink, vid: EntityId): void {
+  const R = ctx.catalog.medical!.rearRun!;
+  const v = state.vehicle.req(vid), r = v.rearRun!;
+  r.phase = "return";
   let gx = r.from.x, gy = r.from.y;
   for (const uid of squadsOf(state, vid)) {
     const u = state.unit.get(uid);
@@ -327,8 +379,7 @@ function comeBack(ctx: SimContext, state: SimState, events: EventSink, vid: Enti
     const ls = lead !== null ? state.soldier.get(lead) : undefined;
     if (lead !== null && ls && isAble(ls) && !isMounted(ls)) { const lt = state.transform.req(lead); gx = lt.x; gy = lt.y; break; }
   }
-  r.phase = "return"; r.backTick = state.tick; r.goal = { x: gx, y: gy, px: gx, py: gy };
-  events.emit({ kind: "medical.rearRun", tick: state.tick, side: v.side, vehicle: vid, phase: "returned", unit: r.top });
+  r.goal = { x: gx, y: gy, px: gx, py: gy };
   driveTo(ctx, state, vid, gx, gy, false, R.pace, R.pace);
   r.retryTick = state.tick + secondsToTicks(30);
 }
@@ -338,7 +389,7 @@ function comeBack(ctx: SimContext, state: SimState, events: EventSink, vid: Enti
  * casualties at its platoon's nest (or those aboard) off the map. Unable, with a radio reason, when it cannot drive,
  * its squad is assaulting, or nobody waits.
  */
-export function rearRunOrder(ctx: SimContext, state: SimState, events: EventSink, target: EntityId): OrderResult {
+export function rearRunOrder(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, cargo?: "supplies"): OrderResult {
   if (!careEnabled(ctx) || !ctx.catalog.medical?.rearRun) return "unable";
   const vid = state.unit.get(target)?.vehicle;
   const v = vid === undefined ? undefined : state.vehicle.get(vid);
@@ -348,6 +399,12 @@ export function rearRunOrder(ctx: SimContext, state: SimState, events: EventSink
   if (squadBusy(state, vid)) return { unable: "radio.rearRunAssault" };
   const top = topOfHull(state, v);
   if (top === null) return "unable";
+  if (cargo === "supplies") {
+    // (M11.4b: a supply run: the side's stock must have something for its stowage or its platoon.)
+    if (!deliveriesEnabled(ctx) || !ctx.catalog.supply?.vehicleRun || stockOf(state, v.side) === null) return { unable: "radio.rearRunNoStock" };
+    start(ctx, state, events, vid, top, null, true, "supplies");
+    return true;
+  }
   const pid = nestOf(state, top);
   let waiting = 0;
   if (pid !== null) for (const [, s] of state.soldier.entries()) if (s.atNest === pid && s.physiology.alive && !isMounted(s)) waiting++;
@@ -374,4 +431,119 @@ export function rearRunGate(state: SimState, events: EventSink, order: Order): O
   if (v.rearRun.phase === "away") return { unable: "radio.rearRunAway" };
   end(state, events, vid, "cancelled");
   return null;
+}
+
+// ---------------------------------------------------------------- M11.4b supplies
+
+/** The ammunition of a hull's standard stowage (what the data stows), by item type: the rounds wanted and held in its
+ *  container (its guns' ready feeds are loaded on top of the stowage at the start and refilled from it). */
+function stowage(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState): { type: DefId; per: number; want: number; have: number }[] {
+  const def = ctx.catalog.vehicles[v.def], k = state.container.get(vid);
+  const out: { type: DefId; per: number; want: number; have: number }[] = [];
+  if (!def || !k) return out;
+  for (const st of def.stowed) {
+    const d = ctx.catalog.items[st.item];
+    const ammo = st.charge !== undefined ? d?.chargeItem !== undefined && ctx.catalog.ammo[d.chargeItem] !== undefined : ctx.catalog.ammo[st.item] !== undefined;
+    if (!ammo) continue;
+    const per = st.charge ?? 1;
+    let have = 0;
+    for (const s of k.stacks) if (s.type === st.item) have += (s.charge ?? 1) * s.count;
+    out.push({ type: st.item, per, want: per * st.count, have });
+  }
+  return out;
+}
+
+/** Its stowed ammunition as a share of standard (1 with none stowed). */
+function stowageShare(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState): number {
+  let want = 0, have = 0;
+  for (const s of stowage(ctx, state, vid, v)) { want += s.want; have += Math.min(s.have, s.want); }
+  return want > 0 ? have / want : 1;
+}
+
+/** Does the stock hold any item of these types? */
+function stockHas(state: SimState, stock: EntityId, types: readonly DefId[]): boolean {
+  const k = state.container.get(stock);
+  return k !== undefined && k.stacks.some((s) => s.count > 0 && types.includes(s.type));
+}
+
+/** Idle hulls short of stowed ammunition start a supply run (the platoon limits of casualty runs apply). */
+function supplyStarts(ctx: SimContext, state: SimState, events: EventSink, hulls: readonly EntityId[]): void {
+  const R = ctx.catalog.medical!.rearRun!, V = ctx.catalog.supply!.vehicleRun!;
+  for (const vid of hulls) {
+    const v = state.vehicle.req(vid);
+    if (v.rearRun || markedHull(ctx, v)) continue;
+    const stock = stockOf(state, v.side);
+    if (stock === null) continue;
+    const st = stowage(ctx, state, vid, v);
+    if (st.length === 0 || stowageShare(ctx, state, vid, v) >= V.stowageBelow || !stockHas(state, stock, st.map((s) => s.type))) continue;
+    if (!idle(ctx, state, vid, v)) continue;
+    const top = topOfHull(state, v);
+    if (top === null) continue;
+    let running = 0, onMap = 0;
+    for (const h of hulls) {
+      const hv = state.vehicle.req(h);
+      if (topOfHull(state, hv) !== top) continue;
+      if (hv.rearRun) running++; else if (canDrive(ctx, state, hv)) onMap++;
+    }
+    if (running >= R.maxPerPlatoon || onMap <= R.keepVehicles) continue;
+    start(ctx, state, events, vid, top, null, false, "supplies");
+  }
+}
+
+/** Off the map (away): its stowage filled from the side's stock up to standard, and a share for its platoon's point. */
+function restock(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId): void {
+  const V = ctx.catalog.supply?.vehicleRun;
+  const v = state.vehicle.req(vid), r = v.rearRun!;
+  if (!V || !deliveriesEnabled(ctx)) return;
+  const stock = stockOf(state, v.side), k = stock === null ? undefined : state.container.get(stock);
+  if (stock === null || !k) return;
+  // (A marked ambulance takes nothing on its own: only a supply run the player ordered puts ammunition into it.)
+  const marked = markedHull(ctx, v);
+  if (marked && !(r.ordered === true && r.cargo === "supplies")) return;
+  let rounds = 0;
+  for (const s of stowage(ctx, state, vid, v)) {
+    let missing = s.want - s.have;
+    // Whole items of that type from the stock, the fullest that still fits, while short.
+    while (missing > 0) {
+      let best: { charge: number | undefined; per: number } | null = null;
+      for (const x of k.stacks) {
+        if (x.type !== s.type || x.count <= 0) continue;
+        const per = x.charge ?? 1;
+        if (per <= 0 || per > missing) continue;
+        if (!best || per > best.per) best = { charge: x.charge, per };
+      }
+      if (!best) break;
+      if (fromStock(ctx, state, events, stock, vid, s.type, 1, best.charge) !== 1) break;
+      missing -= best.per; rounds += best.per;
+    }
+  }
+  const pid = supplyPointOf(state, r.top);
+  const sp = pid === null ? undefined : state.rear.get(pid);
+  if (pid !== null && sp?.cache !== undefined && state.cache.has(sp.cache) && V.shareKg > 0) {
+    const c = state.cache.req(sp.cache);
+    const want = c.fill !== undefined ? Math.max(0, c.fill - roundsInContainer(ctx, state.container.get(sp.cache))) : Infinity;
+    const got = loadForPlatoon(ctx, state, events, stock, vid, r.top, V.shareKg, want);
+    if (got.load.length > 0) { r.share = got.load; r.supplyPoint = pid; }
+  }
+  if ((rounds > 0 || r.share !== undefined) && marked) ammunitionIntoAmbulance(ctx, state, events, vid, r.ordered === true);
+  if (rounds > 0) events.emit({ kind: "medical.rearRun", tick: state.tick, side: v.side, vehicle: vid, phase: "restocked", unit: r.top, rounds, ...(r.cargo === "supplies" ? { cargo: "supplies" as const } : {}) });
+}
+
+/** Mass of the share it brings (kg). */
+function shareKg(ctx: SimContext, share: readonly { type: DefId; count: number; charge?: number }[]): number {
+  let kg = 0;
+  for (const s of share) { const d = ctx.catalog.items[s.type]; if (d) kg += s.count * (d.massKg + (s.charge ?? 0) * (d.chargeMassKg ?? 0)); }
+  return kg;
+}
+
+/** Its share put into the platoon's supply point (what is still aboard of it), then back to its squad. */
+function unloadShare(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId): void {
+  const v = state.vehicle.req(vid), r = v.rearRun!;
+  const sp = r.supplyPoint !== undefined ? state.rear.get(r.supplyPoint) : undefined;
+  let n = 0;
+  if (sp?.cache !== undefined && state.cache.has(sp.cache) && r.share) n = unloadInto(ctx, state, vid, sp.cache, r.share);
+  events.emit({ kind: "medical.rearRun", tick: state.tick, side: v.side, vehicle: vid, phase: "unloaded", unit: r.top, rounds: n, ...(r.supplyPoint !== undefined ? { point: r.supplyPoint } : {}), ...(r.cargo === "supplies" ? { cargo: "supplies" as const } : {}) });
+  delete r.share; delete r.supplyPoint; delete r.unloadTick;
+  if (v.misuse === true && stowageShare(ctx, state, vid, v) <= 0) delete v.misuse;
+  toSquad(ctx, state, events, vid);
 }

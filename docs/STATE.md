@@ -1,10 +1,23 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-16 (M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.4b (slice 47) built (2026-11-16, branch `claude/m11-logistics`).** Supplies from off the map: each side may
+  have an off-map stock (`stock` store, schema 24; everything leaving it is `items.delivered`, conservation exact); a
+  supply truck per side (HX2 / Ural-4320, manifest `supply`) is called when a supply point falls below 30 % of its fill
+  or by "Order a delivery" (bar; phone under "⋯"), comes after 10-20 min, unloads into the point and leaves; combat
+  vehicles' rear runs restock their stowage and bring up to 400 kg to the point ("Restock" for a hull, automatic below
+  half stowage); the off-map mortar allotment is topped up (hold battle: 6 rounds per 10 min); ammunition put into an
+  ambulance on the player's order is a recorded breach (`law.misuse`, Conduct tab) and the ambulance is unprotected
+  while it carries it (the AI never does it: 0 in 120 battles). `lab -- resupply` part 2 within 0.4 %; `--no-deliveries`;
+  `--scene supply` shots 7-8. Platoon batches unchanged. Hold battle 20 seeds each way, none / foot / all: defender
+  holds 10/12/15 and 13/13/15; squads dry at the end medians 0/0/0 (acceptance "fewer dry" NOT met: hardly any squad
+  runs dry, one automatic delivery in 40 battles). Deviations: no delivery to on-map mortar tubes (slice 48), the truck
+  drawn as a plain hull. **Open for the owner:** a smaller starting supply point in the hold battle so deliveries
+  matter? Numbers in DECISIONS "M11.4b". Slice 48 (re-arming and refuelling vehicles) next.
 - **M11.4a (slice 46) built (2026-11-16, branch `claude/m11-logistics`).** Resupply on foot: every squad on foot
   looks at its rounds every 2 s; quiet and halted with an own crate within 60 m, its short men go and fill up; below
   40 % of its standard load (or a gunner under one belt) it radios for ammunition (at most every 2 min) and its platoon

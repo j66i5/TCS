@@ -88,6 +88,9 @@ export function reviewModel(a: App): AarModel {
       // M11.7b: recovery (a row only when one was called or a hull was settled at the end).
       const rcv = record.sides[sd.id]?.recovery;
       if (rcv && rcv.called + rcv.recovered + rcv.captured > 0) vline.push(s.t("aar.vehicles.recovery", { called: rcv.called, towed: rcv.towed, recovered: rcv.recovered, captured: rcv.captured, lost: rcv.lost }));
+      // M11.4b: deliveries from the rear, vehicle supply runs, mortar rounds topped up (a row only when any).
+      const sup = record.sides[sd.id]?.supply;
+      if (sup && (sup.deliveries ?? 0) + (sup.vehicleRuns ?? 0) + (sup.topUp ?? 0) > 0) vline.push(s.t("aar.supply.deliveries", { n: sup.deliveries ?? 0, rounds: sup.roundsOffMap ?? 0, runs: sup.vehicleRuns ?? 0, vrounds: sup.roundsVehicle ?? 0, topup: sup.topUp ?? 0 }));
       // M9.6: drones, enemies found, fire missions by location method (rows only when non-zero).
       const rv = record.review.sides[sd.id], m9: string[] = [];
       if (rv) {
@@ -171,7 +174,8 @@ export function conductLines(a: App): AarSection[] {
     const c = record.sides[sd.id]?.conduct;
     if (!c) continue;
     const hits = Object.entries(c.hits).sort(([p], [q]) => (p < q ? -1 : 1));
-    if (c.misidentified + c.deliberate + c.refused + hits.length === 0) continue;
+    const misuse = c.misuse ?? [];
+    if (c.misidentified + c.deliberate + c.refused + hits.length + misuse.length === 0) continue;
     const rows: AarSection["rows"] = [];
     // (Review fix: "under orders" counts breaches of either cause, and the line says so.)
     const ordered = c.breaches.filter((b) => b.ordered).length;
@@ -187,6 +191,8 @@ export function conductLines(a: App): AarSection[] {
         extra: [b.ordered ? s.t("aar.conduct.ordered") : "", b.vehicle ? s.t("aar.conduct.fromVehicle") : ""].filter((x) => x !== "").join(""),
       }) });
     }
+    // M11.4b (owner): ammunition carried in an ambulance, a breach of the law of war.
+    for (const m of misuse.slice(0, CONDUCT_LINES_MAX)) rows.push({ sub: true, text: s.t("aar.conduct.misuse", { callsign: m.vehicle, time: fmtClock(ticksToSeconds(m.tick)) }) });
     const more = c.misidentified + c.deliberate - Math.min(c.breaches.length, CONDUCT_LINES_MAX);
     if (more > 0) rows.push({ sub: true, text: s.t("aar.conduct.more", { n: more }) });
     out.push({ heading: sideName(a, sd.id), colour: sideColour(a, sd.id), rows });

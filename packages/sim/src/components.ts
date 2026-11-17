@@ -392,6 +392,21 @@ export interface Cache {
   /** When it was sited (or last moved) and last checked (automatic points). */
   sitedTick: number;
   checkTick: number;
+  /** M11.4b: a supply point's standard fill (rounds): what it held when it became the point (or its first delivery);
+   *  a delivery is called below `delivery.callBelow` of it. Absent: not known yet. */
+  fill?: number;
+}
+
+/**
+ * The side's off-map stock (M11.4b, plan section 4): an entity with a container of what the rear can send forward
+ * (`BattleInput` / scenario), parked off the map. The only source of anything delivered during a battle: items leave
+ * it by `transferItems` (event `items.delivered`); the ledger counts it as outside the battle. `topUp`: rounds moved
+ * into the side's off-map support sections every `everyS` (mortar and artillery allotments topped up, owner).
+ */
+export interface Stock {
+  side: SideId;
+  topUp?: { rounds: number; everyS: number };
+  nextTopUpTick?: number;
 }
 
 /**
@@ -1028,10 +1043,13 @@ export interface VehicleState {
   rearRun?: RearRun;
   /** A rear run was cancelled (M10.6b): none starts on its own again before this tick. Absent: no wait. */
   rearRunRetryTick?: number;
+  /** M11.4b: a marked ambulance with ammunition aboard (a player's order: a breach of the law of war, `law.misuse`):
+   *  it has no protection while it carries it. Absent: none. */
+  misuse?: true;
 }
 
 /** The kinds of off-map asset (M10.6a ambulance, M11.7b recovery vehicle). */
-export type OffMapKind = "ambulance" | "recovery";
+export type OffMapKind = "ambulance" | "recovery" | "supply";
 
 /** A hull's recovery state (M11.7b, roster `VehicleRecord.recovery`): `towed` off the map by a recovery vehicle,
  *  `recovered` by its own side at the end (held ground), `captured` by the enemy holding the ground, `lost`
@@ -1052,8 +1070,15 @@ export interface RepairState {
  * `rearRun` order. `top`: the platoon (top unit) whose nest it serves.
  */
 export interface RearRun {
-  phase: "toPoint" | "loading" | "outbound" | "away" | "return";
-  cargo: "casualties";
+  /** M11.4b: `unloading` halted at its platoon's supply point putting down the share it brought (`share`). */
+  phase: "toPoint" | "loading" | "outbound" | "away" | "return" | "unloading";
+  /** M11.4b: "supplies": a run started for supplies (its stowage was low, or ordered); a casualty run brings supplies
+   *  back as well when its side has a stock. */
+  cargo: "casualties" | "supplies";
+  /** M11.4b: the items it brought for its platoon's supply point `supplyPoint` (unloaded there, `unloadTick`). */
+  share?: { type: DefId; count: number; charge?: number }[];
+  supplyPoint?: EntityId;
+  unloadTick?: number;
   top: EntityId;
   point?: EntityId;
   ordered?: true;
@@ -1080,6 +1105,14 @@ export interface RearRun {
  */
 export interface OffMapAsset {
   kind: OffMapKind;
+  /** M11.4b: on a delivery run (a supply vehicle, or an ambulance the player sent with supplies: a breach). The
+   *  delivery's `point` is a supply rear point; `unloadTick` when it is unloaded; `backTick` when it is ready again
+   *  after leaving the map. */
+  cargo?: "supplies";
+  unloadTick?: number;
+  backTick?: number;
+  /** M11.4b: the supplies aboard for the point (taken from the side's stock at the call; unloaded at the point). */
+  load?: { type: DefId; count: number; charge?: number }[];
   /** M11.7b recovery adds `waiting` (short of a hull under fire), `hookUp` (its men outside hooking it up) and
    *  `towing` (driving off the map with it). */
   phase: "ready" | "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "waiting" | "hookUp" | "towing";

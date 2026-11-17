@@ -77,12 +77,13 @@ export function prisonerGroup(ctx: SimContext, state: SimState, id: EntityId): P
 }
 
 /** Is he a prisoner this system looks after: taken, alive, held by a unit's men, on the map, on foot? */
+export function heldPrisoner(s: SoldierState): boolean { return held(s); }
 function held(s: SoldierState): boolean {
   return s.captive !== null && s.captive.state === "captured" && s.captive.unit !== undefined && s.physiology.alive && s.evacuated === undefined && !isMounted(s);
 }
 
 /** Can he walk back (awake, legs that carry him)? */
-function walks(state: SimState, s: SoldierState): boolean {
+export function walks(state: SimState, s: SoldierState): boolean {
   return isConscious(s) && s.impair.canWalk && state.tick >= s.stunnedUntilTick && s.casualty !== "incapacitated";
 }
 
@@ -126,7 +127,7 @@ export function sitePrisonerPoint(ctx: SimContext, state: SimState, top: EntityI
 }
 
 /** The enemy men and vehicles the platoon's able men know of (fresh, not down, not giving up), one per target. */
-function knownEnemies(ctx: SimContext, state: SimState, top: EntityId): { x: number; y: number }[] {
+export function knownEnemies(ctx: SimContext, state: SimState, top: EntityId): { x: number; y: number }[] {
   const lost = secondsToTicks(ctx.catalog.behaviour.decisions.contactLostSeconds);
   const seen = new Set<EntityId>(), out: { x: number; y: number }[] = [];
   for (const uid of unitsOf(state, top)) for (const m of state.unit.req(uid).members) {
@@ -185,7 +186,7 @@ function slotAt(ctx: SimContext, p: Pick<RearPoint, "x" | "y">, group: PrisonerG
 }
 
 /** The k-th guard's place: `guard.standM` south of the men's spot, 2 m apart. */
-function guardSpot(ctx: SimContext, p: Pick<RearPoint, "x" | "y">, k: number): { x: number; y: number } {
+export function guardSpot(ctx: SimContext, p: Pick<RearPoint, "x" | "y">, k: number): { x: number; y: number } {
   return passableNear(ctx, p.x + k * 2, p.y + ctx.catalog.prisoners!.guard.standM);
 }
 
@@ -199,7 +200,7 @@ function slotOf(ctx: SimContext, state: SimState, pid: EntityId, id: EntityId, b
 }
 
 /** Walk a man (prisoner or guard) to (x, y) on foot; `standing`: upright the whole way (a prisoner, hands up). */
-function walkTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, standing: boolean): boolean {
+export function walkTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, standing: boolean): boolean {
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
   const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, x, y, { maxExpansions: 8000, snapCells: 3 }, { sz: t.z, gz: 0 });
@@ -209,13 +210,13 @@ function walkTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: nu
   return true;
 }
 
-function halt(state: SimState, id: EntityId): void {
+export function halt(state: SimState, id: EntityId): void {
   const m = state.mover.get(id);
   if (m) { m.waypoints = []; m.speedMps = 0; m.endPosture = null; m.endHeading = null; }
 }
 
 /** Is the last waypoint of his way within `r` of (x, y)? */
-function headingFor(state: SimState, id: EntityId, x: number, y: number, r: number): boolean {
+export function headingFor(state: SimState, id: EntityId, x: number, y: number, r: number): boolean {
   const w = state.mover.get(id)?.waypoints;
   const last = w && w.length > 0 ? w[w.length - 1]! : undefined;
   return last !== undefined && hypot2(last.x - x, last.y - y) <= r;
@@ -240,6 +241,9 @@ export function prisonersSystem(ctx: SimContext, state: SimState, events: EventS
     if (s.guard !== undefined) (duty ??= []).push(id);
     if (!held(s)) continue;
     const c = s.captive!;
+    // (M11.9b: on foot again with a hull named — got out of a stranded or burning military police hull, or no longer
+    // its man walking to the door: he is held at his point again.)
+    if (c.vehicle !== undefined && state.vehicle.get(c.vehicle)?.offMap?.boarding?.prisoner !== id) delete c.vehicle;
     c.group ??= prisonerGroup(ctx, state, id);
     if (!state.unit.has(c.unit!)) continue;
     const top = topOf(state, c.unit!);
@@ -248,7 +252,8 @@ export function prisonersSystem(ctx: SimContext, state: SimState, events: EventS
   }
   if (byTop === null && duty === null) return;
   if (byTop) for (const top of [...byTop.keys()].sort((a, b) => a - b)) stepPlatoon(ctx, state, events, P, top, byTop.get(top)!, false);
-  if (duty) for (const id of duty) stepDuty(ctx, state, events, P, id);
+  // (A man released above — no guard needed any more — has no duty left to step.)
+  if (duty) for (const id of duty) if (state.soldier.get(id)?.guard !== undefined) stepDuty(ctx, state, events, P, id);
 }
 
 /** One platoon's prisoners: its point (sited, moved), escorts for those waiting, guards counted, the held kept in place. */
@@ -279,17 +284,36 @@ function stepPlatoon(ctx: SimContext, state: SimState, events: EventSink, P: Pri
     const s = state.soldier.req(m), c = s.captive!;
     if (c.point !== pid || s.atNest !== undefined || state.carry.has(m)) continue;
     nHeld++;
-    if (!walks(state, s) || s.crawlCover !== undefined) continue;
+    // (M11.9b: one walking to the military police hull is its to move.)
+    if (c.vehicle !== undefined || !walks(state, s) || s.crawlCover !== undefined) continue;
     if (s.mental.suppression >= D.seekCoverSuppression) { if ((state.mover.get(m)?.waypoints.length ?? 0) > 0) halt(state, m); continue; }
     const at = slotOf(ctx, state, pid, m, bound);
     if (dist(state, m, at.x, at.y) > P.pcp.arriveM * 2 && !headingFor(state, m, at.x, at.y, 1)) walkTo(ctx, state, m, at.x, at.y, true);
   }
-  // ---- guards: no more than ceil(held / perGuard); the rest (all, with nobody held) go back to their squads
-  const need = Math.ceil(nHeld / P.guard.perGuard);
+  // ---- guards: no more than ceil(held / perGuard), none while the military police holds the point (M11.9b); the rest
+  // (all, with nobody held) go back to their squads
+  const mpHere = p.mp !== undefined && state.vehicle.get(p.mp)?.offMap?.phase === "loading";
+  if (p.mp !== undefined && !mpHere) delete p.mp;
+  const need = mpHere ? 0 : Math.ceil(nHeld / P.guard.perGuard);
   const guards: EntityId[] = [];
+  let duty = 0;
   // mounted: ok (prisoners and men on duty are on foot; held() and the duty step check)
-  for (const [g, gs] of state.soldier.entries()) if (gs.guard?.point === pid && gs.guard.phase === "guard") guards.push(g);
+  for (const [g, gs] of state.soldier.entries()) { if (gs.guard?.point === pid) { duty++; if (gs.guard.phase === "guard") guards.push(g); } }
   for (let k = guards.length - 1; k >= need; k--) release(ctx, state, events, guards[k]!, false);
+  // (M11.9b: prisoners held with fewer guards and escorts bound for the point than needed — a guard lost, the military
+  // police gone with some of them — get a guard from a unit of the platoon that is not fighting.)
+  if (duty < need) {
+    const at = men.filter((m) => { const ms = state.soldier.req(m); return ms.captive!.point === pid && ms.atNest === undefined && !state.carry.has(m); });
+    const free = unitsOf(state, top).find((x) => !fighting(state, P, x));
+    const g = at.length > 0 && free !== undefined ? pickEscort(ctx, state, P, top, free, at, new Set(), false) : null;
+    if (g !== null) {
+      const gs = state.soldier.req(g);
+      interruptAction(state, events, g, "order");
+      state.fire.delete(g); gs.intent = null; halt(state, g);
+      gs.guard = { point: pid, phase: "guard", men: [], tick: state.tick };
+      events.emit({ kind: "pow.guard", tick: state.tick, soldier: g, side: state.identity.req(g).side, point: pid, phase: "guard" });
+    }
+  }
   // ---- escorts for the prisoners waiting (not searched yet, or searched and able to walk), one group per escort
   const waiting = men.filter((m) => {
     const s = state.soldier.req(m), c = s.captive!;
@@ -367,6 +391,18 @@ function assignEscort(ctx: SimContext, state: SimState, events: EventSink, pid: 
   s.guard = { point: pid, phase: "search", men: [...chunk], tick: state.tick };
   for (const m of chunk) state.soldier.req(m).captive!.escort = e;
   events.emit({ kind: "pow.escort", tick: state.tick, side: state.identity.req(e).side, escort: e, point: pid, group, prisoners: [...chunk], ...(ordered ? { ordered: true as const } : {}) });
+}
+
+/** M11.9b: the military police hull `vid` takes over the guard at point `pid`: the squads' guards there walk back to
+ *  their squads at once (escorts still walking prisoners there stay with them until they are held). */
+export function mpTakeOver(ctx: SimContext, state: SimState, events: EventSink, pid: EntityId, vid: EntityId): number {
+  const p = state.rear.get(pid);
+  if (!p) return 0;
+  p.mp = vid;
+  let n = 0;
+  // mounted: ok (prisoners and men on duty are on foot; held() and the duty step check)
+  for (const [g, gs] of state.soldier.entries()) if (gs.guard?.point === pid && gs.guard.phase === "guard") { release(ctx, state, events, g, false); n++; }
+  return n;
 }
 
 /** His duty ends: he walks back to his squad leader (`lost`: he could no longer do it). His prisoners wait. */
@@ -593,6 +629,7 @@ export function searchPrisoner(ctx: SimContext, state: SimState, events: EventSi
     events.emit({ kind: "items.taken", tick: state.tick, from: pr, to: searcher, item: st.type, count: r.moved, rounds: st.charge !== undefined ? st.charge * r.moved : ctx.catalog.ammo[st.type] !== undefined ? r.moved : 0, source: "enemy" });
   }
   cap.searched = state.tick;
+  if (documents > 0) cap.documents = (cap.documents ?? 0) + documents;
   cap.searchTicks = secondsToTicks(ctx.catalog.prisoners?.search.seconds ?? 0);
   const g = state.soldier.get(searcher)?.guard;
   if (g) g.took = [...(g.took ?? []), ...took];
@@ -684,7 +721,7 @@ export function releaseGuardOrder(ctx: SimContext, state: SimState, events: Even
 export function pointCounts(view: { soldier: { entries(): Iterable<[EntityId, SoldierState]> } }, pid: EntityId): { officer: number; nco: number; man: number; guards: number } {
   const out = { officer: 0, nco: 0, man: 0, guards: 0 };
   for (const [, s] of view.soldier.entries()) {
-    if (s.captive?.point === pid && s.physiology.alive && s.evacuated === undefined && s.atNest === undefined) out[s.captive.group ?? "man"]++;
+    if (s.captive?.point === pid && s.physiology.alive && s.evacuated === undefined && s.atNest === undefined && s.mount === undefined) out[s.captive.group ?? "man"]++;
     if (s.guard?.point === pid && s.guard.phase === "guard") out.guards++;
   }
   return out;

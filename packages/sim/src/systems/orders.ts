@@ -16,6 +16,7 @@ import { callRecoveryOrder, towGate } from "./recovery";
 import { kitSource, takeKitOrder } from "./consolidate";
 import { resupplyAtOrder, sendBearers, supplyPointOrder } from "./supply";
 import { escortPrisonersOrder, prisonerPointOrder, releaseGuardOrder } from "./prisoners";
+import { callMpOrder } from "./mp";
 import { aglOf, crewServedKind, startSetup } from "./mortars";
 import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
@@ -192,6 +193,10 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.confirm !== undefined && typeof o.confirm !== "boolean") return "invalid-params";
       if (!state.unit.has(o.target) && !state.soldier.has(o.target)) return "invalid-params";
       return ctx.catalog.prisoners ? null : "not-applicable";
+    case "callMp":
+      // (M11.9b: the target's platoon calls.)
+      if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
+      return ctx.catalog.prisoners?.mp ? null : "not-applicable";
     case "callDelivery":
       // (M11.4b) A unit (its platoon calls), or a man of one; a vehicle named must exist.
       if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
@@ -466,6 +471,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "prisonerPoint") { const r = prisonerPointOrder(ctx, state, events, order.target, order.x, order.y); return r === true ? true : r === false ? "unable" : r; }
   if (order.kind === "escortPrisoners") return escortPrisonersOrder(ctx, state, events, order.target);
   if (order.kind === "releaseGuard") return releaseGuardOrder(ctx, state, events, order.target, order.confirm === true);
+  if (order.kind === "callMp") return callMpOrder(ctx, state, events, order.target);
   // Supply points and caches (M11.3): the platoon's point; the men's errand to a cache (only men on foot go).
   if (order.kind === "supplyPoint") { const r = supplyPointOrder(ctx, state, events, order.target, order.x, order.y); return r === true ? true : r === false ? "unable" : r; }
   // Ammunition bearers (M11.4a): the platoon's errand; nothing else of the unit changes.

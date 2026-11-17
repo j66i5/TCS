@@ -70,6 +70,41 @@ export function addRecoveryAssets(data: DataSet, catalog: BattleInput["catalog"]
 }
 
 /**
+ * The military police off the map (M11.9b): the faction manifest's `mp` crews and hulls (fresh roster records),
+ * appended to the force as off-map assets waiting to be called to a prisoner collection point. Nothing without a
+ * manifest entry.
+ */
+export function addMpAssets(data: DataSet, catalog: BattleInput["catalog"], force: ForceInput, seed: number): void {
+  const mp = data.factions[force.faction]?.manifest.mp;
+  const vtype = mp ? data.factions[force.faction]!.units[mp.template]?.vehicle : undefined;
+  const def = vtype === undefined ? undefined : catalog.vehicles[vtype];
+  if (!mp || !def) return;
+  for (let k = 0; k < mp.count; k++) {
+    const crew = buildForceWithVehicles(data, { faction: force.faction, template: mp.template, seed: seed + k, keyPrefix: `${force.side}-mp${k + 1}`, number: k + 1 }).unit;
+    crew.vehicleId = crew.key;
+    force.units.push(crew);
+    (force.vehicles ??= []).push(newVehicleRecord(catalog, vtype!, crew.key));
+    (force.offMap ??= []).push({ vehicleId: crew.key, kind: "mp" });
+  }
+}
+
+/**
+ * The battle without the military police (M11.9b, `--no-mp`): their crews, hulls and off-map entries taken out of every
+ * force. They come after every other entity, so nothing else changes its id.
+ */
+export function withoutMp(input: BattleInput): BattleInput {
+  for (const f of input.forces) {
+    const ids = new Set((f.offMap ?? []).filter((a) => a.kind === "mp").map((a) => a.vehicleId));
+    if (ids.size === 0) continue;
+    f.offMap = f.offMap!.filter((a) => !ids.has(a.vehicleId));
+    f.vehicles = f.vehicles?.filter((r) => !ids.has(r.vehicleId));
+    f.units = f.units.filter((u) => u.vehicleId === undefined || !ids.has(u.vehicleId));
+    if (f.vehicles?.length === 0) delete f.vehicles;
+  }
+  return input;
+}
+
+/**
  * Supply vehicles off the map (M11.4b): the faction manifest's `supply` crews and hulls (fresh roster records), appended
  * to the force as off-map assets waiting to be called for a delivery. Nothing without a manifest entry.
  */

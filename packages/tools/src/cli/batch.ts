@@ -9,7 +9,7 @@ import { type ReviewTally, type SupplyReview, type MedicalSideSummary, MISSING_S
 import { attackStats, type AttackStats } from "@tcs/ai";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
-import { withoutRecovery } from "@tcs/scenario";
+import { withoutMp, withoutRecovery } from "@tcs/scenario";
 import { buildingsMarkdown, buildingsTally, type BuildingsTally } from "../buildings";
 import { lossTally } from "../vehicle-losses";
 
@@ -27,6 +27,8 @@ const noMedical = args["no-medical"] !== undefined;
 const noRepair = args["no-repair"] !== undefined;
 /** `--no-recovery` (M11.7b): no recovery vehicles (none built, `rules.recovery: false`), for comparison batches. */
 const noRecovery = args["no-recovery"] !== undefined;
+/** `--no-mp` (M11.9b): no military police off the map (none built), for comparison batches. */
+const noMp = args["no-mp"] !== undefined;
 /** `--no-resupply` (M11.1): no refilling of magazines and no resupply route (`rules.resupply: false`). */
 const noResupply = args["no-resupply"] !== undefined;
 /** `--no-deliveries` (M11.4b): resupply on foot only (no deliveries from off the map, no vehicle supply runs, no top-up). */
@@ -121,6 +123,7 @@ for (let i = 0; i < runs; i++) {
   if (noMedical) input.rules.medicalCare = false;
   if (noRepair) input.rules.repair = false;
   if (noRecovery) withoutRecovery(input);
+  if (noMp) withoutMp(input);
   if (noResupply) input.rules.resupply = false;
   if (noDeliveries) input.rules.deliveries = false;
   const s0 = performance.now();
@@ -308,6 +311,7 @@ const md = [
   `- Care of the wounded: ${noMedical ? "off (--no-medical)" : "on"}`,
   `- Field repair: ${noRepair ? "off (--no-repair)" : "on"}`,
   `- Recovery: ${noRecovery ? "off (--no-recovery)" : "on"}`,
+  `- Military police: ${noMp ? "off (--no-mp)" : "on"}`,
   `- Resupply: ${noResupply ? "off (--no-resupply)" : noDeliveries ? "on foot only (--no-deliveries)" : "on"}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   ...(timeOfDay !== null ? [`- Local time at the start: ${args["time"]} (moon ${args["moon"] ?? 0.5}; M9.1, light from the clock)`] : []),
@@ -474,8 +478,8 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noResupply ? "-no-resupply" : ""}${noDeliveries ? "-no-deliveries" : ""}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noMp ? "-no-mp" : ""}${noResupply ? "-no-resupply" : ""}${noDeliveries ? "-no-deliveries" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
-console.log(md.split("\n").slice(0, 20).join("\n"));
+console.log(md.split("\n").slice(0, 21).join("\n"));
 console.log(`\nWrote ${base}.md and .json`);

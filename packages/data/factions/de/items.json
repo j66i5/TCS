@@ -1057,6 +1057,22 @@
       ],
       "confidence": "low",
       "note": "M11.9: the weapon as an item (taken from a prisoner in the search, or put away); the same mass as the weapon entry (weapons.json, its sources)."
+    },
+    {
+      "id": "de-dingo2-diesel",
+      "nameKey": "item.de-dingo2-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 220,
+      "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
+      "sources": [
+        "https://www.bundeswehr.de/de/organisation/streitkraeftebasis/feldjaegertruppe",
+        "https://defensearchives.de/development-and-variants-of-the-dingo-1-and-2",
+        "https://de.wikipedia.org/wiki/ATF_Dingo"
+      ],
+      "confidence": "low",
+      "note": "The Feldjaeger Dingo's fuel tank (M11.9b): litres of diesel; 220 L (game value, low). Part of the hull (mass 0)."
     }
   ]
 }

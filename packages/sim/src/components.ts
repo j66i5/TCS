@@ -125,6 +125,12 @@ export interface Captive {
   searched?: number;
   escort?: EntityId;
   point?: EntityId;
+  /** M11.9b: aboard the military police hull `vehicle` (boarded at its point); `evacTick`: taken off the map by it (an
+   *  evacuated prisoner, roster `powEvacuated`). */
+  vehicle?: EntityId;
+  evacTick?: number;
+  /** M11.9b: documents items taken from him in his search (`BattleResult.prisoners`). */
+  documents?: number;
 }
 
 /** Individual soldier state (SPEC 6.4). M0 holds the fields; systems that change them come in M1-M4. */
@@ -389,6 +395,8 @@ export interface RearPoint {
   x: number;
   y: number;
   placed?: true;
+  /** kind "prisoners" (M11.9b): the military police hull at the point that has taken over the guard. */
+  mp?: EntityId;
   /** When it was sited (or last moved) and last checked. */
   sitedTick: number;
   checkTick: number;
@@ -1105,7 +1113,7 @@ export interface VehicleResupply {
 }
 
 /** The kinds of off-map asset (M10.6a ambulance, M11.7b recovery vehicle). */
-export type OffMapKind = "ambulance" | "recovery" | "supply";
+export type OffMapKind = "ambulance" | "recovery" | "supply" | "mp";
 
 /** A hull's recovery state (M11.7b, roster `VehicleRecord.recovery`): `towed` off the map by a recovery vehicle,
  *  `recovered` by its own side at the end (held ground), `captured` by the enemy holding the ground, `lost`
@@ -1174,6 +1182,12 @@ export interface OffMapAsset {
   phase: "ready" | "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "waiting" | "hookUp" | "towing";
   /** M11.7b: the hull a recovery vehicle was called for. */
   target?: EntityId;
+  /** M11.9b (kind "mp", phase "loading"): the step at the collection point (`out`: its men taking over the guard and
+   *  the prisoners boarding; `mount`: its men getting back in), the prisoner walking to it and when he is aboard
+   *  (`doneTick` set once he is at the door), and how many it has taken aboard. */
+  mpStep?: "out" | "mount";
+  boarding?: { prisoner: EntityId; doneTick?: number; sinceTick: number };
+  taken?: number;
   /** M11.7b: hook-up work done (s, at full crew), when it began waiting short, the last tick its target was not
    *  quiet, whether the towed hull hangs on by its rear, and the bar length (hitch to the towed hull's centre, m). */
   hookDoneS?: number;

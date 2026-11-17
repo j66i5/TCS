@@ -77,6 +77,8 @@ export interface HudCallbacks {
   onSendBearers?(): void;
   /** M11.9a: "Escort prisoners" (the selected unit's prisoners waiting get escorts now) and "Release guard". */
   onEscortPrisoners?(): void;
+  /** M11.9b: "Call MP" (the platoon's prisoners). */
+  onCallMp?(): void;
   onReleaseGuard?(): void;
   onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
@@ -426,13 +428,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const releaseBtn = verb("releaseGuard", "order.releaseGuard", "releaseGuard", () => cb.onReleaseGuard?.());
   releaseBtn.title = s.t("order.releaseGuardTitle");
   releaseBtn.hidden = true;
+  // (M11.9b: the military police for the platoon's prisoners.)
+  const mpBtn = verb("callMp", "order.callMp", "callMp", () => cb.onCallMp?.());
+  mpBtn.hidden = true;
   mountBtn.hidden = true; dismountBtn.hidden = true; dischargeBtn.hidden = true; natureBtn.hidden = true;
   // Display order in the bar; and the order in which items move behind "⋯" when the strip is too short.
-  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn, escortBtn, releaseBtn];
-  const OVERFLOW_FIRST = ["releaseGuard", "escortPrisoners", "callDelivery", "supplyRun", "bearers", "resupplyAt", "takeKit", "callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
+  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn, escortBtn, releaseBtn, mpBtn];
+  const OVERFLOW_FIRST = ["callMp", "releaseGuard", "escortPrisoners", "callDelivery", "supplyRun", "bearers", "resupplyAt", "takeKit", "callRecovery", "repair", "rearRun", "mount", "dismount", "halt"];
   const allButtons = (): HTMLButtonElement[] => [...dock.querySelectorAll("button")];
   orders.append(grip, ...barItems, moreBtn);
-  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn, escortBtn, releaseBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
+  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn, supplyRunBtn, repairBtn, recoverBtn, takeKitBtn, resupplyBtn, fetchAmmoBtn, deliveryBtn, escortBtn, releaseBtn, mpBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
 
   // ---- plan bar (S3: the pace of the next leg is chosen on the unit card)
   const plan = el("div", "hud-plan");
@@ -743,6 +748,8 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       recoverBtn.hidden = set.recover !== true;
       deliveryBtn.hidden = set.delivery !== true; supplyRunBtn.hidden = set.supplyRun !== true;
       escortBtn.hidden = set.escortPrisoners !== true; releaseBtn.hidden = set.releaseGuard !== true;
+      mpBtn.hidden = set.callMp !== true;
+      if (set.callMp === true) mpBtn.title = s.t("order.callMpTitle", { n: set.mpLeft ?? 0 });
       if (set.delivery === true) deliveryBtn.title = s.t("order.callDeliveryTitle", { n: set.deliveryLeft ?? 0 });
       if (set.recover === true) recoverBtn.title = s.t("order.recoverTitle", { n: set.recoverLeft ?? 0 });
       dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;

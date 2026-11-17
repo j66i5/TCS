@@ -1165,6 +1165,22 @@
       ],
       "confidence": "medium",
       "note": "M11.9: the weapon as an item (taken from a prisoner in the search, or put away); the same mass as the weapon entry (weapons.json, its sources)."
+    },
+    {
+      "id": "ru-patrul-diesel",
+      "nameKey": "item.ru-patrul-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 350,
+      "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
+      "sources": [
+        "https://rg.ru/2023/02/14/voennaia-policiia-poluchila-bronirovannye-avtomobili-patrul.html",
+        "https://aif.ru/society/army/patrul",
+        "https://www.consultant.ru/document/cons_doc_LAW_176433/"
+      ],
+      "confidence": "low",
+      "note": "The military police 'Patrul's fuel tank (M11.9b): litres of diesel; 350 L (game value, low). Part of the hull (mass 0)."
     }
   ]
 }

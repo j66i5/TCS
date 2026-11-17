@@ -40,7 +40,7 @@ import { redistributeLab, redistributeLabMarkdown } from "../labs/redistribute";
 import { cacheBurnLab, cacheChanceLab, cacheLabMarkdown } from "../labs/cache";
 import { resupplyLab, resupplyLabMarkdown, vehicleResupplyLab, vehicleResupplyLabMarkdown } from "../labs/resupply";
 import { rearmLab, rearmLabMarkdown } from "../labs/rearm";
-import { prisonersLab, prisonersLabMarkdown } from "../labs/prisoners";
+import { mpLab, mpLabMarkdown, prisonersLab, prisonersLabMarkdown } from "../labs/prisoners";
 import { loadData, SCENARIOS } from "../scenarios";
 
 const LABS: Record<string, () => string> = {
@@ -53,7 +53,16 @@ const LABS: Record<string, () => string> = {
   redistribute: () => `# Redistribution lab (M11.2)\n\n${redistributeLabMarkdown(redistributeLab(loadData(), Number(process.argv[3] ?? 4)))}\n`,
   rearm: () => `# Re-arming and refuelling lab (M11.5)\n\n${rearmLabMarkdown(rearmLab(loadData()))}\n`,
   // M11.9a: `lab -- prisoners [runs]` (part 1: search, segregation, escorts, guards, the point, wounded to the nest).
-  prisoners: () => { const d = loadData(); return `# Prisoners lab (M11.9)\n\n## Part 1: taken to held (M11.9a)\n\n${prisonersLabMarkdown(prisonersLab(d, Number(process.argv[3] ?? 20)), buildCatalog(d, ["de", "ru"]))}\n`; },
+  // M11.9b: part 2 (the military police: delay, drive, take-over, boarding order, places, evacuation, a second run);
+  // `--part 1|2` for one part, `--mp-runs n` battles per faction for part 2 (default 10).
+  prisoners: () => {
+    const d = loadData(), cat = buildCatalog(d, ["de", "ru"]);
+    const part = argValue("--part"), mpRuns = Number(argValue("--mp-runs") ?? 10);
+    const n1 = process.argv[3] !== undefined && /^\d+$/.test(process.argv[3]) ? Number(process.argv[3]) : 20;
+    const p1 = part === "2" ? "" : `## Part 1: taken to held (M11.9a)\n\n${prisonersLabMarkdown(prisonersLab(d, n1), cat)}\n\n`;
+    const p2 = part === "1" ? "" : `## Part 2: the military police (M11.9b)\n\n${mpLabMarkdown(mpLab(d, mpRuns), cat)}\n`;
+    return `# Prisoners lab (M11.9)\n\n${p1}${p2}`;
+  },
   resupply: () => { const d = (process.argv[3] ?? "400").split(",").map(Number); return `# Resupply lab (M11.4a-b)\n\n## On foot (M11.4a)\n\n${resupplyLabMarkdown(resupplyLab(loadData(), d))}\n\n## By vehicle and from off the map (M11.4b)\n\n${vehicleResupplyLabMarkdown(vehicleResupplyLab(loadData(), d))}\n`; },
   movement: () => `# Movement and fatigue lab\n\n${movementLabMarkdown(movementLab(loadData()))}\n`,
   carry: () => `# Carry lab\n\n${carryLabMarkdown(carryLab(loadData()))}\n`,
@@ -107,3 +116,9 @@ const dir = fileURLToPath(new URL("../../../../reports", import.meta.url));
 mkdirSync(dir, { recursive: true });
 // (M11.1: the consumption lab keeps every run: reports/consumption-<stamp>.md.)
 writeFileSync(name === "consumption" ? `${dir}/consumption-${new Date().toISOString().replace(/[:.]/g, "-")}.md` : `${dir}/lab-${name}.md`, md);
+
+/** The value after `flag` on the command line (M11.9b), if any. */
+function argValue(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}

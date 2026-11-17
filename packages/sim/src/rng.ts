@@ -60,6 +60,8 @@ export const Streams = {
   repair: "repair",
   /** M11.7b: a recovery vehicle's delay from the call. Created on first use (battles without a call never draw). */
   recovery: "recovery",
+  /** M11.9b: the military police team's delay from the call. Created on first use (battles without a call never draw). */
+  mp: "mp",
   /** M11.3: caches (whether a burst or a fire sets one off, how long a cook-off lasts, where its bursts go). Created on
    *  first use (battles without caches never draw). */
   supply: "supply",

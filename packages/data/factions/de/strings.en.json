@@ -173,5 +173,7 @@
   "vehicle.de.hx2-truck": "HX2 truck (UTF 5 t)",
   "item.de-hx2-diesel": "Diesel (HX2 tank)",
   "item.de-jerrycan": "Fuel can (20 l)",
-  "item.de-dokumente": "Documents (Dokumente: map, orders, notebook)"
+  "item.de-dokumente": "Documents (Dokumente: map, orders, notebook)",
+  "vehicle.de.dingo2-feldjaeger": "Dingo 2 (Feldjäger)",
+  "item.de-dingo2-diesel": "Diesel (Dingo tank)"
 }

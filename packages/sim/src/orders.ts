@@ -159,7 +159,10 @@ export type OrderBody =
   | { kind: "escortPrisoners" }
   /** Release guard (M11.9): the target man on prisoner duty (or the target unit's men on it) go back to their squads.
    *  The last guard of prisoners with a known enemy within `prisoners.pcp.enemyM` is refused unless `confirm`. */
-  | { kind: "releaseGuard"; confirm?: boolean };
+  | { kind: "releaseGuard"; confirm?: boolean }
+  /** Call the military police (M11.9b): the target's platoon calls its side's MP team to its prisoner collection point.
+   *  Refused on the radio: no prisoners, one already on its way, none left. */
+  | { kind: "callMp" };
 
 export type OrderKind = OrderBody["kind"];
 

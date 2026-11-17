@@ -38,6 +38,7 @@ import { evacuationSystem } from "./systems/evacuation";
 import { settleBattle } from "./systems/aftercare";
 import { rearRunSystem } from "./systems/rearrun";
 import { recoverySystem, settleVehicles, towSystem } from "./systems/recovery";
+import { mpSystem } from "./systems/mp";
 import { consolidateSystem } from "./systems/consolidate";
 import { requestSystem, supplySystem } from "./systems/supply";
 import { deliverySystem } from "./systems/delivery";
@@ -180,6 +181,7 @@ export function step(sim: Sim): SimEvent[] {
   rearRunSystem(ctx, state, events);
   // Recovery vehicles' runs (M11.7b; once a second, returns at once without a run).
   recoverySystem(ctx, state, events);
+  mpSystem(ctx, state, events); // (M11.9b)
   // Redistribution in quiet squads, own casualties' ammunition after treatment, none left at the nest (M11.2).
   consolidateSystem(ctx, state, events);
   // Supply points and caches (M11.3): who sees them, capture, fire beside them, cook-offs (nothing without caches).

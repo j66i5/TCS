@@ -67,7 +67,11 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     }
   }
   // Prisoners of war (M11.9): game values; search extracts at most.
-  if (data.prisoners) { check("core/prisoners.json", "prisoners", data.prisoners.prisoners, false); notHigh("core/prisoners.json", "prisoners", data.prisoners.prisoners); }
+  if (data.prisoners) {
+    check("core/prisoners.json", "prisoners", data.prisoners.prisoners, false); notHigh("core/prisoners.json", "prisoners", data.prisoners.prisoners);
+    const MP = data.prisoners.prisoners.mp;
+    if (MP && MP.delayMinS > MP.delayMaxS) errors.push({ file: "core/prisoners.json", path: "prisoners.mp.delayMinS", message: "delayMinS above delayMaxS", severity: "error" });
+  }
   if (data.medical) {
     const m = data.medical, f = "core/medical.json";
     for (const [k, b] of [["physiology", m.physiology], ["levels", m.levels], ["chain", m.chain], ["protection", m.protection], ["triage", m.triage]] as const) { check(f, k, b, false); notHigh(f, k, b); }
@@ -119,6 +123,12 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     if (sup) {
       const vt = pack.units[sup.template]?.vehicle;
       if (vt === undefined || pack.vehicles[vt]?.cargo === undefined) errors.push({ file: `${d}/manifest.json`, path: "supply.template", message: `'${sup.template}' is not the crew of a supply vehicle (one with cargo)`, severity: "error" });
+    }
+    // Military police off the map (M11.9b): the template must crew a vehicle with passenger seats (room for prisoners).
+    const mp = pack.manifest.mp;
+    if (mp) {
+      const vt = pack.units[mp.template]?.vehicle;
+      if (vt === undefined || !(pack.vehicles[vt]?.seats ?? []).some((q) => q.station === "passenger")) errors.push({ file: `${d}/manifest.json`, path: "mp.template", message: `'${mp.template}' is not the crew of a vehicle with passenger seats`, severity: "error" });
     }
     check(`${d}/names.json`, "names", pack.names, fx);
     check(`${d}/doctrine.json`, "doctrine", pack.doctrine, fx);

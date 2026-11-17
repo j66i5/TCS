@@ -437,6 +437,11 @@ for the owner's numbers answer after playing, not for more building).
     group, the bearer filter, not under fire or in an assault; `escortPrisoners`), guards (one per 6, self-defence
     only; `releaseGuard`), wounded prisoners carried to the captors' nest and evacuated with their wounded; card and
     man-box lines, the point's marker; `lab -- prisoners`, `--scene prisoners` (DECISIONS "M11.9a")
+  - ✅ **M11.9b (slice 54)** the military police off the map (`OffMapKind` "mp"; DE Feldjägertrupp in a Dingo-class
+    hull, RU military police in a KamAZ "Patrul"; called at the first prisoner held or by "Call MP"; 15-30 min; waits
+    short under fire; takes over the guard; boards officers first, never over its places; evacuates off the map; a
+    second run for the rest; stranded = ordinary hull), roster `heldBy` / `powEvacuated`, `BattleResult.prisoners`,
+    `SideResult` counts, end settlement of men never taken (DECISIONS "M11.9b")
   - **Military police and prisoners of war** (owner request 2026-11-15; plan `docs/plans/m11-mp-pow.md`, slices 53-55; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

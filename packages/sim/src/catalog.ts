@@ -1206,6 +1206,8 @@ export interface PrisonersDef {
   escort: { perGuard: number; gapMinM: number; gapMaxM: number; quietS: number; minLeft: number };
   guard: { perGuard: number; standM: number; selfDefenceM: number };
   segregation: { ncoFrom: string; apartM: number };
+  /** M11.9b: the military police team off the map (absent: none is called). */
+  mp?: { delayMinS: number; delayMaxS: number; pace: DefId; nearPace: DefId; standM: number; waitShortM: number; enemyNearM: number; quietS: number; giveUpS: number; loadS: number; backS: number; edgeM: number; heldMaxS: number; retryS: number };
 }
 /** Recovery from the rear (core/repair.json `recovery`, M11.7b) without provenance (see the schema). */
 export interface RecoveryDef {

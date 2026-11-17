@@ -5,7 +5,7 @@
  * `ordersFor` turns it into the bar. Nothing selected: every button shown greyed (`none`). Pure: tested
  * without a DOM.
  */
-import { isAble, isOffMap, isOut, repairTaskFor, supportLeft, type Catalog, type EntityId, type SimView } from "@tcs/sim";
+import { isAble, isOffMap, isOut, mpLeft, repairTaskFor, supportLeft, type Catalog, type EntityId, type SimView } from "@tcs/sim";
 import type { OrderMode } from "./hud";
 import { supplySourceNear } from "./supply";
 import { prisonerSummary } from "./prisoners";
@@ -56,6 +56,10 @@ export interface OrderSet {
   escortPrisoners?: boolean;
   /** "Release guard" (M11.9a): men of the unit are on prisoner duty. Absent: not offered. */
   releaseGuard?: boolean;
+  /** "Call MP" (M11.9b): the platoon holds prisoners; `mpLeft` military police teams wait off the map. Absent: not
+   *  offered. */
+  callMp?: boolean;
+  mpLeft?: number;
 }
 
 /** What the selected unit can do about vehicles now (M7.2). */
@@ -99,6 +103,9 @@ export interface UnitCapabilities {
   prisonerPoint?: boolean;
   /** M11.9a: prisoners of the unit waiting for an escort, and its men on prisoner duty. */
   powWaiting?: number;
+  /** M11.9b: the platoon holds prisoners (the military police can be called; `mpLeft` wait off the map). */
+  powHeld?: boolean;
+  mpLeft?: number;
   powDuty?: number;
   /** A recovery vehicle can be called for this crew's hull (M11.7b): immobilised or abandoned, none coming yet, one
    *  waiting (`recoverLeft`). */
@@ -250,7 +257,9 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     const mine = prisonerSummary(view, unitId);
     if (mine.waiting > 0) out.powWaiting = mine.waiting;
     if (mine.escorts + mine.guards > 0) out.powDuty = mine.escorts + mine.guards;
-    if (prisonerSummary(view, top).total > 0 || [...view.rear.entries()].some(([, r]) => r.kind === "prisoners" && r.unit === top)) out.prisonerPoint = true;
+    const held = prisonerSummary(view, top).total;
+    if (held > 0 || [...view.rear.entries()].some(([, r]) => r.kind === "prisoners" && r.unit === top)) out.prisonerPoint = true;
+    if (held > 0 && catalog.prisoners.mp !== undefined) { out.powHeld = true; out.mpLeft = mpLeft(view, u.side); }
   }
   if (out.ableMen === 1) out.kind = "man";
   if (out.ableMen === 0) out.kind = "none"; // nobody left to take an order
@@ -348,6 +357,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     if (cap.prisonerPoint === true && cap.own !== true) o.modes = [...o.modes, "prisoners"];
     if ((cap.powWaiting ?? 0) > 0) o.escortPrisoners = true;
     if ((cap.powDuty ?? 0) > 0) o.releaseGuard = true;
+    if (cap.powHeld === true) { o.callMp = true; o.mpLeft = cap.mpLeft ?? 0; }
   }
   return o;
 }

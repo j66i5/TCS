@@ -8345,3 +8345,113 @@ as he listed it). New `sim/systems/prisoners.ts` (1 Hz, after surrender), `core/
   `test:perf` inside it 19 of 24 (bench-caches 7.6 % slower than the bench, spotting 7.7x / 7.6x, bench-vehicles 7.4x,
   bench-tanks 8.0x read as below): the same floors main misses alone in this container (above). Not a regression
   measured by this slice; to be re-run on a quieter machine before the merge.
+
+## 2026-11-17 — M11.9b (slice 54): the military police off the map, evacuation of prisoners, roster and BattleResult (goldens regenerated)
+Plan `docs/plans/m11-mp-pow.md` sections 4.9-4.10. New `sim/systems/mp.ts` (1 Hz, after recovery), `core/prisoners.json`
+block `mp`, faction manifest `mp`, two hulls and two crew templates.
+- **Owner questions built with the recommended option (a), as software decisions for the owner to review:** Q4 the DE
+  MP rides a Dingo-class protected vehicle (`de-dingo2-feldjaeger`, 8 seats: driver, commander, a third Feldjäger, 5
+  places), the RU MP a KamAZ "Patrul" (`ru-kamaz-patrul-vp`, 10 seats: driver, commander, a third man, 7 places), the
+  fixture `xf` the wagon crew (4 places); Q6 the delay 900-1800 s (15-30 min) from the call; Q7 a man who gave up but
+  was never taken goes at the end to the side holding the ground around him (the M10.6b `holderAt` rule, its
+  `holdM` 150 m): that side's prisoner (`captured`, `heldBy`), or back to his own side (`captive` cleared: fit,
+  wounded) — event `pow.settled`.
+- **Off-map asset kind "mp"** (`OffMapKind`); `ForceInput.offMap` entries of kind "mp" are created by `setup.ts` LAST,
+  after the caches, supply points and stocks (the other kinds stay where they were), so every entity of a battle has at
+  tick 0 the id it has without them. Entities made during the battle (drones, caches, rear points) come after them and
+  shift: a battle with the MP is not event-identical to one without (drone ids, and the staggered drone scans keyed on
+  them). `withoutMp(input)` (scenario; `--no-mp` for headless and batch) strips them. Generated battles
+  (`buildScenario`, so also the hold battle) give every side its manifest's MP (`ScenarioDef.mp: false` for none); the
+  demo, shoot-out and vehicles battles have none.
+- **The run** (`mp.ts`): called automatically when a collection point holds its first prisoner who can walk (its
+  platoon's radio working), or by `callMp` (target: a unit or man of the platoon; refusals `radio.mpNoPrisoners`,
+  `radio.mpComing`, `radio.mpNone`, `radio.mpNoWay`); delay from the new stream "mp"; on at the edge behind the point
+  (`entryPoint`); it turns 25 m short (forward 8 m and 14 m to one side, then backing up to its spot 15 m short) so
+  that it never has to turn through the men at the point when it leaves (**added**: driving straight up and leaving
+  by `backAwayAndGo` ran a prisoner over in the lab: the drive's U-turn sweeps 40 m forward); held up close (a wood):
+  it stops where it is (the ambulance's rule). It waits 300 m short while the point is not quiet (an enemy the
+  platoon knows within 250 m — the rule that moves the point back — or a prisoner or guard there pinned down within
+  60 s), going back after 1,200 s of waiting. At the point: `pow.mp` "arrived", `RearPoint.mp` set, the squads'
+  guards released at once (`mpTakeOver`; escorts still walking prisoners there stay with them until held, then go
+  back); its crew but the driver get out and stand at the guards' places. The walking prisoners held there board one
+  at a time, officers, then NCOs, then men (id order within a group): each walks to its door nearest the point
+  (`captive.vehicle` set), 20 s there (`mp.loadS`), then seated (`pow.boarded`); a man who has not reached it in
+  300 s is passed over. It leaves when its passenger seats are full, or nobody it could take is at or bound for the
+  point, or 900 s after it arrived: its men get back in (up to 120 s), it backs 40 m straight away from the point and
+  drives back. Off the map: `captive.evacTick`, `pow.evacuated` (a wounded one is handed over to the captor's chain,
+  `handOver` "captor"); `backTick` = left + `mp.backS` 1,800 s; then "ready" (its seats freed: the evacuated keep their
+  `mount` pointer and stay off the map by `captive.evacTick` in `isOffMapMan`) and called again if prisoners wait.
+  Stranded (`canDrive` false): "lost", an ordinary hull; its prisoners get out (`captive.vehicle` cleared) and are held
+  at the point again; the squads guard them again (below).
+- **Guards after the MP (prisoners.ts):** while the MP is at the point no squad guard is needed; **added** for every
+  point: when its held prisoners have fewer guards and escorts bound for it than ceil(held / 6), a man of a platoon
+  unit that is not fighting is sent as guard (`pow.guard` "guard") — after the MP leaves some behind, or a guard lost.
+  **Fixed** (slice 53 latent crash): a man released in the same step (more guards than needed) is no longer stepped as
+  on duty.
+- **Protection:** the MP hull is not marked (no emblem, fired on lawfully); a hit on it while prisoners are aboard is a
+  `law.hit` "prisoner" (conduct.ts `noteHit`), recorded for the side firing (the prisoners' own side, normally).
+- **Roster and result:** `SoldierRecord.heldBy` (side holding a "captured" man; read back in as `captive.by`: a
+  prisoner from tick 0 as before) and `powEvacuated` (tick); a prisoner taken back by the captor's ambulance or MP stays
+  "captured". `BattleResult.prisoners` (`run.ts prisonersAtEnd`): every living "captured" man with a holder,
+  `{ holder, side, unitKey, personIndex, group, wounded, evacuated: "mp" | "medical" | "held", documents }`
+  (`captive.documents` counted in the search); `SideResult.prisonersTaken` / `prisonersEvacuated` (absent when 0);
+  `prisonersEscaped` is in the type for slice 55. The end settlement also gives men captured on enemy-held ground
+  (wounded, M10.6b) their holder.
+- **Data (add-data-entry; search extracts only, nothing above medium, armour low):** `de-dingo2-feldjaeger` (6.1 x 2.4 x
+  2.5 m, 12.5 t, 162 kW, 90 km/h, 220 L; 12 mm steel equivalent all round), `ru-kamaz-patrul-vp` (6.9 x 2.55 x 2.9 m,
+  14 t, 191 kW, 90 km/h, 350 L; 8 mm), both built from the supply trucks' layout (engine front, rear door and two cab
+  doors), all low; fuel items `de-dingo2-diesel`, `ru-patrul-diesel`; templates `feldjaegertrupp` (Feldwebel commander,
+  Hauptgefreiter driver, Stabsgefreiter; G36) and `vp-otdelenie` (serzhant, yefreytor, mladshiy serzhant; AK-74M), the
+  commander carrying documents; manifests `mp: { template, count: 1 }` (xf: `wagon-crew`); lint: the template must crew
+  a vehicle with passenger seats; `mp.delayMinS <= delayMaxS`. **The third man sits in a crew seat ("loader" station,
+  `mp3`)**: the loader rejects a crew member in a passenger seat.
+- **UI:** "Call MP" on the bar (phone: first under "⋯"; title with the teams left), card line "… · MP in 26 min" /
+  "MP coming" / "MP at the point" / "3 taken away", man box "boarding / aboard the military police vehicle", "taken
+  away by the military police"; Wounded/units tab rows for the MP run ("military police on its way, about 12 min",
+  "at the collection point, 2 prisoners aboard", "taking 5 prisoners back").
+- **Lab** `npm run lab -- prisoners --part 2` (10 battles per faction; one walking prisoner more than the hull has
+  places: DE 6 for 5, RU 8 for 7; a straggler nobody fetched in 120 s is taken where he stands, so that part 2 measures
+  the MP): call to the map edge = the drawn delay to the second in 40 of 40 runs (delays 918-1,773 s); first run's
+  call to arrival within 10 % of delay + the hull's drive alone (the same way in, `mpApproach`/`mpThere`, in an empty
+  battle) in 10 of 10 per faction (0.0 to +0.1 %; the drive is short, 38-39 s, the point standing 150 m from the west
+  edge: the check is dominated by the delay); the squads' guards released on the MP's arrival in 40 of 40 runs;
+  places never exceeded (most aboard 5 / 5 and 7 / 7); boarded officer first, then the NCO, then the men in 20 of 20;
+  everyone aboard evacuated in 20 of 20; a second run took the one left in 20 of 20; ledger exact in 20 of 20. Part 1
+  (slice 53's checks, re-run with this slice) unchanged: 40 of 40 on every check, walks within 10 % 120 of 120.
+- **Acceptance read:** "guards back with their squads within 30 s of the takeover" is read as **released** (sent
+  back) within 30 s — every squad guard at the point is released on the tick the MP arrives; walking back 100-200 m to
+  the squad leader then takes 1-3 minutes.
+- **Tests** `tools/test/mp.test.ts` (7): the assets parked from tick 0 with the highest ids, outside the strength, a
+  battle without prisoners running the same with and without them; the run end to end with a second run (order of
+  phases, guards released, officers first, places, evacuated, `BattleResult.prisoners`, roster round trip); the call
+  and its three refusals; a stranded hull; the protected-persons hit; the end settlement (plan Q7); save/load on the
+  way, loading and away. The architecture test covers the new loops (`off-map: ok` / `.offMap` gates).
+- **Goldens:** `npm run golden:update` (fingerprint: new hulls, items, templates, `core/prisoners.json`); before it the
+  12 goldens' event streams replayed with `withoutMp` were byte-identical to slice 53's (b7853f2); `golden/no-interiors`
+  untouched.
+- **Batches** (same seeds; base: slice 53, b7853f2, the same container; attacker wins or the hold battle's defender
+  holds; casualties blue / red):
+
+  | scenario (runs x s) | base | slice 54 |
+  |---|---|---|
+  | platoon (10 x 1,200) | blue 4; 15.5 / 9.4 | blue 5; 17.1 / 11.8 |
+  | platoon-ru (10 x 1,200) | red 7; 11.5 / 11.0 | red 5; 11.8 / 13.2 |
+  | platoon-vehicles (10 x 1,200) | blue 9; 10.7 / 25.7 | blue 7; 10.7 / 25.2 |
+  | platoon-ru-vehicles (10 x 1,200) | red 0; 8.1 / 35.2 | red 0; 8.7 / 35.4 |
+  | hold-resupply (6 x 3,600; German defence) | holds 4 | holds 4 |
+  | hold-resupply-ru (6 x 3,600; Russian defence) | holds 2 | holds 2 |
+
+  The platoon battles stay in the balance pass's band (2-8 of 10); the mounted ones stay where the balance pass left
+  them (outside, owner question). Every battle with a drone differs from the base through the later entities' ids (the
+  MP are made before them), so the rows are a second sample, not the same battles. The MP in AI battles (headless,
+  hold-resupply both ways, seeds 1-6 x 3,600 s): called in 2 of 12 battles (a Russian prisoner held by the German
+  defence), on the map in one, 100 s before the battle ended; never at a point (prisoners are rare and come late:
+  plan section 2; owner Q1). `pow.settled` (Q7) in 2 of 12.
+- **Perf** (`npm run test:perf` alone): 22 of 24; the two spotting benches at 8.0x (7.97) and 7.6x (floor 8x). Slice 53
+  (b7853f2) alone in the same container right after: 20 of 24 (spotting with smoke 7.5x, bench-vehicles 7.4x, two
+  more). The slice adds one pass over the vehicles a second (only kind "mp" does anything) and, while an MP hull is on a
+  run, one pass over the men; nothing per tick.
+- **Checks** (`npm run check` alone): typecheck, lint, `npm test` 1,561 pass (6 skipped); `test:perf` inside it 20 of
+  24 (spotting 7.8x / 7.8x, bench-tanks 7.9x, the hull-hit variant): the floors this container misses on the base as
+  well; `lint:data` no errors (run after, as the chain stops at `test:perf`). To be re-run on a quieter machine before
+  the merge.

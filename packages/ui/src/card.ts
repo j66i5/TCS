@@ -231,7 +231,8 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   const s = view.soldier.get(id);
   if (!s) return { key: "unknown" };
   // (M11.9a: a prisoner held at a collection point, or being searched.)
-  if (s.captive !== null) return { key: s.captive.point !== undefined && s.atNest === undefined ? "held" : s.captive.state };
+  // (M11.9b: boarding the military police hull, aboard it, taken away by it.)
+  if (s.captive !== null) return { key: s.captive.evacTick !== undefined ? "powEvacuated" : s.captive.vehicle !== undefined ? (s.mount !== undefined ? "powAboard" : "boarding") : s.captive.point !== undefined && s.atNest === undefined ? "held" : s.captive.state };
   if (s.casualty === "killed" || !s.physiology.alive) return { key: "killed" };
   if (s.casualty === "incapacitated" || !isAble(s)) return { key: "incapacitated" };
   if (s.mount !== undefined) return { key: "aboard" };

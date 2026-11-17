@@ -161,6 +161,17 @@ export type SimEvent =
   | { kind: "pow.guard"; tick: number; soldier: EntityId; side: SideId; point: EntityId; phase: "guard" | "released" | "lost"; ordered?: true }
   /** M11.9: escort `soldier` put what he took beyond `search.maxKg` into the collection point's cache `cache`. */
   | { kind: "pow.cached"; tick: number; soldier: EntityId; side: SideId; point: EntityId; cache: EntityId; kg: number }
+  /** M11.9b: side `side`'s military police hull `vehicle` on a run to collection point `point`: called (`dueS` until it
+   *  comes on; `ordered` by callMp), on the map, waiting short of a point under fire, at the point (it took over the
+   *  guard), set off back (`aboard` prisoners), off the map, stood down, stranded, no route, back off the map ready. */
+  | { kind: "pow.mp"; tick: number; side: SideId; vehicle: EntityId; point?: EntityId; phase: "called" | "entered" | "waiting" | "arrived" | "departed" | "away" | "cancelled" | "lost" | "noRoute" | "ready"; dueS?: number; aboard?: number; ordered?: true; why?: string }
+  /** M11.9b: prisoner `soldier` (side `side`, his own) boarded the military police hull `vehicle` of side `by`. */
+  | { kind: "pow.boarded"; tick: number; soldier: EntityId; side: SideId; by: SideId; vehicle: EntityId; group: "officer" | "nco" | "man" }
+  /** M11.9b (plan Q7): at the end, man `soldier` (side `side`) who gave up but was never taken goes to the side holding
+   *  the ground around him: `holder`'s prisoner ("captured") or back to his own side ("returned"). */
+  | { kind: "pow.settled"; tick: number; soldier: EntityId; side: SideId; holder: SideId; outcome: "captured" | "returned" }
+  /** M11.9b: prisoner `soldier` (side `side`, his own) was taken off the map by the military police of side `by`. */
+  | { kind: "pow.evacuated"; tick: number; soldier: EntityId; side: SideId; by: SideId; vehicle: EntityId; group: "officer" | "nco" | "man"; wounded: boolean }
   | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }
   | { kind: "items.transferred"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number }
   /** M11.1: items gone from the battle other than by being fired (`count` items of `item` held by `holder`; the

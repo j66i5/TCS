@@ -1,10 +1,21 @@
 # State — handover note
 
-_Last updated: 2026-11-17 (M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-17 (M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.9b (slice 54) built (2026-11-17, branch `claude/m11-mp`).** The military police: each side's MP team waits off
+  the map (DE Feldjägertrupp in a Dingo-class `de-dingo2-feldjaeger`, 5 places; RU military police section in a KamAZ
+  "Patrul", 7 places; created after every other entity), is called when a collection point holds its first prisoner
+  (or by "Call MP"; refusals no prisoners / already coming / none left), comes 15-30 min later, waits 300 m short
+  while the point is under fire, turns and backs up to the point, takes over the guard (squad guards released at
+  once), boards the walking prisoners 20 s a man, officers first, never over its places, and takes them off the map
+  (evacuated: `captive.evacTick`); back 30 min later for the rest; stranded = an ordinary hull, its prisoners wait at
+  the point again. Roster `heldBy`, `powEvacuated`; `BattleResult.prisoners`, `SideResult.prisonersTaken` /
+  `prisonersEvacuated`; end settlement of men who gave up but were never taken by the side holding the ground (Q7).
+  Owner questions Q4, Q6, Q7 built with option (a) for review. Numbers in DECISIONS "M11.9b". Slice 55 (escapes,
+  exposure, under fire, AI, review) next.
 - **M11.9a (slice 53) built (2026-11-17, branch `claude/m11-mp`; plan `docs/plans/m11-mp-pow.md`).** Prisoners of war:
   a platoon taking a prisoner sets up a prisoner collection point (150 m back, hidden, wheeled-reachable, 50 m from
   its nest and supply point both ways, 250 m from known enemies, moved back when one comes near; `prisonerPoint`);
@@ -474,8 +485,12 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - M11.9a prisoners (2026-11-17; plan `docs/plans/m11-mp-pow.md` section 6): built with the recommended option, to be
   confirmed: **Q2** search automatic for every prisoner, kit to the searcher, beyond 15 kg into a captured cache at the
   point; **Q3** one escort per 4 on the move, one guard per 6 at the point; **Q8** guards fire only in self-defence
-  within 50 m. Still open for slices 54-56: Q1 (prisoners are rare: leave / collect wounded enemies / more
-  surrenders), Q4 MP vehicles, Q5 escapes, Q6 MP delay, Q7 surrendered-never-taken at the end. New low data:
+  within 50 m. M11.9b built with the recommended option, to be confirmed: **Q4** MP vehicles DE Dingo-class
+  Feldjäger vehicle (5 places), RU KamAZ "Patrul" (7 places); **Q6** MP delay 15-30 min; **Q7** a man who gave up but
+  was never taken goes to the side holding the ground at the end. Still open for slices 55-56: Q1 (prisoners are rare:
+  leave / collect wounded enemies / more surrenders), Q5 escapes. New low data (M11.9b): the two MP hulls (mass,
+  drive, seats, armour 12 / 8 mm all low), `mp` (delay 900-1800 s, 20 s a prisoner, back 1,800 s, wait 300 m short,
+  give up after 1,200 s), three men per MP team. New low data:
   `core/prisoners.json` (point 150 m back (100-200), 50 m apart, 250 m from the enemy; search 30 s, 15 kg; groups 10 m
   apart; guard 5 m off), documents 0.3 kg per leader; NCOs from OR-5 (the Russian mladshiy serzhant, OR-4 in the data,
   counts as a man: should OR-4 be NCO?). A defence under fire never sends escorts (30 s quiet rule): its prisoners wait

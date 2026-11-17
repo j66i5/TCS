@@ -13,9 +13,9 @@
  * the captors' nest, and the conservation guard (exact). `runs` battles per faction with different seeds.
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
-import { buildForce, withoutVehicles } from "@tcs/scenario";
+import { addMpAssets, buildForce, withoutVehicles } from "@tcs/scenario";
 import {
-  checkConservation, consumedFromEvents, createSim, DEFAULT_COMMS, emptyConsumption, flatMap, ledgerOf, loadKg, step, TICK_HZ, tracerMap,
+  checkConservation, consumedFromEvents, createSim, DEFAULT_COMMS, mpApproach, mpThere, emptyConsumption, flatMap, ledgerOf, loadKg, step, TICK_HZ, tracerMap,
   type BattleInput, type Catalog, type EntityId, type SimEvent, type SoldierRecord, type UnitInput, type Wound,
 } from "@tcs/sim";
 
@@ -54,16 +54,18 @@ function rankBy(catalog: Catalog, faction: string, want: "officer" | "nco" | "ma
 
 /** The lab's battle (also for tests): the platoon of `faction` (template `template`), seven men of the other side who
  *  have given up in front of its first squad (`pris`: officer, NCO, 4 men, a man with a broken leg). */
-export function prisonersBattle(data: DataSet, faction: string, template: string, seed: number): { input: BattleInput; pris: SoldierRecord[]; plt: UnitInput } {
+export function prisonersBattle(data: DataSet, faction: string, template: string, seed: number, opts: { walkers?: number; mp?: boolean; limitS?: number } = {}): { input: BattleInput; pris: SoldierRecord[]; plt: UnitInput } {
   const enemy = faction === "de" ? "ru" : "de";
   const catalog = buildCatalog(data, ["de", "ru"]);
   const plt = withoutVehicles(buildForce(data, { faction, template, seed, keyPrefix: "b" }));
   const foe = withoutVehicles(buildForce(data, { faction: enemy, template: enemy === "de" ? "pzgren-zug" : "motor-rifle-platoon", seed, keyPrefix: "r" }));
   // Seven men of the other side give up: its first squad's men with a personal weapon, the leader first (he carries
-  // the documents); ranks set to 1 officer, 1 NCO, 4 men, and a seventh with a broken leg.
-  const fm = members(foe).filter((m) => m.weapon !== undefined).slice(0, 7);
-  const want = ["officer", "nco", "man", "man", "man", "man", "man"] as const;
-  const pris: SoldierRecord[] = fm.map((m, i) => ({ ...m, rank: rankBy(catalog, enemy, want[i]!), status: "surrendered" as const, ...(i === 6 ? { wounds: [brokenLeg()] } : {}) }));
+  // the documents); ranks set to 1 officer, 1 NCO, 4 men, and a seventh with a broken leg. (Part 2, M11.9b: `walkers`
+  // who can walk, the last of them a man with a broken leg as before.)
+  const nw = opts.walkers ?? 6;
+  const fm = members(foe).filter((m) => m.weapon !== undefined).slice(0, nw + 1);
+  const want = ["officer", "nco", ...Array.from({ length: nw - 1 }, () => "man" as const)] as const;
+  const pris: SoldierRecord[] = fm.map((m, i) => ({ ...m, rank: rankBy(catalog, enemy, want[i] ?? "man"), status: "surrendered" as const, ...(i === nw ? { wounds: [brokenLeg()] } : {}) }));
   const foeUnit: UnitInput = { key: "rp", callsign: "RP", echelon: "squad", leaderIndex: 0, subunits: [], members: pris };
   // The platoon: headquarters (and a wounded man of its own) at x 300, its squads at x 500 (200 m in front).
   const own = members(plt);
@@ -76,15 +78,18 @@ export function prisonersBattle(data: DataSet, faction: string, template: string
   // (The man who cannot walk lies beside the squad, where it takes him at once.)
   // (Each run gives up at a slightly different spot: seed-dependent offsets of a few metres.)
   const jx = ((seed * 37) % 11) - 5, jy = ((seed * 53) % 9) - 4;
-  pris.forEach((m, i) => place.push(i === 6 ? { personId: m.personId, x: 506, y: 232, heading: Math.PI } : { personId: m.personId, x: 515 + jx + (i % 3) * (3 + (seed % 3)), y: 225 + jy + Math.floor(i / 3) * (4 + (seed % 2)), heading: Math.PI }));
+  // (Part 2's larger groups stand closer, beside the squad, so that every man is taken.)
+  pris.forEach((m, i) => place.push(i === nw ? { personId: m.personId, x: 506, y: 232, heading: Math.PI } : (nw <= 6 ? { personId: m.personId, x: 515 + jx + (i % 3) * (3 + (seed % 3)), y: 225 + jy + Math.floor(i / 3) * (4 + (seed % 2)), heading: Math.PI } : { personId: m.personId, x: 510 + (i % 3) * 4, y: 218 + Math.floor(i / 3) * 7 + (i % 3) * 2.3 + (jy % 2), heading: Math.PI })));
   const input: BattleInput = {
     map: flatMap("prisoners", 2000, 600, 4), catalog, seed, orders: [],
-    rules: { timeLimitSeconds: 1800, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "medical", physiologyParams: {}, objectives: [] },
+    rules: { timeLimitSeconds: opts.limitS ?? 1800, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "medical", physiologyParams: {}, objectives: [] },
     forces: [
       { side: "blue", faction, units: [plt], placements: place.filter((p) => own.some((m) => m.personId === p.personId)), caches: [{ x: 120, y: 260, load: [crate(catalog, faction)], point: true }] },
       { side: "red", faction: enemy, units: [foeUnit], placements: place.filter((p) => pris.some((m) => m.personId === p.personId)) },
     ],
   };
+  // (M11.9b: the platoon's side has its military police off the map; part 1 runs without it, as built in slice 53.)
+  if (opts.mp === true) addMpAssets(data, catalog, input.forces[0]!, seed);
   return { input, pris, plt };
 }
 
@@ -226,5 +231,136 @@ export function prisonersLabMarkdown(rows: readonly PrisonersRow[], catalog: Cat
   const within = allW.filter((x) => Math.abs(x.errPct) <= 10).length;
   out.push("");
   out.push(`Summary: ${rows.length} battles; searches exact in ${rows.filter((r) => r.searchExact).length}; walks within 10 % of the hand calculation ${within} of ${allW.length}; taken-class items left on searched prisoners ${rows.reduce((n, r) => n + r.takenLeft, 0)}; kept items missing ${rows.reduce((n, r) => n + r.keptMissing, 0)}; groups mixed in ${rows.filter((r) => r.mixed).length}; guards right in ${rows.filter((r) => r.guardsOk).length}; point within ${P.pcp.apartM} m of the nest or supply point in ${rows.filter((r) => (r.pointToNestM ?? 1e9) < P.pcp.apartM || (r.pointToSupplyM ?? 1e9) < P.pcp.apartM).length}; non-walking prisoner at the captors' nest in ${rows.filter((r) => r.woundedAtNest).length}; ledger exact in ${rows.filter((r) => r.ledgerExact).length}.`);
+  return out.join("\n");
+}
+
+// ---------------------------------------------------------------- part 2: the military police (M11.9b)
+
+export interface MpRunRow {
+  faction: string; seed: number; walkers: number; places: number;
+  /** Per run of the hull: the drawn delay, call to the edge, the drive alone, call to arrival (s). */
+  runs: { dueS: number; edgeS: number; driveAloneS: number; arriveS: number; errPct: number; boarded: number; groups: string; evacuated: number; releasedS: number | null; awayS: number | null }[];
+  maxAboard: number; officersFirst: boolean; allEvacuated: boolean; secondRun: boolean; ledgerExact: boolean; endS: number;
+}
+
+/** The hull driving alone from where it came on to where it stopped (a fresh battle, nobody else moving; s). */
+function driveAlone(data: DataSet, faction: string, template: string, seed: number, walkers: number, entry: { x: number; y: number; heading: number }, goal: { x: number; y: number; px: number; py: number }): number {
+  const { input } = prisonersBattle(data, faction, template, seed, { walkers, mp: true, limitS: 3600 });
+  const sim = createSim(input);
+  const [vid, v] = [...sim.state.vehicle.entries()].find(([, x]) => x.offMap?.kind === "mp")!;
+  delete v.offMap;
+  const t = sim.state.transform.req(vid);
+  t.x = entry.x; t.y = entry.y; t.heading = entry.heading;
+  const d = v.drive; d.progressX = entry.x; d.progressY = entry.y; d.progressTick = 0; d.backX = entry.x; d.backY = entry.y; d.brake = 0;
+  // (The same way in as on its run: mp.ts mpApproach, arrival by mpThere, looked at once a second.)
+  const g = mpApproach(sim.ctx, sim.state, vid, { x: goal.px, y: goal.py }).goal;
+  for (let k = 0; k < 3600 * TICK_HZ; k++) {
+    step(sim);
+    if (k % TICK_HZ === TICK_HZ - 1 && mpThere(sim.ctx, sim.state, vid, g)) return (k + 1) / TICK_HZ;
+  }
+  return NaN;
+}
+
+export function mpTrial(data: DataSet, faction: string, template: string, seed: number, walkers: number): MpRunRow {
+  const limitS = 7200;
+  const { input } = prisonersBattle(data, faction, template, seed, { walkers, mp: true, limitS });
+  const catalog = input.catalog;
+  const sim = createSim(input);
+  for (const [uid] of sim.state.unit.entries()) sim.state.unit.req(uid).fireRule = "hold";
+  const start = ledgerOf(catalog, sim.state);
+  const cons = emptyConsumption(), tracer = tracerMap(catalog);
+  const [vid, v0] = [...sim.state.vehicle.entries()].find(([, x]) => x.offMap?.kind === "mp")!;
+  const places = catalog.vehicles[v0.def]!.seats.filter((q) => q.station === "passenger").length;
+  const ev: SimEvent[] = [];
+  const legs: { entry: { x: number; y: number; heading: number }; goal: { x: number; y: number; px: number; py: number } | null }[] = [];
+  let maxAboard = 0, t = 0;
+  const walkersIds = new Set<EntityId>();
+  for (const [id, i] of sim.state.identity.entries()) if (i.side === "red") { const s = sim.state.soldier.req(id); if (s.wounds.length === 0) walkersIds.add(id); }
+  const allGone = () => [...walkersIds].every((m) => sim.state.soldier.get(m)?.captive?.evacTick !== undefined || !sim.state.soldier.get(m)?.physiology.alive);
+  for (; t < limitS * TICK_HZ; t++) {
+    const out = step(sim);
+    consumedFromEvents(cons, out, tracer);
+    ev.push(...out);
+    // (A man of a larger group nobody walked over to or fetched within two minutes is taken where he stands by the
+    // unit that took the others: part 2 measures the military police, not the hand-over.)
+    if (t === 120 * TICK_HZ) {
+      const by = ev.find((e): e is Extract<SimEvent, { kind: "captured" }> => e.kind === "captured");
+      const unit = by ? sim.state.identity.req(by.by).unit : undefined;
+      for (const m of walkersIds) { const c = sim.state.soldier.req(m).captive; if (c?.state === "surrendered" && unit !== undefined) { c.state = "captured"; c.by = "blue"; c.unit = unit; } }
+    }
+    const o = sim.state.vehicle.req(vid).offMap!;
+    for (const e of out) if (e.kind === "pow.mp" && e.vehicle === vid && e.phase === "arrived") legs.push({ entry: { ...o.entry! }, goal: o.goal ? { ...o.goal } : null });
+    if (t % TICK_HZ === 0) {
+      let n = 0;
+      for (const m of sim.state.vehicle.req(vid).seats) if (m !== null && sim.state.soldier.get(m)?.captive?.vehicle !== undefined && sim.state.soldier.get(m)?.captive?.evacTick === undefined) n++;
+      maxAboard = Math.max(maxAboard, n);
+      if (allGone()) break;
+    }
+  }
+  const leaks = checkConservation(start, ledgerOf(catalog, sim.state), cons);
+  const mp = ev.filter((e): e is Extract<SimEvent, { kind: "pow.mp" }> => e.kind === "pow.mp" && e.vehicle === vid);
+  const runs: MpRunRow["runs"] = [];
+  const calls = mp.filter((e) => e.phase === "called");
+  calls.forEach((c, k) => {
+    const next = calls[k + 1]?.tick ?? Infinity;
+    const at = (ph: string) => mp.find((e) => e.phase === ph && e.tick >= c.tick && e.tick < next)?.tick;
+    const enter = at("entered"), arrive = at("arrived"), away = at("away");
+    const leg = legs[runs.length];
+    const alone = leg?.goal ? driveAlone(data, faction, template, seed, walkers, leg.entry, leg.goal) : NaN;
+    const arriveS = arrive !== undefined ? (arrive - c.tick) / TICK_HZ : NaN;
+    const hand = (c.dueS ?? 0) + alone;
+    const boarded = ev.filter((e): e is Extract<SimEvent, { kind: "pow.boarded" }> => e.kind === "pow.boarded" && e.tick >= c.tick && e.tick < next);
+    const evac = ev.filter((e) => e.kind === "pow.evacuated" && e.tick >= c.tick && e.tick < next).length;
+    const rel = ev.filter((e) => e.kind === "pow.guard" && e.phase === "released" && arrive !== undefined && e.tick >= arrive && e.tick < arrive + 60 * TICK_HZ);
+    runs.push({
+      dueS: c.dueS ?? 0, edgeS: enter !== undefined ? (enter - c.tick) / TICK_HZ : NaN, driveAloneS: Math.round(alone), arriveS: Math.round(arriveS),
+      errPct: Number.isFinite(arriveS) && hand > 0 ? Math.round(((arriveS - hand) / hand) * 1000) / 10 : NaN,
+      boarded: boarded.length, groups: boarded.map((b) => b.group[0]).join(""), evacuated: evac,
+      releasedS: rel.length > 0 && arrive !== undefined ? Math.max(...rel.map((r) => (r.tick - arrive) / TICK_HZ)) : null, awayS: away !== undefined ? Math.round((away - c.tick) / TICK_HZ) : null,
+    });
+  });
+  const order = (g: string) => (g === "o" ? 0 : g === "n" ? 1 : 2);
+  const officersFirst = runs.every((r) => [...r.groups].every((g, i, a) => i === 0 || order(a[i - 1]!) <= order(g)));
+  const boardedAll = ev.filter((e) => e.kind === "pow.boarded").map((e) => (e as Extract<SimEvent, { kind: "pow.boarded" }>).soldier);
+  const evacAll = new Set(ev.filter((e) => e.kind === "pow.evacuated").map((e) => (e as Extract<SimEvent, { kind: "pow.evacuated" }>).soldier));
+  return {
+    faction, seed, walkers, places, runs, maxAboard, officersFirst,
+    allEvacuated: boardedAll.length > 0 && boardedAll.every((m) => evacAll.has(m)) && allGone(),
+    secondRun: runs.length >= 2 && runs[1]!.evacuated > 0, ledgerExact: Object.keys(leaks).length === 0, endS: Math.round(t / TICK_HZ),
+  };
+}
+
+/** Part 2: per faction `runs` battles with one more walking prisoner than its hull has places (a second run). */
+export function mpLab(data: DataSet, runs: number): MpRunRow[] {
+  const catalog = buildCatalog(data, ["de", "ru"]);
+  const rows: MpRunRow[] = [];
+  for (const [f, tpl] of [["de", "pzgren-zug"], ["ru", "motor-rifle-platoon"]] as const) {
+    const mp = data.factions[f]!.manifest.mp!, vt = data.factions[f]!.units[mp.template]!.vehicle!;
+    const places = catalog.vehicles[vt]!.seats.filter((q) => q.station === "passenger").length;
+    for (let s = 1; s <= runs; s++) rows.push(mpTrial(data, f, tpl, s, places + 1));
+  }
+  return rows;
+}
+
+export function mpLabMarkdown(rows: readonly MpRunRow[], catalog: Catalog): string {
+  const MP = catalog.prisoners!.mp!;
+  const out: string[] = [];
+  out.push(`Delay ${MP.delayMinS}-${MP.delayMaxS} s (stream "mp"), stop ${MP.standM} m short, ${MP.loadS} s a prisoner to board, ready again ${MP.backS} s after it left the map. Each battle has one more walking prisoner than the hull has places, so a second run takes the rest. Drive alone: the same hull from the same entry to the same stop in an empty battle. Guards released: seconds from the MP's arrival to the last squad guard sent back.`);
+  out.push("");
+  out.push("| Faction | Seed | Walkers / places | Run | Delay (s) | Call to edge (s) | Drive alone (s) | Call to arrival (s) | vs delay + drive | Boarded (groups) | Evacuated | Guards released (s) |");
+  out.push("|---|---|---|---|---|---|---|---|---|---|---|---|");
+  for (const r of rows) r.runs.forEach((x, k) => out.push(`| ${r.faction} | ${r.seed} | ${r.walkers} / ${r.places} | ${k + 1} | ${x.dueS} | ${x.edgeS} | ${x.driveAloneS} | ${x.arriveS} | ${Number.isFinite(x.errPct) ? `${x.errPct > 0 ? "+" : ""}${x.errPct} %` : "-"} | ${x.boarded} (${x.groups || "-"}) | ${x.evacuated} | ${x.releasedS ?? "-"} |`));
+  out.push("");
+  out.push("| Faction | Seed | Most aboard / places | Officers first | Everyone aboard evacuated | Second run | Ledger | End (s) |");
+  out.push("|---|---|---|---|---|---|---|---|");
+  for (const r of rows) out.push(`| ${r.faction} | ${r.seed} | ${r.maxAboard} / ${r.places}${r.maxAboard > r.places ? " EXCEEDED" : ""} | ${r.officersFirst ? "yes" : "NO"} | ${r.allEvacuated ? "yes" : "NO"} | ${r.secondRun ? "yes" : "NO"} | ${r.ledgerExact ? "exact" : "LEAK"} | ${r.endS} |`);
+  out.push("");
+  for (const f of [...new Set(rows.map((r) => r.faction))]) {
+    const rs = rows.filter((r) => r.faction === f), all = rs.flatMap((r) => r.runs);
+    const edge = all.filter((x) => Math.abs(x.edgeS - x.dueS) <= 1).length;
+    const within = rs.filter((r) => r.runs[0] !== undefined && Math.abs(r.runs[0].errPct) <= 10).length;
+    const rel = all.filter((x) => x.releasedS !== null);
+    out.push(`Summary ${f}: ${rs.length} battles, ${all.length} runs; call to edge = the drawn delay (to the second) in ${edge} of ${all.length}; first run's call to arrival within 10 % of delay + drive alone in ${within} of ${rs.length}; guards released within 30 s in ${rel.filter((x) => x.releasedS! <= 30).length} of ${rel.length} runs that found guards; places exceeded in ${rs.filter((r) => r.maxAboard > r.places).length}; officers first in ${rs.filter((r) => r.officersFirst).length}; everyone aboard evacuated in ${rs.filter((r) => r.allEvacuated).length}; second run in ${rs.filter((r) => r.secondRun).length}; ledger exact in ${rs.filter((r) => r.ledgerExact).length}.`);
+  }
   return out.join("\n");
 }

@@ -124,7 +124,7 @@ export function holderAt(able: readonly { side: SideId; x: number; y: number }[]
  */
 export function settleBattle(ctx: SimContext, state: SimState, events: EventSink): void {
   const R = ctx.catalog.medical?.role1;
-  if (!R) return;
+  if (!R && !ctx.catalog.prisoners) return;
   const pos = (id: EntityId): { x: number; y: number } | undefined => {
     const s = state.soldier.get(id);
     const vid = s?.mount?.vehicle;
@@ -138,6 +138,22 @@ export function settleBattle(ctx: SimContext, state: SimState, events: EventSink
     const t = pos(id);
     if (t) able.push({ side: ident.side, x: t.x, y: t.y });
   }
+  // M11.9b (plan Q7, option (a)): a man who gave up but was never taken goes to the side holding the ground around him
+  // (as the wounded): its prisoner ("captured", held by it), or back to his own side when it is his.
+  if (ctx.catalog.prisoners) {
+    const holdM = R?.holdM ?? 150;
+    // mounted: ok a man aboard is settled where his hull stands
+    for (const [id, ident] of state.identity.entries()) {
+      const s = state.soldier.get(id);
+      if (!s || !s.physiology.alive || s.captive?.state !== "surrendered" || s.evacuated !== undefined || isAssetUnit(state, ident.unit) || isOffMapMan(state, s)) continue;
+      const t = pos(id);
+      const holder = t ? holderAt(able, t.x, t.y, holdM) ?? ident.side : ident.side;
+      if (holder === ident.side) s.captive = null;
+      else { s.captive.state = "captured"; s.captive.by = holder; }
+      events.emit({ kind: "pow.settled", tick: state.tick, soldier: id, side: ident.side, holder, outcome: holder === ident.side ? "returned" : "captured" });
+    }
+  }
+  if (!R) return;
   // mounted: ok the wounded aboard a hull are settled where it stands
   for (const [id, ident] of state.identity.entries()) {
     const s = state.soldier.get(id);
@@ -165,7 +181,7 @@ export function settleBattle(ctx: SimContext, state: SimState, events: EventSink
       events.emit({ kind: "medical.settled", tick: state.tick, casualty: id, side, outcome: "evacuated" });
     } else {
       // Left on ground the enemy holds: captured where he lies, and treated by his captors.
-      s.captive = { state: "captured", tick: state.tick };
+      s.captive = { state: "captured", tick: state.tick, by: holder };
       delete s.atNest; delete s.evacOrdered; delete s.evacRetryTick;
       handOver(ctx, state, events, id, "captor", state.tick);
       events.emit({ kind: "medical.settled", tick: state.tick, casualty: id, side, outcome: "captured", holder });

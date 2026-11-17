@@ -859,6 +859,10 @@ export const FactionManifest = withProv({
   /** Supply vehicles off the map (M11.4b): battles with an off-map stock give the side `count` of this crew template's
    *  vehicle (a template with `vehicle`, a vehicle with `cargo`), waiting at the rear to be called for a delivery. */
   supply: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
+  /** Military police off the map (M11.9b): generated battles give each side `count` of this crew template's vehicle
+   *  (a template with `vehicle`, a vehicle with passenger seats), waiting at the rear to be called to a prisoner
+   *  collection point. */
+  mp: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -1503,6 +1507,18 @@ export const PrisonersFile = z.object({
     /** Segregation: officers (NATO code OF-*), NCOs (OR codes from `ncoFrom` up), men (the rest, and ranks without a
      *  NATO code); each group has its own spot `apartM` from the others at the point. */
     segregation: z.object({ ncoFrom: z.string().regex(/^OR-[1-9]$/), apartM: Num(0, 100) }).strict(),
+    /** The military police team off the map (M11.9b; absent: none is ever called): it comes on `delayMinS`-`delayMaxS`
+     *  after the call (stream "mp"), drives at `pace` (`nearPace` the last stretch) to `standM` short of the collection
+     *  point; it waits `waitShortM` short while the point is not quiet (a known enemy within `enemyNearM`, or a man
+     *  there suppressed within `quietS`), going back after `giveUpS` of waiting; at the point its men take over the
+     *  guard, each walking prisoner takes `loadS` to board (officers, then NCOs, then men); off the map within `edgeM`
+     *  of its entry (or `heldMaxS` after it set off); it is ready again `backS` after it left the map; a route not found
+     *  is tried again after `retryS`. */
+    mp: z.object({
+      delayMinS: Num(0, 7200), delayMaxS: Num(0, 7200), pace: Id, nearPace: Id, standM: Num(0, 200), waitShortM: Num(0, 2000),
+      enemyNearM: Num(0, 2000), quietS: Num(0, 3600), giveUpS: Num(0, 36000), loadS: Num(0, 600), backS: Num(0, 36000),
+      edgeM: Num(1, 200), heldMaxS: Num(10, 7200), retryS: Num(1, 600),
+    }).strict().optional(),
   }),
 }).strict();
 export type PrisonersT = z.infer<typeof PrisonersFile>;

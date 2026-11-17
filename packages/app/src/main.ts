@@ -123,7 +123,7 @@ async function main(): Promise<void> {
     revealAll: false, sightAt: -1, lastSeen: new LastSeenBook(), rangingBook: new RangingBook(), ordersShownFor: undefined, ordersKey: "",
   };
   const vehicleDebug = new VehicleDebug();
-  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair" | "callRecovery" | "callDelivery" | "escortPrisoners" | "releaseGuard") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
+  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair" | "callRecovery" | "callDelivery" | "escortPrisoners" | "releaseGuard" | "callMp") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
   const hud = a.hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -156,6 +156,7 @@ async function main(): Promise<void> {
     // M11.4b: a delivery from the rear to the selected unit's platoon's supply point; a hull's supply run.
     onDelivery: () => { endPlan(a); orderFor("callDelivery"); },
     onEscortPrisoners: () => { endPlan(a); orderFor("escortPrisoners"); },
+    onCallMp: () => { endPlan(a); orderFor("callMp"); },
     onReleaseGuard: () => { endPlan(a); orderFor("releaseGuard"); },
     onSupplyRun: () => { endPlan(a); if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind: "rearRun", cargo: "supplies" }); },
     onSendBearers: () => { sendBearers(a); },

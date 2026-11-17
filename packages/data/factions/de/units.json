@@ -3244,6 +3244,90 @@
       ],
       "confidence": "low",
       "note": "Supply truck crew (M11.4b): a driver and a co-driver in charge (game values: ranks typical, not sourced; loads as the recovery crews'). Not in any platoon: the truck comes from off the map."
+    },
+    {
+      "id": "feldjaegertrupp",
+      "echelon": "vehicle",
+      "callsign": "Feldjaeger {n}",
+      "leaderIndex": 0,
+      "vehicle": "de-dingo2-feldjaeger",
+      "subunits": [],
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "feldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "rifleman",
+          "rank": "stabsgefreiter",
+          "seat": "mp3",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "sources": [
+        "https://www.bundeswehr.de/de/organisation/streitkraeftebasis/feldjaegertruppe",
+        "https://defensearchives.de/development-and-variants-of-the-dingo-1-and-2",
+        "https://de.wikipedia.org/wiki/ATF_Dingo"
+      ],
+      "confidence": "low",
+      "note": "Feldjaegertrupp (M11.9b): three Feldjaeger (military police) in their protected vehicle, the Bundeswehr's troop for prisoner-of-war matters (Kriegsgefangenenwesen), custody and transports (bundeswehr.de extracts, medium; 'Orange Road 2' 2023: Feldjaeger run transports and hand-overs from the collecting point). Three men and ranks are game values (low). Not in any platoon: called from off the map."
     }
   ]
 }

@@ -569,7 +569,9 @@ async function repairScenes(page: Page, name: string, errors: string[], shots: s
 /**
  * M11.9a prisoners (`--scene prisoners`, both looks): five enemy men give up in front of an own squad (1 officer, 1 NCO,
  * 3 men); 1 a search (searcher beside a prisoner, hands up), 2 an escort walking the 3 men back, 3 the collection point
- * with its three groups apart and a guard, 4 the squad's card line and the guard's man box.
+ * with its three groups apart and a guard, 4 the squad's card line and the guard's man box. M11.9b: 5 the military
+ * police hull at the point (called when the first prisoner was held; brought on at once), its men out taking over the
+ * guard; 6 a prisoner at its door boarding (officers first).
  */
 async function prisonerScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const shot = async (label: string) => {
@@ -617,6 +619,24 @@ async function prisonerScenes(page: Page, name: string, errors: string[], shots:
       const p = [...s.rear.values()].find((x) => x.kind === "prisoners"); if (p) t.focusScale(p.x, p.y + 2, 16); t.stepTicks(1);
       return { held: held(), guards: [...s.soldier.values()].filter((x) => x.guard && x.guard.phase === "guard").length, point: p };`) as () => object);
     await shot(`${look}-3-point`);
+    // M11.9b: 5 the military police at the point (its men out, taking over the guard), 6 a prisoner boarding.
+    info[`${look}-mp`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      const mp = () => [...s.vehicle.entries()].find(([, v]) => v.offMap && v.offMap.kind === "mp" && v.side === "blue");
+      for (let k = 0; k < 120 && mp() && mp()[1].offMap.phase === "ready"; k++) t.stepTicks(60);
+      const m = mp(); if (m && m[1].offMap.phase === "called") m[1].offMap.enterTick = s.tick + 1;
+      for (let k = 0; k < 600 && m && m[1].offMap.phase !== "loading"; k++) t.stepTicks(60);
+      t.stepTicks(60 * 12);
+      const p = [...s.rear.values()].find((x) => x.kind === "prisoners"); const vt = m ? s.transform.get(m[0]) : p;
+      t.select(null); t.focusScale((vt.x + p.x) / 2, (vt.y + p.y) / 2, Math.max(7, Math.min(16, 500 / Math.max(1, Math.hypot(vt.x - p.x, vt.y - p.y))))); t.stepTicks(1);
+      return { mp: m ? m[0] : null, phase: m ? m[1].offMap.phase : null };`) as () => object);
+    await shot(`${look}-5-mp`);
+    info[`${look}-boarding`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      const m = [...s.vehicle.entries()].find(([, v]) => v.offMap && v.offMap.kind === "mp" && v.side === "blue");
+      const aboard = () => m[1].seats.filter((x) => x !== null && s.soldier.get(x).captive).length;
+      for (let k = 0; k < 300 && m && (aboard() < 1 || !m[1].offMap.boarding || m[1].offMap.boarding.doneTick === undefined); k++) t.stepTicks(60);
+      const vt = s.transform.get(m[0]); t.focusScale(vt.x, vt.y, 18); t.stepTicks(1);
+      return { aboard: aboard(), boarding: m[1].offMap.boarding || null };`) as () => object);
+    await shot(`${look}-6-boarding`);
   }
   // 4: the capturing squad's card ("Prisoners 5 (1 officer, 1 NCO) · guard 1") and the guard's man box (photo).
   info["card"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; const { squad } = globalThis.__pw;

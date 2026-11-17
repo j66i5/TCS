@@ -4269,6 +4269,90 @@
       ],
       "confidence": "low",
       "note": "Supply truck crew (M11.4b): a driver and a co-driver in charge (game values: ranks typical, not sourced; loads as the recovery crews'). Not in any platoon: the truck comes from off the map."
+    },
+    {
+      "id": "vp-otdelenie",
+      "echelon": "vehicle",
+      "callsign": "Patrul {n}",
+      "leaderIndex": 0,
+      "vehicle": "ru-kamaz-patrul-vp",
+      "subunits": [],
+      "members": [
+        {
+          "role": "komandir-mashiny",
+          "rank": "serzhant",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-dokumenty",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "mekhanik-voditel",
+          "rank": "yefreytor",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "rifleman",
+          "rank": "mladshiy-serzhant",
+          "seat": "mp3",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "sources": [
+        "https://rg.ru/2023/02/14/voennaia-policiia-poluchila-bronirovannye-avtomobili-patrul.html",
+        "https://aif.ru/society/army/patrul",
+        "https://www.consultant.ru/document/cons_doc_LAW_176433/"
+      ],
+      "confidence": "low",
+      "note": "Military police section (M11.9b): three military policemen in their 'Patrul'. The Charter of the Military Police (decree 161 of 25.03.2015) has sections on guarding and escorting (konvoirovanie) (consultant.ru extracts, medium); its prisoner-of-war tasks are not in the extracts (low). Three men and ranks are game values (low). Not in any platoon: called from off the map."
     }
   ]
 }

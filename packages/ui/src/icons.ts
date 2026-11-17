@@ -44,6 +44,8 @@ const P: Record<string, string> = {
   prisoners: `<path d="M3.5 5.5h13v11h-13z"/><path d="M3.5 9.5h13M3.5 13h13"/><path d="M7.5 5.5v11M12.5 5.5v11"/><path d="M10 2.5v3"/>`,
   // (M11.9a "escort prisoners": a man behind a man, an arrow onward.)
   escort: `<circle cx="6" cy="5" r="1.8"/><path d="M6 7v5l-1.5 4.5M6 12l1.5 4.5"/><circle cx="12.5" cy="5" r="1.8"/><path d="M11 8.5l1.5-1.5 1.5 1.5M12.5 7v5l-1.5 4.5M12.5 12l1.5 4.5"/><path d="M15.5 10h3M17 8.5l1.5 1.5-1.5 1.5"/>`,
+  // (M11.9b "call military police": a small van, an arrow coming in.)
+  callMp: `<path d="M5 8.5h9.5l2.5 3v3H5z"/><circle cx="8" cy="15.5" r="1.4"/><circle cx="14" cy="15.5" r="1.4"/><path d="M11 8.5v3h6"/><path d="M2 5h5M5.5 3.5L7 5 5.5 6.5"/>`,
   // (M11.9a "release guard": a man walking away from a fence.)
   releaseGuard: `<path d="M2.5 4v12M6 4v12M2.5 7.5H6M2.5 12H6"/><circle cx="12.5" cy="5" r="1.8"/><path d="M12.5 7v5l-2 4.5M12.5 12l2 4.5"/><path d="M15.5 9h3M17 7.5l1.5 1.5-1.5 1.5"/>`,
   // (D4b "defend arc": a sector opening from a man.)

@@ -1269,7 +1269,7 @@ while your men see him now, otherwise as his contact marker with a white flag at
 flag fades with the marker). A surrendered or captured man costs his side the same as a man
 down. Your fire tap on an enemy your men know has surrendered gives no order.
 
-## Prisoners (M11.9a)
+## Prisoners (M11.9a-b)
 
 What happens to a man once he has been taken prisoner (the Third Geneva Convention as the owner listed it: humane
 treatment, out of the combat zone as soon as possible, not exposed to fire, the wounded treated like one's own,
@@ -1306,8 +1306,28 @@ both sides; the numbers are in `core/prisoners.json` (game values; the research 
 - **Wounded prisoners.** The captors' medics treat them by urgency like their own men; one who cannot walk is
   searched where he lies, then carried by the platoon's bearers to **its** Verwundetennest and taken back with its
   own wounded, by urgency alone. He stays "captured" in the roster.
-- **Not yet built** (slices 54-55): the military police team that comes to collect the prisoners, escapes, moving
-  the point when rounds land near it, the exposure record and the review's Prisoners block.
+- **The military police (M11.9b).** Each side has one military police team waiting off the map (German: a
+  Feldjägertrupp of three in a protected Dingo with 5 places for prisoners; Russian: a military police section of
+  three in a KamAZ "Patrul" with 7). The platoon radios for it as soon as its collection point holds its first
+  prisoner who can walk ("military police requested, about 26 min"); **Call MP** on the card's bar (on a phone under
+  "⋯") calls it yourself (refused when there are no prisoners, when it is already on its way, or when none is left).
+  It comes 15 to 30 minutes after the call, at the map edge behind the point, turns short of the point and backs up
+  to it. While the point is under fire (an enemy known within 250 m, or men there pinned down) it waits 300 m short.
+  At the point its men get out and **take over the guard** (your guards walk back to their squads at once), and the
+  prisoners who can walk board at its rear door, 20 seconds a man: officers first, then NCOs, then men. It never
+  takes more than it has places. Then its men get back in and it drives off; off the map the prisoners are
+  **evacuated** (the card says "3 taken away"). It is back 30 minutes later and comes again if prisoners are still
+  waiting. If it is knocked out on the map it is an ordinary vehicle: its prisoners get out and wait at the point,
+  and your platoon guards them again. It carries no red cross and may be fired on, but the prisoners aboard are
+  protected: a hit on it while they are aboard counts as a hit on prisoners in the review. The Wounded and units tab
+  lists its run ("military police on its way, about 12 min").
+- **After the battle.** A prisoner stays "captured" in the roster, with the side holding him and, if the military
+  police took him, when. A man who gave up but was never taken goes to the side holding the ground around him at the
+  end: its prisoner, or back to his own side if that is his. The battle result lists every prisoner each side holds
+  (his group, wounded or not, how he left: military police, medical, or still held, documents taken from him) and
+  counts per side the prisoners taken and evacuated.
+- **Not yet built** (slice 55): escapes, moving the point when rounds land near it, the exposure record and the
+  review's Prisoners block.
 
 ## Vehicles and riding in them (M7)
 A **vehicle** (so far the German Puma and the Russian BMP-2) is a thing on the map with a fuel tank and stowed

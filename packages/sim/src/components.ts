@@ -395,6 +395,8 @@ export interface Cache {
   /** M11.4b: a supply point's standard fill (rounds): what it held when it became the point (or its first delivery);
    *  a delivery is called below `delivery.callBelow` of it. Absent: not known yet. */
   fill?: number;
+  /** M11.5: rounds put beside on-map mortar tubes (the off-map top-up of the mortar section `tubes`). Absent: none. */
+  tubes?: EntityId;
 }
 
 /**
@@ -1046,6 +1048,27 @@ export interface VehicleState {
   /** M11.4b: a marked ambulance with ammunition aboard (a player's order: a breach of the law of war, `law.misuse`):
    *  it has no protection while it carries it. Absent: none. */
   misuse?: true;
+  /** M11.5: re-arming or refuelling at `source` (systems/rearm.ts). Absent: neither. */
+  resupply?: VehicleResupply;
+  /** M11.5: an order stopped its re-arming or refuelling: none starts on its own again before this tick. Absent: none. */
+  resupplyHoldTick?: number;
+}
+
+/**
+ * M11.5: a hull re-arming or refuelling (systems/rearm.ts). `go`: driving on its own to `source` (a cache or a supply
+ * vehicle), from `from` (it drives back there when done); `work`: halted at it, `what` it is doing; the next piece of
+ * work (`chunk`: one item into stowage, or `litres` from a can or the pump) is done at `nextTick` (nothing pending:
+ * the setup time runs). `items`, `rounds`, `litres`: moved so far.
+ */
+export interface VehicleResupply {
+  phase: "go" | "work";
+  source: EntityId;
+  what: "rearm" | "refuel";
+  startTick: number;
+  nextTick: number;
+  chunk?: { type: DefId; charge?: number; litres?: number; pump?: true };
+  from?: { x: number; y: number };
+  items: number; rounds: number; litres: number;
 }
 
 /** The kinds of off-map asset (M10.6a ambulance, M11.7b recovery vehicle). */

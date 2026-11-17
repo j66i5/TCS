@@ -8003,3 +8003,65 @@ work found in the worktree after a container restart), reviewed, fixed and finis
   alternating with this branch, those two tests alone four times each: full load base 8.4, 9.0, 8.6, 8.9 / this 8.2,
   8.4, 8.6, 8.9; smoke base 7.8, 8.5, 7.7, 7.9 / this 7.9, 7.7, 7.8, 6.8: noise around the floor as in the earlier M11
   slices (the only per-tick work added is an early return while no side has a stock).
+
+## 2026-11-17 — M11.5 (slice 48): re-arming and refuelling vehicles, litres in the conservation guard, rounds to on-map mortars (goldens regenerated)
+Owner answers (binding): everything in scope; delivery by bearers, vehicle runs and off-map; control automatic plus
+player orders; mortar and artillery allotments topped up by deliveries. Everything else is a software decision (values
+in `core/supply.json` `rearm`, `refuel`, `mortarFetch`: game values, low; the fuel cans `de-jerrycan` / `ru-jerrycan`
+from general knowledge, low: no source page could be opened here).
+- **Re-arming** (`systems/rearm.ts`, `VehicleState.resupply`, optional: no schema bump): a halted hull (a crewman aboard,
+  not hit for `quietS` 20 s, not burning, under repair, towed, called for recovery, away or on a rear run) within
+  `standM` 15 m of an own cache or an own supply vehicle on the map takes whole items of its stowage (`transferItems`)
+  while the stowage holds fewer rounds of the type than the data stows: ammunition, and reactive tiles as items only
+  (fitting them is the repair session's). `baseS` 60 s, then `secondsPerKg` 1.2 s a kg per item; each piece ends at the
+  first whole second at or after its time (the system runs once a second: no per-tick work). The ready racks refill
+  from stowage as before (owner Q17). A marked ambulance takes no ammunition. A supply truck gives only its cargo, never
+  the types its own data stows (its crew's kit).
+- **Refuelling**: fuel items now carry `chargeKind: "diesel"` (the fixture's cart `xf-hay`), so `moveCharge` moves litres
+  between them. After the rounds (or alone) the crew pours fuel cans (`jerrycanLpm` 20 l a minute, one can at a time)
+  or takes litres from a supply truck's own tank above `keepL` 100 l by pump (`pumpLpm` 100, a minute's worth at a time),
+  after `setupS` 60 s. **Deviation:** there is no tanker in the data; the supply truck's own tank stands in. Empty cans
+  stay where they were. A halted hull beside a source refuels on its own only when 5 % or more of its tank is missing.
+- **Asking** (rearrun.ts `supplyStarts`): an idle hull (the rear-run rules) below `rearm.below` 50 % of its stowed
+  ammunition or `refuel.callBelow` 25 % of its tank drives to the nearest own cache within `driveM` 300 m that has
+  something for it (event `vehicle.resupply` "heading"), works there and drives back; with none, it goes on a supply run
+  when its side has a stock (M11.4b), and such a run now also fills the tank from the stock's fuel cans (litres
+  `items.delivered`). **Deviation:** no separate radio request for vehicles; the cache or the run is the answer. A
+  delivery truck also loads what the platoon's hulls lack (their stowage, then fuel cans) in the room left. Any order to
+  the crew (not fire discipline) stops the work (`why: "order"`), what was moved stays, and none starts on its own for
+  120 s (`resupplyHoldTick`). Recovery and repair: a hull being repaired, called for recovery or towed neither re-arms
+  nor drives to a cache; recovery and a re-arm never claim the same hull.
+- **Litres in the conservation guard**: every litre burnt is an event (`items.burnt`, from the drive's whole-litre draw),
+  fuel cans entering from a stock or burning in a cache carry `chargeKind` and `amount` on `items.delivered` /
+  `items.destroyed`; `checkChargeConservation` checks every fuel kind within 1e-6 l; the conservation tool and the
+  consumption lab report both. Exact in every conservation scenario.
+- **Rounds to on-map mortars**: a team holding fewer than `mortarFetch.below` 10 rounds sends a man (not the tube's
+  carrier if another can go) on the M11.3 resupply errand to the nearest own cache within `reachM` 150 m of the tube
+  that has its rounds; `takePlan` gains whole rounds for a mortar team's man (high explosive, then smoke, up to `carryKg`
+  30 kg, `secondsPerRound` 3 s each). A man on that errand no longer packs the tube up. A stock's top-up for a side with
+  mortars on the map puts the rounds into a cache 8 m behind the section's tubes (`Cache.tubes`) — the M11.4b deviation
+  "no delivery to on-map mortar tubes" is closed.
+- **Interface**: the card's gun row ends with "Fuel 640 / 900 l · re-arming / refuelling / going to re-arm"; the unit
+  list shows "re-arming" etc.; record and batch line: hulls re-armed or refuelled, rounds, litres, litres burnt. Debug
+  hook `__tcs.rearmScene(vid)`, `resupplyOf(vid)`; `--scene supply` shots 9-10 (phone and desktop, looked at).
+- **Lab** `npm run lab -- rearm` (empty stowage, 10 % fuel, a full cache 8 m off, or the supply truck): Puma 477 + 2,517
+  s, BMP-2 320 + 1,305 s, Leopard 2A7V 969 + 3,240 s, T-90M 819 + 3,300 s (re-arm + refuel from cans), each truck 180 s
+  for 200 l; measured equal to the hand calculation in all 8 (target 10 %), rounds and litres exact. (The litres poured
+  are the shortfall plus what the engine burns idling meanwhile: the hand calculation uses the litres poured.)
+- **Measured** (base 3e1139d in a scratch worktree vs this branch, same seeds): platoon, platoon-ru, platoon-vehicles,
+  platoon-ru-vehicles 10 x 1,200 s, hold-resupply and hold-resupply-ru 6 x 3,600 s with and without `--no-resupply`:
+  every battle the same winner, end second and casualties (attacker wins 9 / 10 / 9 / 1 as before; hold-resupply blue 4 red 2,
+  without resupply 3-3; hold-resupply-ru red 4 blue 2, without resupply 3-3). No hull re-armed or refuelled in any of them: stowage never fell below half
+  and tanks never below a quarter (litres burnt per battle: platoon-vehicles 33, platoon-ru-vehicles 16, hold 2). The
+  event streams differ only by the new `items.burnt` events (platoon-vehicles seed 2, 900 s: 27 more events, all else
+  identical).
+- **Goldens**: every replay's state hashes change (the catalog: fuel kinds, cans), orders identical; event streams as
+  before plus `items.burnt`.
+- **Tests** (`packages/tools/test/rearm.test.ts`): BMP-2 re-arm and refuel at a cache (stowage and tank full, rounds
+  and litres exact, roster out `vehicleRecordFromState` keeps both); the truck's pump above its reserve and never its
+  kit; an order stops it and it stays stopped; save and load mid-work identical; an idle hull drives 120 m to a cache
+  and works there; a mortar team fetches rounds without packing; the top-up cache beside the tubes. The conservation
+  tests also assert litres.
+- **Checks**: `npm run check` alone green: typecheck, lint, `npm test` 1534 pass, `npm run test:perf` 24 of 24, data lint
+  (no errors). bench-vehicles alternating base / this branch, alone, three times each: 8.5, 8.1, 7.8 / 8.3, 8.3, 8.2
+  (noise; the re-arming system runs once a second and returns at once with no cache or supply truck on the map).

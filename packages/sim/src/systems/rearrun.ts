@@ -47,6 +47,9 @@ import { careEnabled, treatedNow } from "./medical";
 import { nestOf, supplyPointOf, topOf } from "./nest";
 import { ammunitionIntoAmbulance, deliveriesEnabled, fromStock, loadForPlatoon, markedHull, stockOf, unloadInto } from "./delivery";
 import { roundsInContainer } from "./supply";
+import { fuelShortL, goResupply, rearmEnabled } from "./rearm";
+import { moveCharge } from "../items";
+import type { VehicleDef } from "../catalog";
 
 /** Off the map within this of the exit when no ambulance data says otherwise (m). */
 const EDGE_M = 20;
@@ -173,7 +176,8 @@ export function rearRunSystem(ctx: SimContext, state: SimState, events: EventSin
     start(ctx, state, events, vid, top, null, false);
   }
   // ---- M11.4b: idle hulls short of ammunition go back for it (when their side's stock has some for them)
-  if (state.stock.size > 0 && deliveriesEnabled(ctx) && ctx.catalog.supply?.vehicleRun) supplyStarts(ctx, state, events, hulls);
+  // (M11.5: or to an own cache near by first; short of fuel as well.)
+  if ((state.stock.size > 0 && deliveriesEnabled(ctx) && ctx.catalog.supply?.vehicleRun) || (state.cache.size > 0 && rearmEnabled(ctx))) supplyStarts(ctx, state, events, hulls);
   // ---- idle hulls: a nest with T1 (or several) waiting and no ambulance there or due soon
   if (!atNest) return;
   for (const pid of [...atNest.keys()].sort((a, b) => a - b)) {
@@ -466,17 +470,31 @@ function stockHas(state: SimState, stock: EntityId, types: readonly DefId[]): bo
   return k !== undefined && k.stacks.some((s) => s.count > 0 && types.includes(s.type));
 }
 
-/** Idle hulls short of stowed ammunition start a supply run (the platoon limits of casualty runs apply). */
+/**
+ * Idle hulls short of stowed ammunition (or, M11.5, of fuel) drive to an own cache near by that has some for them
+ * (rearm.ts), else start a supply run when their side's stock has some (the platoon limits of casualty runs apply).
+ */
 function supplyStarts(ctx: SimContext, state: SimState, events: EventSink, hulls: readonly EntityId[]): void {
-  const R = ctx.catalog.medical!.rearRun!, V = ctx.catalog.supply!.vehicleRun!;
+  const R = ctx.catalog.medical!.rearRun!, S = ctx.catalog.supply!, V = S.vehicleRun;
+  const runs = state.stock.size > 0 && deliveriesEnabled(ctx) && V !== undefined;
   for (const vid of hulls) {
     const v = state.vehicle.req(vid);
-    if (v.rearRun || markedHull(ctx, v)) continue;
-    const stock = stockOf(state, v.side);
-    if (stock === null) continue;
-    const st = stowage(ctx, state, vid, v);
-    if (st.length === 0 || stowageShare(ctx, state, vid, v) >= V.stowageBelow || !stockHas(state, stock, st.map((s) => s.type))) continue;
+    if (v.rearRun || v.resupply || v.recoveryBy !== undefined || v.towedBy !== undefined) continue;
+    const def = ctx.catalog.vehicles[v.def];
+    if (!def) continue;
+    const marked = markedHull(ctx, v);
+    const st = marked ? [] : stowage(ctx, state, vid, v);
+    const share = st.length > 0 ? stowageShare(ctx, state, vid, v) : 1;
+    const fuelLow = S.refuel !== undefined && fuelShortL(state, vid, def) > (1 - S.refuel.callBelow) * def.fuel.capacityL;
+    const ammoLow = S.rearm !== undefined && share < S.rearm.below;
+    const stock = runs ? stockOf(state, v.side) : null;
+    const runAmmo = stock !== null && st.length > 0 && share < V!.stowageBelow && stockHas(state, stock, st.map((s) => s.type));
+    const runFuel = stock !== null && fuelLow && stockFuel(ctx, state, stock, def) > 0;
+    if (!ammoLow && !fuelLow && !runAmmo && !runFuel) continue;
     if (!idle(ctx, state, vid, v)) continue;
+    // (M11.5: an own cache within reach that has something for it first.)
+    if ((ammoLow || fuelLow) && goResupply(ctx, state, events, vid, ammoLow, fuelLow)) continue;
+    if (marked || stock === null || (!runAmmo && !runFuel)) continue;
     const top = topOfHull(state, v);
     if (top === null) continue;
     let running = 0, onMap = 0;
@@ -517,6 +535,8 @@ function restock(ctx: SimContext, state: SimState, events: EventSink, vid: Entit
       missing -= best.per; rounds += best.per;
     }
   }
+  // M11.5: its tank filled from the stock's fuel cans (litres by moveCharge; the empty cans stay in the stock).
+  const litres = refuelFromStock(ctx, state, events, stock, vid, v);
   const pid = supplyPointOf(state, r.top);
   const sp = pid === null ? undefined : state.rear.get(pid);
   if (pid !== null && sp?.cache !== undefined && state.cache.has(sp.cache) && V.shareKg > 0) {
@@ -526,7 +546,39 @@ function restock(ctx: SimContext, state: SimState, events: EventSink, vid: Entit
     if (got.load.length > 0) { r.share = got.load; r.supplyPoint = pid; }
   }
   if ((rounds > 0 || r.share !== undefined) && marked) ammunitionIntoAmbulance(ctx, state, events, vid, r.ordered === true);
-  if (rounds > 0) events.emit({ kind: "medical.rearRun", tick: state.tick, side: v.side, vehicle: vid, phase: "restocked", unit: r.top, rounds, ...(r.cargo === "supplies" ? { cargo: "supplies" as const } : {}) });
+  if (rounds > 0 || litres > 0) events.emit({ kind: "medical.rearRun", tick: state.tick, side: v.side, vehicle: vid, phase: "restocked", unit: r.top, rounds, ...(litres > 0 ? { litres } : {}), ...(r.cargo === "supplies" ? { cargo: "supplies" as const } : {}) });
+}
+
+/** Litres of the hull's fuel kind in the stock's cans. */
+function stockFuel(ctx: SimContext, state: SimState, stock: EntityId, def: VehicleDef): number {
+  const kind = ctx.catalog.items[def.fuel.item]?.chargeKind, k = state.container.get(stock);
+  if (kind === undefined || !k) return 0;
+  let l = 0;
+  for (const s of k.stacks) if (ctx.catalog.items[s.type]?.chargeKind === kind) l += (s.charge ?? 0) * s.count;
+  return l;
+}
+
+/** M11.5: fill the hull's tank from the stock's cans of its fuel (each move enters the battle: `items.delivered`). */
+function refuelFromStock(ctx: SimContext, state: SimState, events: EventSink, stock: EntityId, vid: EntityId, v: VehicleState): number {
+  const def = ctx.catalog.vehicles[v.def];
+  if (!def || ctx.catalog.supply?.refuel === undefined) return 0;
+  const kind = ctx.catalog.items[def.fuel.item]?.chargeKind, k = state.container.get(stock), c = state.container.get(vid);
+  if (kind === undefined || !k || !c) return 0;
+  let total = 0;
+  for (let guard = 0; guard < 200; guard++) {
+    const short = fuelShortL(state, vid, def);
+    if (short <= 0) break;
+    let can: { type: DefId; charge: number } | null = null;
+    for (const s of k.stacks) if (s.count > 0 && (s.charge ?? 0) > 0 && ctx.catalog.items[s.type]?.chargeKind === kind && (!can || s.charge! > can.charge)) can = { type: s.type, charge: s.charge! };
+    let tank: number | undefined;
+    for (const s of c.stacks) if (s.type === def.fuel.item && s.count > 0) { tank = s.charge ?? 0; break; }
+    if (!can || tank === undefined) break;
+    const m = moveCharge(ctx.catalog, state.container, { from: stock, fromType: can.type, fromCharge: can.charge, to: vid, toType: def.fuel.item, toCharge: tank, amount: short });
+    if (m.moved <= 0) break;
+    total += m.moved;
+    events.emit({ kind: "items.delivered", tick: state.tick, holder: vid, item: def.fuel.item, count: 0, chargeKind: kind, amount: m.moved });
+  }
+  return total;
 }
 
 /** Mass of the share it brings (kg). */

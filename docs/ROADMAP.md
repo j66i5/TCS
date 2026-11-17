@@ -420,6 +420,12 @@ for the owner's numbers answer after playing, not for more building).
     delivery", combat vehicles' rear runs restock and bring a share ("Restock"), the mortar allotment topped up, an
     ambulance with ammunition a recorded breach without protection; `lab -- resupply` part 2, `--no-deliveries`
     (DECISIONS "M11.4b")
+  - ✅ **M11.5 (slice 48)** re-arming and refuelling vehicles: a halted hull beside an own cache or supply truck takes
+    its stowage back (whole items, timed per kg) and fills its tank from fuel cans or the truck's pump (litres by
+    `moveCharge`); idle hulls short of either drive to a cache near by, else go on a supply run (which also refuels from
+    the stock); deliveries bring what the platoon's hulls lack; litres in the conservation guard (`items.burnt`);
+    on-map mortar teams fetch rounds from a cache, the top-up puts them beside the tubes; `lab -- rearm`
+    (DECISIONS "M11.5")
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

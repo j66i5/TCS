@@ -179,6 +179,27 @@ export function vehicleGuns(view: SimView, catalog: Catalog, unit: EntityId): Gu
   return out;
 }
 
+/** M11.5: a vehicle's fuel (whole litres, its tank's capacity) and its re-arming or refuelling, if any. */
+export interface VehicleFuel { litres: number; capacityL: number; doing?: "rearm" | "refuel" | "heading" }
+
+/** The fuel of the unit's vehicle and its re-arming or refuelling (M11.5, read only); null without a vehicle. */
+export function vehicleFuel(view: SimView, catalog: Catalog, unit: EntityId): VehicleFuel | null {
+  const vid = view.unit.get(unit)?.vehicle;
+  const veh = vid !== undefined ? view.vehicle.get(vid) : undefined;
+  const def = veh ? catalog.vehicles[veh.def] : undefined;
+  if (!veh || !def || vid === undefined) return null;
+  let l = 0;
+  for (const st of view.container.get(vid)?.stacks ?? []) if (st.type === def.fuel.item) l += (st.charge ?? 0) * st.count;
+  const r = veh.resupply;
+  const doing = r === undefined ? undefined : r.phase === "go" ? "heading" : r.what;
+  return { litres: Math.round(l), capacityL: def.fuel.capacityL, ...(doing !== undefined ? { doing } : {}) };
+}
+
+/** The fuel entry on the card's gun row (M11.5): "Fuel 640 / 900 l", and "re-arming" or "refuelling" while at it. */
+export function fuelText(s: Strings, f: VehicleFuel): string {
+  return `${s.t("card.fuel", { l: f.litres, cap: f.capacityL })}${f.doing !== undefined ? ` · ${s.t(`card.resupply.${f.doing}`)}` : ""}`;
+}
+
 /** One row per man of the unit (S6), in the unit's order (leader of each unit first as the data lists him). */
 export function unitMenRows(view: SimView, catalog: Catalog, unit: EntityId, own = false): ManRow[] {
   const out: ManRow[] = [];
@@ -409,6 +430,8 @@ export interface UnitCardModel {
   guns?: readonly GunRow[];
   /** M11.4a: the squad asked for ammunition and waits for the player (rule "ask"): the "Send bearers" button. */
   supplyAsk?: boolean;
+  /** M11.5: the vehicle's fuel and what it is doing about supplies; absent: no vehicle. */
+  fuel?: VehicleFuel;
 }
 
 export interface UnitCardCallbacks {
@@ -548,7 +571,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
       badge.hidden = !m.badge; badge.textContent = m.badge ?? "";
       bearersBtn.hidden = m.supplyAsk !== true;
       men.textContent = `${s.t("side.men", { fit: m.fit, total: m.total })} · ${m.state}`;
-      const guns = (m.guns ?? []).map((g) => gunText(s, g));
+      const guns = [...(m.guns ?? []).map((g) => gunText(s, g)), ...(m.fuel ? [fuelText(s, m.fuel)] : [])];
       const gk = guns.join("\n");
       if (gk !== gunKey) {
         gunKey = gk;

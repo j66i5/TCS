@@ -5,7 +5,7 @@
  * are screenshot-only shortcuts, as before.
  */
 import { buildAppearance, type DataSet } from "@tcs/data";
-import { EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, refreshStatus, simHash, startCarry, supportLeft, type EntityId, type Wound } from "@tcs/sim";
+import { EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, newCache, refreshStatus, simHash, startCarry, supportLeft, type EntityId, type Wound } from "@tcs/sim";
 import { enemyMenInSight, SIDE_COLOURS, worldToScreen } from "@tcs/render";
 import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
@@ -105,6 +105,20 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     supplyPoint: (x: number, y: number) => issue(a, { ...to(), kind: "supplyPoint", x, y }),
     caches: () => [...sim.state.cache.entries()].map(([id, c]) => ({ id, side: c.side, kind: c.kind, x: sim.state.transform.req(id).x, y: sim.state.transform.req(id).y, stacks: sim.state.container.get(id)?.stacks.length ?? 0, burning: c.cookoff !== undefined, burnt: c.burnt === true, known: c.known ?? [], carried: c.carried === true })),
     igniteCache: (id: EntityId) => { const S = a.input.catalog.supply; const c = sim.state.cache.get(id); if (S && c) ignite(sim.ctx, sim.state, new EventSink(), S, id, c, "fire"); },
+    /** M11.5 (screenshots): hull `vid`'s stowed ammunition put into a new own cache 8 m beside it with the fuel cans that
+     *  fill its tank from 15 %; the cache id. */
+    rearmScene: (vid: EntityId) => {
+      const v = sim.state.vehicle.req(vid), cat = a.input.catalog, def = cat.vehicles[v.def]!, k = sim.state.container.req(vid), t = sim.state.transform.req(vid);
+      const ammo = (type: string, ch: number | undefined) => { const d = cat.items[type]; return ch !== undefined ? d?.chargeItem !== undefined && cat.ammo[d.chargeItem] !== undefined : cat.ammo[type] !== undefined; };
+      const load = k.stacks.filter((x) => ammo(x.type, x.charge)).map((x) => ({ ...x }));
+      k.stacks = k.stacks.filter((x) => !ammo(x.type, x.charge));
+      for (const x of k.stacks) if (x.type === def.fuel.item) x.charge = Math.floor(def.fuel.capacityL * 0.15);
+      const kind = cat.items[def.fuel.item]?.chargeKind;
+      const can = Object.values(cat.items).filter((d) => d.category === "fuel-can" && d.chargeKind === kind).sort((p, q) => Number(!p.id.startsWith(`${v.faction}-`)) - Number(!q.id.startsWith(`${v.faction}-`)) || (p.id < q.id ? -1 : 1))[0];
+      if (can) load.push({ type: can.id, count: Math.ceil((def.fuel.capacityL * 0.85) / can.chargeCapacity!), charge: can.chargeCapacity! });
+      return newCache(sim.state, v.side, t.x + 8 * Math.sin(t.heading), t.y - 8 * Math.cos(t.heading), load);
+    },
+    resupplyOf: (vid: EntityId) => sim.state.vehicle.get(vid)?.resupply ?? null,
     knowCache: (id: EntityId, side: string) => { const c = sim.state.cache.get(id); if (c && !(c.known ?? []).includes(side)) c.known = [...(c.known ?? []), side].sort(); },
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */
     dismountWounded: () => issue(a, { ...to(), kind: "dismount", wounded: true }),

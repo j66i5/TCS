@@ -563,7 +563,8 @@ async function repairScenes(page: Page, name: string, errors: string[], shots: s
  * moved by the order (the old crates stay as a plain cache, the new point empty, grey), the crates set off (a burning
  * pile with its smoke), and from the Russian side the German cache once seen (the enemy's colour). M11.4a: the card's
  * "Send bearers", the Rules row, bearers carrying a crate. M11.4b: "Order a delivery" (phone: under "⋯") and the supply
- * truck unloading at the supply point, both looks.
+ * truck unloading at the supply point, both looks. M11.5: a vehicle re-arming at a cache beside it (card: fuel and
+ * "re-arming"), both looks, then refuelling from cans (flat).
  */
 async function supplyScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const shot = async (label: string) => {
@@ -658,6 +659,21 @@ async function supplyScenes(page: Page, name: string, errors: string[], shots: s
       return { seen, truck: tr ? { id: tr[0], phase: tr[1].offMap.phase, def: tr[1].def } : null };`) as () => object);
     await shot(`${look}-8-delivery-truck`);
   }
+  // M11.5: a vehicle re-arming at a cache beside it (its card: the fuel line and "re-arming"; the list: "re-arming"), both
+  // looks; then (photo) refuelling from the cans.
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    info[`rearm-${look}`] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+      const [vid, unit] = t.vehicles()[0]; t.stepTicks(60 * 2); const cache = t.rearmScene(vid);
+      t.select(unit); t.stepTicks(60 * 90); const p = s.transform.get(vid); t.focusScale(p.x, p.y + 4, 14); t.stepTicks(1);
+      return { cache, resupply: t.resupplyOf(vid) };`) as () => object);
+    await shot(`${look}-9-rearm`);
+  }
+  info["refuel"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; const [vid] = t.vehicles()[0];
+    for (let k = 0; k < 3600 && (t.resupplyOf(vid)?.what ?? "") !== "refuel"; k++) t.stepTicks(60); t.stepTicks(60 * 30);
+    return { resupply: t.resupplyOf(vid) };`) as () => object);
+  await shot("flat-10-refuel");
   console.log(`${name}: supply scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 

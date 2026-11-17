@@ -1455,6 +1455,17 @@ export const SupplyFile = z.object({
     /** M11.4b mortar and artillery top-up: off-map stocks with `supportTopUp` move that many rounds into the side's
      *  off-map support section every `supportTopUp.everyS` (the scenario sets it); looked at every `topUpCheckS`. */
     topUpCheckS: Num(1, 600).optional(),
+    /** M11.5 re-arming: a halted hull within `standM` of an own cache (or a supply vehicle at its point) takes items of
+     *  its stowage (whole items, then rounds into its stowed belts) up to what the data stows: `baseS` to start, then
+     *  `secondsPerKg` per kg moved. Not within `quietS` of a hit. An idle hull below `below` of its stowed ammunition,
+     *  or below `refuel.callBelow` of its tank, drives to an own cache within `driveM` that has something for it. */
+    rearm: z.object({ stepS: Num(0.5, 60), standM: Num(1, 100), baseS: Num(0, 3600), secondsPerKg: Num(0, 60), quietS: Num(0, 600), below: Num(0, 1), driveM: Num(0, 2000) }).strict().optional(),
+    /** M11.5 refuelling: litres by `moveCharge` from jerrycans (`jerrycanLpm` litres a minute, by hand) or from a
+     *  supply vehicle's tank above `keepL` (`pumpLpm`), after `setupS`; a hull below `callBelow` of its tank asks. */
+    refuel: z.object({ jerrycanLpm: Num(0.1, 1000), pumpLpm: Num(0.1, 5000), setupS: Num(0, 3600), callBelow: Num(0, 1), keepL: Num(0, 10000) }).strict().optional(),
+    /** M11.5 rounds to on-map mortars: a team holding fewer than `below` rounds sends a man to an own cache within
+     *  `reachM` (looked at every `checkS`); he carries up to `carryKg`, `secondsPerRound` each to take. */
+    mortarFetch: z.object({ checkS: Num(1, 600), below: Num(0, 1000), reachM: Num(1, 2000), carryKg: Num(1, 200), secondsPerRound: Num(0, 600) }).strict().optional(),
   }),
 }).strict();
 export type SupplyT = z.infer<typeof SupplyFile>;

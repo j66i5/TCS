@@ -171,5 +171,6 @@
   "item.de-40mm-crate": "40 mm grenade crate (24)",
   "item.de-dm51-crate": "Hand grenade crate (20)",
   "vehicle.de.hx2-truck": "HX2 truck (UTF 5 t)",
-  "item.de-hx2-diesel": "Diesel (HX2 tank)"
+  "item.de-hx2-diesel": "Diesel (HX2 tank)",
+  "item.de-jerrycan": "Fuel can (20 l)"
 }

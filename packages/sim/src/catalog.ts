@@ -1182,6 +1182,12 @@ export interface SupplyDef {
   vehicleRun?: { stowageBelow: number; shareKg: number; unloadBaseS: number; unloadSecondsPerKg: number; standM: number };
   /** M11.4b: how often the off-map stocks' support top-up is looked at (s; absent: 10). */
   topUpCheckS?: number;
+  /** M11.5: re-arming at a cache or a supply vehicle (absent: none). */
+  rearm?: { stepS: number; standM: number; baseS: number; secondsPerKg: number; quietS: number; below: number; driveM: number };
+  /** M11.5: refuelling from jerrycans or a supply vehicle's tank (absent: none). */
+  refuel?: { jerrycanLpm: number; pumpLpm: number; setupS: number; callBelow: number; keepL: number };
+  /** M11.5: on-map mortar teams fetch rounds from a cache (absent: they do not). */
+  mortarFetch?: { checkS: number; below: number; reachM: number; carryKg: number; secondsPerRound: number };
 }
 /** Recovery from the rear (core/repair.json `recovery`, M11.7b) without provenance (see the schema). */
 export interface RecoveryDef {

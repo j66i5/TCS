@@ -34,7 +34,7 @@ import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, ticksToSeconds, type DefId, type EntityId, type SideId } from "../ids";
 import { transferItems, type ItemStack } from "../items";
-import { hypot2 } from "../math";
+import { cos, hypot2, sin } from "../math";
 import { isOffMap, parkOffMap } from "../offmap";
 import type { Order } from "../orders";
 import { nextRange, Streams } from "../rng";
@@ -42,7 +42,9 @@ import type { SimState } from "../state";
 import { vehicleHalt, vehicleMove, type OrderResult } from "./drive";
 import { backAwayAndGo, canDrive, entryPoint, HELD_UP_NEAR_M, radio, standSpot } from "./evacuation";
 import { topOf } from "./nest";
-import { ensureSupplyPoint, putInCache, roundsInContainer } from "./supply";
+import { ensureSupplyPoint, newCache, putInCache, roundsInContainer } from "./supply";
+import { tubeOf, type Tube } from "./mortars";
+import { fuelShortL, stowageWants } from "./rearm";
 
 /** Routes tried again after this (s). */
 const RETRY_S = 30;
@@ -77,7 +79,10 @@ export function fromStock(ctx: SimContext, state: SimState, events: EventSink, s
   const moved = transferItems(ctx.catalog, state.container, charge === undefined ? { from: stock, to, type, count } : { from: stock, to, type, count, charge }).moved;
   if (moved > 0) {
     const r = roundsOfStack(ctx, type, moved, charge);
-    events.emit({ kind: "items.delivered", tick: state.tick, holder: to, item: type, count: moved, ...(r ? { ammo: r.ammo, rounds: r.rounds } : {}) });
+    // (M11.5: a fuel can's litres enter the battle too: counted by charge kind.)
+    const d = ctx.catalog.items[type];
+    const ck = charge !== undefined && d?.chargeItem === undefined ? d?.chargeKind : undefined;
+    events.emit({ kind: "items.delivered", tick: state.tick, holder: to, item: type, count: moved, ...(r ? { ammo: r.ammo, rounds: r.rounds } : {}), ...(ck !== undefined ? { chargeKind: ck, amount: charge! * moved } : {}) });
   }
   return moved;
 }
@@ -138,6 +143,62 @@ export function loadForPlatoon(ctx: SimContext, state: SimState, events: EventSi
     }
   }
   return { load: out, rounds: n, kg };
+}
+
+/**
+ * M11.5: load for top unit `top`'s hulls from stock `stock` into container `to`: whole items of what their stowage is
+ * short of (ammunition and reactive tiles, as re-arming takes them), then fuel cans for what their tanks are short of,
+ * within `capKg`. Returns the stacks loaded.
+ */
+function loadForHulls(ctx: SimContext, state: SimState, events: EventSink, stock: EntityId, to: EntityId, top: EntityId, capKg: number): ItemStack[] {
+  const k = state.container.get(stock);
+  const out: ItemStack[] = [];
+  if (!k || capKg <= 0) return out;
+  let kg = 0;
+  const take = (type: DefId, charge: number | undefined): boolean => {
+    const d = ctx.catalog.items[type];
+    if (!d) return false;
+    const one = d.massKg + (charge ?? 0) * (d.chargeMassKg ?? 0);
+    if (kg + one > capKg || fromStock(ctx, state, events, stock, to, type, 1, charge) !== 1) return false;
+    kg += one;
+    const o = out.find((x) => x.type === type && x.charge === charge);
+    if (o) o.count++; else out.push(charge !== undefined ? { type, count: 1, charge } : { type, count: 1 });
+    return true;
+  };
+  const fuel = new Map<string, number>();
+  for (const [vid, v] of state.vehicle.entries()) {
+    if (v.offMap !== undefined || v.unit === null || v.status === "destroyed" || topOf(state, v.unit) !== top) continue;
+    const def = ctx.catalog.vehicles[v.def];
+    if (!def) continue;
+    for (const w of stowageWants(ctx, state, vid, v)) {
+      let missing = w.want - w.have;
+      while (missing > 0) {
+        let best: { charge: number | undefined; per: number } | null = null;
+        for (const x of k.stacks) {
+          if (x.type !== w.type || x.count <= 0) continue;
+          const per = x.charge ?? 1;
+          if (per > 0 && per <= missing && (!best || per > best.per)) best = { charge: x.charge, per };
+        }
+        if (!best || !take(w.type, best.charge)) break;
+        missing -= best.per;
+      }
+    }
+    const kind = ctx.catalog.items[def.fuel.item]?.chargeKind;
+    if (kind !== undefined) fuel.set(kind, (fuel.get(kind) ?? 0) + fuelShortL(state, vid, def));
+  }
+  for (const [kind, litres] of [...fuel.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    let left = litres;
+    while (left > 0) {
+      let can: { type: DefId; charge: number } | null = null;
+      for (const x of k.stacks) {
+        const d = ctx.catalog.items[x.type];
+        if (x.count > 0 && (x.charge ?? 0) > 0 && d?.chargeKind === kind && d.category !== "fuel" && (!can || x.charge! > can.charge)) can = { type: x.type, charge: x.charge! };
+      }
+      if (!can || !take(can.type, can.charge)) break;
+      left -= can.charge;
+    }
+  }
+  return out;
 }
 
 /** Rounds in a list of stacks. */
@@ -239,7 +300,9 @@ export function callDelivery(ctx: SimContext, state: SimState, events: EventSink
   const capKg = def.cargo?.kg ?? (def.ambulance ? D.ambulanceKg : 0);
   const prev = v.offMap?.load ?? [];
   const got = loadForPlatoon(ctx, state, events, stock, asset, top, Math.max(0, capKg - massOf(ctx, prev)), Math.max(0, want - roundsIn(ctx, prev)));
-  const load = mergeLoads(prev, got.load);
+  // M11.5: what the platoon's hulls are short of in their stowage and tanks, in the room left.
+  const forHulls = loadForHulls(ctx, state, events, stock, asset, top, Math.max(0, capKg - massOf(ctx, prev) - got.kg));
+  const load = mergeLoads(mergeLoads(prev, got.load), forHulls);
   if (load.length === 0) return { unable: "radio.deliveryNoStock" };
   if (markedHull(ctx, v)) ammunitionIntoAmbulance(ctx, state, events, asset, ordered);
   const delayS = nextRange(state.rng, Streams.supply, D.delayMinS, D.delayMaxS);
@@ -299,7 +362,48 @@ function topUp(ctx: SimContext, state: SimState, events: EventSink): void {
         if (n > 0) { left -= n; events.emit({ kind: "supply.topUp", tick: state.tick, side: st.side, battery: sec.battery, item: type, count: n }); }
       }
     }
+    // M11.5: the side's on-map mortar sections get theirs beside their tubes (a cache their men fetch from).
+    if (ctx.catalog.supply?.mortarFetch === undefined) continue;
+    for (const [sec, tubes] of onMapSections(ctx, state, st.side)) {
+      let left = st.topUp.rounds;
+      let cache: EntityId | null = null;
+      for (const [cid, c] of state.cache.entries()) if (c.tubes === sec && c.side === st.side && c.cookoff === undefined && c.burnt !== true) { cache = cid; break; }
+      if (cache === null) {
+        // Beside the tubes, a few metres behind where their gunners face.
+        let x = 0, y = 0, hx = 0, hy = 0;
+        for (const t of tubes) { x += t.x; y += t.y; const h = state.transform.get(t.carrier)?.heading ?? 0; hx += cos(h); hy += sin(h); }
+        x /= tubes.length; y /= tubes.length;
+        const L = hypot2(hx, hy);
+        if (L > 1e-6) { x -= (hx / L) * TUBE_CACHE_M; y -= (hy / L) * TUBE_CACHE_M; }
+        x = Math.min(Math.max(x, 1), ctx.map.widthM - 1); y = Math.min(Math.max(y, 1), ctx.map.heightM - 1);
+        cache = newCache(state, st.side, x, y, []);
+        state.cache.req(cache).tubes = sec;
+      }
+      const def = tubes[0]!.def;
+      for (const type of [def.he, def.smoke]) {
+        if (left <= 0) break;
+        const n = fromStock(ctx, state, events, sid, cache, type, left);
+        if (n > 0) { left -= n; events.emit({ kind: "supply.topUp", tick: state.tick, side: st.side, battery: cache, item: type, count: n }); }
+      }
+    }
   }
+}
+
+/** A cache for a mortar section's top-up lies this far behind its tubes (m). */
+const TUBE_CACHE_M = 8;
+
+/** M11.5: the side's on-map mortar sections (the teams' parent unit, or the team) and their tubes, by section id. */
+function onMapSections(ctx: SimContext, state: SimState, side: SideId): [EntityId, Tube[]][] {
+  const out = new Map<EntityId, Tube[]>();
+  for (const [uid, u] of state.unit.entries()) {
+    if (!u.mortar || u.side !== side) continue;
+    const t = tubeOf(ctx, state, uid);
+    if (!t) continue;
+    const sec = u.parent ?? uid;
+    const l = out.get(sec);
+    if (l) l.push(t); else out.set(sec, [t]);
+  }
+  return [...out.entries()].sort((a, b) => a[0] - b[0]);
 }
 
 /** Automatic calls: a supply point below `callBelow` of its fill, or a platoon whose squad asked lately without one. */

@@ -9,6 +9,7 @@ import { leaveCarry } from "./carry";
 import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
 import { callAmbulanceOrder } from "./evacuation";
 import { rearRunGate, rearRunOrder } from "./rearrun";
+import { resupplyGate } from "./rearm";
 import { callDeliveryOrder, deliveriesEnabled } from "./delivery";
 import { endRepairByOrder, repairOrder } from "./repair";
 import { callRecoveryOrder, towGate } from "./recovery";
@@ -466,6 +467,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "callRecovery") return callRecoveryOrder(ctx, state, events, order);
   const tow = towGate(state, order);
   if (tow !== null) return tow;
+  // M11.5: an order to a crew ends its re-arming or refuelling (what was moved stays).
+  resupplyGate(state, events, order);
   // Field repair (M11.7a): the crew's own task on its hull.
   if (order.kind === "repair") return repairOrder(ctx, state, events, state.unit.req(order.target).vehicle!);
   // (D4b: a halt, getting in or out, or a move of the vehicle that carries them ends an arc they were defending.)

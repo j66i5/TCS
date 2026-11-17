@@ -53,7 +53,7 @@ import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type DefId, type EntityId, type SideId } from "../ids";
 import { isAble } from "../impair";
 import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
-import { addItems, containerMassKg, emptyContainer, moveCharge, removeItems, transferItems, type Container, type ItemStack } from "../items";
+import { addItems, containerMassKg, countItems, emptyContainer, moveCharge, removeItems, transferItems, type Container, type ItemStack } from "../items";
 import { atan2, cos, hypot2, PI, pow, sin } from "../math";
 import { isResponder } from "../medical";
 import { isMounted } from "../mount";
@@ -72,6 +72,7 @@ import { origin, stepBack } from "./consolidate";
 import { coveredFrom } from "./decisions";
 import { detonate } from "./explosions";
 import { isCowering } from "./morale";
+import { tubeOf } from "./mortars";
 import { nestOf, sitePoint, supplyPointOf, topOf } from "./nest";
 
 type Supply = NonNullable<SimContext["catalog"]["supply"]>;
@@ -394,7 +395,9 @@ function stepCookoff(ctx: SimContext, state: SimState, events: EventSink, S: Sup
         removeItems(cont, s.type, items, s.charge);
         rounds = ammo !== undefined && s.charge === undefined ? items : 0;
       }
-      events.emit({ kind: "items.destroyed", tick: state.tick, holder: id, item: s.type, count: items, ...(ammo !== undefined ? { ammo, rounds } : {}), cause: "cookoff" });
+      // (M11.5: a fuel can's litres burn with it: counted by charge kind.)
+      const ck = ammo === undefined && s.charge !== undefined && s.charge > 0 && items > 0 ? ctx.catalog.items[s.type]?.chargeKind : undefined;
+      events.emit({ kind: "items.destroyed", tick: state.tick, holder: id, item: s.type, count: items, ...(ammo !== undefined ? { ammo, rounds } : {}), ...(ck !== undefined ? { chargeKind: ck, amount: items * s.charge! } : {}), cause: "cookoff" });
       // An explosive round goes off (the others burn): blast and fragments, the cache as owner.
       if (k.bursts && ammo !== undefined && rounds > 0 && bursts < S.cookoff.maxBurstsPerStep && ctx.catalog.ammo[ammo]?.explosive !== undefined) {
         bursts++;
@@ -450,9 +453,9 @@ export function supplyPointOrder(ctx: SimContext, state: SimState, events: Event
 
 /** What a man would take at cache `cache` to be back at his standard load: per magazine or package type he carries,
  *  the rounds missing (mags: magazines and belts; bulk: bandoliers and packs), limited by what the cache holds. */
-export function takePlan(ctx: SimContext, state: SimState, man: EntityId, cache: EntityId): { magRounds: number; bulkRounds: number } {
+export function takePlan(ctx: SimContext, state: SimState, man: EntityId, cache: EntityId): { magRounds: number; bulkRounds: number; wholeRounds: number } {
   const c = state.container.get(man), k = state.container.get(cache);
-  if (!c || !k) return { magRounds: 0, bulkRounds: 0 };
+  if (!c || !k) return { magRounds: 0, bulkRounds: 0, wholeRounds: 0 };
   const have = new Map<DefId, number>();
   for (const s of k.stacks) {
     const d = ctx.catalog.items[s.type];
@@ -472,12 +475,36 @@ export function takePlan(ctx: SimContext, state: SimState, man: EntityId, cache:
       if (pass === "magazine") magRounds += n; else bulkRounds += n;
     }
   }
-  return { magRounds, bulkRounds };
+  let wholeRounds = 0;
+  for (const r of mortarTake(ctx, state, man, cache)) wholeRounds += r.count;
+  return { magRounds, bulkRounds, wholeRounds };
+}
+
+/**
+ * M11.5: the mortar rounds (whole items) a man of an on-map mortar team takes at cache `cache`: high explosive, then
+ * smoke, up to `mortarFetch.carryKg` (and what the cache holds). None for anyone else.
+ */
+export function mortarTake(ctx: SimContext, state: SimState, man: EntityId, cache: EntityId): { type: DefId; count: number }[] {
+  const M = ctx.catalog.supply?.mortarFetch;
+  const uid = state.identity.get(man)?.unit;
+  if (!M || uid === undefined || !state.unit.get(uid)?.mortar) return [];
+  const tube = tubeOf(ctx, state, uid), k = state.container.get(cache);
+  if (!tube || !k) return [];
+  const out: { type: DefId; count: number }[] = [];
+  let kg = M.carryKg;
+  for (const type of [tube.def.he, tube.def.smoke]) {
+    const m = ctx.catalog.items[type]?.massKg ?? 0;
+    const n = Math.min(countItems(k, type), m > 0 ? Math.floor(kg / m + 1e-9) : 0);
+    if (n <= 0) continue;
+    out.push({ type, count: n });
+    kg -= n * m;
+  }
+  return out;
 }
 
 /** Seconds a man takes at the cache for that plan. */
-function takeSeconds(S: Supply, p: { magRounds: number; bulkRounds: number }): number {
-  return S.take.baseS + p.magRounds * S.take.magSecondsPerRound + p.bulkRounds * S.take.bulkSecondsPerRound;
+function takeSeconds(S: Supply, p: { magRounds: number; bulkRounds: number; wholeRounds: number }): number {
+  return S.take.baseS + p.magRounds * S.take.magSecondsPerRound + p.bulkRounds * S.take.bulkSecondsPerRound + p.wholeRounds * (S.mortarFetch?.secondsPerRound ?? 0);
 }
 
 /** Can a cache supply these men (own side, not burning, something in it fits one of them)? */
@@ -505,7 +532,7 @@ export function resupplyAtOrder(ctx: SimContext, state: SimState, events: EventS
   let cx = 0, cy = 0;
   for (const m of able) { const t = state.transform.req(m); cx += t.x; cy += t.y; }
   cx /= able.length; cy /= able.length;
-  const need = (k: EntityId) => able.some((m) => { const p = takePlan(ctx, state, m, k); return p.magRounds + p.bulkRounds > 0; });
+  const need = (k: EntityId) => able.some((m) => { const p = takePlan(ctx, state, m, k); return p.magRounds + p.bulkRounds + p.wholeRounds > 0; });
   let pick: EntityId | null = null;
   if (cache !== undefined) {
     const t = state.transform.get(cache);
@@ -529,7 +556,7 @@ export function resupplyAtOrder(ctx: SimContext, state: SimState, events: EventS
   let sent = 0;
   for (const m of able) {
     const p = takePlan(ctx, state, m, pick);
-    if (p.magRounds + p.bulkRounds <= 0) continue;
+    if (p.magRounds + p.bulkRounds + p.wholeRounds <= 0) continue;
     const s = state.soldier.req(m);
     const a = state.action.get(m);
     if (a) { state.action.delete(m); events.emit({ kind: "action.interrupted", tick: state.tick, actor: m, action: a.kind, reason: "order" }); }
@@ -574,7 +601,7 @@ export function stepResupply(ctx: SimContext, state: SimState, events: EventSink
   const d = hypot2(me.x - st.x, me.y - st.y);
   if ((d <= 2.0 || (d <= TAKE_REACH_M && (m?.waypoints.length ?? 0) === 0)) && Math.abs(me.z - st.z) <= 1.5) {
     const plan = takePlan(ctx, state, id, src);
-    if (plan.magRounds + plan.bulkRounds <= 0) { s.intent = it.x !== undefined ? { ...it, back: true } : null; return; }
+    if (plan.magRounds + plan.bulkRounds + plan.wholeRounds <= 0) { s.intent = it.x !== undefined ? { ...it, back: true } : null; return; }
     me.heading = atan2(st.y - me.y, st.x - me.x);
     s.intent = it.x !== undefined ? { ...it, back: true } : null;
     const mv = state.mover.get(id);
@@ -622,6 +649,11 @@ function takeSupplies(ctx: SimContext, state: SimState, events: EventSink, man: 
       if (r.moved <= 0) break;
       taken.set(to.type, (taken.get(to.type) ?? 0) + r.moved);
     }
+  }
+  // M11.5: a mortar man's whole rounds for his tube.
+  for (const r of mortarTake(ctx, state, man, src)) {
+    const n = transferItems(ctx.catalog, state.container, { from: src, to: man, type: r.type, count: r.count }).moved;
+    if (n > 0) taken.set(r.type, (taken.get(r.type) ?? 0) + n);
   }
   // (Empty packages stay in the cache: the crate and its tins are counted items.)
   for (const [type, rounds] of [...taken.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) events.emit({ kind: "items.taken", tick: state.tick, from: src, to: man, item: type, count: 0, rounds, source: "cache" });

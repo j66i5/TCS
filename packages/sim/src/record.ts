@@ -56,7 +56,10 @@ export interface SideRecord {
   supply?: { captured: number; roundsCaptured: number; cookoffs: number; roundsDestroyed: number; sent: number; roundsTaken: number; requests?: number; trips?: number; roundsDelivered?: number;
     /** M11.4b: deliveries from off the map unloaded and their rounds, combat vehicles' rear runs that unloaded supplies
      *  and their rounds, rounds into the vehicles' own stowage, mortar and artillery rounds topped up. Optional. */
-    deliveries?: number; roundsOffMap?: number; vehicleRuns?: number; roundsVehicle?: number; roundsRestocked?: number; topUp?: number };
+    deliveries?: number; roundsOffMap?: number; vehicleRuns?: number; roundsVehicle?: number; roundsRestocked?: number; topUp?: number;
+    /** M11.5: re-armings and refuellings finished or stopped (`vehicle.resupply`), rounds into stowage and litres into
+     *  tanks there, litres burnt by the side's engines. Optional. */
+    rearms?: number; roundsRearmed?: number; litresRefuelled?: number; litresBurnt?: number };
   /** Guided missiles fired by the side's hulls and how they ended; enemy hulls penetrated by its missiles and by its
    *  shoulder-fired rockets. */
   missiles: { fired: number; hit: number; lost: number; miss: number; penetrated: number; rocketPenetrated: number };
@@ -460,6 +463,11 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       if (r && e.phase === "restocked") r.roundsRestocked = (r.roundsRestocked ?? 0) + (e.rounds ?? 0);
     }
     if (e.kind === "supply.topUp") { const r = side(e.side)?.supply; if (r) r.topUp = (r.topUp ?? 0) + e.count; }
+    if (e.kind === "vehicle.resupply" && (e.phase === "done" || e.phase === "stopped")) {
+      const r = side(e.side)?.supply;
+      if (r && ((e.rounds ?? 0) > 0 || (e.litres ?? 0) > 0 || (e.items ?? 0) > 0)) { r.rearms = (r.rearms ?? 0) + 1; r.roundsRearmed = (r.roundsRearmed ?? 0) + (e.rounds ?? 0); r.litresRefuelled = (r.litresRefuelled ?? 0) + (e.litres ?? 0); }
+    }
+    if (e.kind === "items.burnt") { const r = side(view.vehicle.get(e.holder)?.side)?.supply; if (r) r.litresBurnt = (r.litresBurnt ?? 0) + e.amount; }
     if (e.kind === "law.misuse") {
       const r = side(e.side);
       const v = view.vehicle.get(e.vehicle);

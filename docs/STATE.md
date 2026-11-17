@@ -1,10 +1,22 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-17 (M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.5 (slice 48) built (2026-11-17, branch `claude/m11-logistics`).** Re-arming and refuelling: a halted hull within
+  15 m of an own cache or supply truck takes back its stowage (whole items, a minute plus 1.2 s a kg; reactive tiles
+  moved as items only) and fills its tank from 20 l fuel cans (a minute each) or the truck's pump (100 l a minute
+  above a 100 l reserve: the truck's own tank stands in for a tanker); idle hulls below half their stowed ammunition
+  or a quarter of their tank drive to a cache within 300 m, else go on a supply run (which now also refuels from the
+  stock); deliveries bring what the platoon's hulls lack; an order stops it (2 min before it starts again). Fuel items
+  have `chargeKind: "diesel"`; every litre burnt is an `items.burnt` event and the conservation guard checks litres
+  (exact). On-map mortar teams under 10 rounds send a man to a cache within 150 m (the tube stays set up); the top-up
+  puts rounds 8 m behind on-map tubes. Card "Fuel 640 / 900 l · re-arming", list "re-arming"; `lab -- rearm` 8 of 8
+  equal to the hand calculation; `--scene supply` shots 9-10. All batches identical to the base (no hull ran low in
+  any battle). Numbers in DECISIONS "M11.5". Slice 52 (the AI's logistics, the Logistics review tab, balance) next.
+  New low-confidence data: `de-jerrycan`, `ru-jerrycan`, `supply.rearm`, `refuel`, `mortarFetch`.
 - **M11.4b (slice 47) built (2026-11-16, branch `claude/m11-logistics`).** Supplies from off the map: each side may
   have an off-map stock (`stock` store, schema 24; everything leaving it is `items.delivered`, conservation exact); a
   supply truck per side (HX2 / Ural-4320, manifest `supply`) is called when a supply point falls below 30 % of its fill
@@ -425,6 +437,12 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+- M11.5 re-arming and refuelling (2026-11-17; new data low: `de-jerrycan` 4.2 kg / `ru-jerrycan` 4.5 kg empty, 20 l;
+  core/supply.json `rearm` (60 s to start, 1.2 s a kg, quiet 20 s, ask below 50 %, drive up to 300 m), `refuel` (cans
+  20 l a minute, pump 100 l a minute, 60 s set-up, ask below 25 %, truck keeps 100 l), `mortarFetch` (below 10 rounds,
+  150 m, 30 kg, 3 s a round)). No tanker vehicle in the data: the supply truck pumps from its own tank. Should the
+  hold battle or a new scenario make vehicles run low (no battle today uses half its stowage or a quarter of its fuel)?
+
 - M11 hold battle (2026-11-16): fighting-position values are game values, low confidence (hole 1 m wide, up to 1.2 m
   deep; head and weapon 0.1-0.3 m above the rim by posture); positions only prepared before the battle, no digging
   in battle. Defending machine guns still rarely run dry in 45 min (they see and fire little); seed 4 of

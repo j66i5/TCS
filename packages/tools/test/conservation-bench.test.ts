@@ -9,6 +9,7 @@ describe("conservation guard, benchmarks (M11.1)", () => {
     it(`${name}: exact over 120 s`, () => {
       const r = conservationRun(SCENARIOS[name]!.fixtures ? fixtures : data, name, 1, 120);
       expect(r.leaks).toEqual({});
+      expect(r.chargeLeaks).toEqual({});
     }, 300_000);
   }
 });

@@ -970,5 +970,12 @@
   "radio.ack.supplyRun": "{callsign}: going back to restock, wilco.",
   "aar.conduct.misuse": "Ammunition carried in an ambulance ({callsign}, {time}): a breach of the law of war; it had no protection while it did",
   "aar.supply.deliveries": "Deliveries: {n} from the rear ({rounds} rounds), {runs} vehicle runs ({vrounds} rounds), mortar rounds topped up {topup}",
-  "timeline.supply.delivery": "{side}: a delivery of ammunition reached the supply point"
+  "timeline.supply.delivery": "{side}: a delivery of ammunition reached the supply point",
+  "card.fuel": "Fuel {l} / {cap} l",
+  "card.resupply.rearm": "re-arming",
+  "card.resupply.refuel": "refuelling",
+  "card.resupply.heading": "going to re-arm",
+  "side.resupply.rearm": "re-arming",
+  "side.resupply.refuel": "refuelling",
+  "side.resupply.heading": "going to re-arm"
 }

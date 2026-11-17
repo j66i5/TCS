@@ -104,9 +104,20 @@ export function missionItem(state: SimView, side: string, asset: "artillery" | u
 
 /** What the events say left or entered the battle, by ammunition id: used (fired, thrown, launched, landed off-map
  *  rounds), destroyed and delivered. Tracer rounds count as their belt's cartridge (the belt counts them so). */
-export interface Consumption { used: Record<string, number>; destroyed: Record<string, number>; delivered: Record<string, number> }
+export interface Consumption {
+  used: Record<string, number>; destroyed: Record<string, number>; delivered: Record<string, number>;
+  /** M11.5: the same for charge by its kind (litres of diesel): burnt, destroyed, delivered. Absent in older tallies. */
+  charge?: { used: Record<string, number>; destroyed: Record<string, number>; delivered: Record<string, number> };
+}
 
-export function emptyConsumption(): Consumption { return { used: {}, destroyed: {}, delivered: {} }; }
+export function emptyConsumption(): Consumption { return { used: {}, destroyed: {}, delivered: {}, charge: { used: {}, destroyed: {}, delivered: {} } }; }
+
+/** M11.5: the charge kinds whose use the events report (fuels: litres burnt, `items.burnt`), sorted. */
+export function fuelKinds(catalog: Catalog): string[] {
+  const out = new Set<string>();
+  for (const d of Object.values(catalog.items)) if (d.category === "fuel" && d.chargeKind !== undefined) out.add(d.chargeKind);
+  return [...out].sort();
+}
 
 export function tracerMap(catalog: Catalog): Record<string, string> {
   const t: Record<string, string> = {};
@@ -121,8 +132,13 @@ export function consumedFromEvents(out: Consumption, events: readonly SimEvent[]
     else if (e.kind === "grenade.launched") add(out.used, e.ammo, 1);
     else if (e.kind === "vehicle.smoke") { if (e.item !== undefined) add(out.used, e.item, e.count ?? 0); }
     else if (e.kind === "support.round") { if (e.item !== undefined) add(out.used, e.item, 1); }
-    else if (e.kind === "items.destroyed") { if (e.ammo !== undefined) add(out.destroyed, e.ammo, e.rounds ?? 0); }
-    else if (e.kind === "items.delivered") { if (e.ammo !== undefined) add(out.delivered, e.ammo, e.rounds ?? 0); }
+    else if (e.kind === "items.destroyed") {
+      if (e.ammo !== undefined) add(out.destroyed, e.ammo, e.rounds ?? 0);
+      if (e.chargeKind !== undefined) add((out.charge ??= { used: {}, destroyed: {}, delivered: {} }).destroyed, e.chargeKind, e.amount ?? 0);
+    } else if (e.kind === "items.delivered") {
+      if (e.ammo !== undefined) add(out.delivered, e.ammo, e.rounds ?? 0);
+      if (e.chargeKind !== undefined) add((out.charge ??= { used: {}, destroyed: {}, delivered: {} }).delivered, e.chargeKind, e.amount ?? 0);
+    } else if (e.kind === "items.burnt") add((out.charge ??= { used: {}, destroyed: {}, delivered: {} }).used, e.chargeKind, e.amount);
   }
 }
 
@@ -134,6 +150,17 @@ export function checkConservation(start: Ledger, end: Ledger, c: Consumption): R
   for (const k of [...keys].sort()) {
     const d = (start.ammo[k] ?? 0) - (end.ammo[k] ?? 0) - ((c.used[k] ?? 0) + (c.destroyed[k] ?? 0) - (c.delivered[k] ?? 0));
     if (d !== 0) leaks[k] = d;
+  }
+  return leaks;
+}
+
+/** M11.5: the same check for charge of kinds `kinds` (litres: equal within `tol`). Empty: exact. */
+export function checkChargeConservation(start: Ledger, end: Ledger, c: Consumption, kinds: readonly string[], tol = 1e-6): Record<string, number> {
+  const ch = c.charge ?? { used: {}, destroyed: {}, delivered: {} };
+  const leaks: Record<string, number> = {};
+  for (const k of kinds) {
+    const d = (start.charge[k] ?? 0) - (end.charge[k] ?? 0) - ((ch.used[k] ?? 0) + (ch.destroyed[k] ?? 0) - (ch.delivered[k] ?? 0));
+    if (Math.abs(d) > tol) leaks[k] = d;
   }
   return leaks;
 }

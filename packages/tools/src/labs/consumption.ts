@@ -225,12 +225,12 @@ export function consumptionLab(data: DataSet, dataFixtures: DataSet, o: Consumpt
       const sc = getScenario(n);
       const r = conservationRun(sc.fixtures ? dataFixtures : data, n, s, secs, tweak);
       const used = Object.values(r.consumption.used).reduce((a, b) => a + b, 0);
-      const l = Object.entries(r.leaks);
+      const l = [...Object.entries(r.leaks), ...Object.entries(r.chargeLeaks).map(([k, v]): [string, number] => [`${k} (l)`, v])];
       leaks += l.length;
       rows.push(`| ${n} | ${s} | ${secs} | ${Math.round(r.endS)} | ${used} | ${l.length === 0 ? "exact" : l.map(([k, v]) => `${k} ${v}`).join(", ")} |`);
-      process.stderr.write(`${n} ${s}: ${l.length === 0 ? "exact" : JSON.stringify(r.leaks)}\n`);
+      process.stderr.write(`${n} ${s}: ${l.length === 0 ? "exact" : JSON.stringify(l)}\n`);
     }
-    return `## Conservation guard\n\nFor every ammunition id: start - end = fired + thrown + destroyed - delivered (events only). ${leaks === 0 ? "**Exact in every run.**" : `**${leaks} leaks.**`}\n\n${rows.join("\n")}\n`;
+    return `## Conservation guard\n\nFor every ammunition id: start - end = fired + thrown + destroyed - delivered (events only); M11.5: the same for litres of fuel (burnt, destroyed, delivered; within 1e-6 l). ${leaks === 0 ? "**Exact in every run.**" : `**${leaks} leaks.**`}\n\n${rows.join("\n")}\n`;
   }
   const limit = o.marks[o.marks.length - 1]!, mark = o.marks.length > 1 ? o.marks[0]! : limit;
   const battles: ConsumptionBattle[] = [];

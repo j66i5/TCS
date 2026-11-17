@@ -831,6 +831,37 @@ enough no longer spares it. Unloaded, it is protected again.
 run against a hand calculation (the wait, the drive at the run's pace, unloading): all within 1 % (target 10 %), the
 ammunition check exact. Batches take `--no-deliveries` (resupply on foot only) besides `--no-resupply`.
 
+## Re-arming and refuelling vehicles; rounds to mortars (M11.5)
+
+**At a cache.** A hull that stands still within 15 m of one of its side's caches (a supply point, a pile, crates a
+truck unloaded) or of its side's supply truck, with a crewman aboard, not hit in the last 20 s, not burning, under
+repair, on tow or away, takes back what its stowage is short of: whole belts, rounds, missiles, smoke grenades and
+reactive tiles of the kinds the data stows, up to what the data stows. Opening up takes a minute, then each item takes
+1.2 s per kilogram (a 120 mm round of about 20 kg: about 25 s). Its ready racks and belts then refill from the stowage
+as before. A marked ambulance takes no ammunition. A supply truck gives only what it carries as cargo, never its crew's
+own kit.
+
+**Fuel.** Fuel is litres in the tank item, as it always was; every litre burnt is now an event, so the ammunition check
+also covers litres (start minus end equals burnt plus destroyed minus delivered, to a millionth of a litre). After the
+rounds (or instead of them) the crew pours fuel cans (20 l steel cans, a minute each) into the tank, or takes litres
+from a supply truck's own tank by its pump (100 l a minute, keeping 100 l to drive back: there is no tanker in the data
+yet). Empty cans stay where they were.
+
+**Asking.** An idle hull (the rear-run rules: still, not hit, no enemy near, no squad aboard) below half its stowed
+ammunition or a quarter of its tank drives to the nearest own cache within 300 m that has something for it, works
+there and drives back. With none near, it goes on a supply run when its side has a stock at the rear (M11.4b); such a
+run now also fills the tank from the stock's fuel cans. A delivery truck also brings what the platoon's hulls are short
+of (their stowage, then fuel cans). Any order to the crew stops the work (what was moved stays) and it does not start
+again on its own for two minutes. The card shows "Fuel 640 / 900 l · re-arming", the unit list "re-arming".
+
+**Mortars on the map.** A mortar team holding fewer than 10 rounds sends a man (not its gunner if it can) to an own
+cache within 150 m of the tube that has its rounds; he takes up to 30 kg of them (3 s a round) and walks back; the tube
+stays set up while he goes. A stock's top-up for a side with mortars on the map puts the rounds into a cache 8 m behind
+the tubes.
+
+**Measuring it.** `npm run lab -- rearm`: a Puma, a BMP-2, a Leopard 2A7V and a T-90M with empty stowage and 10 % fuel
+beside a full cache, and beside a supply truck, against the hand calculation (target 10 %).
+
 ## Grenades
 
 A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one

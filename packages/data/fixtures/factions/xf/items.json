@@ -57,6 +57,7 @@
       "massKg": 0,
       "chargeCapacity": 100,
       "chargeMassKg": 0.5,
+      "chargeKind": "xf-hay",
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture. The cart's fuel (litres)."

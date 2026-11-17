@@ -430,7 +430,7 @@ for the owner's numbers answer after playing, not for more building).
     quiet squad's shortest half to an own cache in reach), the review's Logistics tab (fired by weapon type, delivered,
     taken, captured and lost, requests and waits, dry men, fuel; the M11.6-M11.7 rows moved there), batch logistics
     columns, `BattleResult.logistics`; balance on hold-resupply (DECISIONS "M11.8")
-  - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
+  - **Military police and prisoners of war** (owner request 2026-11-15; plan `docs/plans/m11-mp-pow.md`, slices 53-55; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):
     - *Prisoner collection point* behind each company, like the Verwundetennest: the capturing squad walks or

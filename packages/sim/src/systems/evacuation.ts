@@ -32,6 +32,7 @@ import type { SimState } from "../state";
 import { liesAboard, placesFit, placesUsed, seatCasualty } from "./boarding";
 import { planVehicleRoute, vehicleHalt, vehicleMove, type OrderResult } from "./drive";
 import { handOver } from "./aftercare";
+import { pileOutsideNest } from "./consolidate";
 import { careEnabled, treatedNow } from "./medical";
 import { nestOf, setNest, siteNest, topOf } from "./nest";
 
@@ -376,6 +377,8 @@ function stepRun(ctx: SimContext, state: SimState, events: EventSink, vid: Entit
       if (s && s.physiology.alive && s.atNest === pid && !isMounted(s) && !state.carry.has(c)) {
         // (The medic finishing a treatment on him first.)
         if (treatedNow(state).has(c)) { o.loading.doneTick = tick + secondsToTicks(5); return; }
+        // (Review fix: his ammunition stays outside, owner — no ammunition into an ambulance.)
+        pileOutsideNest(ctx, state, events, undefined, c, pid);
         if (seatCasualty(ctx, state, vid, c, events)) {
           delete s.atNest;
           o.lastLoadTick = tick;

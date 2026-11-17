@@ -321,7 +321,9 @@ function stepRun(ctx: SimContext, state: SimState, events: EventSink, vid: Entit
       r.unloadTick = tick + secondsToTicks(V.unloadBaseS + V.unloadSecondsPerKg * shareKg(ctx, r.share));
       return;
     }
-    if (ticksToSeconds(tick - (r.backTick ?? tick)) >= R.maxStayS * 2) { unloadShare(ctx, state, events, vid); return; }
+    // (Review fix: not there in time — held up, stuck — it gives up with the share aboard, as a delivery does; the
+    // crates never reach a point it did not reach.)
+    if (ticksToSeconds(tick - (r.backTick ?? tick)) >= R.maxStayS * 2) { delete r.share; delete r.supplyPoint; toSquad(ctx, state, events, vid); return; }
     if (!r.goal || hypot2(r.goal.px - sp.x, r.goal.py - sp.y) > V.standM || (v.drive.arrived && tick >= (r.retryTick ?? 0))) {
       const g = standSpot(ctx, t, sp.x, sp.y, V.standM, ctx.catalog.vehicles[v.def]?.class);
       r.goal = { x: g.x, y: g.y, px: sp.x, py: sp.y };
@@ -375,7 +377,8 @@ function comeBack(ctx: SimContext, state: SimState, events: EventSink, vid: Enti
 function toSquad(ctx: SimContext, state: SimState, _events: EventSink, vid: EntityId): void {
   const R = ctx.catalog.medical!.rearRun!;
   const v = state.vehicle.req(vid), r = v.rearRun!;
-  r.phase = "return";
+  // (Review fix: the leg back to its squad has its own time, not what is left after the supply point.)
+  r.phase = "return"; r.backTick = state.tick;
   let gx = r.from.x, gy = r.from.y;
   for (const uid of squadsOf(state, vid)) {
     const u = state.unit.get(uid);

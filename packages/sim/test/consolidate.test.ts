@@ -149,6 +149,18 @@ describe("own casualties' ammunition (M11.2)", () => {
     expect(ledgerOf(catalog, sim.state).ammo).toEqual(before.ammo);
   });
 
+  it("not while his squad is being fired on (review fix: quietS since it was last fired on)", () => {
+    const sim = createSim(casualtyInput());
+    const [c] = blues(sim);
+    downIt(sim, c!, true);
+    const uid = sim.state.identity.req(c!).unit;
+    const hold = () => { sim.state.unit.req(uid).ownFireTick = sim.state.tick; };
+    let taken = false;
+    for (let k = 0; k < 30; k++) { hold(); if (run(sim, 1).some((e) => e.kind === "items.taken" || (e.kind === "action.started" && e.action === "takeAmmo"))) taken = true; }
+    expect(taken).toBe(false);
+    expect(run(sim, 90).some((e) => e.kind === "items.taken")).toBe(true);
+  });
+
   it("a man who can still use his arms keeps one magazine (the fullest); a dead man is stripped", () => {
     const sim = createSim(casualtyInput());
     const [c] = blues(sim);

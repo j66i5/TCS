@@ -531,7 +531,13 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
 
     if (tRim <= 1 && tRim <= tEnd) {
-      // ---- M11: the rim of a fighting position stops it (earth; fragments stay in it)
+      // ---- M11: the rim of a fighting position stops it (earth; fragments stay in it). Review fix: high explosive
+      // bursts on the rim (impact fuse) or bounces off it (time fuse), as on the ground.
+      if (am.explosive) {
+        const hl = sq(dx * dx + dy * dy), nx = hl > 1e-9 ? (-dx / hl) * 0.8 : 0, ny = hl > 1e-9 ? (-dy / hl) * 0.8 : 0, nz = hl > 1e-9 ? 0.6 : 1;
+        if (settle(P, i, am, tick, x0 + tRim * dx, y0 + tRim * dy, z0 + tRim * dz, nx, ny, nz, vx, vy, vz, 0.5, BN, events, "soil", "ground")) i++;
+        continue;
+      }
       if (!am.fragment) events.emit({ kind: "impact", tick, x: x0 + tRim * dx, y: y0 + tRim * dy, z: z0 + tRim * dz, surface: "ground", result: "stopped", material: "soil", ammo: am.id, owner: P.owner[i]! });
       remove(P, i);
       continue;

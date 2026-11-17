@@ -68,7 +68,7 @@ import { newEntity, type SimState, type SimView } from "../state";
 import { heightAt } from "../terrain";
 import { requestPosture } from "./body";
 import { bearersBack, endCarry, startCarry } from "./carry";
-import { origin, stepBack } from "./consolidate";
+import { origin, shakenForErrand, stepBack } from "./consolidate";
 import { coveredFrom } from "./decisions";
 import { detonate } from "./explosions";
 import { isCowering } from "./morale";
@@ -115,8 +115,19 @@ export function nearNest(ctx: SimContext, state: SimState, x: number, y: number,
 export function putInCache(ctx: SimContext, state: SimState, from: EntityId, cache: EntityId, st: ItemStack): number {
   const t = state.transform.get(cache);
   if (!t || !state.container.has(cache)) return 0;
+  // (Review fix: nothing goes into a cache that burns or has burnt out.)
+  const c = state.cache.get(cache);
+  if (c !== undefined && (c.burnt === true || c.cookoff !== undefined)) return 0;
   if (isAmmo(ctx, st.type) && nearNest(ctx, state, t.x, t.y)) return 0;
   return transferItems(ctx.catalog, state.container, st.charge === undefined ? { from, to: cache, type: st.type, count: st.count } : { from, to: cache, type: st.type, count: st.count, charge: st.charge }).moved;
+}
+
+/** Does a container hold anything (review fix): an item with its charge left, or a whole item; emptied packages, tins,
+ *  belts and cans stay behind as counted items but make nobody's cache worth taking, setting off, capturing or
+ *  shelling. */
+export function cacheHolds(c: { readonly stacks: readonly { readonly count: number; readonly charge?: number }[] } | undefined): boolean {
+  if (c) for (const s of c.stacks) if (s.count > 0 && (s.charge === undefined || s.charge > 0)) return true;
+  return false;
 }
 
 /** Rounds of ammunition in a container (charge of magazines and packages, whole rounds). */
@@ -215,8 +226,11 @@ function look(ctx: SimContext, state: SimState, events: EventSink, S: Supply, id
   const t = state.transform.req(id);
   // (M11.4a: a crate whose bearers are all gone — ordered away, hit — lies where it is as an ordinary cache.)
   if (c.carried === true && !state.carry.has(id) && !bearerHolds(state, id)) delete c.carried;
-  const cont = state.container.get(id);
-  const full = (cont?.stacks.length ?? 0) > 0;
+  // (Review fix: a crate on the move is not where the enemy saw it: they have to see it again where it is put down.)
+  if (c.carried === true && c.known !== undefined) delete c.known;
+  const full = cacheHolds(state.container.get(id));
+  // (Emptied and not a supply point: nothing about it matters any more.)
+  if (!full && c.kind !== "point") { if (c.holdTick !== undefined) delete c.holdTick; return; }
   // ---- men about it: its own side near, enemies at it, other sides that see it
   const hold2 = S.capture.holdM * S.capture.holdM, at2 = S.capture.enemyM * S.capture.enemyM, see2 = S.seeM * S.seeM;
   let own = false;
@@ -293,6 +307,7 @@ function movePoint(ctx: SimContext, state: SimState, events: EventSink, S: Suppl
   if (!at || hypot2(at.x - t.x, at.y - t.y) < 10) return;
   t.x = at.x; t.y = at.y;
   c.sitedTick = state.tick;
+  delete c.known; // (review fix: moved, it is no longer where the enemy saw it)
   makePoint(state, events, top, id, false, "sited");
 }
 
@@ -327,7 +342,7 @@ export function cacheBurst(ctx: SimContext, state: SimState, events: EventSink, 
     const d = hypot2(dx, dy);
     if (d > R) continue;
     const f = 1 - d / R;
-    if ((state.container.get(id)?.stacks.length ?? 0) === 0) continue;
+    if (!cacheHolds(state.container.get(id))) continue;
     c.hp = Math.max(0, c.hp - f * Math.min(1, fillingKg / S.blast.hpKg));
     const chance = f * Math.min(S.blast.maxChance, fillingKg * S.blast.chancePerKg);
     if (c.hp <= 0 || nextFloat(state.rng, Streams.supply) < chance) ignite(ctx, state, events, S, id, c, "blast");
@@ -358,7 +373,7 @@ function ammoOfStack(ctx: SimContext, type: DefId): DefId | undefined {
 
 /** Set cache `id` off: it burns for `minS`-`maxS` s. */
 export function ignite(ctx: SimContext, state: SimState, events: EventSink, S: Supply, id: EntityId, c: Cache, cause: "blast" | "fire"): void {
-  if (c.cookoff !== undefined || (state.container.get(id)?.stacks.length ?? 0) === 0) return;
+  if (c.cookoff !== undefined || c.burnt === true || !cacheHolds(state.container.get(id))) return;
   const dur = nextRange(state.rng, Streams.supply, S.cookoff.minS, S.cookoff.maxS);
   const bursts = explosiveIn(ctx, state.container.get(id));
   c.cookoff = { startTick: state.tick, endTick: state.tick + secondsToTicks(dur), nextTick: state.tick + 1, bursts };
@@ -410,6 +425,8 @@ function stepCookoff(ctx: SimContext, state: SimState, events: EventSink, S: Sup
   if (last || (cont?.stacks.length ?? 0) === 0) {
     delete c.cookoff;
     c.burnt = true; c.hp = 0;
+    // (Review fix: a supply point that has burnt out is one no longer: the platoon's next point is sited afresh.)
+    unPoint(state, id);
     events.emit({ kind: "cache.burnt", tick: state.tick, cache: id, side: c.side });
     return;
   }
@@ -437,10 +454,11 @@ export function supplyPointOrder(ctx: SimContext, state: SimState, events: Event
   if (nearNest(ctx, state, px, py)) return { unable: "radio.supplyNearNest" };
   const pid = supplyPointOf(state, top);
   const old = pid === null ? undefined : state.rear.req(pid).cache;
-  if (old !== undefined && state.cache.has(old) && (state.container.get(old)?.stacks.length ?? 0) === 0 && state.cache.req(old).cookoff === undefined) {
+  if (old !== undefined && state.cache.has(old) && !cacheHolds(state.container.get(old)) && state.cache.req(old).cookoff === undefined && state.cache.req(old).burnt !== true) {
     // An empty point is simply moved.
     const t = state.transform.req(old);
     t.x = px; t.y = py;
+    delete state.cache.req(old).known; // (review fix: no longer where the enemy saw it)
     makePoint(state, events, top, old, true, "ordered");
     return true;
   }
@@ -510,7 +528,7 @@ function takeSeconds(S: Supply, p: { magRounds: number; bulkRounds: number; whol
 /** Can a cache supply these men (own side, not burning, something in it fits one of them)? */
 function usable(state: SimState, cache: EntityId, side: SideId): boolean {
   const c = state.cache.get(cache);
-  return c !== undefined && c.side === side && c.cookoff === undefined && c.carried !== true && (state.container.get(cache)?.stacks.length ?? 0) > 0;
+  return c !== undefined && c.side === side && c.cookoff === undefined && c.burnt !== true && c.carried !== true && cacheHolds(state.container.get(cache));
 }
 
 /**
@@ -618,10 +636,11 @@ export function stepResupply(ctx: SimContext, state: SimState, events: EventSink
   m.formation = null; m.endPosture = "crouching"; m.endHeading = null;
 }
 
-/** Beside the cache, on his floor, still, able; the cache his side's and not burning. */
-function takeSupplyCheck(state: SimState, actor: EntityId, src: EntityId): string | null {
+/** Beside the cache, on his floor, still, able, not pinned down (review fix); the cache his side's and not burning. */
+function takeSupplyCheck(ctx: SimContext, state: SimState, actor: EntityId, src: EntityId): string | null {
   const s = state.soldier.get(actor);
   if (!s || !isAble(s) || !s.impair.canUseArms || isMounted(s)) return "unable";
+  if (shakenForErrand(ctx, s)) return "suppressed";
   const a = state.transform.get(actor), b = state.transform.get(src);
   if (!a || !b || !state.container.has(src)) return "gone";
   if (!usable(state, src, state.identity.req(actor).side)) return "gone";
@@ -672,12 +691,12 @@ function sourceIn(ctx: SimContext, k: Container, cart: DefId): ItemStack | null 
 }
 
 registerActionHandler("takeSupply", {
-  check(_ctx, state, actor, a) {
-    return takeSupplyCheck(state, actor, Number(a.params["source"]));
+  check(ctx, state, actor, a) {
+    return takeSupplyCheck(ctx, state, actor, Number(a.params["source"]));
   },
   complete(ctx, state, actor, a, events) {
     const src = Number(a.params["source"]);
-    if (takeSupplyCheck(state, actor, src) !== null) return;
+    if (takeSupplyCheck(ctx, state, actor, src) !== null) return;
     takeSupplies(ctx, state, events, actor, src);
   },
 });
@@ -794,6 +813,8 @@ function stepSquad(ctx: SimContext, state: SimState, events: EventSink, S: Suppl
   if (nearCache(ctx, state, S, men, u.side, 1) !== null) return;
   const a = squadAmmo(ctx, state, uid);
   const top = topOf(state, uid);
+  // (Review fix: nobody could answer — no supply point, and no stock with a supply vehicle to bring one: no request.)
+  if (!supplyReachable(ctx, state, top, u.side)) return;
   const rule = u.supplyRule ?? state.unit.get(top)?.supplyRule ?? "auto";
   u.supplyAsk = { tick: state.tick, ...(rule === "ask" ? { pending: true as const } : {}) };
   const from = u.leader !== null && men.includes(u.leader) ? u.leader : men[0]!;
@@ -805,6 +826,18 @@ function stepSquad(ctx: SimContext, state: SimState, events: EventSink, S: Suppl
     const tu = state.unit.get(top);
     if (r !== true && r.unable !== "radio.bearersNoPoint" && tu && tu.leader !== null && onAir(state, top)) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: tu.leader, key: r.unable, params: { callsign: tu.callsign } });
   }
+}
+
+/** Could anything answer a request of top unit `top`'s squads: its supply point, or the side's off-map stock with a
+ *  supply vehicle that is not lost (a delivery brings a point)? */
+function supplyReachable(ctx: SimContext, state: SimState, top: EntityId, side: SideId): boolean {
+  if (supplyPointOf(state, top) !== null) return true;
+  if (ctx.rules.deliveries === false || ctx.catalog.supply?.delivery === undefined) return false;
+  let stock = false;
+  for (const [, st] of state.stock.entries()) if (st.side === side) { stock = true; break; }
+  if (!stock) return false;
+  for (const [, v] of state.vehicle.entries()) if (v.side === side && v.offMap?.kind === "supply" && v.offMap.phase !== "lost" && v.status !== "destroyed") return true;
+  return false;
 }
 
 /** The men now carrying ammunition to (or on their way to fetch it for) this squad. */
@@ -919,9 +952,15 @@ export function sendBearers(ctx: SimContext, state: SimState, events: EventSink,
   if (!S || !B || !u || ctx.rules.resupply === false || !asks(u)) return { unable: "radio.unable" };
   if (bearersFor(state, uid).length > 0) return { unable: "radio.bearersComing" };
   const top = topOf(state, uid), pid = supplyPointOf(state, top);
-  const point = pid === null ? undefined : state.rear.get(pid)?.cache;
+  let point = pid === null ? undefined : state.rear.get(pid)?.cache;
   if (point === undefined || !state.cache.has(point)) return { unable: "radio.bearersNoPoint" };
-  if (!usable(state, point, u.side) || loadFor(ctx, state, uid, point, B.crateMaxKg).length === 0) return { unable: "radio.supplyEmpty" };
+  if (!usable(state, point, u.side) || loadFor(ctx, state, uid, point, B.crateMaxKg).length === 0) {
+    // (Review fix: the point holds nothing for them — moved, emptied — but crates left behind may: the nearest own
+    // cache within `take.reachM` of the point with something for the squad.)
+    const alt = fallbackCache(ctx, state, uid, point, u.side, B.crateMaxKg);
+    if (alt === null) return { unable: "radio.supplyEmpty" };
+    point = alt;
+  }
   const men = pickSupplyBearers(ctx, state, uid, point, own);
   if (men.length === 0) return { unable: "radio.bearersNone" };
   for (let i = 0; i < men.length; i++) {
@@ -942,14 +981,44 @@ export function sendBearers(ctx: SimContext, state: SimState, events: EventSink,
   return true;
 }
 
-/** Where a crate for squad `uid` is put: beside its leader, else its first able man (his floor's height). */
-function dropSpot(state: SimState, uid: EntityId): { x: number; y: number; z: number } | null {
+/** The nearest own cache lying on the ground (not a crate on the move, not a mortar section's rounds) within
+ *  `take.reachM` of `point` that holds something for squad `uid`, or null. */
+function fallbackCache(ctx: SimContext, state: SimState, uid: EntityId, point: EntityId, side: SideId, capKg: number): EntityId | null {
+  const S = ctx.catalog.supply!, pt = state.transform.req(point);
+  let best: EntityId | null = null, bestD = S.take.reachM;
+  for (const [k, c] of state.cache.entries()) {
+    if (k === point || c.tubes !== undefined || !usable(state, k, side)) continue;
+    const t = state.transform.req(k), d = hypot2(t.x - pt.x, t.y - pt.y);
+    if (d >= bestD || loadFor(ctx, state, uid, k, capKg).length === 0) continue;
+    bestD = d; best = k;
+  }
+  return best;
+}
+
+/** Where a crate for squad `uid` is put: beside its leader, else its first able man (his floor's height); never
+ *  inside a Verwundetennest's clear zone (review fix: moved out of it, away from the nest, onto passable ground). */
+function dropSpot(ctx: SimContext, state: SimState, uid: EntityId): { x: number; y: number; z: number } | null {
   const u = state.unit.get(uid);
   if (!u) return null;
   const men = footMen(state, uid);
   const who = u.leader !== null && men.includes(u.leader) ? u.leader : men[0];
   if (who === undefined) return null;
   const t = state.transform.req(who);
+  const R = ctx.catalog.supply?.nestClearM ?? 0;
+  if (R > 0) for (const [, p] of state.rear.entries()) {
+    if (p.kind !== "medical") continue;
+    const dx = t.x - p.x, dy = t.y - p.y, d = hypot2(dx, dy);
+    if (d >= R) continue;
+    const ux = d > 0.5 ? dx / d : 1, uy = d > 0.5 ? dy / d : 0;
+    let x = p.x + ux * (R + 3), y = p.y + uy * (R + 3);
+    const foot = navFor(ctx, "foot").grid;
+    if (navCostAt(foot, x, y) <= 0) {
+      const i = nearestPassable(foot, x, y, 4);
+      if (i >= 0) { x = (i % foot.cols + 0.5) * foot.cellM; y = (Math.floor(i / foot.cols) + 0.5) * foot.cellM; }
+    }
+    if (nearNest(ctx, state, x, y)) return null; // (nowhere to put it down)
+    return { x, y, z: heightAt(ctx.map, x, y) }; // ground: ok (a crate on the ground outside the nest)
+  }
   return { x: t.x, y: t.y, z: t.z };
 }
 
@@ -995,7 +1064,7 @@ export function stepBear(ctx: SimContext, state: SimState, events: EventSink, id
   if (!S || !B || ctx.rules.resupply === false || it.squad === undefined || it.target === undefined || !isAble(s) || isMounted(s)) { quitBear(ctx, state, id); return; }
   if (state.tick - it.tick > secondsToTicks(B.giveUpS)) { quitBear(ctx, state, id); return; }
   const side = state.identity.req(id).side;
-  const drop = dropSpot(state, it.squad);
+  const drop = dropSpot(ctx, state, it.squad);
   if (!drop) { quitBear(ctx, state, id); return; }
   const me = state.transform.req(id), mv = state.mover.get(id);
   if (it.load !== undefined) {
@@ -1106,7 +1175,7 @@ registerActionHandler("loadSupply", {
     const side = state.identity.req(actor).side, pt = state.transform.req(src);
     const mate = mateOn(state, it);
     const mateThere = mate !== null && (() => { const t = state.transform.req(mate); return hypot2(t.x - pt.x, t.y - pt.y) <= TAKE_REACH_M + 0.5 && Math.abs(t.z - pt.z) <= 1.5 && state.soldier.req(mate).carrying === undefined; })();
-    const drop = dropSpot(state, it.squad);
+    const drop = dropSpot(ctx, state, it.squad);
     const items = drop ? loadFor(ctx, state, it.squad, src, mateThere ? B.crateMaxKg : B.maxKg) : [];
     if (items.length === 0) { quitBear(ctx, state, actor); if (mate !== null) quitBear(ctx, state, mate); return; }
     const load = newCache(state, side, pt.x, pt.y, [], "cache");

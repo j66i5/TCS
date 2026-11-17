@@ -41,7 +41,7 @@ import { nextRange, Streams } from "../rng";
 import type { SimState } from "../state";
 import { vehicleHalt, vehicleMove, type OrderResult } from "./drive";
 import { backAwayAndGo, canDrive, entryPoint, HELD_UP_NEAR_M, radio, standSpot } from "./evacuation";
-import { topOf } from "./nest";
+import { supplyPointOf, topOf } from "./nest";
 import { ensureSupplyPoint, newCache, putInCache, roundsInContainer } from "./supply";
 import { tubeOf, type Tube } from "./mortars";
 import { fuelShortL, stowageWants } from "./rearm";
@@ -85,6 +85,31 @@ export function fromStock(ctx: SimContext, state: SimState, events: EventSink, s
     events.emit({ kind: "items.delivered", tick: state.tick, holder: to, item: type, count: moved, ...(r ? { ammo: r.ammo, rounds: r.rounds } : {}), ...(ck !== undefined ? { chargeKind: ck, amount: charge! * moved } : {}) });
   }
   return moved;
+}
+
+/**
+ * Put a load still aboard vehicle `vid` back into stock `stock` (review fix: an ambulance home from a run it could not
+ * finish is unloaded at the rear before it does casualty work again). Each move leaves the battle: `items.delivered`
+ * with negative counts, so the ledger stays exact. Returns the stacks that could not be put back.
+ */
+function toStock(ctx: SimContext, state: SimState, events: EventSink, stock: EntityId, vid: EntityId, load: readonly ItemStack[]): ItemStack[] {
+  const left: ItemStack[] = [];
+  for (const st of load) {
+    const moved = transferItems(ctx.catalog, state.container, st.charge === undefined ? { from: vid, to: stock, type: st.type, count: st.count } : { from: vid, to: stock, type: st.type, count: st.count, charge: st.charge }).moved;
+    if (moved > 0) {
+      const r = roundsOfStack(ctx, st.type, moved, st.charge);
+      const d = ctx.catalog.items[st.type];
+      const ck = st.charge !== undefined && d?.chargeItem === undefined ? d?.chargeKind : undefined;
+      events.emit({ kind: "items.delivered", tick: state.tick, holder: vid, item: st.type, count: -moved, ...(r ? { ammo: r.ammo, rounds: -r.rounds } : {}), ...(ck !== undefined ? { chargeKind: ck, amount: -(st.charge! * moved) } : {}) });
+    }
+    if (moved < st.count) left.push({ ...st, count: st.count - moved });
+  }
+  return left;
+}
+
+/** Does a load hold ammunition? */
+function loadHasAmmo(ctx: SimContext, load: readonly ItemStack[]): boolean {
+  return load.some((s) => s.count > 0 && roundsOfStack(ctx, s.type, s.count, s.charge) !== null);
 }
 
 /** The cartridges the men of top unit `top` fire (their weapons' feeds), sorted. */
@@ -167,7 +192,8 @@ function loadForHulls(ctx: SimContext, state: SimState, events: EventSink, stock
   };
   const fuel = new Map<string, number>();
   for (const [vid, v] of state.vehicle.entries()) {
-    if (v.offMap !== undefined || v.unit === null || v.status === "destroyed" || topOf(state, v.unit) !== top) continue;
+    // (Review fix: not for a hull towed away or being recovered, abandoned, or away on a rear run — restocked there.)
+    if (v.offMap !== undefined || v.unit === null || v.status === "destroyed" || v.status === "abandoned" || v.towAway === true || v.towedBy !== undefined || v.recoveryBy !== undefined || v.rearRun !== undefined || topOf(state, v.unit) !== top) continue;
     const def = ctx.catalog.vehicles[v.def];
     if (!def) continue;
     for (const w of stowageWants(ctx, state, vid, v)) {
@@ -215,12 +241,19 @@ function massOf(ctx: SimContext, load: readonly ItemStack[]): number {
   return kg;
 }
 
-/** Put a load from container `from` into cache `cache` (as much of each stack as is still there). Rounds moved. */
-export function unloadInto(ctx: SimContext, state: SimState, from: EntityId, cache: EntityId, load: readonly ItemStack[]): number {
+/** Put a load from container `from` into cache `cache` (as much of each stack as is still there). Rounds moved;
+ *  `left` gets what stayed aboard (refused: the cache inside a nest's clear zone, or burnt). */
+export function unloadInto(ctx: SimContext, state: SimState, from: EntityId, cache: EntityId, load: readonly ItemStack[], left?: ItemStack[]): number {
   let n = 0;
   for (const s of load) {
     const moved = putInCache(ctx, state, from, cache, s);
     n += roundsOfStack(ctx, s.type, moved, s.charge)?.rounds ?? 0;
+    if (left && moved < s.count) {
+      // (Only what is still aboard: as much of the stack as the hull's container holds.)
+      const have = state.container.get(from)?.stacks.find((x) => x.type === s.type && x.charge === s.charge)?.count ?? 0;
+      const k = Math.min(s.count - moved, have);
+      if (k > 0) left.push({ ...s, count: k });
+    }
   }
   return n;
 }
@@ -455,13 +488,24 @@ function stepRun(ctx: SimContext, state: SimState, events: EventSink, vid: Entit
   const tick = state.tick;
   if (o.phase === "away") {
     if (tick < (o.backTick ?? 0)) return;
-    // Ready for the next call (an ambulance back to its own work; the load not unloaded stays aboard).
-    const load = o.load;
-    v.offMap = { kind: o.kind, phase: "ready", ...(load && load.length > 0 ? { load } : {}) };
+    // Ready for the next call (the load not unloaded stays aboard a supply vehicle for its next run). Review fix: an
+    // ambulance is unloaded at the rear (into the stock) before it goes back to its own work; what cannot be put back
+    // stays aboard as cargo, and it does no casualty work while it carries it.
+    let load = o.load ?? [];
+    if (o.kind === "ambulance" && load.length > 0) { const st = stockOf(state, v.side); if (st !== null) load = toStock(ctx, state, events, st, vid, load); }
+    if (v.misuse === true && !loadHasAmmo(ctx, load)) delete v.misuse;
+    v.offMap = { kind: o.kind, phase: "ready", ...(load.length > 0 ? { load, ...(o.kind === "ambulance" ? { cargo: "supplies" as const } : {}) } : {}) };
     emit(state, events, vid, v, "ready");
     return;
   }
-  if (o.phase === "ready" || o.phase === "lost") return;
+  if (o.phase === "ready") return;
+  if (o.phase === "lost") {
+    // Review fix: stranded only for a while (wheel repaired, a driver back in his seat): it goes on — to the point
+    // with a load still aboard, else back off the map.
+    if (!canDrive(ctx, state, v)) return;
+    if ((o.load?.length ?? 0) > 0) { o.phase = "inbound"; o.enterTick = tick; delete o.goal; o.retryTick = tick; }
+    else { goBack(ctx, state, events, vid, v, o, null); return; }
+  }
   if (o.phase === "called") {
     if (tick < (o.enterTick ?? 0)) return;
     const entry = o.entry!;
@@ -481,7 +525,10 @@ function stepRun(ctx: SimContext, state: SimState, events: EventSink, vid: Entit
     return;
   }
   const t = state.transform.req(vid);
-  const p = o.point !== undefined ? state.rear.get(o.point) : undefined;
+  // (Review fix: the platoon's supply point as it is now — moved or replaced by an order since the call.)
+  const pid = o.unit !== undefined ? supplyPointOf(state, o.unit) : o.point ?? null;
+  if (pid !== null) o.point = pid;
+  const p = pid !== null ? state.rear.get(pid) : undefined;
   if (o.phase === "inbound") {
     if (!p || p.cache === undefined || !state.cache.has(p.cache)) { goBack(ctx, state, events, vid, v, o, "cancelled"); return; }
     const dP = hypot2(t.x - p.x, t.y - p.y);
@@ -506,16 +553,21 @@ function stepRun(ctx: SimContext, state: SimState, events: EventSink, vid: Entit
     return;
   }
   if (o.phase === "loading") {
+    // (Review fix: the point gone — captured, burnt out — it goes back with its load; moved away, it drives after it.)
+    const cache = p?.cache, ct = cache !== undefined ? state.transform.get(cache) : undefined;
+    if (!p || cache === undefined || !ct || !state.cache.has(cache)) { goBack(ctx, state, events, vid, v, o, "cancelled"); return; }
+    if (hypot2(t.x - ct.x, t.y - ct.y) > HELD_UP_NEAR_M + 10) { o.phase = "inbound"; o.enterTick = tick; delete o.goal; o.retryTick = tick; return; }
     if (tick < (o.unloadTick ?? 0)) return;
-    const cache = p?.cache;
     let n = 0;
-    if (cache !== undefined && state.cache.has(cache) && o.load) {
-      n = unloadInto(ctx, state, vid, cache, o.load);
+    const left: ItemStack[] = [];
+    if (o.load) {
+      n = unloadInto(ctx, state, vid, cache, o.load, left);
       const c = state.cache.req(cache);
       if (c.fill === undefined) c.fill = roundsInContainer(ctx, state.container.get(cache));
     }
-    delete o.load;
-    if (v.misuse === true) delete v.misuse;
+    // (Review fix: only what was put down leaves the load; ammunition still aboard keeps an ambulance unprotected.)
+    if (left.length > 0) o.load = left; else delete o.load;
+    if (v.misuse === true && !loadHasAmmo(ctx, left)) delete v.misuse;
     emit(state, events, vid, v, "unloaded", { rounds: n });
     if (o.unit !== undefined) radio(state, events, o.unit, "radio.deliveryUnloaded", { rounds: n });
     goBack(ctx, state, events, vid, v, o, null);

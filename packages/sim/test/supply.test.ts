@@ -6,7 +6,8 @@ import {
 } from "../src/index";
 import { EventSink } from "../src/events";
 import { armedInput, rec, testCatalog, testInput } from "./helpers";
-import { cacheBurst, cookoffChance, ensureSupplyPoint, ignite, newCache, putInCache, siteSupply } from "../src/systems/supply";
+import { cacheBurst, cacheHolds, cookoffChance, ensureSupplyPoint, ignite, newCache, putInCache, siteSupply, supplyPointOrder } from "../src/systems/supply";
+import { ammoCacheNear, supplyPointOf } from "../src/systems/nest";
 import { detonate } from "../src/systems/explosions";
 import { ammoIndexOf } from "../src/projectiles";
 
@@ -224,5 +225,48 @@ describe("supply points and caches (M11.3)", () => {
     const old = serializeState(createSim(quietInput()).state);
     old.schema = 22; delete (old.stores as Record<string, unknown>)["cache"];
     expect(deserializeState(old).cache.size).toBe(0);
+  });
+});
+
+describe("supply review fixes (M11)", () => {
+  it("an emptied cache (packages at charge 0) is no longer worth setting off; an emptied point is simply moved", () => {
+    const sim = createSim(quietInput());
+    const top = topOfSide(sim, "blue");
+    const id = newCache(sim.state, "blue", 100, 150, [{ type: "can", count: 1, charge: 0 }]);
+    expect(cacheHolds(sim.state.container.get(id))).toBe(false);
+    ignite(sim.ctx, sim.state, new EventSink(), SUPPLY, id, sim.state.cache.req(id), "fire");
+    expect(sim.state.cache.req(id).cookoff).toBeUndefined();
+    const ev = new EventSink();
+    expect(supplyPointOrder(sim.ctx, sim.state, ev, top, 150, 40)).toBe(true);
+    const pt = sim.state.rear.req(supplyPointOf(sim.state, top)!).cache!;
+    sim.state.container.req(pt).stacks.push({ type: "can", count: 2, charge: 0 });
+    sim.state.cache.req(pt).known = ["red"];
+    expect(supplyPointOrder(sim.ctx, sim.state, ev, top, 150, 60)).toBe(true);
+    expect(sim.state.rear.req(supplyPointOf(sim.state, top)!).cache).toBe(pt);
+    expect(sim.state.cache.req(pt).known).toBeUndefined(); // (moved: the enemy must see it again)
+  });
+
+  it("a supply point that burns out is one no longer, and nothing goes into a burnt cache", () => {
+    const sim = createSim(quietInput());
+    const top = topOfSide(sim, "blue");
+    const ev = new EventSink();
+    const pid = ensureSupplyPoint(sim.ctx, sim.state, ev, top)!;
+    const pt = sim.state.rear.req(pid).cache!;
+    sim.state.container.req(pt).stacks.push({ type: "mag", count: 2, charge: 30 });
+    ignite(sim.ctx, sim.state, ev, SUPPLY, pt, sim.state.cache.req(pt), "fire");
+    run(sim, 125);
+    expect(sim.state.cache.req(pt).burnt).toBe(true);
+    expect(supplyPointOf(sim.state, top)).toBeNull();
+    expect(putInCache(sim.ctx, sim.state, blues(sim)[0]!, pt, { type: "mag", count: 1, charge: 30 })).toBe(0);
+  });
+
+  it("the nest is never put on a cache holding ammunition (an old point left as a plain cache)", () => {
+    const sim = createSim(quietInput());
+    const top = topOfSide(sim, "blue");
+    const pile = newCache(sim.state, "blue", 120, 100, [{ type: "mag", count: 4, charge: 30 }]);
+    expect(casualtyPointOrder(sim.ctx, sim.state, new EventSink(), top, 125, 100)).toEqual({ unable: "radio.nestNearSupply" });
+    // Emptied, it is no reason to refuse.
+    sim.state.container.req(pile).stacks[0]!.charge = 0;
+    expect(ammoCacheNear(sim.ctx, sim.state, 125, 100)).toBe(false);
   });
 });

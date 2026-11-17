@@ -4,7 +4,8 @@
  * delivery, idle hulls re-arm and refuel, the mortar men fetch rounds, M11.3-M11.5); the commander shells enemy caches
  * it has seen (commander.ts, M11.3). This adds what only a commander decides, as orders (rule 3):
  *
- * - **A threatened supply point** (an enemy its men know within `supply.site.threatM` of it while it still holds
+ * - **A threatened supply point** (an enemy its men know within `supply.site.threatM` of it — seen, or placed to within
+ *   half that: review fix, one stray report must not move a full point — while it still holds
  *   ammunition): the platoon's supply point moves back, away from that enemy (`supplyPoint`: the crates left there
  *   become a plain cache that the squads near it still use; the next delivery and the bearers go to the new point),
  *   and men of the side within `request.useM` of the old one who are short fill up there before it is lost
@@ -17,7 +18,7 @@
  *
  * Values not from data are listed in LOGISTICS_AI (game values, low).
  */
-import { hypot2, roundsOfMan, type Contact, type EntityId, type Order, type SideId, type SimContext, type SimView } from "@tcs/sim";
+import { cacheHolds, hypot2, roundsOfMan, type Contact, type EntityId, type Order, type SideId, type SimContext, type SimView } from "@tcs/sim";
 
 export const LOGISTICS_AI = { lookSeconds: 10, quietS: 30, enemyClearM: 200, squadEveryS: 120, fillUpMax: 4, manShareBelow: 0.5 } as const;
 
@@ -29,7 +30,25 @@ export interface LogisticsMemory {
 /** Does this cache hold anything the side can take (not burning, not being carried)? */
 function full(view: SimView, cid: EntityId, side: SideId): boolean {
   const c = view.cache.get(cid);
-  return c !== undefined && c.side === side && c.cookoff === undefined && c.burnt !== true && c.carried !== true && (view.container.get(cid)?.stacks.length ?? 0) > 0;
+  return c !== undefined && c.side === side && c.cookoff === undefined && c.burnt !== true && c.carried !== true && cacheHolds(view.container.get(cid));
+}
+
+/** Does the cache hold rounds for any of these men's weapons (a magazine, belt or package of their cartridge with
+ *  rounds in it)? Review fix: as the sim's own test (`takePlan`) — never a trip to a pile of the wrong calibre. */
+function fits(ctx: SimContext, view: SimView, cid: EntityId, men: readonly EntityId[]): boolean {
+  const k = view.container.get(cid);
+  if (!k) return false;
+  const carts = new Set<string>();
+  for (const m of men) {
+    const w = view.weapon.get(m), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
+    const cart = wd ? ctx.catalog.items[wd.feed.magazine]?.chargeItem : undefined;
+    if (cart !== undefined) carts.add(cart);
+  }
+  for (const s of k.stacks) {
+    const d = ctx.catalog.items[s.type];
+    if (s.count > 0 && (s.charge ?? 0) > 0 && d?.chargeItem !== undefined && (d.category === "magazine" || d.category === "ammo-package") && carts.has(d.chargeItem)) return true;
+  }
+  return false;
 }
 
 /** The orders of this look (at most every `lookSeconds`). */
@@ -41,9 +60,11 @@ export function logisticsOrders(view: SimView, ctx: SimContext, side: SideId, ti
   const out: Order[] = [];
   let contacts: readonly Contact[] | null = null;
   const enemies = () => (contacts ??= contactsOf().filter((c) => c.down !== true && c.surrendered !== true));
-  const nearestEnemy = (x: number, y: number) => {
+  // (A threat to a supply point: seen, or placed well enough to be one.)
+  const sure = (c: Contact) => c.kind === "seen" || c.errM <= S.site.threatM * 0.5;
+  const nearestEnemy = (x: number, y: number, only?: (c: Contact) => boolean) => {
     let best: Contact | null = null, d = Infinity;
-    for (const c of enemies()) { const e = hypot2(c.x - x, c.y - y); if (e < d) { d = e; best = c; } }
+    for (const c of enemies()) { if (only && !only(c)) continue; const e = hypot2(c.x - x, c.y - y); if (e < d) { d = e; best = c; } }
     return { c: best, d };
   };
   // ---- a threatened supply point moves back; men near it fill up first
@@ -52,7 +73,7 @@ export function logisticsOrders(view: SimView, ctx: SimContext, side: SideId, ti
     if (p.kind !== "supply" || p.side !== side || p.cache === undefined || moved.includes(p.cache) || !full(view, p.cache, side)) continue;
     const t = view.transform.get(p.cache);
     if (!t) continue;
-    const n = nearestEnemy(t.x, t.y);
+    const n = nearestEnemy(t.x, t.y, sure);
     if (n.c === null || n.d > S.site.threatM) continue;
     moved.push(p.cache);
     const ux = n.d > 1 ? (t.x - n.c.x) / n.d : 0, uy = n.d > 1 ? (t.y - n.c.y) / n.d : 0;
@@ -94,9 +115,12 @@ export function logisticsOrders(view: SimView, ctx: SimContext, side: SideId, ti
     if (men.length < 2 || fullR <= 0 || rounds / fullR >= R.below) continue;
     const cx = men.reduce((a, q) => a + q.x, 0) / men.length, cy = men.reduce((a, q) => a + q.y, 0) / men.length;
     if (nearestEnemy(cx, cy).d < LOGISTICS_AI.enemyClearM) continue;
+    const go = men.filter((q) => q.share < LOGISTICS_AI.manShareBelow).sort((a, b) => a.share - b.share || a.m - b.m).slice(0, Math.floor(men.length / 2));
+    if (go.length === 0) continue;
+    const goIds = go.map((q) => q.m);
     let pick: EntityId | null = null, bestD = S.take.reachM, closeBy = false;
     for (const [cid] of view.cache.entries()) {
-      if (!full(view, cid, side)) continue;
+      if (!full(view, cid, side) || !fits(ctx, view, cid, goIds)) continue;
       const ct = view.transform.get(cid);
       if (!ct) continue;
       const d = hypot2(ct.x - cx, ct.y - cy);
@@ -105,7 +129,6 @@ export function logisticsOrders(view: SimView, ctx: SimContext, side: SideId, ti
     }
     if (closeBy || pick === null) continue; // (a crate beside them: the sim's own rule; none in reach: the bearers)
     errand[String(uid)] = tick;
-    const go = men.filter((q) => q.share < LOGISTICS_AI.manShareBelow).sort((a, b) => a.share - b.share || a.m - b.m).slice(0, Math.floor(men.length / 2));
     for (const q of go) out.push({ tick, issuer: side, target: q.m, kind: "resupplyAt", cache: pick });
   }
   return out;

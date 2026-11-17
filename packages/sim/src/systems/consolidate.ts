@@ -15,10 +15,12 @@
  *                  rounds, grenades and rockets (`takeAmmo`, `takeS`), leaving a man who can still use his arms
  *                  `leaveMags` magazines. Never before the treatment (owner), never while he is cared for, carried or
  *                  checked.
- *   the nest       The Verwundetennest holds no ammunition (owner): a treated casualty lying there hands his to the
- *                  nearest able man of his platoon within `nestHandM` (never a man wearing the red cross); with nobody
- *                  there it is left as a pile (an entity with a container) `nestCacheM` from the nest, toward the
- *                  platoon.
+ *   the nest       The Verwundetennest holds no ammunition (owner): a casualty lying there (on arrival, not only once
+ *                  treated; review fix) has the magazine taken out of his weapon and hands all of it to the nearest
+ *                  able man of his platoon within `nestHandM` (never a man wearing the red cross); with nobody there,
+ *                  or as he is taken aboard an ambulance, it is left as a pile (an entity with a container)
+ *                  `nestCacheM` from the nest, toward the platoon. Taking in the field waits for `quietS` since the
+ *                  squad was last fired on, never sends a medic, and stops when the man is pinned (review fix).
  *   takeKit        On the player's order only (the AI never gives it): one man goes to an enemy casualty, prisoner or
  *                  a pile and takes the ammunition that fits a weapon he carries; if none fits, he swaps his rifle for
  *                  the enemy's rifle with its magazines (his own goes into his load as its `weaponItem`, so nothing
@@ -34,6 +36,7 @@ import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type DefId, type EntityId } from "../ids";
 import { isAble, isConscious } from "../impair";
+import { isCowering } from "./morale";
 import { routeBetween, routeWaypoints } from "../interior-nav";
 import { addItems, transferItems, type Container } from "../items";
 import { atan2, hypot2 } from "../math";
@@ -63,6 +66,14 @@ function freeMan(state: SimState, id: EntityId): boolean {
   if ((s.intent !== null && s.intent.returning !== true) || state.fire.has(id) || s.carrying !== undefined || s.atNest !== undefined || state.tick < s.stunnedUntilTick) return false;
   if (s.mental.behaviour === "panicked" || s.mental.behaviour === "routed" || s.mental.behaviour === "pinned") return false;
   return s.intent?.returning === true || (state.mover.get(id)?.waypoints.length ?? 0) === 0;
+}
+
+/**
+ * Too shaken to go on with an errand to take ammunition (review fix): pinned or panicked, or suppressed as far as a
+ * carrying party takes cover (`medical.carrying.holdSuppression`). The taking stops; he deals with the fire.
+ */
+export function shakenForErrand(ctx: SimContext, s: SoldierState): boolean {
+  return isCowering(s) || s.mental.suppression >= (ctx.catalog.medical?.carrying?.holdSuppression ?? 0.3);
 }
 
 /** Where he stands now, kept on an errand's intent so that he walks back there afterwards. */
@@ -176,7 +187,8 @@ function busyWith(state: SimState): Map<EntityId, EntityId> {
 
 /** What a casualty keeps: `leaveMags` of his weapon's magazines while he can still use his arms. */
 function keepOf(ctx: SimContext, state: SimState, C: Consolidate, c: EntityId, s: SoldierState): { keep: number; type?: DefId } {
-  if (!isConscious(s) || !s.impair.canUseArms) return { keep: 0 };
+  // (At the Verwundetennest he keeps nothing: no ammunition at the red cross, owner; review fix.)
+  if (!isConscious(s) || !s.impair.canUseArms || s.atNest !== undefined) return { keep: 0 };
   const f = feedOf(ctx, state, c);
   return f ? { keep: C.leaveMags, type: f.item } : { keep: 0 };
 }
@@ -190,7 +202,8 @@ export function consolidateSystem(ctx: SimContext, state: SimState, events: Even
   const busy = () => (map ??= busyWith(state));
   for (const [uid, u] of state.unit.entries()) {
     if ((state.tick + uid) % every !== 0 || u.members.length === 0 || u.vehicle !== undefined || u.asset !== undefined) continue;
-    salvage(ctx, state, events, C, u, busy);
+    // (Review fix: not while the squad is being fired on — `quietS` since it was last fired on.)
+    if (state.tick - (u.ownFireTick ?? -1e9) >= secondsToTicks(C.quietS)) salvage(ctx, state, events, C, u, busy);
     // (Quiet since the squad was last fired on, or since the battle began; halted for `haltS`, not on the march.)
     if (!halted(state, u)) { delete u.haltedTick; continue; }
     u.haltedTick ??= state.tick;
@@ -224,7 +237,8 @@ function salvage(ctx: SimContext, state: SimState, events: EventSink, C: Consoli
     const ct = state.transform.req(c);
     let best: EntityId | null = null, bestD = C.casualtyM;
     for (const m of u.members) {
-      if (m === c || !freeMan(state, m) || !isLow(ctx, state, C, m)) continue;
+      // (Never a man wearing the red cross: he would carry the squad's munitions under it; review fix.)
+      if (m === c || !freeMan(state, m) || !isLow(ctx, state, C, m) || wearsEmblem(ctx.catalog, state, m) || shakenForErrand(ctx, state.soldier.req(m))) continue;
       const t = state.transform.req(m);
       if (Math.abs(t.z - ct.z) > 1.5) continue;
       const d = hypot2(t.x - ct.x, t.y - ct.y);
@@ -234,7 +248,7 @@ function salvage(ctx: SimContext, state: SimState, events: EventSink, C: Consoli
       // Nobody low near him: the man who treated him last takes it if the squad as a whole is low.
       meanLow ??= squadLow(ctx, state, C, u);
       const by = lastCarer(s);
-      if (meanLow && by !== null && u.members.includes(by) && freeMan(state, by)) {
+      if (meanLow && by !== null && u.members.includes(by) && freeMan(state, by) && !wearsEmblem(ctx.catalog, state, by) && !shakenForErrand(ctx, state.soldier.req(by))) {
         const t = state.transform.req(by);
         if (Math.abs(t.z - ct.z) <= 1.5 && hypot2(t.x - ct.x, t.y - ct.y) <= C.casualtyM) best = by;
       }
@@ -266,23 +280,25 @@ function lastCarer(s: SoldierState): EntityId | null {
   return by;
 }
 
-/** A treated casualty at the Verwundetennest with ammunition: the nearest able man of his platoon takes it, else a pile. */
+/**
+ * A casualty at the Verwundetennest with ammunition (review fix: on arrival, not only after his treatment — no
+ * ammunition at the red cross, owner): the magazine in his weapon comes out, then the nearest able man of his platoon
+ * takes it all (never while someone is treating him), else it is left in a pile outside the nest.
+ */
 function atNest(ctx: SimContext, state: SimState, events: EventSink, C: Consolidate, pid: EntityId, busy: () => Map<EntityId, EntityId>): void {
   const p = state.rear.req(pid);
   // mounted: ok men aboard are not at a nest (ownCasualty)
   for (const [c, s] of state.soldier.entries()) {
     if (s.atNest !== pid || s.captive !== null || isMounted(s) || state.carry.has(c)) continue;
-    const k = keepOf(ctx, state, C, c, s);
-    const stacks = ammoStacks(ctx, state.container.get(c), k.keep, k.type);
-    if (stacks.length === 0 || !careDone(ctx, state, c, s, busy)) continue;
+    unloadWeapon(state, c);
+    const stacks = ammoStacks(ctx, state.container.get(c));
+    if (stacks.length === 0 || busy().has(c)) continue;
     let best: EntityId | null = null, bestD = C.nestHandM;
-    let cx = 0, cy = 0, n = 0;
     for (const m of menOfTop(state, p.unit)) {
       const ms = state.soldier.get(m);
       if (!isAble(ms) || ms!.atNest !== undefined || isMounted(ms)) continue;
-      const t = state.transform.req(m);
-      cx += t.x; cy += t.y; n++;
       if (!freeMan(state, m) || wearsEmblem(ctx.catalog, state, m)) continue;
+      const t = state.transform.req(m);
       const d = hypot2(t.x - p.x, t.y - p.y);
       if (d < bestD) { bestD = d; best = m; }
     }
@@ -292,19 +308,48 @@ function atNest(ctx: SimContext, state: SimState, events: EventSink, C: Consolid
       stepTake(ctx, state, events, best);
       continue;
     }
-    // Nobody to hand it to: it is left in a pile outside the nest, toward the platoon.
-    const dx = n > 0 ? cx / n - p.x : 1, dy = n > 0 ? cy / n - p.y : 0;
-    const len = hypot2(dx, dy) || 1;
-    const x = Math.min(Math.max(p.x + (dx / len) * C.nestCacheM, 1), ctx.map.widthM - 1);
-    const y = Math.min(Math.max(p.y + (dy / len) * C.nestCacheM, 1), ctx.map.heightM - 1);
-    // (M11.3: it is a cache of his side; outside the nest's clear zone, `nestCacheM` from it.)
-    const side = state.identity.req(c).side;
-    const pile = newCache(state, side, x, y, []);
-    let moved = 0;
-    for (const st of stacks) moved += putInCache(ctx, state, c, pile, st);
-    if (moved === 0) { state.cache.delete(pile); state.container.delete(pile); state.transform.delete(pile); continue; }
-    events.emit({ kind: "items.dropped", tick: state.tick, from: c, cache: pile, x, y });
+    pileOutsideNest(ctx, state, events, C, c, pid);
   }
+}
+
+/** The magazine in his weapon goes into his load (a counted item either way: the ledger is unchanged). */
+function unloadWeapon(state: SimState, c: EntityId): void {
+  const w = state.weapon.get(c), k = state.container.get(c);
+  if (!w?.magazine || !k) return;
+  addItems(k, w.magazine.item, 1, w.magazine.rounds);
+  w.magazine = null;
+}
+
+/**
+ * Casualty `c` at nest `pid`: all his ammunition is left in a pile outside the nest, `nestCacheM` from it toward his
+ * platoon (a cache of his side, outside the clear zone). Also as he is taken aboard an ambulance (evacuation.ts):
+ * nobody carries ammunition into it (owner). Review fix.
+ */
+export function pileOutsideNest(ctx: SimContext, state: SimState, events: EventSink, C: Consolidate | undefined, c: EntityId, pid: EntityId): void {
+  const p = state.rear.get(pid);
+  const CC = C ?? ctx.catalog.behaviour.consolidate;
+  if (!p || !CC) return;
+  unloadWeapon(state, c);
+  const stacks = ammoStacks(ctx, state.container.get(c));
+  if (stacks.length === 0) return;
+  let cx = 0, cy = 0, n = 0;
+  for (const m of menOfTop(state, p.unit)) {
+    const ms = state.soldier.get(m);
+    if (!isAble(ms) || ms!.atNest !== undefined || isMounted(ms)) continue;
+    const t = state.transform.req(m);
+    cx += t.x; cy += t.y; n++;
+  }
+  const dx = n > 0 ? cx / n - p.x : 1, dy = n > 0 ? cy / n - p.y : 0;
+  const len = hypot2(dx, dy) || 1;
+  const x = Math.min(Math.max(p.x + (dx / len) * CC.nestCacheM, 1), ctx.map.widthM - 1);
+  const y = Math.min(Math.max(p.y + (dy / len) * CC.nestCacheM, 1), ctx.map.heightM - 1);
+  // (M11.3: it is a cache of his side; outside the nest's clear zone, `nestCacheM` from it.)
+  const side = state.identity.req(c).side;
+  const pile = newCache(state, side, x, y, []);
+  let moved = 0;
+  for (const st of stacks) moved += putInCache(ctx, state, c, pile, st);
+  if (moved === 0) { state.cache.delete(pile); state.container.delete(pile); state.transform.delete(pile); return; }
+  events.emit({ kind: "items.dropped", tick: state.tick, from: c, cache: pile, x, y });
 }
 
 /** Every man of top unit `top` and its sub-units (ascending id). */
@@ -445,6 +490,8 @@ export function stepTake(ctx: SimContext, state: SimState, events: EventSink, id
   const st = state.transform.get(src);
   if (!st || !state.container.has(src) || state.tick - it.tick > 120 * TICK_HZ || !isAble(s) || isMounted(s)) { s.intent = null; return; }
   if (state.action.has(id)) return;
+  // (Review fix: fired on so that he goes to ground, he gives the errand up; his own rules take over.)
+  if (it.kind === "takeAmmo" && shakenForErrand(ctx, s)) { s.intent = null; return; }
   const me = state.transform.req(id);
   const d = hypot2(me.x - st.x, me.y - st.y);
   if (d <= 2.0 && Math.abs(me.z - st.z) <= 1.5) {
@@ -467,10 +514,11 @@ export function stepTake(ctx: SimContext, state: SimState, events: EventSink, id
   m.formation = null; m.endPosture = "crouching"; m.endHeading = null;
 }
 
-/** Beside the source, on his floor, still, able. */
-function takeCheck(state: SimState, actor: EntityId, src: EntityId): string | null {
+/** Beside the source, on his floor, still, able, not pinned down (review fix). */
+function takeCheck(ctx: SimContext, state: SimState, actor: EntityId, src: EntityId): string | null {
   const s = state.soldier.get(actor);
   if (!s || !isAble(s) || !s.impair.canUseArms || isMounted(s)) return "unable";
+  if (shakenForErrand(ctx, s)) return "suppressed";
   const a = state.transform.get(actor), b = state.transform.get(src);
   if (!a || !b || !state.container.has(src)) return "gone";
   if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) > 2.5 * 2.5 || Math.abs(a.z - b.z) > 1.5) return "out-of-reach";
@@ -488,18 +536,19 @@ function takeStacks(ctx: SimContext, state: SimState, events: EventSink, from: E
 }
 
 registerActionHandler("takeAmmo", {
-  check(_ctx, state, actor, a) {
+  check(ctx, state, actor, a) {
     const src = Number(a.params["source"]);
     if (state.carry.has(src)) return "carried";
-    return takeCheck(state, actor, src);
+    return takeCheck(ctx, state, actor, src);
   },
   complete(ctx, state, actor, a, events) {
     const C = ctx.catalog.behaviour.consolidate, src = Number(a.params["source"]);
     const s = state.soldier.get(src);
-    if (!C || !s || takeCheck(state, actor, src) !== null) return;
+    if (!C || !s || takeCheck(ctx, state, actor, src) !== null) return;
     // (Never before his treatment, owner: the gate again, now.)
     const busy = treatedNow(state);
-    if (!careDone(ctx, state, src, s, () => busy)) return;
+    // (At the nest on arrival: no ammunition at the red cross, review fix.)
+    if (s.atNest === undefined && !careDone(ctx, state, src, s, () => busy)) return;
     const k = keepOf(ctx, state, C, src, s);
     const treated = s.wounds.some((w) => w.treatments.length > 0);
     takeStacks(ctx, state, events, src, actor, ammoStacks(ctx, state.container.get(src), k.keep, k.type), s.atNest !== undefined ? "nest" : "casualty", { treated, dead: !s.physiology.alive });
@@ -507,12 +556,12 @@ registerActionHandler("takeAmmo", {
 });
 
 registerActionHandler("takeKit", {
-  check(_ctx, state, actor, a) {
-    return takeCheck(state, actor, Number(a.params["source"]));
+  check(ctx, state, actor, a) {
+    return takeCheck(ctx, state, actor, Number(a.params["source"]));
   },
   complete(ctx, state, actor, a, events) {
     const src = Number(a.params["source"]);
-    if (takeCheck(state, actor, src) !== null) return;
+    if (takeCheck(ctx, state, actor, src) !== null) return;
     const plan = kitPlan(ctx, state, actor, src);
     if (!plan) return;
     const kind = state.soldier.has(src) ? "enemy" : "cache";

@@ -27,6 +27,7 @@ import { withDrones } from "./drone";
 import {
   atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
   positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
+  cacheHolds,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
@@ -963,7 +964,9 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const SA = input.catalog.supply?.ai;
       if (SA && view.cache.size > 0 && supportLeft(view, side, "he", input.catalog) > 0 && tick - (mem.lastHe ?? -1e9) >= SA.everyS * 60 && tick - (mem.lastCacheHe ?? -1e9) >= SA.everyS * 60) {
         for (const [cid, c] of view.cache.entries()) {
-          if (c.side === side || c.burnt === true || c.cookoff !== undefined || !(c.known?.includes(side) ?? false)) continue;
+          // (Review fix: not a crate on the move, nor one emptied; `known` is cleared when a cache moves, so it is aimed
+          // at where it was seen.)
+          if (c.side === side || c.burnt === true || c.cookoff !== undefined || c.carried === true || !(c.known?.includes(side) ?? false) || !cacheHolds(view.container.get(cid))) continue;
           const ct = view.transform.get(cid);
           if (!ct || all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && hypot2(ft.x - ct.x, ft.y - ct.y) < SA.ownClearM; })) continue;
           heCall(ct.x, ct.y, SA.heRounds);

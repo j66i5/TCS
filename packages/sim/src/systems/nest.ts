@@ -90,10 +90,40 @@ function freeMan(state: SimState, id: EntityId, s: SoldierState): boolean {
  * platoon has nobody left to site it from.
  */
 export function siteNest(ctx: SimContext, state: SimState, top: EntityId): { x: number; y: number } | null {
-  // (M11.3: never within `supply.nestApartM` of the platoon's supply point.)
+  // (M11.3: never within `supply.nestApartM` of the platoon's supply point; review fix: nor within `nestClearM` of any
+  // cache holding ammunition — an old point, a crate, a pile, a captured cache.)
   const sp = supplyPointOf(state, top), S = ctx.catalog.supply;
-  const avoid = sp !== null && S ? { x: state.rear.req(sp).x, y: state.rear.req(sp).y, r: S.nestApartM } : undefined;
+  const avoid: { x: number; y: number; r: number }[] = [];
+  if (sp !== null && S) avoid.push({ x: state.rear.req(sp).x, y: state.rear.req(sp).y, r: S.nestApartM });
+  if (S && S.nestClearM > 0) for (const [k, c] of state.cache.entries()) {
+    if (c.burnt === true || !ammoIn(ctx, state.container.get(k))) continue;
+    const t = state.transform.req(k);
+    avoid.push({ x: t.x, y: t.y, r: S.nestClearM + 1 });
+  }
   return sitePoint(ctx, state, top, ctx.catalog.medical!.nest!, avoid);
+}
+
+/** Does a container hold ammunition (rounds in a magazine or package, or whole rounds)? */
+function ammoIn(ctx: SimContext, c: { stacks: readonly { type: string; count: number; charge?: number }[] } | undefined): boolean {
+  if (c) for (const s of c.stacks) {
+    if (s.count <= 0) continue;
+    if (s.charge === undefined) { if (ctx.catalog.ammo[s.type] !== undefined) return true; continue; }
+    const ci = ctx.catalog.items[s.type]?.chargeItem;
+    if (s.charge > 0 && ci !== undefined && ctx.catalog.ammo[ci] !== undefined) return true;
+  }
+  return false;
+}
+
+/** Is a cache holding ammunition within `supply.nestClearM` of (x, y) (a nest may not go there)? */
+export function ammoCacheNear(ctx: SimContext, state: SimState, x: number, y: number): boolean {
+  const R = ctx.catalog.supply?.nestClearM ?? 0;
+  if (R <= 0) return false;
+  for (const [k, c] of state.cache.entries()) {
+    if (c.burnt === true) continue;
+    const t = state.transform.req(k);
+    if ((t.x - x) * (t.x - x) + (t.y - y) * (t.y - y) < R * R && ammoIn(ctx, state.container.get(k))) return true;
+  }
+  return false;
 }
 
 /** The supply point (a `rear` point of kind "supply") of top unit `top`, or null (M11.3). */
@@ -107,7 +137,9 @@ export function supplyPointOf(state: SimState, top: EntityId): EntityId | null {
  * men away from the enemy they know, the spot hidden from that enemy within `N.searchM`, between `N.minBackM` and
  * `N.maxBackM` back, on open ground a wheeled vehicle can reach from the edge behind; never within `avoid.r` of `avoid`.
  */
-export function sitePoint(ctx: SimContext, state: SimState, top: EntityId, N: { backM: number; searchM: number; minBackM: number; maxBackM: number }, avoid?: { x: number; y: number; r: number }): { x: number; y: number } | null {
+export function sitePoint(ctx: SimContext, state: SimState, top: EntityId, N: { backM: number; searchM: number; minBackM: number; maxBackM: number }, avoidAt?: { x: number; y: number; r: number } | readonly { x: number; y: number; r: number }[]): { x: number; y: number } | null {
+  const zones = avoidAt === undefined ? [] : Array.isArray(avoidAt) ? avoidAt as readonly { x: number; y: number; r: number }[] : [avoidAt as { x: number; y: number; r: number }];
+  const inside = (x: number, y: number) => zones.some((z) => hypot2(x - z.x, y - z.y) < z.r);
   let cx = 0, cy = 0, n = 0, tx = 0, ty = 0, tn = 0;
   for (const m of menOf(state, top)) {
     const s = state.soldier.get(m), t = state.transform.get(m);
@@ -147,7 +179,7 @@ export function sitePoint(ctx: SimContext, state: SimState, top: EntityId, N: { 
       const along = (x - cx) * bx + (y - cy) * by;
       if (along < N.minBackM || along > N.maxBackM) continue;
       if (navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
-      if (avoid && hypot2(x - avoid.x, y - avoid.y) < avoid.r) continue;
+      if (inside(x, y)) continue;
       const wc = Math.floor(x / wheel.cellM), wr = Math.floor(y / wheel.cellM);
       if (wc < 0 || wr < 0 || wc >= wheel.cols || wr >= wheel.rows) continue;
       const wi = wr * wheel.cols + wc;
@@ -162,11 +194,11 @@ export function sitePoint(ctx: SimContext, state: SimState, top: EntityId, N: { 
   const fi = nearestPassable(foot, gx, gy, 15);
   const at = fi >= 0 ? { x: (fi % foot.cols + 0.5) * foot.cellM, y: (Math.floor(fi / foot.cols) + 0.5) * foot.cellM } : { x: gx, y: gy };
   // (Every spot searched lay too near `avoid`: the nearest passable spot just outside it, in one of eight directions.)
-  if (avoid && hypot2(at.x - avoid.x, at.y - avoid.y) < avoid.r) {
+  if (inside(at.x, at.y)) {
     let alt: { x: number; y: number } | null = null, altD = Infinity;
-    for (const [dx, dy] of DIRS) {
-      const x = avoid.x + dx * (avoid.r + 2), y = avoid.y + dy * (avoid.r + 2);
-      if (x < 10 || y < 10 || x > W - 10 || y > H - 10 || navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
+    for (const z of zones) for (const [dx, dy] of DIRS) {
+      const x = z.x + dx * (z.r + 2), y = z.y + dy * (z.r + 2);
+      if (x < 10 || y < 10 || x > W - 10 || y > H - 10 || navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0 || inside(x, y)) continue;
       const d = hypot2(x - gx, y - gy);
       if (d < altD) { altD = d; alt = { x, y }; }
     }
@@ -436,6 +468,8 @@ export function casualtyPointOrder(ctx: SimContext, state: SimState, events: Eve
     if (i < 0) return false;
     px = (i % foot.cols + 0.5) * foot.cellM; py = (Math.floor(i / foot.cols) + 0.5) * foot.cellM;
   }
+  // (Review fix: never on ammunition — any cache holding it within `supply.nestClearM`.)
+  if (ammoCacheNear(ctx, state, px, py)) return { unable: "radio.nestNearSupply" };
   return setNest(ctx, state, events, topOf(state, uid), px, py, "ordered") !== null;
 }
 

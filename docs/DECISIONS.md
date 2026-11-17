@@ -8135,3 +8135,46 @@ captor's; the hold battle should let ammunition matter. Everything else is a sof
 - **Checks**: `npm run check` alone green: typecheck, lint, `npm test` 1,539 pass (6 skipped), `npm run test:perf` 24 of
   24, data lint (no errors). The commander's look runs every 10 s per side; the record and `BattleResult` folds are per
   event.
+
+## 2026-11-17 — M11 review fixes (logistics, law of war at the nest, fighting-position rims)
+Software decisions from the independent review of the M11 branch (owner answers unchanged and binding). Goldens
+unchanged (no difference in their windows); no data or schema change (new behaviour only reads existing fields).
+- **No ammunition at the red cross, made strict.** A casualty at the Verwundetennest is stripped on arrival, no longer
+  only after his treatment (that gate stays for comrades taking a casualty's rounds in the field): the magazine in his
+  weapon comes out, he keeps nothing, the nearest able man of the platoon (never a red-cross wearer) takes it when
+  nobody is treating him, else a pile outside the nest; as he is taken aboard an ambulance the rest goes on a pile too
+  (`pileOutsideNest`). A medic is never sent to take a casualty's ammunition. The nest is never sited or ordered within
+  `nestClearM` of any cache holding ammunition (`ammoCacheNear`, `sitePoint` takes several zones); bearers put a crate
+  down outside a nest's clear zone.
+- **Ambulances and deliveries.** A delivery unload that a clear zone refuses keeps what stayed aboard as the load (and
+  the breach: `misuse` only clears when no ammunition is left). An ambulance back off the map with a load puts it into
+  the stock (`items.delivered` with negative counts: the ledger stays exact) before casualty work; if it cannot, it
+  keeps it as cargo and does no casualty work. A run reads its platoon's supply point as it is now (moved, replaced,
+  captured: after it, or back with its load), and a supply vehicle stranded for a while (wheel repaired, driver back)
+  goes on instead of staying "lost". Deliveries no longer load for hulls towed away, being recovered, abandoned or on a
+  rear run.
+- **Caches.** Emptied caches (packages and cans at charge 0) are empty for every purpose (`cacheHolds`): not set off,
+  captured, shelled, nor counted "full" by the commander; a point emptied that way is simply moved. A supply point that
+  burns out stops being the point; nothing goes into a burning or burnt cache. A cache that moves (automatic point,
+  ordered move of an empty point, a crate in bearers' hands) is unknown to the enemy until seen again; the commander
+  shells only caches seen where they are, holding something, not on the move.
+- **Vehicle supply runs.** Not at the point in time: the hull gives up with its share aboard (no unloading from afar);
+  the leg back to its squad has its own time.
+- **Commander's logistics.** A supply point moves only for an enemy seen, or placed to within half of `site.threatM`
+  (hold-resupply seed 2 moved a full point for a report 124 m off). Bearers fall back to the nearest own cache within
+  `take.reachM` of the point when the point holds nothing for the squad. The commander sends men only to a cache with
+  rounds for their weapons.
+- **Requests.** A squad whose platoon has no supply point and whose side has no stock with a supply vehicle does not
+  radio for ammunition (nobody could answer).
+- **Taking under fire.** Own casualties' ammunition is taken only when the squad has not been fired on for
+  `consolidate.quietS`; takeAmmo, takeKit and takeSupply end when the man is pinned or suppressed to the carrying
+  parties' `holdSuppression`.
+- **Fighting-position rims.** High explosive (cannon HE, rockets, grenades) stopped by a rim bursts there (impact fuse)
+  or bounces off it (time fuse) instead of vanishing.
+- **Measured** (same seeds as before; batch 10 x 1,200 s, 6 x 3,600 s): see the commit report. platoon attacker wins
+  8 of 10, platoon-ru 10 of 10 (open, owner); hold-resupply German defence holds 4 of 6 with resupply, 3 of 6 without;
+  Russian defence 3 of 6 with, 2 of 6 without. Attackers without any supply now send no requests (was 16.7 per battle).
+- **Checks**: typecheck, lint, data lint green; `npm test` 1,543 pass (6 skipped); consumption lab `--conservation`
+  exact in every scenario. `npm run test:perf` alone: 22 of 24 first run; the parked-hulls test passed on its rerun
+  (known noisy); the smoke spotting floor reads 7.5 / 7.9 / 7.8x against 8x, the same noise around the floor as in the
+  earlier M11 slices (no new per-tick work in spotting; the cache look now returns early for emptied caches).

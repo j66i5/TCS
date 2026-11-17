@@ -8178,3 +8178,71 @@ unchanged (no difference in their windows); no data or schema change (new behavi
   exact in every scenario. `npm run test:perf` alone: 22 of 24 first run; the parked-hulls test passed on its rerun
   (known noisy); the smoke spotting floor reads 7.5 / 7.9 / 7.8x against 8x, the same noise around the floor as in the
   earlier M11 slices (no new per-tick work in spotting; the cache look now returns early for emptied caches).
+
+## 2026-11-17 — Balance pass after M11 (owner: "Rebalance next"; goldens regenerated)
+Owner decisions 2026-11-17: a balance pass on the four platoon battles, 20 seeds each, before new features; target
+band attacker wins 2-8 of 10 on each (aim near 4-6 of 10 on 20 seeds x 1,200 s). **The hold battle's resupply target
+is relaxed:** 10-17 percentage points more holds with resupply than without is accepted (was at least 25; plan
+`docs/plans/m11-logistics.md` section 5 point 5 updated).
+- **Why each side won** (origin/main 016ff74, 20 seeds x 1,200 s, batch reports and `--events` runs read; a scratch
+  diagnostic of who fired from where): **on foot** the attack never closed: almost every attacking round was fired from
+  the support line 300-400 m out (platoon-ru seeds 1-4: 4,974 of 5,565 attacker shots with the nearest defender 300-400 m
+  away, none inside 100 m), and the defence, lying in the open, lost men to that fire and to the mortars until it broke
+  and ran ("side eliminated": 13 of 20 platoon and 16 of 20 platoon-ru battles; defenders fired 363 / 266 rounds
+  against 1,373 / 1,538). SPEC M4 and the balance skill call the platoon battle's defence "prepared"; it had no
+  fighting positions, only the hold battle did (M11). **Mounted**, the Puma decides: in platoon-ru-vehicles (farmland,
+  no dead ground) the Russian BMP-2s start in sight of the German Pumas 700-800 m off and are penetrated with their men
+  aboard in the first minute (seed 7: six hulls and 54 men in 18 s; 70 BMP-2 kills by Pumas, 1 Puma by a BMP-2 over 20
+  battles); in platoon-vehicles the Pumas kill the BMP-2s and then the dismounted defence with 30 mm HE through their
+  thermal sights (red 25 men down, blue 9). Hulls, sights and armour are data from sources (M7.4a, M7.6a): left as
+  they are.
+- **Change kept: a prepared defence.** `buildScenario` gives the platoon battle's defender `rules.prepared` over
+  `SCENARIO_PREPARED_S` [60, 90] s, as the hold battle (owner 2026-11-16): its men dig in where the commander sites
+  them (M11 fighting positions, `sim/positions.ts`; nothing new in the sim). `ScenarioDef.prepared: false` keeps the old
+  open defence for comparisons. Every scenario built on `buildScenario` gets it (the mortars, artillery, tanks,
+  wheeled and assault-group variants too); the hold battle sets the same window itself (unchanged).
+- **Built, tested, switched off: the range rule lifted under fire** (`decisions.rangeRuleLiftsUnderFire`, absent = off;
+  `rangeRule` in `decisions.ts`): the defence's "fire at will out to 300 m" (`COMMANDER.defenceRangeM`) held a squad's
+  fire even while the base of fire 330 m out (`supportM`) was shooting into it; with the option a squad fired on in the
+  last `underFireMemorySeconds` fires out to its weapons' ranges. Measured alone (20 seeds): platoon-ru 19 -> 16,
+  platoon 14 -> 15; with the prepared defence: platoon 10, platoon-ru 7 (prepared alone 9 and 12, nearer the middle of
+  the band); in the hold battle it raised the Russian defence to 15 / 16 holds of 20 (above the plan's 30-70 %). Off.
+- **Tried, not kept: the Metis-M team.** In platoon-vehicles the defender's team, 300 m behind a village, sees nothing
+  of the way in and is ordered to fire every 5 s without a shot ("no shot" on the radio 60-90 times a battle, no
+  launch in seeds 1, 2, 4, 5). Re-siting it against the near approach, from a start where it sees the way in, and
+  moving it after 30 s of no-shot orders gave posts that see the way in, but the Pumas stay hull-down out of its
+  sight (re-siting found no post within 800 m that sees them): missiles fired 0.6 -> 0.5 per battle, attacker wins
+  16 -> 15 of 20 (noise). Reverted; the no-shot loop is noted for the owner.
+- **Balance** (batch 20 seeds x 1,200 s, seeds 1-20; attacker wins of 20 (of seeds 1-10); casualties attacker /
+  defender; end reasons):
+
+  | scenario (attacker) | before (016ff74) | range rule lifted only | + prepared defence | **after: prepared defence only** |
+  |---|---|---|---|---|
+  | platoon (DE on foot, village) | 14 (8); 13.1 / 11.9; eliminated 13, time 7 | 15 (9); 14.1 / 12.7 | 10 (6); 17.9 / 10.6 | **9 (6); 16.1 / 9.7; eliminated 9, time 11** |
+  | platoon-ru (RU on foot, farmland) | 19 (10); 8.0 / 13.6; eliminated 16, time 4 | 16 (7); 10.6 / 13.6 | 7 (3); 18.1 / 8.8 | **12 (6); 11.1 / 12.7; eliminated 9, time 11** |
+  | platoon-vehicles (DE in Pumas) | 19 (9); 8.9 / 25.2 | 19 (9); 8.2 / 24.9 | 16 (8); 11.3 / 23.9 | **16 (8); 9.2 / 25.2** |
+  | platoon-ru-vehicles (RU in BMP-2s) | 2 (1); 35.2 / 6.7 | 2 (2); 34.8 / 7.5 | 2 (2); 33.5 / 6.5 | **1 (1); 36.0 / 5.5** |
+
+  Defenders' small-arms rounds per battle, before -> after: platoon (red) 363 -> 580, platoon-ru (blue) 266 -> 319,
+  platoon-vehicles (red) 69 -> 109, platoon-ru-vehicles (blue) 170 -> 162. **The foot battles are in the band, near its
+  middle (4.5 and 6 of 10); the mounted ones are not (8 and 0.5 of 10)**: the Puma against the BMP-2 decides them, on
+  open farmland from the first seconds (owner question).
+- **Hold battle** (identical to origin/main: it had the same prepared window already; goldens of both hold scenarios
+  unchanged). 6 x 3,600 s with resupply, as merged (seeds 1-6): wave 2 reached in 6 / 6 and wave 3 in 4 / 6 (German
+  defence, holds 4), 5 / 6 and 5 / 6 (Russian defence, holds 3): acceptance (>= 5 and >= 4) met, the same holds as in
+  "M11 review fixes"; with the range rule on it was 6 / 6 and 6 / 6 both ways. 20 seeds x 3,600 s, as merged: German defence holds 12 of 20
+  with resupply, 11 without (5 points); Russian defence 11 with, 12 without (-5 points); wave 3 reached in 17 and 18 of
+  20 with resupply. **The relaxed resupply target (10-17 points) is not met on the current main either** (M11.8's 14 / 10
+  and 16 / 13 were measured before the M11 review fixes). With the range rule on: 11 / 12 and 15 / 16.
+- **Tests:** `sim/test/rules.test.ts` (a range limit holds fire until the unit is fired on when the option is on, and
+  holds it with the option off); `tools/test/scenario-platoon.test.ts` (both sides' defences prepared, `prepared:
+  false` none, the defenders dug in by 91 s). `tools/test/mounted-invariants.test.ts`: a crewman repairing beside his
+  hull (M11.7a `repairOutside`) keeps his seat but stands at the damage and can be seen, like the roof reloader; the
+  invariant now leaves `isOutside` men out (platoon-vehicles s1 first had a field repair within 180 s in this pass).
+- `npm run golden:update`: platoon-vehicles-s1, platoon-vehicles-tanks-s1, platoon-vehicles-wheeled-s1 changed (the
+  defence digs in); the others unchanged; `golden/no-interiors` untouched.
+- **Checks:** typecheck, lint, data lint (no errors), `npm test` 1,545 pass (6 skipped). `npm run test:perf` alone on
+  this container: 22 of 24 (bench-caches within 5 % of the bench 15.9 against 16.5, smoke spotting 6.8x against 8x);
+  origin/main run alone the same way right before: 22 of 24 (bench-caches 16.0 against 16.9, one 8x floor 7.3x): the
+  container's noise around the floors, as in the M11 entries. No new per-tick work but one comparison per decision
+  (`rangeRule`), and fighting positions only in the scenarios that now have them.

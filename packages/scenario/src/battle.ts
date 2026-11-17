@@ -76,7 +76,14 @@ export interface ScenarioDef {
   recovery?: boolean;
   /** M11.1 (hold-resupply): the main objective at the building nearest the map's centre (the village centre). */
   hold?: boolean;
+  /** Balance pass after M11: the defender's men dig in where they are sited in the first minutes (fighting positions,
+   *  `rules.prepared` over `SCENARIO_PREPARED_S`), as in the hold battle. Default true; false: in the open (comparisons). */
+  prepared?: boolean;
 }
+
+/** Balance pass after M11: the window (s) in which the platoon battle's defenders dig in where they halt (the hold
+ *  battle's, after the commander's siting walk; game values). */
+export const SCENARIO_PREPARED_S = [60, 90] as const;
 
 /** Artillery rounds each side may call with `artillery` (M8.4; game values). */
 export const SCENARIO_ARTILLERY = { he: 12, smoke: 4, illum: 4 } as const;
@@ -279,6 +286,9 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   const rules = defaultRules(def.timeLimitSeconds ?? 2400);
   rules.objectives = objectives;
   rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true };
+  // A prepared defence (balance pass after M11; SPEC M4: "a prepared defence"): the defenders dig in where their
+  // commander sites them, as in the hold battle (owner 2026-11-16).
+  if (def.prepared !== false) rules.prepared = [{ side: defender, fromS: SCENARIO_PREPARED_S[0], untilS: SCENARIO_PREPARED_S[1] }];
   // Vehicles (M7.4a, owner Q9): an IFV destroyed or abandoned costs 20 points, immobilised 10.
   if (forces.some((f) => (f.vehicles?.length ?? 0) > 0)) rules.victory.vehiclePoints = { lost: SCENARIO_POINTS.vehicleLost, immobilised: SCENARIO_POINTS.vehicleImmobilised };
   // Mortar rounds (owner, M6 review: support fire pulled forward): the attacker more, with smoke.

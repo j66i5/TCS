@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { commanderController } from "@tcs/ai";
-import { createSim, friendInLine, hypot2, isOffMap, seatWorld, sideKnowledge, step, submitOrder, type EntityId, type Sim } from "@tcs/sim";
+import { createSim, friendInLine, hypot2, isOffMap, isOutside, seatWorld, sideKnowledge, step, submitOrder, type EntityId, type Sim } from "@tcs/sim";
 import { getScenario, loadData } from "../src/scenarios";
 
 const data = loadData();
@@ -27,7 +27,8 @@ function check(sim: Sim, label: string): number {
     expect(v.seats[m.seat], `${label} seat of ${id}`).toBe(id);
     const def = sim.ctx.catalog.vehicles[v.def]!, t = s.transform.req(m.vehicle), mt = s.transform.req(id);
     const [x, y] = seatWorld(def, m.seat, t.x, t.y, t.heading);
-    expect(hypot2(mt.x - x, mt.y - y), `${label} ${id} in his seat`).toBeLessThan(1e-6);
+    // (M11.7a: a crewman repairing beside his hull keeps his seat but stands at the damage, like a man on foot.)
+    if (!isOutside(s, id)) expect(hypot2(mt.x - x, mt.y - y), `${label} ${id} in his seat`).toBeLessThan(1e-6);
     expect(s.mover.get(id)?.waypoints.length ?? 0, `${label} ${id} walks`).toBe(0);
     expect(s.fire.has(id), `${label} ${id} fire task`).toBe(false);
     const a = s.action.get(id);
@@ -38,6 +39,7 @@ function check(sim: Sim, label: string): number {
 
 function noneKnown(sim: Sim, label: string): void {
   for (const side of sim.state.sides) for (const k of sideKnowledge(sim.ctx, sim.state, side.id)) {
+    if (isOutside(sim.state, k.target)) continue; // (outside his hull, M9.3a/M11.7a: seen like a man on foot)
     expect(sim.state.soldier.get(k.target)?.mount, `${label} ${side.id} knows ${k.target} aboard`).toBeUndefined();
   }
 }

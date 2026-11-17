@@ -118,9 +118,24 @@ function nearestSeen(ctx: SimContext, state: SimState, id: EntityId, s: SoldierS
   return { all, front };
 }
 
+/**
+ * His unit's range rule (`rules.maxEngageM`; 0 = none): fire discipline holds his fire to it until his own unit is
+ * fired on (`Unit.ownFireTick` within `decisions.underFireMemorySeconds`), then it is lifted ("hold fire to 300 m
+ * unless engaged"; balance pass after M11, `decisions.rangeRuleLiftsUnderFire`: built and tested, off in the data —
+ * it took away the difference resupply makes in the hold battle, DECISIONS). An ambush keeps its own range.
+ */
+export function rangeRule(unit: Unit, state?: SimState, ctx?: SimContext): number {
+  if (unit.maxEngageM <= 0) return Infinity;
+  if (state !== undefined && ctx !== undefined) {
+    const D = ctx.catalog.behaviour.decisions;
+    if (D.rangeRuleLiftsUnderFire === true && state.tick - (unit.ownFireTick ?? -1e9) <= secondsToTicks(D.underFireMemorySeconds)) return Infinity;
+  }
+  return unit.maxEngageM;
+}
+
 /** The range out to which his unit's own rules let him fire on his own at all (its range limit, an ambush laid). */
-function unitCap(unit: Unit): number {
-  let r = unit.maxEngageM > 0 ? unit.maxEngageM : Infinity;
+function unitCap(unit: Unit, state?: SimState, ctx?: SimContext): number {
+  let r = rangeRule(unit, state, ctx);
   if (unit.ambush !== undefined) r = Math.min(r, unit.ambush.rangeM);
   return r;
 }
@@ -1254,7 +1269,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     }
     const reach = fireReach(state, ctx, unit, top);
     // ---- an enemy close in front of him: he fires at him whatever else he is doing (a carrier: carrierSelfDefence)
-    const CT = Math.min(S.closeThreatM ?? 0, reach, unitCap(unit));
+    const CT = Math.min(S.closeThreatM ?? 0, reach, unitCap(unit, state, ctx));
     if (CT > 0 && near.front !== null && near.front.d <= CT && s.carrying === undefined && s.mental.behaviour !== "panicked") {
       closeThreat(ctx, state, events, id, s, near.front, (state.mover.get(id)?.waypoints.length ?? 0) > 0);
     } else if (s.closeThreatTick !== undefined && state.tick - s.closeThreatTick > secondsToTicks(D.contactLostSeconds)) {
@@ -1291,7 +1306,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const es = task.contact !== undefined ? state.soldier.get(task.contact) : undefined;
       const me = state.transform.req(id);
       // (An ambush not yet sprung, D4b, holds his fire to its range.)
-      const beyond = c !== undefined && ((unit.maxEngageM > 0 && hypot2(c.x - me.x, c.y - me.y) > unit.maxEngageM) || (unit.ambush !== undefined && hypot2(c.x - me.x, c.y - me.y) > unit.ambush.rangeM)
+      const beyond = c !== undefined && ((hypot2(c.x - me.x, c.y - me.y) > rangeRule(unit, state, ctx)) || (unit.ambush !== undefined && hypot2(c.x - me.x, c.y - me.y) > unit.ambush.rangeM)
         || (c !== undefined && unit.arc !== undefined && !inArc(state, id, me, c.x, c.y)));
       // (Fire at a known place, M11.1 point 7b: it lasts while the place is fresh, `suppressKnown.withinS`.)
       const lostS = task.suppress === "known" ? S.suppressKnown?.withinS ?? D.contactLostSeconds : D.contactLostSeconds;
@@ -1327,7 +1342,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       }
       // ---- pinned (not panicked) with an enemy he sees close: he fires back, lying where he is (sight realism step 2;
       // fire.ts holds him down and fires at the pinned rate)
-      const PS = Math.min(S.pinnedSelfDefenceM ?? 0, reach, unitCap(unit));
+      const PS = Math.min(S.pinnedSelfDefenceM ?? 0, reach, unitCap(unit, state, ctx));
       if (PS > 0 && halted && s.mental.behaviour === "pinned" && near.all !== null && near.all.d <= PS) {
         const cur = state.fire.get(id), c = near.all.c;
         if ((!cur || (cur.self === true && cur.contact !== c.target)) && !friendInLine(ctx, state, id, c.x, c.y)
@@ -1364,7 +1379,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     const onMove = !halted && (S.moveEngageM ?? 0) > 0 && near.all !== null && near.all.d <= S.moveEngageM! && fireOnMoveOk(ctx, state, ident.unit, unit, s, m!);
     if ((halted || onMove) && (!current || current.self) && reach > 0) {
       // (A unit rule may hold fire to a shorter range, e.g. for an ambush; rule "return" not fired on: self-defence.)
-      const range00 = Math.min(reach, onMove ? S.moveEngageM! : Infinity, unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id));
+      const range00 = Math.min(reach, onMove ? S.moveEngageM! : Infinity, Math.min(rangeRule(unit, state, ctx), engageRange(ctx, state, id)));
       // (An ambush laid, D4b: nobody fires beyond its range before it is sprung.)
       const range0 = unit.ambush !== undefined ? Math.min(range00, unit.ambush.rangeM) : range00;
       // (Night fire discipline, M9.6: in the dark, not fired on lately, he holds his fire to closer ranges — a muzzle

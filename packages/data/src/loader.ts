@@ -16,6 +16,7 @@ import {
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   MedicalFile, type MedicalT,
   RepairFile, type RepairT,
+  SupplyFile, type SupplyT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
   StringsFile, UnitsFile, VehiclesFile, type VehicleT,
   CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT,
@@ -64,6 +65,8 @@ export interface DataSet {
   medical?: MedicalT;
   /** Field repair (M11.7a; optional file core/repair.json). */
   repair?: RepairT;
+  /** Supply points and caches (M11.3; optional file core/supply.json). */
+  supply?: SupplyT;
   shooting: ShootingT | null;
   spotting: SpottingT | null;
   behaviour: BehaviourT | null;
@@ -186,6 +189,13 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     for (const k of Object.keys(R.tasks)) if (!R.order.includes(k as never)) errors.push({ file: "core/repair.json", path: `repair.tasks.${k}`, message: `task '${k}' is not in repair.order`, severity: "error" });
     for (const [k, t] of Object.entries(R.tasks)) if (t && t.minCondition >= t.restoreTo) errors.push({ file: "core/repair.json", path: `repair.tasks.${k}`, message: "minCondition must be below restoreTo", severity: "error" });
   }
+  const supply = files["core/supply.json"] === undefined ? null : parse(SupplyFile, "core/supply.json", files["core/supply.json"], errors);
+  if (supply) {
+    const S = supply.supply;
+    if (S.cookoff.minS > S.cookoff.maxS) errors.push({ file: "core/supply.json", path: "supply.cookoff.minS", message: "minS above maxS", severity: "error" });
+    if (S.site.minBackM > S.site.maxBackM) errors.push({ file: "core/supply.json", path: "supply.site.minBackM", message: "minBackM above maxBackM", severity: "error" });
+    if (S.nestClearM > S.nestApartM) errors.push({ file: "core/supply.json", path: "supply.nestClearM", message: "nestClearM above nestApartM", severity: "error" });
+  }
   const data: DataSet = {
     wounds,
     shooting,
@@ -201,6 +211,7 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     factions: {},
     ...(medical ? { medical } : {}),
     ...(repair ? { repair } : {}),
+    ...(supply ? { supply } : {}),
   };
   // Appearance (M7.5): presentation only, outside the catalog; its keys must name terrain entries.
   if (files["core/appearance.json"] !== undefined) {
@@ -430,6 +441,11 @@ function loadFaction(
       const ad = pack.ammunition[a];
       if (!ad) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo.${a}`, message: `unknown ammunition '${a}' (known: ${known(pack.ammunition)})`, severity: "error" });
       else if (ad.calibre !== wp.calibre) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo.${a}`, message: `calibre ${ad.calibre} does not fit this ${wp.calibre} weapon`, severity: "error" });
+    }
+    if (wp.weaponItem !== undefined) {
+      const wi = pack.items[wp.weaponItem];
+      if (!wi) errors.push({ file: f("weapons.json"), path: `weapons[${i}].weaponItem`, message: `unknown item '${wp.weaponItem}'`, severity: "error" });
+      else if (wi.chargeItem !== undefined || Math.abs(wi.massKg - wp.massKg) > 1e-9) errors.push({ file: f("weapons.json"), path: `weapons[${i}].weaponItem`, message: `item '${wi.id}' must be a plain item of the weapon's mass (${wp.massKg} kg)`, severity: "error" });
     }
     if (mag && mag.chargeItem !== undefined && !ids.includes(mag.chargeItem)) {
       errors.push({ file: f("weapons.json"), path: `weapons[${i}].feed.magazine`, message: `magazine '${mag.id}' holds '${mag.chargeItem}', which this weapon does not fire`, severity: "error" });

@@ -34,6 +34,7 @@ interface Page {
   keyboard: { press(key: string): Promise<void>; down(key: string): Promise<void>; up(key: string): Promise<void> };
   click(selector: string, o?: { clickCount?: number; delay?: number }): Promise<void>;
   dblclick(selector: string): Promise<void>;
+  isVisible(selector: string): Promise<boolean>;
 }
 interface Browser { newPage(o: object): Promise<Page>; close(): Promise<void> }
 const { chromium } = createRequire(import.meta.url)("playwright") as { chromium: { launch(): Promise<Browser> } };
@@ -119,7 +120,23 @@ async function uiScenes(page: Page, name: string, errors: string[], shots: strin
   await shot("5-mid-distance");
   await page.evaluate(new Function(`const t = globalThis.__tcs; t.focus(globalThis.__c.x, globalThis.__c.y, 2600); t.stepTicks(1);`) as () => void);
   await shot("6-overview");
-  console.log(`${name}: ui scene squad ${JSON.stringify(sq)}; vehicle ${JSON.stringify(veh)}; insets ${JSON.stringify(ins)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+  // M11.2 "Take enemy kit": a dead enemy lies 15 m in front of the squad, which knows he is down; the squad selected,
+  // the order bar shows the button (phone: under "⋯", opened); then the order given and a man on his way.
+  const kit = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; const uid = ${JSON.stringify((sq as { unit: number }).unit)};
+    const u = s.unit.get(uid); const lead = u.leader ?? u.members[0]; const lp = s.transform.get(lead);
+    const foe = [...s.identity.entries()].find(([id, i]) => i.side === "red" && s.weapon.has(id) && !s.soldier.get(id).mount)[0];
+    const fp = s.transform.get(foe); fp.x = lp.x + 15; fp.y = lp.y; fp.z = 0;
+    const fs = s.soldier.get(foe); fs.physiology.alive = false; fs.casualty = "killed"; fs.physiology.consciousness = 0; fs.posture = "prone";
+    for (const m of u.members) { const ms = s.soldier.get(m); ms.contacts = ms.contacts.filter((c) => c.target !== foe); ms.contacts.push({ target: foe, x: fp.x, y: fp.y, errM: 1, kind: "seen", tick: s.tick, reportedTick: s.tick, down: true }); }
+    t.dock(innerWidth > innerHeight ? "right" : "bottom"); t.select(null); t.select(uid); t.focus(lp.x + 7, lp.y, 60); t.stepTicks(1);
+    return { foe, set: t.orderSet() };`) as () => object);
+  if (name === "phone" && await page.isVisible(".hud-orders .hud-more-btn")) await page.click(".hud-orders .hud-more-btn");
+  await shot("7-take-kit");
+  if (name === "phone" && await page.isVisible(".hud-orders .hud-more-btn")) await page.click(".hud-orders .hud-more-btn");
+  const took = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; const src = t.takeKit(); t.stepTicks(60 * 4);
+    return { src, going: [...s.soldier.entries()].filter(([, x]) => x.intent && x.intent.kind === "takeKit").map(([id]) => id) };`) as () => object);
+  await shot("8-take-kit-going");
+  console.log(`${name}: ui scene squad ${JSON.stringify(sq)}; vehicle ${JSON.stringify(veh)}; insets ${JSON.stringify(ins)}; kit ${JSON.stringify(kit)} ${JSON.stringify(took)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**
@@ -537,6 +554,127 @@ async function repairScenes(page: Page, name: string, errors: string[], shots: s
     return { repair: s.vehicle.get(vid).repair ?? null };`) as () => object);
   await shot("photo-3-gtk-wheels");
   console.log(`${name}: repair scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M11.3 supply points and caches (`--scene supply`): the hold battle (`?scenario=hold`): the German platoon's supply
+ * point behind the village (crates in the side's colour, its pennant, the fill bar, the rounds), a squad selected (order
+ * bar: Resupply; the Move tray: Supply point), the men on their way to it; in both looks. Then (photo) the supply point
+ * moved by the order (the old crates stay as a plain cache, the new point empty, grey), the crates set off (a burning
+ * pile with its smoke), and from the Russian side the German cache once seen (the enemy's colour). M11.4a: the card's
+ * "Send bearers", the Rules row, bearers carrying a crate. M11.4b: "Order a delivery" (phone: under "⋯") and the supply
+ * truck unloading at the supply point, both looks. M11.5: a vehicle re-arming at a cache beside it (card: fuel and
+ * "re-arming"), both looks, then refuelling from cans (flat).
+ */
+async function supplyScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => {
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p = `${outDir}/supply-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  };
+  const info: Record<string, object> = {};
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    info[`${look}-0`] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state; t.stepTicks(60 * 100);
+      const c = t.caches().find((x) => x.kind === "point"); const sq = t.units().find((u) => u.kind === "infantry");
+      t.select(sq.unit); t.stepTicks(1); t.focus(c.x, c.y, 90); t.stepTicks(1);
+      return { cache: c, squad: sq.callsign, resupply: t.orderSet().resupply ?? false, supplyMode: t.orderSet().modes.includes("supply") };`) as () => object);
+    await shot(`${look}-0-point`);
+    if (look === "photo") {
+      // The Move tray with "Supply point"; on a phone, "Resupply" under "⋯".
+      await page.click('.hud-group[data-group="move"] .hud-caret');
+      await shot(`${look}-0b-move-tray`);
+      await page.click('.hud-group[data-group="move"] .hud-caret');
+      if (name === "phone" && await page.isVisible(".hud-orders .hud-more-btn")) { await page.click(".hud-orders .hud-more-btn"); await shot(`${look}-0c-more`); await page.click(".hud-orders .hud-more-btn"); }
+    }
+    info[`${look}-1`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      const sq = t.units().find((u) => u.kind === "infantry"); const cat = t.sim.ctx.catalog;
+      for (const m of s.unit.get(sq.unit).members) for (const st of s.container.get(m).stacks) if (st.charge !== undefined && cat.items[st.type] && cat.items[st.type].category === "magazine") st.charge = 0;
+      const src = t.resupply(); for (let k = 0; k < 180 && ![...s.action.values()].some((a) => a.kind === "takeSupply"); k++) t.stepTicks(60); t.stepTicks(60 * 3);
+      const c = t.caches().find((x) => x.kind === "point"); t.focusScale(c.x, c.y, 9); t.stepTicks(1);
+      return { src, going: [...s.soldier.values()].filter((x) => x.intent && x.intent.kind === "resupply").length, taking: [...s.action.values()].filter((a) => a.kind === "takeSupply").length };`) as () => object);
+    await shot(`${look}-1-resupply`);
+  }
+  // (Photo) the point moved by the order, the old crates set off, then the Russian side's view of a German cache it has seen.
+  await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=photo`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  info["moved"] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state; t.stepTicks(60 * 100); t.select(t.units()[0].unit); t.stepTicks(1);
+    const c = t.caches().find((x) => x.kind === "point"); t.supplyPoint(c.x - 40, c.y + 25); t.stepTicks(60 * 3); t.select(null); t.focus(c.x - 20, c.y + 12, 90); t.stepTicks(1);
+    return { caches: t.caches() };`) as () => object);
+  await shot("photo-2-point-moved");
+  info["cookoff"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+    const c = t.caches().find((x) => x.kind === "cache" && x.stacks > 0); t.igniteCache(c.id); t.stepTicks(60 * 12); t.focusScale(c.x, c.y, 10); t.stepTicks(1);
+    return { cache: t.caches().find((x) => x.id === c.id) };`) as () => object);
+  await shot("photo-3-cookoff");
+  await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=photo&side=red`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  info["enemy"] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(60 * 5);
+    const c = t.caches()[0]; t.knowCache(c.id, "red"); t.reveal(false); t.focus(c.x, c.y, 120); t.stepTicks(1);
+    return { cache: t.caches()[0] };`) as () => object);
+  await shot("photo-4-enemy-cache");
+  // M11.4a: a squad out of rounds asks (its rule "ask": the card's "Send bearers"), then the bearers carry a crate.
+  await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=photo`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  info["ask"] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state; t.stepTicks(60 * 100);
+    const sq = t.units().filter((u) => u.kind === "infantry")[1]; const cat = t.sim.ctx.catalog; s.unit.get(sq.unit).supplyRule = "ask";
+    for (const m of s.unit.get(sq.unit).members) { for (const st of s.container.get(m).stacks) if (st.charge !== undefined && cat.items[st.type] && (cat.items[st.type].category === "magazine" || cat.items[st.type].category === "ammo-package")) st.charge = 0; const w = s.weapon.get(m); if (w && w.magazine) w.magazine.rounds = 3; }
+    for (let k = 0; k < 10 && !s.unit.get(sq.unit).supplyAsk; k++) t.stepTicks(60);
+    t.select(sq.unit); t.stepTicks(1); const l = s.transform.get(s.unit.get(sq.unit).leader); t.focus(l.x, l.y, 90); t.stepTicks(1);
+    return { squad: sq.callsign, ask: s.unit.get(sq.unit).supplyAsk };`) as () => object);
+  await shot("photo-5-ask");
+  // The Rules panel with its new row "Ammunition requests: send bearers / ask me".
+  await page.click('.hud-card [data-card="rules"]');
+  await shot("photo-5b-rules");
+  await page.click('.hud-card [data-card="rules"]');
+  await page.click('.hud-card [data-card="bearers"]');
+  info["bearers"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+    for (let k = 0; k < 900 && !t.caches().some((c) => c.carried); k++) t.stepTicks(60);
+    t.stepTicks(60 * 25); const c = t.caches().find((x) => x.carried); if (c) t.focusScale(c.x, c.y, 20); t.select(null); t.stepTicks(1);
+    return { crate: c, bearers: [...s.soldier.values()].filter((x) => x.intent && x.intent.kind === "bear").length };`) as () => object);
+  await shot("photo-6-bearers-crate");
+  // M11.4b: "Order a delivery" on the bar (phone: under "⋯"), then the supply truck unloading at the supply point (both looks).
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    info[`delivery-${look}`] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(60 * 100);
+      const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit); t.stepTicks(1);
+      const c = t.caches().find((x) => x.kind === "point"); t.focus(c.x, c.y, 90); t.stepTicks(1);
+      return { delivery: t.orderSet().delivery ?? false, left: t.orderSet().deliveryLeft };`) as () => object);
+    if (look === "photo") {
+      if (name === "phone" && await page.isVisible(".hud-orders .hud-more-btn")) { await page.click(".hud-orders .hud-more-btn"); await shot(`${look}-7-delivery-button`); }
+      else await shot(`${look}-7-delivery-button`);
+    }
+    // (The button itself, wherever it sits: on a phone under "⋯".)
+    await page.evaluate(new Function(`document.querySelector('.hud-btn[data-order="callDelivery"]').click();`) as () => void);
+    // (Hurried as in the recovery scene: its delay over, and it comes on from the south edge below the point — with the
+    // player's squads standing where they were placed, the west entry's hedges hold a wheeled truck up on this map.)
+    info[`truck-${look}`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      const truck = () => [...s.vehicle.entries()].find(([, v]) => v.offMap && v.offMap.cargo === "supplies");
+      t.stepTicks(60 * 3); const tr0 = truck();
+      if (tr0) { const o = tr0[1].offMap, p = s.rear.get(o.point); o.enterTick = s.tick + 60; o.entry = { x: p.x + 30, y: t.sim.ctx.map.heightM - 34, heading: -Math.PI / 2 }; }
+      const seen = []; for (let k = 0; k < 2400 && !(truck() && truck()[1].offMap.phase === "loading"); k++) { t.stepTicks(60); const ph = truck() ? truck()[1].offMap.phase : "none"; if (seen[seen.length - 1] !== ph) seen.push(ph); }
+      t.stepTicks(60 * 5); const tr = truck(); t.select(null);
+      if (tr) { const p = s.transform.get(tr[0]); t.focusScale(p.x, p.y, 12); } t.stepTicks(1);
+      return { seen, truck: tr ? { id: tr[0], phase: tr[1].offMap.phase, def: tr[1].def } : null };`) as () => object);
+    await shot(`${look}-8-delivery-truck`);
+  }
+  // M11.5: a vehicle re-arming at a cache beside it (its card: the fuel line and "re-arming"; the list: "re-arming"), both
+  // looks; then (photo) refuelling from the cans.
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    info[`rearm-${look}`] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+      const [vid, unit] = t.vehicles()[0]; t.stepTicks(60 * 2); const cache = t.rearmScene(vid);
+      t.select(unit); t.stepTicks(60 * 90); const p = s.transform.get(vid); t.focusScale(p.x, p.y + 4, 14); t.stepTicks(1);
+      return { cache, resupply: t.resupplyOf(vid) };`) as () => object);
+    await shot(`${look}-9-rearm`);
+  }
+  info["refuel"] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; const [vid] = t.vehicles()[0];
+    for (let k = 0; k < 3600 && (t.resupplyOf(vid)?.what ?? "") !== "refuel"; k++) t.stepTicks(60); t.stepTicks(60 * 30);
+    return { resupply: t.resupplyOf(vid) };`) as () => object);
+  await shot("flat-10-refuel");
+  console.log(`${name}: supply scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**
@@ -2017,6 +2155,7 @@ try {
     if (args["scene"] === "triage") { await triageScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "repair") { await repairScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "supply") { await supplyScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "recovery") { await recoveryScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks") { await tankScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
@@ -2162,7 +2301,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
@@ -2194,11 +2333,23 @@ try {
     await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
     await page.evaluate(new Function("globalThis.__tcs.setSpeed(0); globalThis.__tcs.stepTicks(1500 * 60 + 60);") as () => void);
     await page.waitForTimeout(900);
-    for (const tab of ["medical", "conduct"]) {
+    for (const tab of ["medical", "conduct", "logistics"]) {
       await page.evaluate(new Function(`globalThis.__tcs.reviewTab(${JSON.stringify(tab)});`) as () => void);
       await page.waitForTimeout(300);
       const q3 = `${outDir}/platoon-${seed}-${name}-3-review-${tab}.png`;
       await page.screenshot({ path: q3 }); shots.push(q3);
+    }
+    // M11.8 (`--scene aar` only): the Logistics tab after 20 minutes of the hold battle (supply point, requests,
+    // bearers, the mortar top-up), the player holding with blue.
+    if (args["scene"] === "aar") {
+      await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&side=blue&limit=1200`);
+      await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+      await page.evaluate(new Function("globalThis.__tcs.setSpeed(0); globalThis.__tcs.stepTicks(1200 * 60 + 60);") as () => void);
+      await page.waitForTimeout(900);
+      await page.evaluate(new Function(`globalThis.__tcs.reviewTab("logistics");`) as () => void);
+      await page.waitForTimeout(300);
+      const q4 = `${outDir}/hold-${seed}-${name}-4-review-logistics.png`;
+      await page.screenshot({ path: q4 }); shots.push(q4);
     }
     console.log(`${name}: platoon battle, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     await page.close();

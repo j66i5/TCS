@@ -19,6 +19,7 @@ import type { EventSink } from "../events";
 import { DT, type EntityId } from "../ids";
 import { cos, exp, pow, sin, sqrt } from "../math";
 import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
+import { rimHeight, rimStops } from "../positions";
 import { detonate } from "./explosions";
 import { resolveVehicleHit } from "./armour";
 import { addStoppedHit } from "../hulls";
@@ -136,10 +137,13 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       SG.id = new Int32Array(cap); SG.x = new Float64Array(cap); SG.y = new Float64Array(cap); SG.gz = new Float64Array(cap);
       SG.cf = new Float64Array(cap); SG.sf = new Float64Array(cap); SG.posture = new Uint8Array(cap); SG.next = new Int32Array(cap);
       SG.side = new Int32Array(cap); SG.sup = new Float64Array(cap); SG.fx = new Float64Array(cap); SG.fy = new Float64Array(cap);
+      SG.rim = new Float64Array(cap);
       SG.touched = new Int32Array(cap * 10);
     }
     let n = 0;
     SG.sideOf.clear();
+    // (M11: fighting positions, only where any were dug.)
+    const dug = (state.terrain.positions?.length ?? 0) > 0;
     // mounted: ok men aboard are skipped below (no body row), but keep their side for SG.sideOf
     for (const [id, s] of state.soldier.entries()) {
       const t = state.transform.get(id);
@@ -150,7 +154,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       SG.sideOf.set(id, sc);
       const roof = s.mount !== undefined && onRoof(state, id); // (M9.3a: out on the roof reloading: a body in the open)
       if (s.mount !== undefined && !roof) continue; // aboard a vehicle: behind its armour, not a body in the open (M7)
-      SG.side[n] = sc; SG.sup[n] = 0; SG.fx[n] = 0; SG.fy[n] = 0;
+      SG.side[n] = sc; SG.sup[n] = 0; SG.fx[n] = 0; SG.fy[n] = 0; SG.rim[n] = dug ? rimHeight(ctx, state, id) : 0;
       SG.id[n] = id; SG.x[n] = t.x; SG.y[n] = t.y; SG.gz[n] = hAt(map, t.x, t.y) + t.z;
       SG.cf[n] = cosine(t.heading); SG.sf[n] = sine(t.heading);
       SG.posture[n] = (roof && onRoofTop(state, id)) || s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
@@ -174,7 +178,8 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   // Heavy rounds (12.7 mm and up) crack past harder (M7.3, calibre scaling).
   const heavyCap = SUP.heavyEnergyCap ?? 2;
   const supCentreZ = [0, 1, 2].map((p) => hitboxes[p]!.height * (hitboxes[p]!.alongLength ? 0.5 : 0.6));
-  const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf;
+  const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf, SRIM = SG.rim, rimStop = rimStops;
+  const holeHalfM = ctx.catalog.ballistics.fightingPosition?.halfWidthM ?? 0;
 
   hullCount = 0;
   // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
@@ -359,7 +364,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
 
     // ---- soldiers: the path against each nearby man's body box (in his own frame: forward, left, up)
-    let tBody = 2, bodyIdx = -1, bodyGroup = 0, bodyBand = 0, bodyLeft = false, bodyFrontal = true;
+    let tBody = 2, bodyIdx = -1, bodyGroup = 0, bodyBand = 0, bodyLeft = false, bodyFrontal = true, tRim = 2;
     if (nearSoldier) {
       const owner = P.owner[i]!;
       let c0 = ((minX - reach) * invBm) | 0, c1 = ((maxX + reach) * invBm) | 0, r0 = ((minY - reach) * invBm) | 0, r1 = ((maxY + reach) * invBm) | 0;
@@ -393,6 +398,13 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
             band = bd.group;
           }
           if (group < 0 || best >= tBody) continue;
+          // M11: a man in a fighting position: what comes in over the rim lower than it strikes the earth.
+          if (SRIM[j]! > 0 && rimStop(holeHalfM, SRIM[j]!, SX[j]!, SY[j]!, SGZ[j]!, x0, y0, z0, z0 + best * dz)) {
+            const hl = sq(dx * dx + dy * dy);
+            const tc = hl > 1e-9 ? best - holeHalfM / hl : best;
+            if ((tc < 0 ? 0 : tc) < tRim) tRim = tc < 0 ? 0 : tc;
+            continue;
+          }
           const tmin = best, el = bestEl;
           tBody = tmin; bodyIdx = j; bodyGroup = group; bodyBand = band; bodyLeft = el < 0; // +l is his right (y grows south)
           const adf = df < 0 ? -df : df, adl = dl < 0 ? -dl : dl;
@@ -442,6 +454,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     if (tRoof < tEnd) tEnd = tRoof;
     if (tBody < tEnd) tEnd = tBody;
     if (tVeh < tEnd) tEnd = tVeh;
+    if (tRim < tEnd) tEnd = tRim;
 
     // ---- suppression (M4.1): an enemy round passing within a few metres of a man, or striking near him,
     // cracks past him. Each round counts once per man: at the point of its flight closest to him (on this
@@ -515,6 +528,19 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         remove(P, i);
         continue;
       }
+    }
+
+    if (tRim <= 1 && tRim <= tEnd) {
+      // ---- M11: the rim of a fighting position stops it (earth; fragments stay in it). Review fix: high explosive
+      // bursts on the rim (impact fuse) or bounces off it (time fuse), as on the ground.
+      if (am.explosive) {
+        const hl = sq(dx * dx + dy * dy), nx = hl > 1e-9 ? (-dx / hl) * 0.8 : 0, ny = hl > 1e-9 ? (-dy / hl) * 0.8 : 0, nz = hl > 1e-9 ? 0.6 : 1;
+        if (settle(P, i, am, tick, x0 + tRim * dx, y0 + tRim * dy, z0 + tRim * dz, nx, ny, nz, vx, vy, vz, 0.5, BN, events, "soil", "ground")) i++;
+        continue;
+      }
+      if (!am.fragment) events.emit({ kind: "impact", tick, x: x0 + tRim * dx, y: y0 + tRim * dy, z: z0 + tRim * dz, surface: "ground", result: "stopped", material: "soil", ammo: am.id, owner: P.owner[i]! });
+      remove(P, i);
+      continue;
     }
 
     if (tVeh <= 1 && tVeh < tGround && tVeh < tHit && tVeh < tRoof && tVeh <= tBody) {

@@ -2,7 +2,8 @@
  * AFTER-ACTION REVIEW (M6, owner decision 2026-11-12): the result and why, each side's casualty list, a
  * timeline of what happened, and a button for the heat map on the battlefield. The app builds the content
  * (all text from the string table) from the battle record (`@tcs/sim` record.ts) and the end state; this only lays
- * it out. D2: three tabs — the battle, Medical and Conduct (filled in M10.8; a short note when there is nothing).
+ * it out. D2: three tabs — the battle, Medical and Conduct (filled in M10.8; a short note when there is nothing); M11.8
+ * a fourth, Logistics.
  */
 import type { Strings } from "@tcs/data";
 
@@ -19,10 +20,13 @@ export interface AarModel {
   medical: AarSection[];
   /** Conduct tab lines (laws of war, M10.7b/M10.8); empty: a note that nothing happened. */
   conduct: AarSection[];
+  /** Logistics tab lines (M11.8): ammunition fired, delivered, taken, captured and lost, requests, dry men, fuel,
+   *  repair, recovery, batteries and water; empty: a note that nothing was used. */
+  logistics: AarSection[];
 }
 
-export type AarTab = "battle" | "medical" | "conduct";
-export const AAR_TABS: readonly AarTab[] = ["battle", "medical", "conduct"];
+export type AarTab = "battle" | "medical" | "conduct" | "logistics";
+export const AAR_TABS: readonly AarTab[] = ["battle", "medical", "conduct", "logistics"];
 
 export interface Aar { show(m: AarModel): void; hide(): void; visible(): boolean; tab(t?: AarTab): AarTab }
 
@@ -83,7 +87,7 @@ export function createAar(root: HTMLElement, s: Strings, cb: { onHeat(on: boolea
           body.append(cas, tl);
           return;
         }
-        const lines = tab === "medical" ? m.medical : m.conduct;
+        const lines = tab === "medical" ? m.medical : tab === "conduct" ? m.conduct : m.logistics;
         const col = el("div", "hud-aar-col");
         col.append(el("div", "hud-aar-head", s.t(`aar.tab.${tab}`)));
         if (lines.length === 0) col.append(el("div", "hud-aar-row hud-aar-empty", s.t(`aar.${tab}.empty`)));

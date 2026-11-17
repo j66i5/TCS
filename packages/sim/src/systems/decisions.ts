@@ -22,6 +22,8 @@ import { inArc } from "../arc";
 import { DRONE_SEEN_S } from "./drones";
 import { interruptAction, startAction } from "../actions";
 import { refillDecision } from "./refill";
+import { stepBack, stepTake } from "./consolidate";
+import { stepBear, stepResupply } from "./supply";
 import type { Contact, Intent, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import { countItems, type Container } from "../items";
@@ -46,6 +48,7 @@ import { isGuiding } from "./missile-team";
 import { grenadeOption, throwArcExists, throwRangeM } from "./grenades";
 import { houseLeaveDecision, leftLately } from "./house";
 import { forEachSidestep } from "./peek";
+import { inPosition } from "../positions";
 import { windowWithView } from "./occupy";
 import { contactErrorM } from "./contacts";
 import { spared } from "../protection";
@@ -332,6 +335,7 @@ export function freeSpotNear(ctx: SimContext, state: SimState, id: EntityId, x: 
  * `soldier.crawlSearchM` where that enemy cannot, never toward him, keeping clear of his comrades' places.
  */
 function crawlToCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, threat: { x: number; y: number; z: number }): boolean {
+  if (inPosition(ctx, state, id)) return false; // (M11: in a fighting position he is in cover already)
   const S = ctx.catalog.behaviour.soldier, body = ctx.catalog.body.postures;
   const me = state.transform.req(id);
   const lie = body.prone.heightM * 0.6;
@@ -380,6 +384,7 @@ function crawlToCover(ctx: SimContext, state: SimState, id: EntityId, s: Soldier
  * where he lies already (a fold), he stays.
  */
 function crawlOutOfOpen(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, unitId: EntityId, threat: { x: number; y: number; z: number } | null): boolean {
+  if (inPosition(ctx, state, id)) return false; // (M11: in a fighting position he is in cover already)
   const S = ctx.catalog.behaviour.soldier, D = ctx.catalog.behaviour.decisions, body = ctx.catalog.body.postures;
   const me = state.transform.req(id);
   if (!ctx.catalog.movementModes[S.crawlMode] || indoorAt(ctx, me.x, me.y) >= 0) return false;
@@ -475,6 +480,7 @@ function leaveBeatenZone(ctx: SimContext, state: SimState, id: EntityId, s: Sold
   if (hypot2(me.x - b.x, me.y - b.y) > S.beatenRadiusM) return false;
   b.left = true;
   if (indoorAt(ctx, me.x, me.y) >= 0) return false; // in a house already: its walls and floors are his cover
+  if (inPosition(ctx, state, id)) return false; // (M11: so is a fighting position)
   // Only a man in the open: next to a wall, a hedge, a building or in woods he stays down where he is (and a man
   // in a position, e.g. on a support line, keeps it).
   if (exposureAt(navFor(ctx, "foot").grid, me.x, me.y) < S.beatenOpenExposure) return false;
@@ -542,6 +548,7 @@ function leaveBeatenZone(ctx: SimContext, state: SimState, id: EntityId, s: Sold
 }
 
 function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, threat: { x: number; y: number; z: number }): boolean {
+  if (inPosition(ctx, state, id)) return false; // (M11: in a fighting position he is in cover already)
   const D = ctx.catalog.behaviour.decisions, body = ctx.catalog.body.postures;
   const me = state.transform.req(id);
   const lie = body.prone.heightM * 0.6, kneel = body.crouching.muzzleHeightM;
@@ -614,7 +621,7 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   for (const g of men) {
     if (g === id) continue;
     const gs = state.soldier.get(g);
-    if (!gs || !isAble(gs) || isCowering(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo" || gs.intent?.kind === "care" || gs.carrying !== undefined) continue;
+    if (!gs || !isAble(gs) || isCowering(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo" || gs.intent?.kind === "care" || gs.intent?.kind === "bear" || gs.carrying !== undefined) continue;
     const n = spareCount(state.container.get(g), type);
     const gw = state.weapon.get(g), own = gw ? ctx.catalog.weapons[gw.weapon]?.feed.magazine === type : false;
     if (n <= (own ? D.keepSpare : 0)) continue;
@@ -627,21 +634,25 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   stepBringAmmo(ctx, state, events, giver);
 }
 
-/** The giver: walk over, then hand the magazine or belt over. */
-function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: EntityId): void {
+/** The giver: walk over, then hand the magazine or belt over. (M11.2: also a consolidation hand-over, consolidate.ts.) */
+export function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: EntityId): void {
   const gs = state.soldier.req(g), it = gs.intent!;
+  // (A consolidation hand-over under way or done: then back to his place, M11.2.)
+  if (stepBack(ctx, state, g)) return;
   const to = it.target!;
   const rs = state.soldier.get(to), rw = state.weapon.get(to), wd = rw ? ctx.catalog.weapons[rw.weapon] : undefined;
   // What he brings: an anti-tank round (M7.4a: counted as items, he has none left), else the receiver's magazine.
   const item = it.item ?? wd?.feed.magazine;
   const has = (c: Container | undefined) => (it.item !== undefined ? (c ? countItems(c, it.item) : 0) : spareCount(c, item ?? ""));
-  if (!rs || !isAble(rs) || item === undefined || state.tick - it.tick > 60 * TICK_HZ || has(state.container.get(to)) > 0 || (it.item !== undefined && has(state.container.get(g)) === 0)) { gs.intent = null; return; }
+  // (A consolidation hand-over, M11.2: the receiver may still have some; it ends when the giver has none left.)
+  const ends = it.consolidate === true ? spareCount(state.container.get(g), item ?? "") === 0 : has(state.container.get(to)) > 0 || (it.item !== undefined && has(state.container.get(g)) === 0);
+  if (!rs || !isAble(rs) || item === undefined || state.tick - it.tick > 60 * TICK_HZ || ends) { gs.intent = null; return; }
   if (state.action.has(g)) return;
   const a = state.transform.req(g), b = state.transform.req(to);
   const d = hypot2(a.x - b.x, a.y - b.y);
   if (d <= 2.4) {
-    startAction(state, events, g, "transferItems", secondsToTicks(ctx.catalog.behaviour.decisions.passSeconds), { to, item, count: 1 });
-    gs.intent = null;
+    startAction(state, events, g, "transferItems", secondsToTicks(ctx.catalog.behaviour.decisions.passSeconds), it.consolidate === true ? { to, item, count: 1, c: 1 } : { to, item, count: 1 });
+    gs.intent = it.consolidate === true && it.x !== undefined ? { ...it, back: true } : null;
     return;
   }
   const m = state.mover.get(g);
@@ -799,7 +810,7 @@ function lookForLost(ctx: SimContext, state: SimState, id: EntityId, s: SoldierS
     return true;
   }
   // A few metres aside: the least exposed spot from which he sees him, in his posture or kneeling.
-  if (P.sidestepM.length === 0) return true;
+  if (P.sidestepM.length === 0 || inPosition(ctx, state, id)) return true; // (M11: not out of his fighting position)
   const home: Posture = s.homePosture ?? s.peekFrom ?? s.posture;
   const hs = [body[home].heightM * 0.9, body.crouching.heightM * 0.9];
   const grid = navFor(ctx, "foot").grid;
@@ -902,7 +913,7 @@ function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: Ent
 /** Errands that take a man right up to a comrade on purpose (carrying parties too, M10.4a). */
 function closeErrand(s: SoldierState): boolean {
   const k = s.intent?.kind;
-  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner" || s.carrying !== undefined;
+  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner" || k === "takeAmmo" || k === "takeKit" || k === "resupply" || k === "bear" || s.carrying !== undefined;
 }
 
 /**
@@ -1131,7 +1142,7 @@ function hideFromDrone(ctx: SimContext, state: SimState, id: EntityId, s: Soldie
   hide.until = tick + hideT;
   s.droneHide = hide;
   if (s.intent?.kind !== "hideDrone") s.intent = { kind: "hideDrone", tick, x: me.x, y: me.y };
-  const covered = indoorAt(ctx, me.x, me.y) >= 0 || underCanopy(ctx, me.x, me.y, me.z, aboveM);
+  const covered = indoorAt(ctx, me.x, me.y) >= 0 || underCanopy(ctx, me.x, me.y, me.z, aboveM) || inPosition(ctx, state, id); // (M11: down in his hole)
   // (Only while the drone is still at least moveBeyondM off: closer, moving would show him; he lies still instead.
   // Not a man at a post: he lies down where he is.)
   if (!covered && m && H.searchM > 0 && near >= H.moveBeyondM * H.moveBeyondM && (hide.searched === undefined || tick - hide.searched >= hideT)
@@ -1252,6 +1263,11 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       if (s.intent?.kind === "care" && state.fire.get(id)?.self === true) state.fire.delete(id);
     }
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
+    // Taking a casualty's ammunition, or enemy kit on an order (M11.2, consolidate.ts).
+    if (s.intent?.kind === "takeAmmo" || s.intent?.kind === "takeKit") { stepTake(ctx, state, events, id); continue; }
+    if (s.intent?.kind === "resupply") { stepResupply(ctx, state, events, id); continue; }
+    // An ammunition bearer (M11.4a): to the supply point and back with a crate (the carry system while he carries).
+    if (s.intent?.kind === "bear" && s.carrying === undefined) { stepBear(ctx, state, events, id); continue; }
     if (s.intent?.kind === "fetchAmmo") {
       const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
       if (!wd || s.intent.target === undefined || !stepFetchAmmo(ctx, state, events, id, s.intent.target, wd.feed.magazine, s.intent.tick)) s.intent = null;

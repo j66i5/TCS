@@ -8,7 +8,7 @@
  * (suppression 0.1 or more) within the last 60 s. VEHICLE STOWAGE USED: rounds of the men's cartridges gone from the
  * vehicles' containers (not their guns' feeds).
  *
- *   npm run lab -- consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply]
+ *   npm run lab -- consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-deliveries]
  */
 import {
   continueBattle, createSim, isAssetUnit, isOffMapMan, type BattleInput, type Catalog, type EntityId, type SimEvent, type SimView,
@@ -38,6 +38,9 @@ export interface ConsumptionBattle {
   squadsOut: Record<string, number[]>;
   /** First time a man of each side's machine guns was dry (s). */
   mgDry: Record<string, number | null>;
+  /** M11.2: rounds taken from own casualties (and at the nest), takings from a live casualty before any treatment of
+   *  his (must be 0), piles left outside the nest, rifles swapped. */
+  taken: number; takenEvents: number; beforeTreatment: number; piles: number; swaps: number;
 }
 
 function manLoad(catalog: Catalog, state: SimView, id: EntityId): { load: number; loose: number; spares: number } {
@@ -90,7 +93,8 @@ export function consumptionBattle(data: DataSet, scenario: string, seed: number,
   }
   const stowage: ConsumptionBattle["stowage"] = {};
   for (const sd of state.sides) stowage[sd.id] = { start: stowageRounds(catalog, state, sd.id, carts), end: 0 };
-  let handovers = 0, refills = 0;
+  let handovers = 0, refills = 0, taken = 0, takenEvents = 0, beforeTreatment = 0, piles = 0, swaps = 0;
+  const treated = new Set<EntityId>();
   const onEvents = (ev: SimEvent[]) => {
     for (const e of ev) {
       if (e.kind === "shot.fired" && e.vehicle === undefined && !e.indirect) {
@@ -99,6 +103,12 @@ export function consumptionBattle(data: DataSet, scenario: string, seed: number,
         if (m && w && e.weapon === w.weapon) { m.fired++; m.lastShotS = e.tick / 60; }
       } else if (e.kind === "items.transferred" && men.has(e.from) && men.has(e.to) && catalog.items[e.item]?.chargeItem !== undefined) handovers++;
       else if (e.kind === "items.refilled") refills++;
+      else if (e.kind === "medical.treated") treated.add(e.casualty);
+      else if (e.kind === "items.taken" && (e.source === "casualty" || e.source === "nest")) {
+        taken += e.rounds; takenEvents++;
+        if (e.dead !== true && !treated.has(e.from)) beforeTreatment++;
+      } else if (e.kind === "items.dropped") piles++;
+      else if (e.kind === "weapon.swapped") swaps++;
     }
   };
   const onTick = () => {
@@ -135,7 +145,7 @@ export function consumptionBattle(data: DataSet, scenario: string, seed: number,
   }
   return {
     scenario, seed, endS: res.durationSeconds, reason: res.endReason, winner: res.winner ?? null, handovers, refills,
-    men: [...men.values()], stowage, squadsOut, mgDry,
+    men: [...men.values()], stowage, squadsOut, mgDry, taken, takenEvents, beforeTreatment, piles, swaps,
   };
 }
 
@@ -152,7 +162,8 @@ export function consumptionMarkdown(battles: ConsumptionBattle[], markS: number)
   for (const [name, bs] of byScenario) {
     out.push(`## ${name} (${bs.length} seeds)`, "");
     out.push(`Battle lengths ${bs.map((b) => Math.round(b.endS)).join(", ")} s (ends: ${[...new Set(bs.map((b) => b.reason))].sort().join(", ")}); winners ${bs.map((b) => b.winner ?? "none").join(", ")};`);
-    out.push(`hand-overs of ammunition between men per battle: ${bs.map((b) => b.handovers).join(", ")}; magazines refilled from loose rounds: ${bs.map((b) => b.refills).join(", ")}.`, "");
+    out.push(`hand-overs of ammunition between men per battle: ${bs.map((b) => b.handovers).join(", ")}; magazines refilled from loose rounds: ${bs.map((b) => b.refills).join(", ")}.`);
+    out.push(`M11.2: rounds taken from own casualties per battle: ${bs.map((b) => b.taken).join(", ")} (median ${med(bs.map((b) => b.taken))}; takings ${bs.reduce((a, b) => a + b.takenEvents, 0)}); **taken before treatment: ${bs.reduce((a, b) => a + b.beforeTreatment, 0)}**; piles left outside the nest: ${bs.reduce((a, b) => a + b.piles, 0)}; men dry per battle: ${bs.map((b) => b.men.filter((m) => m.dryS !== null).length).join(", ")} (mean ${f2(mean(bs.map((b) => b.men.filter((m) => m.dryS !== null).length)))}); men out of loaded spares per battle: ${bs.map((b) => b.men.filter((m) => m.outS !== null).length).join(", ")} (mean ${f2(mean(bs.map((b) => b.men.filter((m) => m.outS !== null).length)))}).`, "");
     out.push(`| side (who) | weapon | men | load at start (median) | loose at start (median) | fired per man: median / mean / 90th pct / max | per man and minute of battle (mean) | per man and minute IN CONTACT (all rounds / all contact minutes) | contact minutes per man (mean) | load gone by ${markS} s (mean) | load gone by the end (mean) | men out of loaded spares / dry | first out of spares (median s) |`);
     out.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
     const groups = new Map<string, ManTrack[]>();
@@ -178,7 +189,7 @@ export function consumptionMarkdown(battles: ConsumptionBattle[], markS: number)
   return out.join("\n");
 }
 
-export interface ConsumptionOptions { seeds: number[]; marks: number[]; scenarios: string[]; conservation: boolean; noResupply: boolean; /** `--scenarios` given (the conservation run then takes only those). */ scenariosGiven?: boolean }
+export interface ConsumptionOptions { seeds: number[]; marks: number[]; scenarios: string[]; conservation: boolean; noResupply: boolean; /** M11.4b: resupply on foot only (no deliveries from off the map, no vehicle supply runs, no top-up). */ noDeliveries?: boolean; /** M11.2: without consolidation and taking (the slice 43 behaviour), for before/after. */ noConsolidate?: boolean; /** `--scenarios` given (the conservation run then takes only those). */ scenariosGiven?: boolean }
 
 export function consumptionOptions(argv: string[]): ConsumptionOptions {
   const o: ConsumptionOptions = { seeds: [1, 2, 3, 4, 5, 6], marks: [1200, 2400], scenarios: CONSUMPTION_SCENARIOS, conservation: false, noResupply: false };
@@ -189,6 +200,8 @@ export function consumptionOptions(argv: string[]): ConsumptionOptions {
     else if (a === "--seeds") o.seeds = argv[++i]!.split(",").map(Number);
     else if (a === "--conservation") o.conservation = true;
     else if (a === "--no-resupply") o.noResupply = true;
+    else if (a === "--no-deliveries") o.noDeliveries = true;
+    else if (a === "--no-consolidate") o.noConsolidate = true;
     else if (/^\d+$/.test(a)) o.seeds = Array.from({ length: Number(a) }, (_, k) => k + 1);
   }
   return o;
@@ -196,7 +209,11 @@ export function consumptionOptions(argv: string[]): ConsumptionOptions {
 
 /** The lab: the consumption tables, or (`--conservation`) the conservation guard over every named scenario. */
 export function consumptionLab(data: DataSet, dataFixtures: DataSet, o: ConsumptionOptions, scenarioNames: string[]): string {
-  const tweak = o.noResupply ? (input: BattleInput) => { input.rules.resupply = false; } : undefined;
+  const tweak = o.noResupply || o.noDeliveries || o.noConsolidate ? (input: BattleInput) => {
+    if (o.noResupply) input.rules.resupply = false;
+    if (o.noDeliveries) input.rules.deliveries = false;
+    if (o.noConsolidate) { const { consolidate: _c, ...rest } = input.catalog.behaviour; void _c; input.catalog = { ...input.catalog, behaviour: rest }; }
+  } : undefined;
   if (o.conservation) {
     const rows: string[] = ["| scenario | seed | seconds | ended (s) | rounds fired or used | leaks |", "|---|---|---|---|---|---|"];
     let leaks = 0;
@@ -208,12 +225,12 @@ export function consumptionLab(data: DataSet, dataFixtures: DataSet, o: Consumpt
       const sc = getScenario(n);
       const r = conservationRun(sc.fixtures ? dataFixtures : data, n, s, secs, tweak);
       const used = Object.values(r.consumption.used).reduce((a, b) => a + b, 0);
-      const l = Object.entries(r.leaks);
+      const l = [...Object.entries(r.leaks), ...Object.entries(r.chargeLeaks).map(([k, v]): [string, number] => [`${k} (l)`, v])];
       leaks += l.length;
       rows.push(`| ${n} | ${s} | ${secs} | ${Math.round(r.endS)} | ${used} | ${l.length === 0 ? "exact" : l.map(([k, v]) => `${k} ${v}`).join(", ")} |`);
-      process.stderr.write(`${n} ${s}: ${l.length === 0 ? "exact" : JSON.stringify(r.leaks)}\n`);
+      process.stderr.write(`${n} ${s}: ${l.length === 0 ? "exact" : JSON.stringify(l)}\n`);
     }
-    return `## Conservation guard\n\nFor every ammunition id: start - end = fired + thrown + destroyed - delivered (events only). ${leaks === 0 ? "**Exact in every run.**" : `**${leaks} leaks.**`}\n\n${rows.join("\n")}\n`;
+    return `## Conservation guard\n\nFor every ammunition id: start - end = fired + thrown + destroyed - delivered (events only); M11.5: the same for litres of fuel (burnt, destroyed, delivered; within 1e-6 l). ${leaks === 0 ? "**Exact in every run.**" : `**${leaks} leaks.**`}\n\n${rows.join("\n")}\n`;
   }
   const limit = o.marks[o.marks.length - 1]!, mark = o.marks.length > 1 ? o.marks[0]! : limit;
   const battles: ConsumptionBattle[] = [];

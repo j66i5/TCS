@@ -2,7 +2,7 @@
  * The after-action review's content (M6; D2 tabs), from the battle record (`@tcs/sim` record.ts) and the state at
  * the end. All text from the string table; the record itself holds keys and raw values only.
  */
-import { battleScore, isAssetUnit, medianOf, medicalSummary, MISSING_STEPS, rosterStatus, ticksToSeconds, type EntityId, type TimelineEntry } from "@tcs/sim";
+import { battleScore, dryMen, isAssetUnit, medianOf, medicalSummary, MISSING_STEPS, rosterStatus, ticksToSeconds, type EntityId, type TimelineEntry } from "@tcs/sim";
 import type { AarModel, AarSection } from "@tcs/ui";
 import type { App } from "./app";
 import { fmtClock, localClock, sideColour, sideName } from "./units";
@@ -56,38 +56,9 @@ export function reviewModel(a: App): AarModel {
         return { order: rank, text: s.t("aar.man", { rank: s.t(`rank.${i.faction}.${i.rank}`, {}, i.faction), name: `${i.given} ${i.family}`, callsign: callsignOf(id), role: s.t(`role.${i.faction}.${i.role}`, {}, i.faction), status }) };
       }).sort((p, q) => p.order - q.order);
       const down = sc.scores.find((x) => x.side === sd.id)?.menDown ?? 0; // the same count as the score
-      // Ammunition used (M7.3, plan C4).
-      const e = record.exp[sd.id];
-      const spent: string[] = [];
-      if (e) {
-        spent.push(s.t("aar.expenditure"), s.t("aar.exp.smallArms", { n: e.smallArms }), s.t("aar.exp.grenades", { n: e.grenades }), ...(e.handSmoke > 0 ? [s.t("aar.exp.handSmoke", { n: e.handSmoke })] : []));
-        for (const [ammo, n] of Object.entries(e.rockets).sort(([p], [q]) => (p < q ? -1 : 1))) spent.push(s.t("aar.exp.rockets", { ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
-        // M7.6d: automatic grenade launchers on foot.
-        for (const [ammo, n] of Object.entries(e.grenadeMg ?? {}).sort(([p], [q]) => (p < q ? -1 : 1))) spent.push(s.t("aar.exp.grenadeMg", { ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
-        // M8.6: fire support rounds by asset and kind.
-        for (const [k, n] of Object.entries(e.support ?? {}).sort(([p], [q]) => (p < q ? -1 : 1))) {
-          const [asset, ammo] = k.split(":");
-          spent.push(s.t("aar.exp.support", { asset: s.t(asset === "artillery" ? "support.artillery" : "support.mortar"), ammo: s.t(`support.${ammo}`), n }));
-        }
-        for (const [vid, v] of Object.entries(e.vehicles).sort(([p], [q]) => (p < q ? -1 : 1))) {
-          // off-map: ok a lookup by name
-          const call = [...st.vehicle.values()].find((x) => x.vehicleId === vid);
-          const name = call && call.unit !== null ? st.unit.get(call.unit)?.callsign ?? vid : vid;
-          for (const [ammo, n] of Object.entries(v.cannon)) spent.push(s.t("aar.exp.cannon", { vehicle: name, ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
-          for (const [ammo, n] of Object.entries(v.missiles)) spent.push(s.t("aar.exp.cannon", { vehicle: name, ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
-          if (v.coax > 0) spent.push(s.t("aar.exp.coax", { vehicle: name, n: v.coax }));
-          if (v.smoke > 0) spent.push(s.t("aar.exp.smoke", { vehicle: name, n: v.smoke }));
-        }
-      }
       // Vehicles (M7.4a): lost and immobilised.
       const vs = [...st.vehicle.values()].filter((v) => v.side === sd.id && v.offMap === undefined);
       const vline = vs.length > 0 ? [s.t("aar.vehicles", { side: sideName(a, sd.id), lost: vs.filter((v) => v.status === "destroyed" || v.status === "abandoned").length, immobilised: vs.filter((v) => v.status === "immobilised").length, start: vs.length })] : [];
-      // M11.7a: field repairs (a row only when a crew started one).
-      const rp = record.sides[sd.id]?.repair;
-      if (rp && rp.started > 0) vline.push(s.t("aar.vehicles.repair", { done: rp.done, failed: rp.failed, stopped: rp.interrupted, parts: rp.parts }));
-      // M11.7b: recovery (a row only when one was called or a hull was settled at the end).
-      const rcv = record.sides[sd.id]?.recovery;
-      if (rcv && rcv.called + rcv.recovered + rcv.captured > 0) vline.push(s.t("aar.vehicles.recovery", { called: rcv.called, towed: rcv.towed, recovered: rcv.recovered, captured: rcv.captured, lost: rcv.lost }));
       // M9.6: drones, enemies found, fire missions by location method (rows only when non-zero).
       const rv = record.review.sides[sd.id], m9: string[] = [];
       if (rv) {
@@ -97,20 +68,13 @@ export function reviewModel(a: App): AarModel {
         if (rv.found.total > 0) m9.push(s.t("aar.found", { n: rv.found.total, drone: rv.found.byDrone, pct: Math.round((100 * rv.found.byDrone) / rv.found.total) }));
         const calls = (["estimate", "laser", "registered", "drone", "air"] as const).filter((k) => (rv.calls[k] ?? 0) > 0).map((k) => s.t("aar.callsBy", { method: s.t(`support.method.${k}`), n: rv.calls[k] ?? 0 }));
         if (calls.length > 0) m9.push(s.t("aar.calls", { list: calls.join(", ") }));
-        // M11.6: batteries changed and gone flat, time off the net, water drunk (rows only when non-zero).
-        const p = rv.supply;
-        if (p) {
-          const sw = p.swaps.radio + p.swaps.sight + p.swaps.other + p.swaps.drone, fl = p.flat.radio + p.flat.sight + p.flat.other;
-          if (sw + fl > 0) m9.push(s.t("aar.batteries", { radio: p.swaps.radio, sight: p.swaps.sight, other: p.swaps.other, drone: p.swaps.drone, flatRadio: p.flat.radio, flatSight: p.flat.sight, flatOther: p.flat.other }));
-          if (p.offNetS > 0) m9.push(s.t("aar.offNet", { time: dur(p.offNetS) }));
-          if (p.waterMl > 0) m9.push(s.t("aar.water", { litres: (p.waterMl / 1000).toFixed(1) }));
-        }
       }
-      return { heading: s.t("aar.sideHead", { side: sideName(a, sd.id), down, total: men.length }), colour: sideColour(a, sd.id), rows: [...vline, ...m9, ...rows.map((r) => r.text), ...spent] };
+      return { heading: s.t("aar.sideHead", { side: sideName(a, sd.id), down, total: men.length }), colour: sideColour(a, sd.id), rows: [...vline, ...m9, ...rows.map((r) => r.text)] };
     }),
     timeline: record.timeline.map((e) => ({ time: fmtClock(ticksToSeconds(e.tick)), text: timelineText(a, e), colour: e.side ? sideColour(a, e.side) : "#ffd23d" })),
     medical: medicalLines(a),
     conduct: conductLines(a),
+    logistics: logisticsLines(a),
   };
 }
 
@@ -171,7 +135,8 @@ export function conductLines(a: App): AarSection[] {
     const c = record.sides[sd.id]?.conduct;
     if (!c) continue;
     const hits = Object.entries(c.hits).sort(([p], [q]) => (p < q ? -1 : 1));
-    if (c.misidentified + c.deliberate + c.refused + hits.length === 0) continue;
+    const misuse = c.misuse ?? [];
+    if (c.misidentified + c.deliberate + c.refused + hits.length + misuse.length === 0) continue;
     const rows: AarSection["rows"] = [];
     // (Review fix: "under orders" counts breaches of either cause, and the line says so.)
     const ordered = c.breaches.filter((b) => b.ordered).length;
@@ -187,8 +152,95 @@ export function conductLines(a: App): AarSection[] {
         extra: [b.ordered ? s.t("aar.conduct.ordered") : "", b.vehicle ? s.t("aar.conduct.fromVehicle") : ""].filter((x) => x !== "").join(""),
       }) });
     }
+    // M11.4b (owner): ammunition carried in an ambulance, a breach of the law of war.
+    for (const m of misuse.slice(0, CONDUCT_LINES_MAX)) rows.push({ sub: true, text: s.t("aar.conduct.misuse", { callsign: m.vehicle, time: fmtClock(ticksToSeconds(m.tick)) }) });
     const more = c.misidentified + c.deliberate - Math.min(c.breaches.length, CONDUCT_LINES_MAX);
     if (more > 0) rows.push({ sub: true, text: s.t("aar.conduct.more", { n: more }) });
+    out.push({ heading: sideName(a, sd.id), colour: sideColour(a, sd.id), rows });
+  }
+  return out;
+}
+
+/** Weapon types in the order the Logistics tab lists them (`aar.wtype.*`). */
+const WTYPES = ["rifle", "carbine", "marksman-rifle", "pistol", "light-machine-gun", "machine-gun", "grenade-launcher", "hand-grenade", "launcher", "missile", "grenade-machine-gun", "autocannon", "tank-gun", "smoke-launcher", "mortar", "artillery", "other"];
+
+/** The Logistics tab (M11.8): per side (a coloured heading) ammunition fired by weapon type (the hulls', rockets' and
+ *  fire support's details indented), delivered by bearers, vehicle runs and from off the map, taken from casualties
+ *  and the enemy, captured and lost, requests for ammunition and how long they waited, men without a round at the
+ *  end, fuel, re-arming; the M11.6-M11.7 rows (field repair, recovery, batteries, water). Lines with nothing in them
+ *  are left out; a side with nothing at all too (the tab then says so). */
+export function logisticsLines(a: App): AarSection[] {
+  const { sim, strings: s, record } = a;
+  const st = sim.state;
+  const out: AarSection[] = [];
+  for (const sd of st.sides) {
+    const rows: AarSection["rows"] = [];
+    const line = (text: string, sub = false) => rows.push(sub ? { text, sub: true } : { text });
+    const sup = record.sides[sd.id]?.supply;
+    // ---- fired, by weapon type, then the details of the M7.3 expenditure (hulls, rockets, fire support)
+    const fired = sup?.fired ?? {};
+    const types = [...WTYPES.filter((k) => (fired[k] ?? 0) > 0), ...Object.keys(fired).filter((k) => !WTYPES.includes(k) && (fired[k] ?? 0) > 0).sort()];
+    if (types.length > 0) line(s.t("aar.logistics.fired", { list: types.map((k) => s.t("aar.logistics.firedType", { type: s.t(`aar.wtype.${k}`), n: fired[k] ?? 0 })).join(", ") }));
+    // Ammunition used (M7.3, plan C4).
+    const e = record.exp[sd.id];
+    const spent: string[] = [];
+    if (e) {
+      if (e.handSmoke > 0) spent.push(s.t("aar.exp.handSmoke", { n: e.handSmoke }));
+      for (const [ammo, n] of Object.entries(e.rockets).sort(([p], [q]) => (p < q ? -1 : 1))) spent.push(s.t("aar.exp.rockets", { ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
+      // M7.6d: automatic grenade launchers on foot.
+      for (const [ammo, n] of Object.entries(e.grenadeMg ?? {}).sort(([p], [q]) => (p < q ? -1 : 1))) spent.push(s.t("aar.exp.grenadeMg", { ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
+      // M8.6: fire support rounds by asset and kind.
+      for (const [k, n] of Object.entries(e.support ?? {}).sort(([p], [q]) => (p < q ? -1 : 1))) {
+        const [asset, ammo] = k.split(":");
+        spent.push(s.t("aar.exp.support", { asset: s.t(asset === "artillery" ? "support.artillery" : "support.mortar"), ammo: s.t(`support.${ammo}`), n }));
+      }
+      for (const [vid, v] of Object.entries(e.vehicles).sort(([p], [q]) => (p < q ? -1 : 1))) {
+        // off-map: ok a lookup by name
+        const call = [...st.vehicle.values()].find((x) => x.vehicleId === vid);
+        const name = call && call.unit !== null ? st.unit.get(call.unit)?.callsign ?? vid : vid;
+        for (const [ammo, n] of Object.entries(v.cannon)) spent.push(s.t("aar.exp.cannon", { vehicle: name, ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
+        for (const [ammo, n] of Object.entries(v.missiles)) spent.push(s.t("aar.exp.cannon", { vehicle: name, ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
+        if (v.coax > 0) spent.push(s.t("aar.exp.coax", { vehicle: name, n: v.coax }));
+        if (v.smoke > 0) spent.push(s.t("aar.exp.smoke", { vehicle: name, n: v.smoke }));
+      }
+    }
+    for (const x of spent) line(x, true);
+    if (sup) {
+      // ---- delivered
+      const foot = sup.roundsDelivered ?? 0, veh = sup.roundsVehicle ?? 0, off = sup.roundsOffMap ?? 0;
+      if ((sup.trips ?? 0) + (sup.vehicleRuns ?? 0) + (sup.deliveries ?? 0) + (sup.topUp ?? 0) > 0) line(s.t("aar.logistics.delivered", { foot, trips: sup.trips ?? 0, veh, runs: sup.vehicleRuns ?? 0, off, n: sup.deliveries ?? 0, topup: sup.topUp ?? 0 }));
+      // ---- taken
+      if ((sup.takenCasualty ?? 0) + (sup.takenEnemy ?? 0) + sup.roundsTaken > 0) line(s.t("aar.logistics.taken", { cas: sup.takenCasualty ?? 0, enemy: sup.takenEnemy ?? 0, cache: sup.roundsTaken, sent: sup.sent }));
+      // ---- captured and lost
+      if (sup.captured + sup.cookoffs + (sup.roundsLost ?? 0) > 0) line(s.t("aar.logistics.captured", { captured: sup.captured, rounds: sup.roundsCaptured, cookoffs: sup.cookoffs, destroyed: sup.roundsDestroyed, lost: sup.roundsLost ?? 0 }));
+      // ---- requests and their waits
+      const req = sup.requests ?? 0, waits = sup.waitS ?? [];
+      if (req > 0) {
+        const m = medianOf(waits);
+        line(s.t("aar.logistics.requests", { n: req, answered: waits.length, wait: m === null ? s.t("aar.medical.none") : dur(m), open: sup.open ?? 0 }));
+      }
+      // ---- fuel and re-arming
+      if ((sup.litresBurnt ?? 0) + (sup.litresRefuelled ?? 0) + (sup.litresDelivered ?? 0) > 0.5) line(s.t("aar.logistics.fuel", { burnt: Math.round(sup.litresBurnt ?? 0), refuelled: Math.round(sup.litresRefuelled ?? 0), delivered: Math.round(sup.litresDelivered ?? 0) }));
+      if ((sup.rearms ?? 0) + (sup.roundsRestocked ?? 0) > 0) line(s.t("aar.logistics.rearm", { n: sup.rearms ?? 0, rounds: sup.roundsRearmed ?? 0, restocked: sup.roundsRestocked ?? 0 }));
+    }
+    // M11.7a: field repairs (a row only when a crew started one).
+    const rp = record.sides[sd.id]?.repair;
+    if (rp && rp.started > 0) line(s.t("aar.vehicles.repair", { done: rp.done, failed: rp.failed, stopped: rp.interrupted, parts: rp.parts }));
+    // M11.7b: recovery (a row only when one was called or a hull was settled at the end).
+    const rcv = record.sides[sd.id]?.recovery;
+    if (rcv && rcv.called + rcv.recovered + rcv.captured > 0) line(s.t("aar.vehicles.recovery", { called: rcv.called, towed: rcv.towed, recovered: rcv.recovered, captured: rcv.captured, lost: rcv.lost }));
+    // M11.6: batteries changed and gone flat, time off the net, water drunk (rows only when non-zero).
+    const p = record.review.sides[sd.id]?.supply;
+    if (p) {
+      const sw = p.swaps.radio + p.swaps.sight + p.swaps.other + p.swaps.drone, fl = p.flat.radio + p.flat.sight + p.flat.other;
+      if (sw + fl > 0) line(s.t("aar.batteries", { radio: p.swaps.radio, sight: p.swaps.sight, other: p.swaps.other, drone: p.swaps.drone, flatRadio: p.flat.radio, flatSight: p.flat.sight, flatOther: p.flat.other }));
+      if (p.offNetS > 0) line(s.t("aar.offNet", { time: dur(p.offNetS) }));
+      if (p.waterMl > 0) line(s.t("aar.water", { litres: (p.waterMl / 1000).toFixed(1) }));
+    }
+    if (rows.length === 0) continue;
+    // ---- men without a round (now: the end of the battle when the review opens), always with something above it
+    const dm = dryMen(sim.ctx.catalog, st, sd.id);
+    rows.splice(types.length > 0 ? 1 : 0, 0, { text: s.t("aar.logistics.dry", { dry: dm.dry, armed: dm.armed }) });
     out.push({ heading: sideName(a, sd.id), colour: sideColour(a, sd.id), rows });
   }
   return out;

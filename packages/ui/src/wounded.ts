@@ -60,11 +60,13 @@ export function woundedRows(view: SimView, side: string): WoundedRow[] {
 export interface AmbulanceRow {
   id: EntityId;
   callsign: string;
-  phase: "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "toPoint" | "return";
+  phase: "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "toPoint" | "return" | "unloading";
   dueS: number;
   aboard: number;
-  /** A combat vehicle on a rear run (M10.6b; phases toPoint, loading, outbound, away — back in about `dueS` —, return). */
-  kind?: "rearRun";
+  /** A combat vehicle on a rear run (M10.6b; phases toPoint, loading, outbound, away — back in about `dueS` —, return;
+   *  M11.4b unloading); a supply run (M11.4b, "supplyRun"); a delivery from off the map (M11.4b, "delivery": called,
+   *  inbound, loading = unloading at the supply point, outbound). */
+  kind?: "rearRun" | "supplyRun" | "delivery";
 }
 
 /** The side's ambulances (M10.6a): those on a run or done (rows), and how many still wait to be called. */
@@ -73,7 +75,16 @@ export function ambulanceRows(view: SimView, side: string): { rows: AmbulanceRow
   let ready = 0;
   for (const [id, v] of view.vehicle.entries()) {
     const o = v.offMap;
-    if (o?.kind !== "ambulance" || v.side !== side) continue;
+    if (o === undefined || v.side !== side) continue;
+    // (M11.4b: a delivery run, by the supply vehicle or an ambulance sent with supplies.)
+    if (o.cargo === "supplies") {
+      if (o.phase === "called" || o.phase === "inbound" || o.phase === "loading" || o.phase === "outbound") {
+        const due = o.phase === "called" ? Math.max(0, Math.round(((o.enterTick ?? view.tick) - view.tick) / TICK_HZ)) : 0;
+        rows.push({ id, callsign: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? "" : "", phase: o.phase, dueS: due, aboard: 0, kind: "delivery" });
+      }
+      continue;
+    }
+    if (o.kind !== "ambulance") continue;
     if (o.phase === "ready") { ready++; continue; }
     let aboard = 0;
     for (const sid of v.seats) { const s = sid === null ? undefined : view.soldier.get(sid); if (s && s.wounds.length > 0 && view.unit.get(view.identity.get(sid!)?.unit ?? -1)?.asset === undefined) aboard++; }
@@ -87,7 +98,7 @@ export function ambulanceRows(view: SimView, side: string): { rows: AmbulanceRow
     let aboard = 0;
     for (const sid of v.seats) { const s = sid === null ? undefined : view.soldier.get(sid); if (s && s.wounds.length > 0 && s.physiology.alive && (s.casualty !== "none" || !s.impair.canWalk || !s.impair.canFight)) aboard++; }
     const dueS = r.phase === "away" ? Math.max(0, Math.round(((r.backTick ?? view.tick) - view.tick) / TICK_HZ)) : 0;
-    rows.push({ id, callsign: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? "" : "", phase: r.phase, dueS, aboard, kind: "rearRun" });
+    rows.push({ id, callsign: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? "" : "", phase: r.phase, dueS, aboard, kind: r.cargo === "supplies" ? "supplyRun" : "rearRun" });
   }
   return { rows, ready };
 }

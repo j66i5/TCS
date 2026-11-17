@@ -32,6 +32,7 @@ import type { SimState } from "../state";
 import { liesAboard, placesFit, placesUsed, seatCasualty } from "./boarding";
 import { planVehicleRoute, vehicleHalt, vehicleMove, type OrderResult } from "./drive";
 import { handOver } from "./aftercare";
+import { pileOutsideNest } from "./consolidate";
 import { careEnabled, treatedNow } from "./medical";
 import { nestOf, setNest, siteNest, topOf } from "./nest";
 
@@ -263,7 +264,8 @@ export function evacuationSystem(ctx: SimContext, state: SimState, events: Event
   if (state.tick % Math.max(1, secondsToTicks(M.care.stepS)) !== 0) return;
   // The ambulances (ascending id); nothing to do in a battle without any.
   let assets: EntityId[] | null = null;
-  for (const [vid, v] of state.vehicle.entries()) if (v.offMap?.kind === "ambulance") (assets ??= []).push(vid);
+  // (M11.4b: an ambulance the player sent with supplies is on a delivery run: delivery.ts steps it.)
+  for (const [vid, v] of state.vehicle.entries()) if (v.offMap?.kind === "ambulance" && v.offMap.cargo === undefined) (assets ??= []).push(vid);
   if (assets === null) return;
   // Who lies at which nest (one pass over the men).
   let atNest: Map<EntityId, EntityId[]> | null = null;
@@ -375,6 +377,8 @@ function stepRun(ctx: SimContext, state: SimState, events: EventSink, vid: Entit
       if (s && s.physiology.alive && s.atNest === pid && !isMounted(s) && !state.carry.has(c)) {
         // (The medic finishing a treatment on him first.)
         if (treatedNow(state).has(c)) { o.loading.doneTick = tick + secondsToTicks(5); return; }
+        // (Review fix: his ammunition stays outside, owner — no ammunition into an ambulance.)
+        pileOutsideNest(ctx, state, events, undefined, c, pid);
         if (seatCasualty(ctx, state, vid, c, events)) {
           delete s.atNest;
           o.lastLoadTick = tick;

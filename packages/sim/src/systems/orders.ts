@@ -9,8 +9,12 @@ import { leaveCarry } from "./carry";
 import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
 import { callAmbulanceOrder } from "./evacuation";
 import { rearRunGate, rearRunOrder } from "./rearrun";
+import { resupplyGate } from "./rearm";
+import { callDeliveryOrder, deliveriesEnabled } from "./delivery";
 import { endRepairByOrder, repairOrder } from "./repair";
 import { callRecoveryOrder, towGate } from "./recovery";
+import { kitSource, takeKitOrder } from "./consolidate";
+import { resupplyAtOrder, sendBearers, supplyPointOrder } from "./supply";
 import { aglOf, crewServedKind, startSetup } from "./mortars";
 import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
@@ -94,6 +98,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.onContact !== undefined && o.onContact !== "ground" && o.onContact !== "push" && o.onContact !== "back") return "invalid-params";
       if (o.ammo !== undefined && o.ammo !== "conserve" && o.ammo !== "normal" && o.ammo !== "max") return "invalid-params";
       if (o.at !== undefined && o.at !== "vehicles" && o.at !== "vehiclesAndPositions" && o.at !== "hold") return "invalid-params";
+      if (o.supply !== undefined && o.supply !== "auto" && o.supply !== "ask") return "invalid-params";
       return null;
     case "callFire":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
@@ -155,9 +160,34 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "defendArc":
       if (!state.unit.has(o.target)) return "invalid-params";
       return Number.isFinite(o.facing) && Number.isFinite(o.widthRad) && o.widthRad > 0 && o.widthRad <= 2 * PI ? null : "invalid-params";
+    case "takeKit":
+      // (M11.2: men on foot; an enemy casualty or prisoner, or a pile on the ground.)
+      if (state.unit.get(o.target)?.vehicle !== undefined || !Number.isInteger(o.source)) return "invalid-params";
+      if (!ctx.catalog.behaviour.consolidate) return "not-applicable";
+      return kitSource(state, o.issuer, o.source) ? null : "invalid-params";
+    case "supplyPoint":
+      // (M11.3: the target's platoon.)
+      if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
+      return ctx.catalog.supply && ctx.rules.resupply !== false ? null : "not-applicable";
+    case "resupplyAt":
+      // (M11.3: men on foot; an own cache, if one is named.)
+      if (state.unit.get(o.target)?.vehicle !== undefined) return "invalid-params";
+      if (o.cache !== undefined && (!Number.isInteger(o.cache) || state.cache.get(o.cache)?.side !== o.issuer)) return "invalid-params";
+      return ctx.catalog.supply && ctx.rules.resupply !== false ? null : "not-applicable";
+    case "bearers":
+      // (M11.4a: a unit on foot, or a man of one.)
+      if (o.own !== undefined && typeof o.own !== "boolean") return "invalid-params";
+      if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
+      return ctx.catalog.supply?.bearers && ctx.rules.resupply !== false ? null : "not-applicable";
+    case "callDelivery":
+      // (M11.4b) A unit (its platoon calls), or a man of one; a vehicle named must exist.
+      if (!state.unit.has(o.target) && !state.identity.has(o.target)) return "invalid-params";
+      if (o.vehicle !== undefined && (!Number.isInteger(o.vehicle) || !state.vehicle.has(o.vehicle))) return "invalid-params";
+      return ctx.catalog.supply?.delivery && deliveriesEnabled(ctx) ? null : "not-applicable";
     case "rearRun":
       // A vehicle crew's hull (M10.6b).
       if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
+      if (o.cargo !== undefined && o.cargo !== "supplies") return "invalid-params";
       return ctx.catalog.medical?.nest && ctx.catalog.medical.rearRun ? null : "not-applicable";
     case "repair":
       // A vehicle crew's hull (M11.7a).
@@ -404,19 +434,41 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // (A platoon's headquarters on its own, owner 2026-11-15: its own men, not its sub-units or their vehicles.)
   const own = isUnit && order.own === true;
   // The Verwundetennest (M10.5): nobody's errand or drill changes.
-  if (order.kind === "casualtyPoint") return casualtyPointOrder(ctx, state, events, order.target, order.x, order.y) ? true : "unable";
+  if (order.kind === "casualtyPoint") { const r = casualtyPointOrder(ctx, state, events, order.target, order.x, order.y); return r === true ? true : r === false ? "unable" : r; }
   if (order.kind === "evacuate") return evacuateOrder(state, order.target) ? true : "unable";
   // An ambulance from the rear (M10.6a): the platoon's call; nothing of the unit changes.
   if (order.kind === "callAmbulance") return callAmbulanceOrder(ctx, state, events, order.target, order.player === true);
   // A combat vehicle's rear run (M10.6b): the hull's own task; an order to a hull away on one is refused, on the map
   // it ends the run.
-  if (order.kind === "rearRun") return rearRunOrder(ctx, state, events, order.target);
+  if (order.kind === "rearRun") return rearRunOrder(ctx, state, events, order.target, order.cargo);
+  // A delivery from off the map (M11.4b): the platoon's call; nothing of the unit changes.
+  if (order.kind === "callDelivery") return callDeliveryOrder(ctx, state, events, order);
+  // Take enemy kit (M11.2): one man's errand; nothing else of the unit changes.
+  if (order.kind === "takeKit") {
+    // mounted: ok takeKitOrder sends only men on foot
+    const men = isUnit ? (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : unitSoldiers(state, order.target)) : [order.target];
+    return takeKitOrder(ctx, state, events, men, order.source);
+  }
+  // Supply points and caches (M11.3): the platoon's point; the men's errand to a cache (only men on foot go).
+  if (order.kind === "supplyPoint") { const r = supplyPointOrder(ctx, state, events, order.target, order.x, order.y); return r === true ? true : r === false ? "unable" : r; }
+  // Ammunition bearers (M11.4a): the platoon's errand; nothing else of the unit changes.
+  if (order.kind === "bearers") {
+    const bu = isUnit ? order.target : state.identity.get(order.target)?.unit;
+    return bu === undefined ? "unable" : sendBearers(ctx, state, events, bu, order.own === true);
+  }
+  if (order.kind === "resupplyAt") {
+    // mounted: ok resupplyAtOrder sends only men on foot
+    const men = isUnit ? (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : unitSoldiers(state, order.target)) : [order.target];
+    return resupplyAtOrder(ctx, state, events, men, order.issuer, order.cache);
+  }
   const gate = rearRunGate(state, events, order);
   if (gate !== null) return gate;
   // Recovery (M11.7b): a call; orders to a crew on the bar or towed away are refused.
   if (order.kind === "callRecovery") return callRecoveryOrder(ctx, state, events, order);
   const tow = towGate(state, order);
   if (tow !== null) return tow;
+  // M11.5: an order to a crew ends its re-arming or refuelling (what was moved stays).
+  resupplyGate(state, events, order);
   // Field repair (M11.7a): the crew's own task on its hull.
   if (order.kind === "repair") return repairOrder(ctx, state, events, state.unit.req(order.target).vehicle!);
   // (D4b: a halt, getting in or out, or a move of the vehicle that carries them ends an arc they were defending.)
@@ -494,7 +546,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // his unit pass him by (an order to him alone ends the errand, below).
   // (M11.6 review fix: men of a sub-unit off the net do not hear an order to a unit above them.)
   const soldiers = (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : isUnit ? reachedSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined
-    && !(isUnit && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)));
+    && !(isUnit && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.intent?.kind === "bear" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)));
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
   // An order ends a walk to take a prisoner (M6.6): orders always win.
@@ -503,7 +555,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (!keepsDrill) {
     for (const m of soldiers) {
       const ms = state.soldier.get(m);
-      if (ms?.intent?.kind === "takePrisoner" || ms?.intent?.kind === "care") ms.intent = null;
+      if (ms?.intent?.kind === "takePrisoner" || ms?.intent?.kind === "care" || ms?.intent?.kind === "takeAmmo" || ms?.intent?.kind === "takeKit" || ms?.intent?.kind === "resupply" || ms?.intent?.kind === "bear" || (ms?.intent?.kind === "bringAmmo" && ms.intent.consolidate === true)) ms.intent = null;
       if (ms?.carrying !== undefined) leaveCarry(state, m); // an order to him alone takes him out of his carrying party
     }
   }
@@ -807,6 +859,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (order.onContact !== undefined) x.onContact = order.onContact;
         if (order.ammo !== undefined) x.ammoRule = order.ammo;
         if (order.at !== undefined) x.atRule = order.at;
+        if (order.supply !== undefined) x.supplyRule = order.supply;
         // (A new fire rule ends an ambush laid, D4b: the player has decided otherwise.)
         if (order.fire !== undefined) delete x.ambush;
       };

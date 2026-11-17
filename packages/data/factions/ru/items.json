@@ -288,6 +288,7 @@
       "massKg": 0,
       "chargeCapacity": 460,
       "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
       "sources": [],
       "confidence": "low",
       "note": "The BMP-2's fuel tank (M7): the charge is litres of diesel (0.84 kg per litre). The tank itself is part of the hull (mass 0). Capacity is a game value."
@@ -488,6 +489,7 @@
       "massKg": 0,
       "chargeCapacity": 290,
       "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
       "sources": [
         "https://en.wikipedia.org/wiki/BTR-80"
       ],
@@ -773,6 +775,7 @@
       "massKg": 0,
       "chargeCapacity": 1200,
       "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
       "sources": [],
       "confidence": "low",
       "note": "The T-90M's fuel tanks (M7.6a): litres of diesel (0.84 kg per litre); capacity a game value."
@@ -784,6 +787,7 @@
       "massKg": 0,
       "chargeCapacity": 1200,
       "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
       "sources": [],
       "confidence": "low",
       "note": "The T-72B3M's fuel tanks (M7.6a): litres of diesel (0.84 kg per litre); capacity a game value."
@@ -917,6 +921,7 @@
       "massKg": 0,
       "chargeCapacity": 300,
       "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
       "sources": [
         "https://www.globalsecurity.org/military/world/russia/btr-82-specs.htm",
         "https://mail.army-guide.com/eng/product4649.html"
@@ -967,6 +972,7 @@
       "massKg": 0,
       "chargeCapacity": 1200,
       "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
       "sources": [],
       "confidence": "low",
       "note": "The BREM-1's fuel tanks (M11.7b): litres of diesel (0.84 kg per litre); capacity as the T-72's (game value)."
@@ -1054,6 +1060,57 @@
       "sources": [],
       "confidence": "low",
       "note": "M11.1: a crate of RGD-5 hand grenades; the count per crate was not found (game value)."
+    },
+    {
+      "id": "ru-ak74m-carried",
+      "nameKey": "weapon.ru-ak74m",
+      "category": "weapon",
+      "massKg": 3.4,
+      "sources": [
+        "https://www.army-technology.com/projects/ak-74m-assault-rifle-russian-army-military/",
+        "https://structure.mil.ru/structure/forces/ground/weapons/arma/more.htm?id=10344196@morfMilitaryModel"
+      ],
+      "confidence": "medium",
+      "note": "M11.2: the rifle as an item, carried slung or in the load instead of in the hands (taking an enemy rifle puts one's own away); the same mass as the weapon entry (weapons.json, its sources)."
+    },
+    {
+      "id": "ru-ak12-carried",
+      "nameKey": "weapon.ru-ak12",
+      "category": "weapon",
+      "massKg": 3.5,
+      "sources": [
+        "https://modernfirearms.net/en/assault-rifles/ak-12-ak-15-eng/",
+        "https://en.wikipedia.org/wiki/AK-12"
+      ],
+      "confidence": "medium",
+      "note": "M11.2: the rifle as an item, carried slung or in the load instead of in the hands (taking an enemy rifle puts one's own away); the same mass as the weapon entry (weapons.json, its sources)."
+    },
+    {
+      "id": "ru-ural-diesel",
+      "nameKey": "item.ru-ural-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 300,
+      "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Ural-4320",
+        "https://www.military-today.com/trucks/ural_4320.htm"
+      ],
+      "confidence": "low",
+      "note": "The supply truck's fuel tank (M11.4b): litres of diesel; 300 L (search extracts, low). Part of the hull (mass 0)."
+    },
+    {
+      "id": "ru-jerrycan",
+      "nameKey": "item.ru-jerrycan",
+      "category": "fuel-can",
+      "massKg": 4.5,
+      "chargeCapacity": 20,
+      "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.5: a 20 l steel fuel can (kanistra; about 4.5 kg empty: general knowledge, no page could be opened here); the charge is litres of diesel. Poured into a tank by hand (core/supply.json refuel.jerrycanLpm)."
     }
   ]
 }

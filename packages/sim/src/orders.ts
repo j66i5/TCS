@@ -58,6 +58,8 @@ export type OrderBody =
     kind: "rules"; fire?: "free" | "return" | "hold"; /** 0 = no limit beyond the weapon's own. */ maxEngageM?: number; onContact?: "ground" | "push" | "back"; ammo?: "conserve" | "normal" | "max";
     /** Anti-tank weapons on their own (M7.4a, SPEC 6.6): at vehicles only, also at positions, or only on order. */
     at?: "vehicles" | "vehiclesAndPositions" | "hold";
+    /** M11.4a: a squad's request for ammunition sends bearers at once ("auto") or waits for the player ("ask"). */
+    supply?: "auto" | "ask";
   }
   /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs.
    *  M7.5e: `building` (a building's id, with an interior) makes it a house clearing: the halves close in by bounds
@@ -107,8 +109,9 @@ export type OrderBody =
    *  its side's next waiting ambulance now, even before anyone lies at the nest (the nest is sited if it has none). */
   | { kind: "callAmbulance" }
   /** Evacuate with this vehicle (M10.6b, owner Q-9): the target crew's hull takes the casualties at its platoon's
-   *  Verwundetennest (or the wounded aboard) off the map, then comes back. */
-  | { kind: "rearRun" }
+   *  Verwundetennest (or the wounded aboard) off the map, then comes back. M11.4b `cargo` "supplies": a supply run
+   *  (its stowage filled from the side's off-map stock, a share for its platoon's supply point). */
+  | { kind: "rearRun"; cargo?: "supplies" }
   /** Repair the hull now (M11.7a): the target crew starts its next field repair task at once, without waiting for
    *  the quiet period (not within seconds of a hit, not while burning). A move order ends it (progress kept). */
   | { kind: "repair" }
@@ -123,7 +126,30 @@ export type OrderBody =
   /** Defend an arc (D4b, SPEC 6.6): the men on foot of the unit and its sub-units stop, face `facing` (rad) and
    *  open fire on their own only at enemies within `widthRad / 2` either side of it; the next move, assault,
    *  withdrawal or occupation ends the arc. */
-  | { kind: "defendArc"; facing: number; widthRad: number };
+  | { kind: "defendArc"; facing: number; widthRad: number }
+  /** Take enemy kit (M11.2, owner: on a player order only; the AI never gives it): the nearest able man of the target
+   *  unit (or the man) goes to `source` — an enemy casualty or prisoner, or a pile of ammunition on the ground — and
+   *  takes the ammunition that fits a weapon he carries; if none fits, he swaps his rifle for the enemy's rifle with its
+   *  magazines (his own goes into his load). Refused on the radio when nothing fits or nobody is near. */
+  | { kind: "takeKit"; source: EntityId }
+  /** Put the supply point here (M11.3, owner: separate from the Verwundetennest): the target's platoon (its top unit)
+   *  has its supply point at (x, y) from now on (an empty one moves; one with supplies stays as a plain cache and a new
+   *  empty one is put here). Refused within `supply.nestApartM` of its nest. */
+  | { kind: "supplyPoint"; x: number; y: number }
+  /** Resupply at a cache (M11.3): the target unit's men on foot (or the man) go to own cache `cache` (absent: the
+   *  nearest own one within reach that has something for them), take up to their standard load and walk back to
+   *  where they stood. Refused on the radio: none in reach, nothing there for them, under fire, already full. */
+  | { kind: "resupplyAt"; cache?: EntityId }
+  /** Ammunition bearers for the target squad (M11.4a): two men take a crate from its platoon's supply point to it.
+   *  `own`: "Fetch ammunition", two of the squad's own men go; absent: "Send bearers", the platoon sends them (its
+   *  headquarters first, never a squad in a fight). Refused on the radio: no supply point, nothing there for them,
+   *  nobody free, bearers already coming. */
+  | { kind: "bearers"; own?: boolean }
+  /** Order a delivery (M11.4b): the target's platoon calls the side's supply vehicle with supplies from the side's
+   *  off-map stock to its supply point (sited now if it has none). `vehicle`: the vehicle to send (an ambulance waiting
+   *  off the map: carried out, but a breach of the law of war; the computer never names one). Refused on the radio:
+   *  none waiting, one already coming, nothing in the stock for them, no way in. */
+  | { kind: "callDelivery"; vehicle?: EntityId };
 
 export type OrderKind = OrderBody["kind"];
 

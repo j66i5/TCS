@@ -54,6 +54,15 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     if (R.delayMinS > R.delayMaxS) errors.push({ file: "core/repair.json", path: "recovery.delayMinS", message: "delayMinS above delayMaxS", severity: "error" });
     for (const k of ["pace", "nearPace"] as const) if (!data.movementModes[R[k]]) errors.push({ file: "core/repair.json", path: `recovery.${k}`, message: `unknown movement mode '${R[k]}'`, severity: "error" });
   }
+  // Supply points and caches (M11.3): game values; search extracts at most.
+  if (data.supply) {
+    check("core/supply.json", "supply", data.supply.supply, false); notHigh("core/supply.json", "supply", data.supply.supply);
+    const D = data.supply.supply.delivery;
+    if (D) {
+      if (D.delayMinS > D.delayMaxS) errors.push({ file: "core/supply.json", path: "supply.delivery.delayMinS", message: "delayMinS above delayMaxS", severity: "error" });
+      for (const k of ["pace", "nearPace"] as const) if (!data.movementModes[D[k]]) errors.push({ file: "core/supply.json", path: `supply.delivery.${k}`, message: `unknown movement mode '${D[k]}'`, severity: "error" });
+    }
+  }
   if (data.medical) {
     const m = data.medical, f = "core/medical.json";
     for (const [k, b] of [["physiology", m.physiology], ["levels", m.levels], ["chain", m.chain], ["protection", m.protection], ["triage", m.triage]] as const) { check(f, k, b, false); notHigh(f, k, b); }
@@ -99,6 +108,12 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     if (rec) {
       const vt = pack.units[rec.template]?.vehicle;
       if (vt === undefined || pack.vehicles[vt]?.recovery === undefined) errors.push({ file: `${d}/manifest.json`, path: "recovery.template", message: `'${rec.template}' is not the crew of a recovery vehicle`, severity: "error" });
+    }
+    // Supply vehicles off the map (M11.4b): the template must crew a vehicle with `cargo`.
+    const sup = pack.manifest.supply;
+    if (sup) {
+      const vt = pack.units[sup.template]?.vehicle;
+      if (vt === undefined || pack.vehicles[vt]?.cargo === undefined) errors.push({ file: `${d}/manifest.json`, path: "supply.template", message: `'${sup.template}' is not the crew of a supply vehicle (one with cargo)`, severity: "error" });
     }
     check(`${d}/names.json`, "names", pack.names, fx);
     check(`${d}/doctrine.json`, "doctrine", pack.doctrine, fx);

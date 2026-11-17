@@ -14,7 +14,8 @@
  * can tell the man no longer is. Beyond that range he keeps what he knew. Flags are a man's own judgement: they are
  * not passed on in reports (a comrade who has not seen the armband himself may fire: an honest mistake). Who may be
  * fired at is decided on these flags, never on the target's real state. Nothing here is faction-specific: who wears
- * an emblem and which hulls are marked is data.
+ * an emblem and which hulls are marked is data. M11.4b: a marked ambulance carrying ammunition (`VehicleState.misuse`,
+ * a breach) has no protection while it does: an enemy who sees it within the recognition range clears his flag.
  */
 import type { Catalog } from "./catalog";
 import type { Contact, SoldierState } from "./components";
@@ -81,7 +82,8 @@ export function protectionNow(catalog: Catalog, state: SimState, target: EntityI
     return p;
   }
   const v = state.vehicle.get(target);
-  if (v && catalog.vehicles[v.def]?.ambulance?.marked === true && !firedLately(catalog, state, target)) return PROT_MARKED;
+  // (M11.4b: an ambulance carrying ammunition has no protection while it carries it, `misuse`.)
+  if (v && catalog.vehicles[v.def]?.ambulance?.marked === true && v.misuse !== true && !firedLately(catalog, state, target)) return PROT_MARKED;
   return 0;
 }
 

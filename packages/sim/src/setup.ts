@@ -16,8 +16,9 @@ import type { Catalog, VehicleDef } from "./catalog";
 import { updateImpairment, rosterStatus } from "./impair";
 import { createState, newEntity, type SimState, type SimView } from "./state";
 import type { SimContext } from "./context";
-import type { EventSink } from "./events";
-import { TICK_HZ } from "./ids";
+import { EventSink } from "./events";
+import { newCache, pointForCache } from "./systems/supply";
+import { secondsToTicks, TICK_HZ } from "./ids";
 import { ammoOf } from "./ledger";
 import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
@@ -58,14 +59,26 @@ export function buildInitialState(input: BattleInput): SimState {
   }
   // Crates and cans on the ground (M11.1): a place and a container (after everything else, so the other entities keep
   // their ids).
+  // M11.3: each is a cache of its side (placed: it stays where it is); one marked `point` is the supply point of the
+  // side's nearest platoon (its rear point after every cache, so the caches keep their ids).
+  const points: EntityId[] = [];
   for (const force of input.forces) {
     for (const cache of force.caches ?? []) {
-      const id = newEntity(state);
-      state.transform.set(id, { x: cache.x, y: cache.y, z: 0, heading: 0 });
-      const c = emptyContainer();
-      for (const st of cache.load) addItems(c, st.type, st.count, st.charge);
-      state.container.set(id, c);
+      const id = newCache(state, force.side, cache.x, cache.y, cache.load);
+      state.cache.req(id).placed = true;
+      if (cache.point === true) points.push(id);
     }
+  }
+  for (const id of points) pointForCache(state, new EventSink(), id);
+  // M11.4b: each side's off-map stock (an entity with a container, after everything else so no other id moves).
+  for (const force of input.forces) {
+    if (!force.stock) continue;
+    const id = newEntity(state);
+    const c = emptyContainer();
+    for (const st of force.stock.load) addItems(c, st.type, st.count, st.charge);
+    state.container.set(id, c);
+    const tu = force.stock.supportTopUp;
+    state.stock.set(id, { side: force.side, ...(tu && tu.rounds > 0 && tu.everyS > 0 ? { topUp: { rounds: tu.rounds, everyS: tu.everyS }, nextTopUpTick: secondsToTicks(tu.everyS) } : {}) });
   }
   return state;
 }

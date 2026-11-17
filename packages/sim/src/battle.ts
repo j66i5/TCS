@@ -13,6 +13,7 @@ import type { BattleEndReason, SimEvent, SimEventKind } from "./events";
 import type { DefId, SideId } from "./ids";
 import type { OffMapKind, VehicleRecovery, VehicleStatus } from "./components";
 import type { ItemStack } from "./items";
+import type { SideLogistics } from "./ledger";
 import type { MapDef } from "./map";
 import type { Order } from "./orders";
 import type { Physiology, Wound } from "./wounds";
@@ -131,9 +132,13 @@ export interface ForceInput {
   offMap?: { vehicleId: string; kind: OffMapKind }[];
   /** Whether this side attacks or defends (scenario). Optional: absent = not stated. */
   posture?: "attack" | "defend";
-  /** M11.1: crates and cans of this side on the ground (a supply point): each an entity with a place and a container,
-   *  nothing else (slice 45 makes them caches). */
-  caches?: { x: number; y: number; load: ItemStack[] }[];
+  /** M11.1: crates and cans of this side on the ground: each a cache (M11.3: an entity with a place, a container and
+   *  a `cache` record of this side). `point`: the supply point of the side's nearest platoon. */
+  caches?: { x: number; y: number; load: ItemStack[]; point?: boolean }[];
+  /** M11.4b: what the rear holds for this side (its off-map stock): the only source of deliveries during the battle
+   *  (supply vehicle runs, combat vehicles' rear runs, the support top-up). `supportTopUp`: `rounds` moved into the
+   *  side's off-map mortar or artillery section every `everyS` (owner: allotments topped up by deliveries). */
+  stock?: { load: ItemStack[]; supportTopUp?: { rounds: number; everyS: number } };
 }
 
 export interface BattleInput {
@@ -182,6 +187,14 @@ export interface BattleResult {
   /** Wrecks left on the map (M7; persistent map damage as data): destroyed, abandoned, and immobilised hulls not
    *  penetrated for more than 30 s (`isWreck`, the same hulls stamped into the navigation grids). */
   wrecks?: { vehicleId: string; type: DefId; side: SideId; x: number; y: number; heading: number; status: VehicleStatus }[];
+  /** Caches on the map at the end (M11.3): whose they are (`from`: the side a captured one was taken from), where, what
+   *  is left in them, `burnt`. The contents of a captured cache count as captured (the campaign gives them to its
+   *  captor). */
+  caches?: { side: SideId; kind: "point" | "cache"; x: number; y: number; load: ItemStack[]; from?: SideId; burnt?: true }[];
+  /** M11.8: per side, consumed, delivered from off the map, captured and destroyed (rounds by ammunition id, whole
+   *  items by item id, litres by fuel kind), from the events of this run (`ledger.ts` `logisticsFromEvents`; a run
+   *  continued from a save counts from there). Input for M12 and M13; `forcesOut` carries the loads. */
+  logistics?: SideLogistics[];
   /** Full order stream, including orders produced by controllers during the battle. */
   orders: Order[];
   eventCounts: Partial<Record<SimEventKind, number>>;

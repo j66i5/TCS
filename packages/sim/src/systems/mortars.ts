@@ -228,7 +228,8 @@ export function mortarSystem(ctx: SimContext, state: SimState, events: EventSink
     // A fallen gunner (review fix): an able man of the team near him takes the tube over (one generic transfer).
     passTube(ctx, state, id);
     // Moving: any man of the team walking (a move given to the team, its section or one man).
-    if (u.moving || u.members.some((m) => (state.mover.get(m)?.waypoints.length ?? 0) > 0)) {
+    // (M11.5: a man fetching rounds from a cache, or walking back with them, does not pack the tube.)
+    if (u.moving || u.members.some((m) => (state.mover.get(m)?.waypoints.length ?? 0) > 0 && state.soldier.get(m)?.intent?.kind !== "resupply")) {
       if (ms.state !== "packed") {
         // Packing up before the move: the men wait for it (their move resumes after `packSeconds`).
         const tube = tubeOf(ctx, state, id);

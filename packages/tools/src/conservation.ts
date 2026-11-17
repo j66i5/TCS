@@ -4,7 +4,7 @@
  * delivered (sim/ledger.ts). Used by the conservation test and `npm run lab -- consumption --conservation`.
  */
 import {
-  checkConservation, consumedFromEvents, continueBattle, createSim, emptyConsumption, ledgerOf, tracerMap,
+  checkChargeConservation, checkConservation, consumedFromEvents, fuelKinds, continueBattle, createSim, emptyConsumption, ledgerOf, tracerMap,
   type BattleInput, type Consumption, type Controller, type Ledger,
 } from "@tcs/sim";
 import type { DataSet } from "@tcs/data";
@@ -15,6 +15,8 @@ export interface ConservationRun {
   start: Ledger; end: Ledger; consumption: Consumption;
   /** Ammunition ids with their unexplained difference (empty: exact). */
   leaks: Record<string, number>;
+  /** M11.5: fuel kinds with their unexplained litres (beyond 1e-6 l; empty: exact). */
+  chargeLeaks: Record<string, number>;
 }
 
 export function conservationRun(data: DataSet, scenario: string, seed: number, seconds: number, tweak?: (input: BattleInput) => void): ConservationRun {
@@ -29,5 +31,5 @@ export function conservationRun(data: DataSet, scenario: string, seed: number, s
   const tracer = tracerMap(catalog);
   continueBattle(sim, input, { controllers, onEvents: (ev) => consumedFromEvents(consumption, ev, tracer) });
   const end = ledgerOf(catalog, sim.state);
-  return { scenario, seed, seconds, endS: sim.state.tick / 60, start, end, consumption, leaks: checkConservation(start, end, consumption) };
+  return { scenario, seed, seconds, endS: sim.state.tick / 60, start, end, consumption, leaks: checkConservation(start, end, consumption), chargeLeaks: checkChargeConservation(start, end, consumption, fuelKinds(catalog)) };
 }

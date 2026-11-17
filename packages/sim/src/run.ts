@@ -1,5 +1,6 @@
 /** runBattle: the battle-as-a-function entry point (SPEC 4.3 rule 11). */
 import { isWreck } from "./hulls";
+import { emptyLogistics, logisticsFromEvents, tracerMap, type SideLogistics } from "./ledger";
 import { rosterStatus } from "./impair";
 import { isAssetUnit, isOffMap } from "./offmap";
 import { battleScore } from "./systems/objectives";
@@ -26,6 +27,9 @@ export function continueBattle(sim: Sim, input: BattleInput, opts: RunOptions = 
   const allOrders: Order[] = input.orders.filter((o) => o.tick < sim.state.tick);
   let next = 0;
   const counts: Partial<Record<SimEventKind, number>> = {};
+  // M11.8: the sides' logistics (consumed, delivered, captured, destroyed) from the events.
+  const logistics: SideLogistics[] = sim.state.sides.map((s) => emptyLogistics(s.id));
+  const tracer = tracerMap(sim.ctx.catalog);
   const maxTicks = opts.maxTicks ?? secondsToTicks(input.rules.timeLimitSeconds) + 1;
 
   while (!sim.state.ended && sim.state.tick < maxTicks) {
@@ -45,10 +49,11 @@ export function continueBattle(sim: Sim, input: BattleInput, opts: RunOptions = 
     }
     const ev = step(sim);
     for (const e of ev) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
+    if (ev.length > 0) logisticsFromEvents(logistics, ev, sim.state, sim.ctx.catalog, tracer);
     opts.onEvents?.(ev, tick);
     opts.onTick?.(sim);
   }
-  return summarize(sim, input, allOrders, counts);
+  return { ...summarize(sim, input, allOrders, counts), logistics };
 }
 
 function summarize(
@@ -95,6 +100,13 @@ function summarize(
     const t = state.transform.req(id);
     wrecks.push({ vehicleId: v.vehicleId, type: v.def, side: v.side, x: t.x, y: t.y, heading: t.heading, status: v.status });
   }
+  // Caches left on the map (M11.3): whose they are now, what is in them; a captured one names the side it was taken from.
+  const caches: NonNullable<BattleResult["caches"]> = [];
+  for (const [id, c] of state.cache.entries()) {
+    const t = state.transform.req(id);
+    const load = (state.container.get(id)?.stacks ?? []).filter((s) => s.count > 0).map((s) => (s.charge === undefined ? { type: s.type, count: s.count } : { type: s.type, count: s.count, charge: s.charge }));
+    caches.push({ side: c.side, kind: c.kind, x: Math.round(t.x), y: Math.round(t.y), load, ...(c.from !== undefined ? { from: c.from } : {}), ...(c.burnt === true ? { burnt: true as const } : {}) });
+  }
   return {
     seed: input.seed,
     catalogFingerprint: input.catalog.fingerprint,
@@ -108,6 +120,7 @@ function summarize(
       ...(f.vehicles && f.vehicles.length > 0 ? { vehicles: vehiclesFromState(state, f.side) } : {}),
     })),
     ...([...state.vehicle.values()].some((v) => v.offMap === undefined) || wrecks.length > 0 ? { wrecks } : {}),
+    ...(caches.length > 0 ? { caches } : {}),
     orders,
     eventCounts,
     ...battleScore(sim.ctx, state),

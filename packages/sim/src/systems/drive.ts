@@ -249,11 +249,14 @@ export function fuelLitres(state: SimState, vid: EntityId, def: VehicleDef): num
   return l;
 }
 
-/** Take whole litres from the tank item (the only count of the fuel). */
-function drawFuel(state: SimState, vid: EntityId, def: VehicleDef, litres: number): void {
+/** Take whole litres from the tank item (the only count of the fuel); M11.5: the litres burnt are an event (the
+ *  conservation guard counts litres too). */
+function drawFuel(ctx: SimContext, state: SimState, vid: EntityId, def: VehicleDef, litres: number, events: EventSink): void {
   const c = state.container.get(vid);
   if (!c) return;
-  drawCharge(c, def.fuel.item, litres, "fullest");
+  const got = drawCharge(c, def.fuel.item, litres, "fullest");
+  const kind = ctx.catalog.items[def.fuel.item]?.chargeKind;
+  if (got > 0 && kind !== undefined) events.emit({ kind: "items.burnt", tick: state.tick, holder: vid, item: def.fuel.item, chargeKind: kind, amount: got });
 }
 
 /** Remaining route length from (x, y): to the current waypoint, then along the rest. */
@@ -506,7 +509,7 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
     // Fuel: idle plus the work at the tracks through the drive train's efficiency; whole litres leave the tank.
     if (fuel > 0 && hasDriver(state, v, def)) {
       d.fuelAccL += ((def.drive.idleW + power / def.drive.efficiency) / 1000) * def.drive.litresPerKwh * DT / 3600;
-      if (d.fuelAccL >= 1) { const l = Math.floor(d.fuelAccL); d.fuelAccL -= l; drawFuel(state, vid, def, l); }
+      if (d.fuelAccL >= 1) { const l = Math.floor(d.fuelAccL); d.fuelAccL -= l; drawFuel(ctx, state, vid, def, l, events); }
     }
     // Stuck: no 0.5 m of progress in 3 s while it should be driving: plan again; after three, give up.
     // (Progress is the way still to go getting shorter: progressX holds the shortest so far, progressY unused.)

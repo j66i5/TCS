@@ -106,6 +106,10 @@ export interface Overlay {
   /** M10.5: the player's Verwundetennester (a red cross on white; the number of men lying there). `drag`: the marker
    *  being dragged there (a ghost and a line from where it stands). */
   nests?: readonly { x: number; y: number; count: number; drag?: { x: number; y: number } | null }[] | null;
+  /** M11.3: the caches the player's side knows of: its own (a supply point flies a pennant and shows how full its crates
+   *  are and the rounds in them), the enemy's its men have seen; empty ones grey; burning ones a burning pile (its
+   *  smoke is the state's smoke); burnt out ones charred. `drag`: a supply point being dragged there. */
+  caches?: readonly { x: number; y: number; side: string; own: boolean; point: boolean; rounds: number; fill: number | null; empty: boolean; burning: boolean; burnt: boolean; carried?: boolean; drag?: { x: number; y: number } | null }[] | null;
   /** After-action heat map (M6): shots as (x, y, side index) triples, men fallen as (x, y, side index). */
   heat?: { shots: readonly number[]; falls: readonly number[] } | null;
   /** The floor shown in buildings (M7.5d floor switch; 0 / absent = ground). Men inside on another floor are
@@ -1275,6 +1279,32 @@ export class BattleRenderer {
       drawNestMarker(g, s.x, s.y, n.drag ? 0.45 : 1);
       if (n.count > 0) this.request(String(n.count), s.x, s.y + 17, 4, 0xf4f1ea, 1, k++);
     }
+    for (const m of overlay.caches ?? []) {
+      const s = worldToScreen(c, m.x, m.y);
+      // (M11.4a: a crate in bearers' hands rides above them, so the men carrying it show.)
+      if (m.carried === true) s.y -= 16;
+      const colour = m.burnt ? 0x2a2622 : m.empty ? 0x8a8a84 : SIDE_COLOURS[(sideIndex.get(m.side) ?? 0) % SIDE_COLOURS.length]!;
+      if (m.drag) {
+        const d = worldToScreen(c, m.drag.x, m.drag.y);
+        g.moveTo(s.x, s.y).lineTo(d.x, d.y).stroke({ width: 2, color: 0xf4f1ea, alpha: 0.6 });
+        drawCacheMarker(g, d.x, d.y, colour, m.point, null, 1);
+      }
+      if (m.burning) {
+        // A burning pile (the vehicle fire's flames, M7.4a); at night it lights the ground round it.
+        const ph = ((state?.tick ?? 0) % 20) / 20;
+        if (this.dark > 0) g.circle(s.x, s.y, Math.max(20, 6 * c.scale)).fill({ color: 0xff8a2a, alpha: 0.22 * this.dark });
+        drawCacheMarker(g, s.x, s.y, 0x2a2622, m.point, null, 1);
+        for (let q = 0; q < 3; q++) {
+          const rr = (0.8 + 0.5 * Math.sin((ph + q / 3) * 2 * Math.PI)) * Math.max(4, 0.8 * c.scale);
+          const fx = s.x + (q - 1) * 5, fy = s.y - 4 - (q % 2) * 3;
+          g.circle(fx, fy, Math.max(3, rr * 1.3)).fill({ color: 0xff7a1a, alpha: 0.75 });
+          g.circle(fx, fy, Math.max(1.5, rr * 0.6)).fill({ color: 0xffe066, alpha: 0.9 });
+        }
+        continue;
+      }
+      drawCacheMarker(g, s.x, s.y, colour, m.point, m.own && !m.burnt ? m.fill : null, m.drag ? 0.45 : 1);
+      if (m.own && m.rounds > 0) this.request(m.rounds >= 1000 ? `${(m.rounds / 1000).toFixed(1)}k` : String(m.rounds), s.x, s.y + (m.fill !== null ? 21 : 16), 4, 0xf4f1ea, 1, k++);
+    }
     const h = overlay.heat;
     if (h) {
       for (let i = 0; i < h.shots.length; i += 3) {
@@ -1473,6 +1503,19 @@ export class BattleRenderer {
       const rad = Math.max(2, cr.radiusM * 2.2 * c.scale);
       if (this.look === "photo") { this.scorch(sx, sy, rad * 2.3, cr.x * 7.1 + cr.y * 3.3); continue; } // soft, ragged
       g.circle(sx, sy, rad).fill({ color: 0x2b2018, alpha: 0.55 });
+    }
+    // Fighting positions (M11 hold battle; terrain state): a dark hole in a ring of spoil. Under fog of war only the
+    // player's own (the enemy's come to light only as his men do).
+    const holes = state.terrain.positions;
+    if (holes && holes.length > 0) {
+      const hw = this.cat?.ballistics.fightingPosition?.halfWidthM ?? 0.5;
+      for (const p of holes) {
+        if (fog && p.side !== overlay.playerSide) continue;
+        const sx = (p.x - c.x) * c.scale, sy = (p.y - c.y) * c.scale;
+        if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
+        g.circle(sx, sy, Math.max(2, (hw + 0.45) * c.scale)).fill({ color: 0x7a6446, alpha: 0.75 });
+        g.circle(sx, sy, Math.max(1.2, hw * c.scale)).fill({ color: 0x21180f, alpha: 0.85 });
+      }
     }
     // Bursts: a bright flash that becomes a spreading grey-brown cloud.
     for (const b of this.bursts) {
@@ -1845,6 +1888,29 @@ export function drawDownMark(g: Graphics, x: number, y: number, size: number): v
   g.rect(cx - h, cy - h, 2 * h, 2 * h).fill({ color: 0xf4f1ea });
   g.rect(cx - a, cy - b, 2 * a, 2 * b).fill({ color: 0xd22a22 });
   g.rect(cx - b, cy - a, 2 * b, 2 * a).fill({ color: 0xd22a22 });
+}
+
+/**
+ * An ammunition cache's marker (M11.3): a crate in the side's colour (grey empty, dark burnt) with a dark rim, its lid
+ * and handles, a fixed size on screen at every zoom; a supply point flies a pennant on a pole and, with `fill`, shows how
+ * full its crates and cans are as a bar beneath.
+ */
+export function drawCacheMarker(g: Graphics, x: number, y: number, colour: number, point: boolean, fill: number | null, alpha: number): void {
+  const w = 9, h = 6;
+  g.roundRect(x - w - 1.5, y - h - 1.5, 2 * w + 3, 2 * h + 3, 2).fill({ color: 0x14110f, alpha: 0.85 * alpha });
+  g.rect(x - w, y - h, 2 * w, 2 * h).fill({ color: colour, alpha });
+  g.moveTo(x - w, y - h + 4).lineTo(x + w, y - h + 4).stroke({ width: 1.2, color: 0x14110f, alpha: 0.8 * alpha });
+  g.rect(x - w + 2.5, y, 3, 2.2).fill({ color: 0x14110f, alpha: 0.7 * alpha });
+  g.rect(x + w - 5.5, y, 3, 2.2).fill({ color: 0x14110f, alpha: 0.7 * alpha });
+  if (point) {
+    g.moveTo(x + w - 1, y - h).lineTo(x + w - 1, y - h - 12).stroke({ width: 1.6, color: 0x14110f, alpha });
+    g.poly([x + w - 1, y - h - 12, x + w + 7, y - h - 9, x + w - 1, y - h - 6]).fill({ color: colour, alpha }).stroke({ width: 1, color: 0x14110f, alpha });
+  }
+  if (fill !== null) {
+    const f = Math.max(0, Math.min(1, fill));
+    g.rect(x - w, y + h + 2.5, 2 * w, 3).fill({ color: 0x14110f, alpha: 0.85 * alpha });
+    if (f > 0) g.rect(x - w + 0.5, y + h + 3, (2 * w - 1) * f, 2).fill({ color: f > 0.5 ? 0x9bd36a : f > 0.2 ? 0xf1c232 : 0xe0663d, alpha });
+  }
 }
 
 /** The Verwundetennest's marker (M10.5): a red cross on a white square with a dark rim, a fixed size on screen. */

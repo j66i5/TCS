@@ -132,6 +132,9 @@ export const BallisticsFile = withProv({
     /** Small folds and grass: a fragment flying lower than clutterHeightM above the ground is stopped with
      *  this chance per metre at ground level, falling to zero at that height. */
     clutterHeightM: Num(0, 2), clutterStopPerM: Num(0, 1) }).strict(),
+  /** Fighting positions (M11 hold battle): a dug hole `halfWidthM` round its middle, at most `depthM` deep; its rim
+   *  stops what comes in below it: only the top `exposedM` of a man (by posture) shows; prepared positions at least `spacingM` apart. */
+  fightingPosition: z.object({ halfWidthM: Num(0.1, 3), depthM: Num(0, 3), exposedM: z.object({ standing: Num(0, 2), crouching: Num(0, 2), prone: Num(0, 1) }).strict(), spacingM: Num(0.5, 20) }).strict().optional(),
   /** How a grenade that has not yet burst bounces: speed kept along the surface normal and along the surface;
    *  both are multiplied by softFactor on soft ground (material lighter than softBelowDensityKgM3) and by
    *  vegetationFactor in vegetation. Below stopSpeedMps it lies still. */
@@ -262,6 +265,8 @@ export const WeaponSchema = withProv({
     /** M11.1 (point 7c): rapid fire for the first `rapidSeconds` of a fire task, a burst every `rapidIntervalS`. */
     rapidIntervalS: Num(0.1, 60).optional(), rapidSeconds: Num(0, 600).optional(),
   }).strict().optional(),
+  /** M11.2: the item this weapon becomes when carried, not held (items.json, the same mass). */
+  weaponItem: Id.optional(),
 });
 export const WeaponsFile = z.object({ weapons: z.array(WeaponSchema) }).strict();
 export type BallisticsT = z.infer<typeof BallisticsFile>;
@@ -553,6 +558,13 @@ export const BehaviourFile = withProv({
   refill: z.object({
     belowFraction: Num(0, 1), quietS: Num(0, 600), underFireBelow: Num(0, 1), secondsPerRound: Num(0.05, 10), secondsPerRoundClips: Num(0.05, 10),
   }).strict().optional(),
+  /** M11.2: redistribution in a squad and taking ammunition from casualties and the enemy. See BehaviourDef.consolidate. */
+  consolidate: z.object({
+    quietS: Num(0, 3600), haltS: Num(0, 600), stepS: Num(0.5, 60), maxParallel: z.number().int().min(1).max(10), rangeM: Num(1, 500), beltsMin: z.number().int().min(0).max(20),
+    magGap: z.number().int().min(2).max(20), packageGap: z.number().int().min(2).max(20), casualtyM: Num(1, 500), lowMags: z.number().int().min(0).max(20),
+    takeS: Num(0.5, 120), leaveMags: z.number().int().min(0).max(10), nestHandM: Num(1, 500), nestCacheM: Num(1, 500), kitM: Num(1, 2000), kitS: Num(0.5, 120),
+    note: z.string().optional(), sources: z.array(z.string()).optional(), confidence: z.enum(["high", "medium", "low"]).optional(),
+  }).strict().optional(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
 
@@ -842,6 +854,9 @@ export const FactionManifest = withProv({
   /** Recovery vehicles off the map (M11.7b): generated battles give each side with vehicles of its own `count` of
    *  this crew template's vehicle (a template with `vehicle`, a recovery vehicle), waiting at the rear to be called. */
   recovery: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
+  /** Supply vehicles off the map (M11.4b): battles with an off-map stock give the side `count` of this crew template's
+   *  vehicle (a template with `vehicle`, a vehicle with `cargo`), waiting at the rear to be called for a delivery. */
+  supply: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -1139,6 +1154,8 @@ export const VehicleSchema = withProv({
   recovery: withProv({
     towMaxKg: Num(1000, 200000), towMaxSpeedKmh: Num(1, 60), hookUpS: Num(1, 3600), hookUpMen: z.number().int().min(1).max(4),
   }).optional(),
+  /** A supply vehicle (M11.4b): it carries up to `kg` of supplies on a delivery. Absent: it carries none. */
+  cargo: withProv({ kg: Num(1, 100000) }).optional(),
 });
 export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();
 export type VehicleT = z.infer<typeof VehicleSchema>;
@@ -1370,3 +1387,85 @@ export const RepairFile = z.object({
   }).optional(),
 }).strict();
 export type RepairT = z.infer<typeof RepairFile>;
+
+/** core/supply.json (M11.3 supply points and caches; optional file). Game values (low) unless a source says more. */
+export const SupplyFile = z.object({
+  supply: withProv({
+    /** Each cache is looked at every `stepS` (s): who sees it, capture, fire beside it, an automatic point's move. */
+    stepS: Num(0.1, 60),
+    /** A platoon's supply point stays at least `nestApartM` from its Verwundetennest; nothing with ammunition in it
+     *  is ever put within `nestClearM` of a nest (owner: no ammunition at the red cross). */
+    nestApartM: Num(0, 1000), nestClearM: Num(0, 500),
+    /** Automatic siting (like the nest): `backM` behind the platoon's able men away from the enemy they know, the
+     *  covered spot within `searchM`, between `minBackM` and `maxBackM` back; an empty automatic point moves when an
+     *  enemy is known within `threatM` of it or it lies more than `driftM` behind (looked at every `checkS`). */
+    site: z.object({ backM: Num(0, 2000), searchM: Num(0, 500), minBackM: Num(0, 2000), maxBackM: Num(0, 5000), threatM: Num(0, 2000), driftM: Num(0, 5000), checkS: Num(1, 600) }).strict(),
+    /** Men of another side see a cache within `seeM` with a line of sight to it (crate height `heightM`). */
+    seeM: Num(0, 3000), heightM: Num(0.1, 3),
+    /** Capture: none of its side able within `holdM`, an able enemy within `enemyM`, for `seconds`. */
+    capture: z.object({ holdM: Num(0, 500), enemyM: Num(0, 100), seconds: Num(0, 600) }).strict(),
+    /** A burst of F kg of filling reaches a cache within `reachScaledM` x F^(1/3) m; at distance d it takes
+     *  (1 - d/R) x min(1, F / `hpKg`) of its hp, and sets it off with chance (1 - d/R) x min(`maxChance`, F x
+     *  `chancePerKg`). At hp 0 it is set off. */
+    blast: z.object({ reachScaledM: Num(0, 50), hpKg: Num(0.01, 100), chancePerKg: Num(0, 10), maxChance: Num(0, 1) }).strict(),
+    /** Set off, a cache burns `minS`-`maxS` s, its contents lost in steps of `stepS`; explosive rounds in it go off,
+     *  at most `maxBurstsPerStep` a step (fragments and blast); rifle rounds only burn. A burning vehicle or cache
+     *  within `fireM` sets it off with `fireChancePerS` a second. Smoke: `smokeRadiusM`, `smokeTopM`. */
+    cookoff: z.object({ minS: Num(1, 3600), maxS: Num(1, 3600), stepS: Num(0.5, 60), maxBurstsPerStep: z.number().int().min(0).max(10), fireM: Num(0, 100), fireChancePerS: Num(0, 1), smokeRadiusM: Num(0, 50), smokeTopM: Num(0, 100) }).strict(),
+    /** Taking supplies at a cache (order `resupplyAt`): `baseS` plus `bulkSecondsPerRound` for each loose round into
+     *  his bandolier or packs, `magSecondsPerRound` for each round put into a magazine or belt (stripper clips and a
+     *  loader at the crate). Squads are sent to a cache within `reachM`; not while fired on within `underFireS`. */
+    take: z.object({ baseS: Num(0, 600), bulkSecondsPerRound: Num(0, 10), magSecondsPerRound: Num(0, 10), reachM: Num(0, 5000), underFireS: Num(0, 600) }).strict(),
+    /** The computer commander shells an enemy cache its men have seen (high explosive, `heRounds`) at most every
+     *  `everyS`, when no own man is within `ownClearM` of it and it has no better target. */
+    ai: z.object({ heRounds: z.number().int().min(1).max(24), everyS: Num(0, 36000), ownClearM: Num(0, 2000) }).strict(),
+    /** M11.4a: a squad asks for ammunition (looked at every `stepS`) when its able men hold below `below` of their
+     *  standard load of rounds, or a machine gunner below `beltsBelow` belts; at most every `everyS`. Men short of
+     *  `useMinRounds` take from an own cache within `useM` of the squad themselves when it is quiet. Optional. */
+    request: z.object({ stepS: Num(0.5, 60), below: Num(0, 1), beltsBelow: Num(0, 10), everyS: Num(0, 3600), useM: Num(0, 500), useMinRounds: z.number().int().min(1).max(10000) }).strict().optional(),
+    /** M11.4a bearers: one man carries up to `maxKg`, two a crate of up to `crateMaxKg`; loading at the point takes
+     *  `loadS`; delivered within `deliverM` of the squad's leader; a bearer waits `waitMateS` for his mate at the
+     *  point and gives up after `giveUpS`; a squad fired on within `contactS` gives no bearer. `methods`: the carry
+     *  methods (as core/medical.json `carry`) for a crate (`crate`, two men) and a one-man load (`load`). */
+    bearers: z.object({
+      maxKg: Num(1, 100), crateMaxKg: Num(1, 200), loadS: Num(0, 600), deliverM: Num(1, 100), waitMateS: Num(0, 600), giveUpS: Num(10, 7200), contactS: Num(0, 600),
+      methods: z.object({
+        crate: z.object({ carriers: z.literal(2), speedMps: Num(0.1, 3), enduranceM: Num(1, 10000), restS: Num(0, 600), setupS: Num(0, 600), upright: z.boolean() }).strict(),
+        load: z.object({ carriers: z.literal(1), speedMps: Num(0.1, 3), enduranceM: Num(1, 10000), restS: Num(0, 600), setupS: Num(0, 600), upright: z.boolean() }).strict(),
+      }).strict(),
+    }).strict().optional(),
+    /** M11.4b off-map deliveries: a platoon's supply point below `callBelow` of its standard fill (what it held when it
+     *  became the point, or its first delivery) calls the side's supply vehicle (looked at every `checkS`), which comes
+     *  on after `delayMinS`-`delayMaxS` (drawn), drives at `pace` to within `standM` of the point, is unloaded for
+     *  `unloadBaseS` + `unloadSecondsPerKg` per kg and drives back; it is ready again `turnaroundS` after it left the
+     *  map. It gives up on the way after `heldMaxS`. One delivery per side at a time. The load: whole packages from the
+     *  side's off-map stock of the cartridges the platoon's men fire, up to the vehicle's `cargo.kg` (the point's
+     *  standard fill at most). */
+    delivery: z.object({
+      checkS: Num(1, 600), callBelow: Num(0, 1), delayMinS: Num(0, 7200), delayMaxS: Num(0, 7200), pace: Id, nearPace: Id, standM: Num(0, 200),
+      unloadBaseS: Num(0, 3600), unloadSecondsPerKg: Num(0, 60), turnaroundS: Num(0, 36000), heldMaxS: Num(10, 7200), edgeM: Num(1, 200),
+      /** What an ambulance can carry when the player sends one with supplies (a breach; kg). */
+      ambulanceKg: Num(0, 10000),
+    }).strict().optional(),
+    /** M11.4b combat vehicles' rear runs with supplies: away for `awayS` (as with casualties), an idle hull whose
+     *  stowed ammunition is below `stowageBelow` of its standard stowage (what the data stows) goes on a supply run;
+     *  coming back it brings its stowage up to standard from the side's stock and up to `shareKg` of supplies for its
+     *  platoon's supply point, unloaded there in `unloadBaseS` + `unloadSecondsPerKg` per kg. */
+    vehicleRun: z.object({ stowageBelow: Num(0, 1), shareKg: Num(0, 20000), unloadBaseS: Num(0, 3600), unloadSecondsPerKg: Num(0, 60), standM: Num(0, 200) }).strict().optional(),
+    /** M11.4b mortar and artillery top-up: off-map stocks with `supportTopUp` move that many rounds into the side's
+     *  off-map support section every `supportTopUp.everyS` (the scenario sets it); looked at every `topUpCheckS`. */
+    topUpCheckS: Num(1, 600).optional(),
+    /** M11.5 re-arming: a halted hull within `standM` of an own cache (or a supply vehicle at its point) takes items of
+     *  its stowage (whole items, then rounds into its stowed belts) up to what the data stows: `baseS` to start, then
+     *  `secondsPerKg` per kg moved. Not within `quietS` of a hit. An idle hull below `below` of its stowed ammunition,
+     *  or below `refuel.callBelow` of its tank, drives to an own cache within `driveM` that has something for it. */
+    rearm: z.object({ stepS: Num(0.5, 60), standM: Num(1, 100), baseS: Num(0, 3600), secondsPerKg: Num(0, 60), quietS: Num(0, 600), below: Num(0, 1), driveM: Num(0, 2000) }).strict().optional(),
+    /** M11.5 refuelling: litres by `moveCharge` from jerrycans (`jerrycanLpm` litres a minute, by hand) or from a
+     *  supply vehicle's tank above `keepL` (`pumpLpm`), after `setupS`; a hull below `callBelow` of its tank asks. */
+    refuel: z.object({ jerrycanLpm: Num(0.1, 1000), pumpLpm: Num(0.1, 5000), setupS: Num(0, 3600), callBelow: Num(0, 1), keepL: Num(0, 10000) }).strict().optional(),
+    /** M11.5 rounds to on-map mortars: a team holding fewer than `below` rounds sends a man to an own cache within
+     *  `reachM` (looked at every `checkS`); he carries up to `carryKg`, `secondsPerRound` each to take. */
+    mortarFetch: z.object({ checkS: Num(1, 600), below: Num(0, 1000), reachM: Num(1, 2000), carryKg: Num(1, 200), secondsPerRound: Num(0, 600) }).strict().optional(),
+  }),
+}).strict();
+export type SupplyT = z.infer<typeof SupplyFile>;

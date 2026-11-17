@@ -7632,3 +7632,549 @@ drained from the start of the battle while it was not yet there; `fitBatteries` 
   spotting-with-smoke and bench-vehicles floors (8x) missed on this container, but origin/main a7aa754 run alone
   back to back in the same container misses them by the same amount (smoke 7.2x / 7.2x vs merged 7.7x / 7.5x;
   bench-vehicles 7.7x vs 7.9x / 7.5x): the container is slower today, not the merge.
+
+## 2026-11-16 — M11 hold battle: a stronger defence (fighting positions, fewer attacker mortar rounds; goldens regenerated)
+Owner answer 2026-11-16 (~12:00): the hold battle needs a stronger defence (dig the defenders in, fewer attacker
+mortar rounds) so it lasts long enough for ammunition to matter. Nothing in the code base dug men in (siting, houses
+and windows, cover by walls only), so a minimal **fighting position** was added (software decision; values low):
+- **Data** (`core/ballistics.json` `fightingPosition`, low; search extracts only): a hole `halfWidthM` 0.5 round a point,
+  at most `depthM` 1.2 deep (armpit deep); only the top `exposedM` of a man shows above its rim (standing 0.3, kneeling
+  0.2, lying in a shell scrape 0.1: head and weapon); positions at least `spacingM` 1.5 apart. Fingerprint changed.
+- **State** (`state.terrain.positions`, optional, no schema bump; terrain like craters): x, y, side, tick. Anyone of
+  either side standing in one is in it (an attacker who takes the ground can use the defender's holes).
+- **Digging** (`sim/positions.ts` `positionsSystem`, once a second, only with `rules.prepared`): a prepared side gets a
+  position under each of its able men who halts on the ground outdoors between `fromS` and `untilS` (the hold battle:
+  60-90 s, after the commander's siting walk: the positions are dug where he sites his men). None afterwards (digging
+  in battle is not modelled).
+- **Protection is geometric** (`rimStops`): a round or fragment that would strike a man in a hole below the rim and came
+  in over the rim's far side lower than the rim is stopped by the earth (`impact` soil; fragments vanish); a burst
+  whose line to his middle passes under the rim does not reach him with its blast. A steep fall, a burst in or over the
+  hole and anything above the rim still strike him. In the projectile loop the rim is one array per man (`SG.rim`, filled only
+  when positions exist), tested only when a body would be struck: no cost in battles without positions.
+- **Behaviour:** a man in a position counts as in cover for morale (as in a house); he does not leave it to seek
+  cover, to crawl out of the open or of a beaten zone, to step aside for a look, or for a canopy against a drone (he
+  lies down in it); the commander's re-siting toward a lost enemy (sight realism step 5) leaves men in positions where
+  they are; a man in a position under fire is not taken as a casualty bearer (as a man in a house under fire, M10);
+  bearers back from a carry take a free position of their side within 25 m of their leader. Medics and buddy aid still
+  leave their holes; panicked men still bolt.
+- **Render:** a dark hole in a ring of spoil, both looks; under fog of war only the player's own.
+- **Hold battle** (`HOLD`): `attackerMortarShare` 1/3 -> **1/6** of the platoon battle's allotment (RU attacker 8 HE
+  + 4 smoke, DE 4 + 2), `preparedS` [60, 90], `rules.prepared` for the defender.
+- **Measured** (6 seeds x 3600 s each, scratch runner over `consumptionBattle`; "wave 2/3" = the battle still running
+  at 900 / 1800 s; out of spares and MG dry = first defending squad with a man out of loaded spares, first defending
+  machine gun dry, s; median over 6 with "none" counted as never):
+
+  | scenario | resupply | before: ends (s) | w2 / w3 | def. wins | after: ends (s) | w2 / w3 | def. wins | squad out med. | MG dry |
+  |---|---|---|---|---|---|---|---|---|---|
+  | hold-resupply | off | 2428, 607, 2477, 2246, 2825, 1052 | 5 / 4 | 0 | 3600, 3600, 2599, 537, 2587, 1340 | 5 / 4 | 2 | 1550 -> 1145 | 1 -> 2 of 6 (med. none) |
+  | hold-resupply | on | 3600, 1453, 3600, 2119, 3600, 3600 | 6 / 5 | 3 | 3600, 3600, 2797, 631, 2728, 1340 | 5 / 4 | 2 | 1400 -> 1440 | 5 -> 2 of 6 |
+  | hold-resupply-ru | off | 2447, 2564, 424, 1822, 758, 2577 | 4 / 4 | 0 | 3600, 3600, 3600, 2948, 1676, 2655 | 6 / 5 | 2 | 1405 -> 1370 | 0 -> 1 of 6 (med. none) |
+  | hold-resupply-ru | on | 2447, 3600, 424, 3600, 669, 2197 | 4 / 4 | 1 | 3600, 3600, 3457, 1690, 1676, 3600 | 6 / 4 | 3 | 1405 -> 1370 | 1 -> 4 of 6 (med. 2740) |
+
+  Acceptance: wave 2 in >= 5 of 6 and wave 3 in >= 4 of 6: **met in all four rows**. A defending squad man out of
+  loaded spares by minute 30 (median, no resupply): **met** (1145 and 1370 s). Defender wins with resupply at least
+  as often as without: **met** (2 = 2, 3 > 2). A defending machine gun dry by minute 45 (median, no resupply): **not
+  met** (2 and 1 of 6 battles; the defenders' machine guns fire little: they see little, plan section 2 open point).
+  Seed 4 of hold-resupply still breaks in wave 1 (the Germans hit nobody there; their sited places see little).
+  Steps measured on the way (hold-resupply / -ru, no resupply, wave2/wave3/defender wins): positions alone with the
+  rim at the muzzle 5/4/3, 5/3/1; + bearers back into holes, prone in a scrape 4/4/4, 5/4/2; + no bearers from
+  holes under fire (final) 5/4/2, 6/5/2.
+- Other scenarios: no positions, no change in behaviour (event streams of platoon, vehicles and village-occupy 240 s
+  identical to origin/main; goldens changed for the catalog fingerprint, hold-resupply's two for the behaviour).
+  `npm run golden:update`; `golden/no-interiors` untouched.
+- Tests: `sim/test/positions.test.ts` (rim geometry; a crouching man in a hole hit only above the rim, soil impacts;
+  a grenade 4 m off does not wound a man in a hole; digging only in the window, saved and loaded; nothing without
+  positions); `tools/test/scenario-hold.test.ts` (prepared rule and the mortar share; defenders dug in by 91 s).
+- Checks: typecheck, lint, data lint (no errors), `npm test` 1487 pass. `npm run test:perf` alone: 20 of 23; the
+  spotting-with-smoke, bench-vehicles and bench-tanks floors (8x) missed, but origin/main 7c5a47b run alone in the same
+  container misses 6 (smoke 6.3x, bench-vehicles 7.5x, tanks 7.3x; this branch 6.8x, 6.6x, 7.7x); bench-vehicles
+  alone, alternating, 4 runs each: main 7.47, 7.61, 7.03, 6.38; this branch 7.06, 6.97, 6.99, 6.51 — noise of a slow
+  container (the new per-tick work in battles without positions is one length check per man).
+
+## 2026-11-16 — M11.2 (slice 44): redistribution, own casualties' ammunition, "Take enemy kit" (goldens regenerated)
+Built from the interrupted WIP (`claude/m11-wip-44`, one unchecked commit), reviewed and finished. Owner answers
+(binding): own casualties' ammunition is taken automatically **after** treatment; enemy kit only on the player's order;
+no ammunition at the Verwundetennest. Everything else is a software decision (values low, `core/behaviour.json`
+`consolidate`; search extracts only).
+- **Consolidation** (`sim/systems/consolidate.ts`, each squad looked at once per `stepS` 2 s): a squad not fired on for
+  `quietS` 60 s **and halted for `haltS` 20 s** (all its men on foot without a route; added in review: without it men
+  left a march mid-way and a formation arriving was broken up) evens out: belts first (a gunner below 2 spare belts),
+  then magazines (gap 2), then loose-round packages (gap 2), at most 2 hand-overs at a time, between men within 50 m.
+  A hand-over is the old `bringAmmo` errand ending in the generic `transferItems` action (3 s); marked `consolidate`.
+- **Walking back** (added in review): every man who walked over for a hand-over or a taking walks back to where he
+  stood, faces the way he faced and takes his posture again (`Intent.back`/`returning`, origin x, y, z, heading,
+  posture on the intent; optional fields, no schema bump). Without it men left their fighting positions and
+  formations for good (the hold battle's holes, marker-vs-sim and formation tests failed). A man on his way back may
+  be sent on another hand-over (his first place stays his place); walking back does not take up a hand-over slot.
+- **Own casualties**: dead (known dead where checks exist) or treated with nothing urgent left, nobody treating,
+  checking, carrying or on the way to him: the nearest low man of his squad within 30 m (below 3 spare magazines, a
+  gunner below 2 belts), else the man who treated him if the squad's mean is low, takes magazines, belts, loose rounds,
+  grenades and rockets in 8 s; a man who can still use his arms keeps one (the fullest) magazine. The gate is checked
+  again when the action completes. Event `items.taken` (source casualty/nest, `treated`, `dead`).
+- **The nest holds no ammunition**: a treated casualty lying there hands his to the nearest able man of his platoon
+  within 30 m who wears no red cross; with nobody there it is left as a **pile** (a new entity with a transform and a
+  container, no identity) 30 m from the nest towards the platoon (`items.dropped`); slice 45 makes piles caches. Until
+  then nobody uses a pile on his own (only "Take enemy kit" on an enemy one).
+- **Take enemy kit** (order `takeKit {source}`; the AI never gives it): source an enemy casualty or prisoner, or a pile;
+  the nearest able man on foot within `kitM` 150 m for whom something fits goes (10 s): ammunition that fits his weapon,
+  else a rifleman swaps his rifle for the enemy's with its magazines. Personal rifles got an item each (`weaponItem`:
+  `de-g36-carried`, `ru-ak74m-carried`, `ru-ak12-carried`, fixture `xf-blaster-carried`; mass = the weapon's, loader
+  check); the ledger now counts a weapon in the hands as its item and the magazine in a weapon as an item, so a swap
+  neither creates nor destroys anything. Refusals on the radio (`radio.kitNothing`, `radio.kitFar`). Disarming enemy
+  wounded and prisoners is lawful: no conduct record. Order bar "Take enemy kit" (phone under "⋯") when the selected
+  unit's men know of an enemy casualty or prisoner (contact marked down or surrendered) within 150 m.
+- `rules.resupply === false` (`--no-resupply`) switches all of it off (slices 44-48 are resupply routes); the lab's
+  `--no-consolidate` drops the `consolidate` block for before/after on the same build.
+- **Measured** (scratch runner over `consumptionBattle`, same build; "before" = `--no-consolidate`, which is slice 43 +
+  the stronger hold defence exactly: hold-resupply seeds 1-6 end at the same seconds as in the entry above; "dry" =
+  men whose weapon and spares were empty; attacker wins: blue in platoon and the mounted battles, red in -ru):
+
+  | scenario | seeds x s | before: attacker wins / dry men per battle / hand-overs | after: attacker wins / dry men / hand-overs | rounds taken from casualties per battle (median; takings) | taken before treatment |
+  |---|---|---|---|---|---|
+  | platoon (blue attacks) | 10 x 1200 | 7 / 0.7 / 3.9 | 9 / 0.8 / 21.0 (seeds 11-20: 6 / 0.6 / 17.4) | 0 (28 in 20 seeds) | 0 in 20 seeds |
+  | platoon-ru (red attacks) | 10 x 1200 | 9 / 0.2 / 3.4 | 10 / 0.1 / 11.3 (seeds 11-20: 9) | 0 (12 in 20 seeds) | 0 in 20 seeds |
+  | platoon-vehicles (blue attacks) | 10 x 1200 | 10 / 0.2 / 1.5 | 9 / 0.1 / 6.8 | 0 (22 in 20 seeds) | 0 in 20 seeds |
+  | platoon-ru-vehicles (red attacks) | 10 x 1200 | 1 / 0 / 0.5 | 1 / 0 / 9.6 | 0 (46 in 20 seeds) | 0 in 20 seeds |
+  | hold-resupply (defender wins) | 6 x 3600 | 2 / 0.83 / 4.0 | 4 / 1.17 / 10.7 (20 seeds: 13 of 20) | 309 (460 over 20 seeds; 368 takings) | 0 in 20 seeds |
+  | hold-resupply-ru (defender wins) | 6 x 3600 | 3 / 1.5 / 6.0 | 3 / 2.0 / 20.0 | 329 | 0 |
+  | hold-resupply --no-resupply | 6 x 3600 | ends 3600, 3600, 2599, 537, 2587, 1340 | identical (resupply off switches slice 44 off) | 0 | 0 |
+
+  Hold battle ends after: 3600, 3600, 3600, 1704, 3600, 1426 (before 3600, 3600, 2797, 631, 2728, 1340): the defence
+  lasts longer, mostly because its men even out between waves. Piles left outside the nest: 57 in 20 hold battles, 3-13
+  per 20 platoon battles (nobody uses them until slice 45). Dry men per battle hardly move in the platoon battles (they
+  end before ammunition runs short); in the hold battle more men end dry because more of the battle is fought.
+- **Acceptance**: `lab -- redistribute` met in 8 of 8 trials (no man more than one magazine from the mean of his
+  weapon's men 60 s after the quiet began, belt to the gunner first, ledger exact); takeKit test (German takes an
+  AK-74M and 3 magazines, fires them, conservation exact; refused with `radio.kitNothing`) met; taking before
+  treatment 0 in 20 seeds of each platoon scenario and of hold-resupply: met; median rounds taken reported (above).
+  **Open (balance, owner):** attacker wins in the foot platoon battles rose (platoon 7 -> 9 of seeds 1-10, 15 of 20;
+  platoon-ru 9 -> 10, 19 of 20): above the 2-8 band; the attacker has the quiet moments to even out.
+- Goldens: all changed (catalog fingerprint: new items, `weaponItem`, `consolidate`; behaviour in battles with a quiet
+  squad), `npm run golden:update`; `golden/no-interiors` untouched.
+- Tests: `sim/test/consolidate.test.ts` (evening out, belts first, ledger, walk back, not under fire, save/load
+  mid-hand-over; casualties never before treatment, the man who keeps a magazine, dead men stripped, off with
+  resupply off; takeKit swap and fire, save/load mid-take, only fitting ammunition, refusals);
+  `tools/test/takekit.test.ts` (real data, conservation guard); `tools/test/redistribute.test.ts` (the lab).
+  Screenshots `--scene ui` (7-take-kit, 8-take-kit-going), phone and desktop, looked at.
+- Checks: typecheck, lint, data lint (no errors), `npm test` 1501 pass. `npm run test:perf` alone: 19 of 23; the
+  spotting (7.1x), spotting-with-smoke (7.0x), bench-vehicles (6.5x) and bench-tanks (7.1x) floors (8x) missed. The
+  base 8c330e8 in a scratch worktree, alternating with this branch, those four tests only, alone: spotting base 7.6,
+  7.5 / this 7.6; smoke base 6.6, 7.2 / this 7.6, 7.5; bench-vehicles base 7.3, 7.0 / this 7.5, 7.3; tanks base 8.0
+  / this 7.9: no regression, a slow container (the new per-tick work is one modulo test per unit; a squad is looked at
+  once per 2 s).
+
+## 2026-11-16 — M11.3 (slice 45): supply points and caches (goldens regenerated)
+Owner answers (binding): the supply point is separate from the Verwundetennest, no ammunition at the red cross, caches
+are legitimate targets, a captured cache becomes the captor's. Everything else is a software decision (values in the
+new `core/supply.json`, low, game values; the cook-off model is the M7.4a light-vehicle rack, general knowledge).
+- **Caches** (`cache` store, state schema 22 -> 23: an empty store in an older save; `Cache {side, kind "point" |
+  "cache", top?, placed?, hp, cookoff?, burnt?, capturedBy?, from?, known?, holdTick?}` + a transform and a
+  container). The scenario's crates (`ForceInput.caches`, new optional `point`) and the M11.2 piles outside the nest are
+  caches now; a crate marked `point` is the supply point of its side's nearest platoon (a `rear` point of kind "supply"
+  naming it, new optional `RearPoint.cache`). New RNG stream "supply" (created on first use).
+- **Siting** (`systems/supply.ts`; `sitePoint` shared with the nest in nest.ts): like the nest, never within
+  `nestApartM` 50 m of the platoon's nest; the nest siting and the `casualtyPoint` order keep 50 m from the supply point
+  too (`radio.nestNearSupply`), the `supplyPoint` order 50 m from the nest (`radio.supplyNearNest`). Nothing with
+  ammunition is put within `nestClearM` 15 m of any nest (`putInCache` refuses it; the nest piles lie 30 m out). An
+  automatic point is sited on first need (`ensureSupplyPoint`: the deliveries of slices 46-47; nothing calls it in this
+  slice); empty, it moves when threatened or left 300 m behind, like the nest. **Deviation from the plan:** no automatic
+  siting in battle yet (an empty point nobody fills would only be an icon); the hold battle's crates are the point from
+  the start.
+- **Seen, blast, cook-off** (each cache looked at once per `stepS` 1 s, staggered by id; a burst checks the caches in
+  reach): men of another side within `seeM` 250 m with a line of sight see it (`known`, stays known; no night factor
+  yet). A burst of F kg within 5 x F^(1/3) m takes (1 - d/R) x min(1, F/4) of its hp and sets it off with (1 - d/R) x
+  min(0.9, 0.3 F); hp 0 sets it off. A burning vehicle or cache within 8 m: 2 % a second. Set off it burns 30-120 s;
+  every 5 s a share of each stack is lost (`items.destroyed` cause "cookoff"), one explosive round in it goes off a step
+  (`detonate`, owner the cache: blast and fragments), rifle rounds only burn; smoke 4 m. The ledger stays exact.
+- **Capture**: none of its side able within 50 m, an able enemy within 10 m, 10 s: side changes (`cache.captured`), a
+  supply point stops being one. Not while it burns, not when empty.
+- **Orders** `supplyPoint {x, y}` (the platoon's point; an empty one moves, one with supplies stays as a plain cache and
+  a new empty point is put there) and `resupplyAt {cache?}` (the men on foot go to the named or nearest own cache within
+  `take.reachM` 400 m that has something for them, take up to their standard load and walk back: the M11.2 errand and
+  walk-back). **Standard load = every magazine and belt he carries full and every bandolier or pack of loose rounds
+  full** (from the cache's packages and magazines with `moveCharge`), 10 s + 0.4 s a round into magazines + 0.02 s a
+  round into packages (low). **Deviation:** grenades and rockets are not taken (no per-man standard count in the state;
+  a later slice with the delivery packages). Refusals on the radio: `radio.supplyNone` / `supplyFar` / `supplyEmpty` /
+  `supplyFull` / `supplyUnderFire` (fired on within 15 s). A man takes from within 4.5 m (a crate against a wall lies
+  off the navigation cells; found in the screenshots: the men stopped 3 m short). The AI does not give either order
+  (slices 46 and 52).
+- **AI shells enemy caches** (`commander.ts`, `supply.ai`): HE (3 rounds) on an enemy cache its men have seen when no HE
+  was called for 300 s and no own man is within 100 m, at most every 300 s.
+- **Record and result**: `BattleResult.caches` (side, kind, place, load left, `from` when captured, `burnt`); record
+  version 10, `SideRecord.supply` (caches captured and their rounds, set off and rounds lost, men sent, rounds taken at
+  caches); timeline lines for a capture and a cook-off.
+- **UI**: crate markers at every zoom (side colour; grey empty; dark burnt; a burning pile with the vehicle fire's
+  flames; the supply point with a pennant, a fill bar and its rounds; the enemy's only once seen, without fill);
+  "Supply point" in the Move tray (tap the map) and a draggable supply-point marker; "Resupply" on the bar (phone under
+  "⋯") when an own cache with supplies is within 400 m. Screenshots `--scene supply` (both looks, phone and desktop),
+  looked at.
+- **Lab** `npm run lab -- cache [trials]` (40 trials): data / real bursts: 120 mm tank HE (2.0 kg) 60/57 % at 0 m, 12/8 %
+  at 5 m; 125 mm 90/93, 30/23; 120 mm mortar DE 69/70, 17/15, RU 42/38, 4/5; 152 mm 100/100, 44/40; 155 mm 100/100,
+  48/45, 6/5 at 10 m; nothing at 20 m. Crates burnt 65 s, 14 bursts from 20 grenades, rounds lost = ledger (exact).
+- **Measured** (same seeds, base a72787c vs this; batch 10 x 1200 s, attacker wins): platoon 9 -> 9, platoon-ru 10 ->
+  10, platoon-vehicles 9 -> 9, platoon-ru-vehicles 1 -> 1, every battle ending at the same second with the same
+  casualties (no cache event in them; the state hashes differ by the new store). hold-resupply 6 x 3600 s, defender
+  wins 4 -> 3 (ends 3600, 3600, 3600, 1704, 3600, 1426 -> 3600, 3600, 3600, 2041, 2657, 1160); `--no-resupply` 3 -> 3
+  (seed 5 2089 -> 2100). In the changed seeds no cache was captured, shelled or set off (seed 5: the Russians saw the
+  crates once; seed 6 traced: no cache event, the nest sited 109 m from the crates, so the 50 m rule did not act): most
+  likely the entity-id shift of the supply point's rear point created at setup (every later entity's staggered steps
+  move), not a behaviour of this slice; six seeds cannot tell 4 from 3. Conservation (`consumption --conservation`): bench-caches 6 x 300 s and
+  hold-resupply 2 x 1200 s exact.
+- **Perf**: `bench-caches` (bench + 20 caches, one shelled by blue's mortars every 30 s) 13.6x vs bench 12.8x (median of
+  3 alternating): within 5 %, met (new perf test). `npm run test:perf` alone: 22 of 24; the spotting-with-smoke and
+  bench-vehicles floors missed (7.1-7.7x and 7.6x); base a72787c alternating with this branch, those tests alone: smoke
+  6.7, 7.3 / 6.8, 6.2; bench-vehicles 6.1, 7.7 / 7.3, 6.6: no regression, the container is slow (as in M11.2).
+- Tests: `sim/test/supply.test.ts` (siting apart from the nest both ways; ammunition refused at the nest; a cook-off
+  destroys exactly its contents with bursts; rifle rounds alone burn without bursts; a 10 kg burst sets a crate off,
+  the chance table, the detonate hook; capture after 10 s, none with a defender within 50 m; resupplyAt walk, take and
+  walk back with the ledger unchanged; the four refusals; the scenario's point; save/load mid cook-off and a schema-22
+  save), `ui/test/supply.test.ts` (markers, the enemy's only once seen, Resupply offered and not when empty); UI mode
+  lists updated for "supply".
+- Goldens: all twelve changed (catalog fingerprint, the state's new store, the setup's rear point), `npm run
+  golden:update`; `golden/no-interiors` untouched.
+
+## 2026-11-16 — M11.4a (slice 46): resupply on foot — squads ask, bearers carry (goldens regenerated)
+Owner answers (binding): delivery by bearers on foot (the M10 carry store), control automatic plus player orders, no
+ammunition at the red cross. Everything else is a software decision (values in `core/supply.json` `request` and
+`bearers`, low, game values; search extracts only).
+- **A squad asks** (`systems/supply.ts` `requestSystem`, each squad on foot looked at every `request.stepS` 2 s, staggered
+  by id): its able men's rounds for their own weapons (the weapon's magazine, every magazine or belt of its feed, every
+  package of its cartridge) against their standard load (the same, full). Below `below` 40 % or a machine gunner under
+  `beltsBelow` one belt: `radio.ammoRequest` with the percentage, event `supply.request`, at most every `everyS` 120 s,
+  not while bearers are on their way. **Added:** a squad that is quiet (not fired on for `take.underFireS` 15 s), halted
+  and has an own cache within `useM` 60 m with something for its short men (`useMinRounds` 30) sends them to it (the
+  M11.3 `resupplyAt` errand, walk back included) instead of asking; a crate lying beside it stops new requests.
+- **Standing rule** `supply: "auto" | "ask"` (order `rules`, new optional `Unit.supplyRule`; absent = auto; Rules panel row
+  "Ammunition requests: send bearers / ask me"). Auto (the AI always): bearers at once. Ask: `Unit.supplyAsk.pending`,
+  the squad's card shows **Send bearers** (order `bearers`). A refusal is said on the radio by the platoon
+  (`radio.bearersNone`, `radio.supplyEmpty`, `radio.bearersComing`; none without a supply point: the request says enough).
+- **Bearers** (`pickSupplyBearers`): at most two, one per unit: the headquarters' (never its leader), then the asking
+  squad's man nearest the supply point, then a man of another squad; never a machine gunner, a leader, a medic or first
+  responder, a man wearing the emblem (they would lose their protection: plan section 1, for the owner to confirm), a
+  mortar, missile or AGL team's man; never from a unit in a drill (assault, clearing, withdrawal, rout), broken or fired
+  on within `bearers.contactS` 30 s; a squad keeps at least two able men. **Changed in testing:** a man firing on his own
+  (not on an order) may go from the asking squad or the headquarters (in the hold battle every man who could go was
+  engaging on his own between waves, so nobody was ever sent); men of other squads must not be firing. Order `bearers
+  {own: true}` ("Fetch ammunition", order bar, phone under "⋯"): two of the squad's own men, also while it is fighting.
+- **The trip** (Intent `bear`: `target` the point, `squad`, `mate`, `lead`, `load`, `waitTick`; optional fields): walk
+  (not run: the hand calculation stays exact and the men arrive fit to carry) to the point by `routeBetween`; pinned or
+  cowering, a bearer stops and lies down where he is and goes on when it has passed; at the point the lead waits up to
+  `waitMateS` 60 s for his mate, then loads `loadS` 30 s (action `loadSupply`): whole packages and magazines of the
+  cartridges the squad is short of, fullest first, within `crateMaxKg` 40 kg for two men or `maxKg` 25 kg for one, by
+  `transferItems` into a new cache entity marked `carried` (event `supply.loaded`). The crate is the payload of a
+  carry party (`startCarry(..., {cargo: true, method})`, carry methods `crate` (two men) and `load` (one) from
+  `supply.json` `bearers.methods`, looked up by `carryMethodDef` beside the medical ones; the speed is the casualty
+  formula with the crate's mass, 1.15 m/s for these crates; rests; cover with it when fired on — the M10.4a rules). The
+  crate is lifted where the lead stands when within 5 m (a crate against a wall lies off the navigation cells: found in
+  the first hold run, the party never gathered). A party that loses a man ends; the other carries on alone when the
+  crate is within `maxKg`, else leaves it (an ordinary cache). Delivered within `deliverM` 15 m of the squad leader
+  (`supply.delivered`; the carry is re-routed when the squad has moved): the crate lies there as a cache, the squad's
+  short men take from it when quiet (above), the bearers walk back to their places (`bearersBack`). Bearers are out of
+  unit orders like carriers (a unit order no longer takes them off the errand; an order to the man himself does). A
+  carried crate hit by a burst burns like any cache (the bearers drop it); nobody takes from it on the way (`usable`).
+- **Deviations from the plan:** the bearers put the crate down beside the leader instead of handing out man by man
+  (the squad takes from it with the M11.3 errand when quiet); no covered-route choice (`routeBetween` as everywhere);
+  "Bring ammunition to" (an order to the headquarters naming a squad) is the squad card's "Send bearers"; the AI's rule
+  (never strip a defended objective) is the sim's bearer rule, the same for both sides, no extra `ai/src` code.
+- **Record and batch:** `SideRecord.supply` gains `requests`, `trips`, `roundsDelivered` (optional); batch line "Supply
+  (M11.3-M11.4a)". **UI:** "Fetch ammunition" (bar; phone under "⋯"; `orders-for` `bearers` when the platoon's point
+  holds supplies), "Send bearers" on the card while a request waits, the Rules row, a carried crate drawn 16 px above
+  its bearers, man states "carrying ammunition forward" / "loading a crate of ammunition".
+- **Fixed in testing:** a bearer carrying a crate was taken as the giver of a magazine to a comrade out of spares
+  (`shareAmmo`, and the AT round hand-over in launcher.ts) and dropped his errand; givers now skip men with a `bear`
+  intent (found in hold-resupply-ru seed 1: the crate arrived and was never delivered).
+- **Lab** `npm run lab -- resupply [distances]` (supply point 400 m behind; the first squad's spare magazines empty):
+  German platoon: bearers Funker and a grenadier, request 2 s, at the point 321 s, loaded 351 s (19.3 kg, 1,040
+  rounds), delivered 742 s, squad full 804 s; hand calculation 323 walk + 30 load + 390 carry + 62 taking = 804 s:
+  **-0.2 %**. Russian platoon: two senior riflemen, 12.3 kg / 1,080 rounds, measured 812 s vs 814 s: **-0.3 %**.
+  Ledger exact in both (target ±10 %: met).
+- **Measured** (same seeds; base 7d6a531 in a scratch worktree vs this branch; batch 10 x 1200 s; consumption lab 6 x
+  3600 s; defender's men out of loaded spares / dry summed over the 6 battles):
+
+  | scenario | base | this slice | --no-resupply (same build) |
+  |---|---|---|---|
+  | platoon / platoon-ru / platoon-vehicles / platoon-ru-vehicles, attacker wins | 9 / 10 / 9 / 1 | 9 / 10 / 9 / 1, every battle ending at the same second with the same casualties (no supply point: squads only ask; state hashes differ by `supplyAsk`) | - |
+  | hold-resupply (German defence): winners, ends | B B B R R R; 3600, 3600, 3600, 2041, 2657, 1160 | B B B R R R; 3600, 3600, 3600, 1850, 2730, 1160 | B B B R R R; 3600, 3600, 3600, 2571, 2100, 3600 |
+  | hold-resupply: defender out of spares / dry; machine gun first dry (s) | 11 / 2; none | 12 / 2; 3130, 1810 | 22 / 11; 2715, 2700, 2180, 1970 |
+  | hold-resupply-ru (Russian defence): winners, ends | R B B B R B; 3600, 2840, 1778, 2408, 3600, 2727 | R R B R B B; 3600, 3600, 1778, 3600, 3087, 2749 | R R B B B R; 3600, 3600, 1765, 2676, 1259, 3600 |
+  | hold-resupply-ru: defender out of spares / dry; machine gun first dry (s) | 29 / 5; 2850, 1405, 1675, 2580 | 21 / 2; 2850 | 15 / 4; 2980 |
+
+  Bearers (scratch runner over the same 12 battles): the German defence asked 8 times (3 trips, 2 delivered with 1,040
+  rounds each, request to delivery 374-378 s), the Russian 12 times (6 trips, 5 delivered, 440-1,960 rounds,
+  317-688 s); `radio.bearersNone` 11 times; **0 bearers from a unit in an assault or fired on within 30 s** (met); the
+  headquarters never gave a man (the German one is its leader, the Funker flying the drone and the Sanitäter). The
+  attackers (no supply point) asked 12-30 times a battle: radio only. **Acceptance "fewer men dry than without
+  resupply": met** (German 2 vs 11, Russian 2 vs 4). Few requests reach the 40 % mark in the hold battle: the squads'
+  own evening out (M11.2), the casualties' ammunition and the crates within 60 m keep most squads above it; the
+  Russian defence (fewer spares) gains most (machine guns dry in 1 battle instead of 4). Six seeds cannot separate
+  the German defence's two dry machine guns (3130 s, 1810 s) from noise (not traced; the battles diverge from the
+  first request on).
+- Goldens: all twelve changed (catalog fingerprint; `supplyAsk` on squads that asked), `npm run golden:update`;
+  `golden/no-interiors` untouched.
+- Tests: `sim/test/bearers.test.ts` (thresholds: share and gunner; bearers chosen: headquarters then the squad's
+  rifleman nearest the point, never the gunner or a leader, none from a squad fired on, "Fetch ammunition" two of the
+  squad's riflemen; a full trip over 300 m with the ledger exact and the men full afterwards; under fire a bearer lies
+  still and goes on; rule "ask" waits for the order; save/load mid-carry; nothing with resupply off),
+  `tools/test/resupply.test.ts` (the lab within 10 %), `ui/test/supply.test.ts` (Fetch ammunition offered, the card's
+  request, a carried crate no Resupply source). Screenshots `--scene supply` 5 (the card's Send bearers), 5b (Rules
+  row), 6 (a crate on its way), phone and desktop, looked at.
+- **Checks**: typecheck, lint, data lint (no errors), `npm test` 1521 pass. `npm run test:perf` alone (in `npm run check`):
+  22 of 24; the spotting-with-smoke (7.6x) and bench-vehicles (7.7x) floors (8x) missed, as in M11.2 and M11.3. Base
+  7d6a531 in a scratch worktree alternating with this branch, those two tests alone: bench-vehicles base 7.1, 7.9 /
+  this 7.6, 7.6; smoke base 7.5 (and once above 8) / this 7.5 (and once above 8): no regression (the new per-tick work
+  is one modulo test per unit; a squad is looked at once per 2 s; bearers move through the existing carry system).
+
+## 2026-11-16 — M11.4b (slice 47): resupply by vehicle and from off the map; mortar top-up; ammunition in an ambulance (goldens regenerated)
+Owner answers (binding): delivery by bearers, vehicle runs and off-map deliveries; control automatic plus player orders;
+mortar and artillery allotments topped up by deliveries; an ambulance carrying ammunition is a breach of the law of
+war. Everything else is a software decision (values in `core/supply.json` `delivery`, `vehicleRun`, `topUpCheckS`:
+game values, low; the trucks' data from search extracts, low). Built from the interrupted earlier attempt (uncommitted
+work found in the worktree after a container restart), reviewed, fixed and finished.
+- **Off-map stock** (`BattleInput` `ForceInput.stock`, new store `stock`, state schema 23 -> 24 with a migration: an
+  empty store in an older save): an entity with a container per side, outside the ledger. Everything that leaves it
+  goes by `transferItems` with an `items.delivered` event, so the conservation guard stays exact. `stock.supportTopUp`
+  moves rounds into the side's off-map mortar / artillery section every `everyS` (event `supply.topUp`).
+- **Supply vehicles**: faction manifest `supply` (Bundeswehr `hx2-besatzung`, HX2 5 t truck; Russia `ural-ekipazh`,
+  Ural-4320; vehicles with the new `cargo.kg`; fixture faction: none). Off-map asset kind `"supply"`, added by the hold
+  battle (`addSupplyAssets`). Called automatically when a platoon's supply point falls below `callBelow` 30 % of its
+  standard fill (`Cache.fill`: what it held at the first look, or after its first delivery), or when a platoon
+  without a point asked for ammunition lately (a point is sited); or by the player's **Order a delivery** (order
+  `callDelivery`, a full point's worth). Loaded at the call with whole packages of the cartridges the platoon's men
+  fire (fullest first, one per cartridge in turn) up to its cargo; comes on after 600-1,200 s (stream `supply`), drives
+  at the "walk" pace to within 15 m, unloads 60 s + 0.3 s/kg into the point's cache, drives back; ready again 1,200 s
+  after it left. One delivery per side at a time; gives up after 900 s held up (load stays aboard for the next run).
+  Four radio refusals (none waiting, one coming, nothing in the stock, no way / no point).
+- **Combat vehicles' rear runs** (`RearRun.cargo` `"casualties" | "supplies"`, phase `unloading`): off the map, every
+  run (also one with wounded) refills the hull's stowage from the stock up to what the data stows (ammunition only)
+  and loads up to `shareKg` 400 kg for its platoon's supply point, which it drives to and unloads first (30 s + 0.3
+  s/kg). An idle hull below `stowageBelow` 50 % of its stowed ammunition starts a run of its own (casualty-run limits
+  per platoon); the player's **Restock** (order `rearRun` with `cargo: "supplies"`) at once. Never on its own for a
+  marked ambulance.
+- **Ammunition in an ambulance**: the computer never does it. A player's delivery naming an ambulance
+  (`callDelivery.vehicle`, up to `ambulanceKg` 500 kg) or a player's supply run by a marked hull is carried out but
+  recorded: event `law.misuse` (cause `ammunitionInAmbulance`; the plan called it `conduct.breach`: the existing
+  `law.*` family is used), `VehicleState.misuse` while it carries it, `protectionNow` gives it no protection then (the
+  recognition code clears enemies' flags within the recognition range as for a medic who fired), protected again once
+  unloaded. Review: Conduct tab line per case (`SideRecord.conduct.misuse`).
+- **Record, batch, UI:** `SideRecord.supply` gains deliveries, rounds off the map, vehicle runs, rounds to the point and
+  into stowage, top-up; batch line "Supply (M11.3-M11.4b)"; `--no-deliveries` (headless, batch, consumption lab):
+  resupply on foot only. Order bar "Order a delivery" (phone under "⋯") while a supply vehicle waits and the stock
+  holds something; "Restock" for a crew's hull; the wounded list shows deliveries and supply runs; review vehicles tab
+  row.
+- **Hold battle data** (`HOLD.stockLoads` 2, `topUpRounds` 6 per `topUpEveryS` 600 s): the defender's stock is twice
+  the point's starting load plus the mortar rounds of the top-up; one supply truck.
+- **Deviations from the plan:** an on-map mortar section gets no delivery to its tubes yet (slice 48 "rounds to
+  mortars"); the "transfer into an ambulance" case does not exist as an order (no player transfer into a hull), so the
+  breach covers the delivery and the supply run; the truck is drawn as a plain hull (no truck art); the AI calls
+  deliveries through the sim's automatic rule (the same for both sides), no `ai/src` code (slice 52).
+- **Lab** `npm run lab -- resupply` part 2: delivery 400 m from the edge, HX2 measured 991 s vs hand 988 s (+0.3 %),
+  Ural 1,000 vs 998 (+0.2 %); supply run Puma 1,030 vs 1,026 (+0.4 %), BMP-2 1,037 vs 1,032 (+0.4 %); ledger exact in
+  all (target ±10 %: met).
+- **Measured.** Platoon batches 10 x 1,200 s (platoon, platoon-ru, platoon-vehicles, platoon-ru-vehicles), base 6038e77
+  in a scratch worktree vs this branch: every battle the same winner, end second and casualties (no stock in those
+  scenarios; attacker wins 9 / 10 / 9 / 1 both). Hold battle, 20 seeds x 3,600 s each, resupply off / on foot only
+  (`--no-deliveries`) / all (squads at the end with able men: below 40 % of their standard load, below 10 %; summed over
+  20 battles):
+
+  | | German defence: none / foot / all | Russian defence: none / foot / all |
+  |---|---|---|
+  | defender holds | 10 / 12 / 15 | 13 / 13 / 15 |
+  | squads below 40 % at the end (median per battle) | 5 / 5 / 6 (0 / 0 / 0) | 1 / 3 / 2 (0 / 0 / 0) |
+  | squads below 10 % at the end | 0 / 1 / 2 | 1 / 0 / 0 |
+  | men dry at the end | 8 / 5 / 7 | 3 / 2 / 2 |
+  | bearer trips | 0 / 17 / 18 | 0 / 12 / 8 |
+  | deliveries from off the map (rounds) | - / - / 1 (2,920) | - / - / 0 |
+  | mortar rounds topped up | - / - / 528 | - / - / 510 |
+  | ammunition put into an ambulance by the AI | 0 | 0 |
+
+  **Not met:** "fewer squads dry at the end with all three ways than with none" — almost no squad is dry at the end in
+  any mode (medians 0 / 0 / 0), because the defence still rarely runs short (the open point of the stronger-defence
+  slice) and the point's starting load rarely falls below 30 %: one automatic delivery in 40 battles. What the routes
+  do show is in the holds: 10 -> 12 -> 15 and 13 -> 13 -> 15 of 20 (the mortar top-up is most of the difference).
+  Whether the hold battle should start with a smaller supply point (so deliveries matter) is for the owner (slice 52
+  balance).
+- **Tests** (`packages/tools/test/delivery.test.ts`): automatic call below 30 % and unloading with the guard exact; one
+  delivery at a time; the top-up and `rules.deliveries` off; the ambulance breach (event, no protection while loaded,
+  protected again after unloading); save and load mid-delivery; a schema-23 save; the lab within 10 %. Goldens: the
+  non-hold replays change only their state hashes (the new empty `stock` store), orders and event streams as before; the
+  two hold replays change (stock, truck, top-up).
+- **Checks**: typecheck, lint, data lint (no errors), `npm test` 1528 pass. `npm run test:perf` alone: 22 of 24; the
+  spotting bench (8.0x) and spotting-with-smoke (7.5x) floors (8x) missed. Base 6038e77 in a scratch worktree
+  alternating with this branch, those two tests alone four times each: full load base 8.4, 9.0, 8.6, 8.9 / this 8.2,
+  8.4, 8.6, 8.9; smoke base 7.8, 8.5, 7.7, 7.9 / this 7.9, 7.7, 7.8, 6.8: noise around the floor as in the earlier M11
+  slices (the only per-tick work added is an early return while no side has a stock).
+
+## 2026-11-17 — M11.5 (slice 48): re-arming and refuelling vehicles, litres in the conservation guard, rounds to on-map mortars (goldens regenerated)
+Owner answers (binding): everything in scope; delivery by bearers, vehicle runs and off-map; control automatic plus
+player orders; mortar and artillery allotments topped up by deliveries. Everything else is a software decision (values
+in `core/supply.json` `rearm`, `refuel`, `mortarFetch`: game values, low; the fuel cans `de-jerrycan` / `ru-jerrycan`
+from general knowledge, low: no source page could be opened here).
+- **Re-arming** (`systems/rearm.ts`, `VehicleState.resupply`, optional: no schema bump): a halted hull (a crewman aboard,
+  not hit for `quietS` 20 s, not burning, under repair, towed, called for recovery, away or on a rear run) within
+  `standM` 15 m of an own cache or an own supply vehicle on the map takes whole items of its stowage (`transferItems`)
+  while the stowage holds fewer rounds of the type than the data stows: ammunition, and reactive tiles as items only
+  (fitting them is the repair session's). `baseS` 60 s, then `secondsPerKg` 1.2 s a kg per item; each piece ends at the
+  first whole second at or after its time (the system runs once a second: no per-tick work). The ready racks refill
+  from stowage as before (owner Q17). A marked ambulance takes no ammunition. A supply truck gives only its cargo, never
+  the types its own data stows (its crew's kit).
+- **Refuelling**: fuel items now carry `chargeKind: "diesel"` (the fixture's cart `xf-hay`), so `moveCharge` moves litres
+  between them. After the rounds (or alone) the crew pours fuel cans (`jerrycanLpm` 20 l a minute, one can at a time)
+  or takes litres from a supply truck's own tank above `keepL` 100 l by pump (`pumpLpm` 100, a minute's worth at a time),
+  after `setupS` 60 s. **Deviation:** there is no tanker in the data; the supply truck's own tank stands in. Empty cans
+  stay where they were. A halted hull beside a source refuels on its own only when 5 % or more of its tank is missing.
+- **Asking** (rearrun.ts `supplyStarts`): an idle hull (the rear-run rules) below `rearm.below` 50 % of its stowed
+  ammunition or `refuel.callBelow` 25 % of its tank drives to the nearest own cache within `driveM` 300 m that has
+  something for it (event `vehicle.resupply` "heading"), works there and drives back; with none, it goes on a supply run
+  when its side has a stock (M11.4b), and such a run now also fills the tank from the stock's fuel cans (litres
+  `items.delivered`). **Deviation:** no separate radio request for vehicles; the cache or the run is the answer. A
+  delivery truck also loads what the platoon's hulls lack (their stowage, then fuel cans) in the room left. Any order to
+  the crew (not fire discipline) stops the work (`why: "order"`), what was moved stays, and none starts on its own for
+  120 s (`resupplyHoldTick`). Recovery and repair: a hull being repaired, called for recovery or towed neither re-arms
+  nor drives to a cache; recovery and a re-arm never claim the same hull.
+- **Litres in the conservation guard**: every litre burnt is an event (`items.burnt`, from the drive's whole-litre draw),
+  fuel cans entering from a stock or burning in a cache carry `chargeKind` and `amount` on `items.delivered` /
+  `items.destroyed`; `checkChargeConservation` checks every fuel kind within 1e-6 l; the conservation tool and the
+  consumption lab report both. Exact in every conservation scenario.
+- **Rounds to on-map mortars**: a team holding fewer than `mortarFetch.below` 10 rounds sends a man (not the tube's
+  carrier if another can go) on the M11.3 resupply errand to the nearest own cache within `reachM` 150 m of the tube
+  that has its rounds; `takePlan` gains whole rounds for a mortar team's man (high explosive, then smoke, up to `carryKg`
+  30 kg, `secondsPerRound` 3 s each). A man on that errand no longer packs the tube up. A stock's top-up for a side with
+  mortars on the map puts the rounds into a cache 8 m behind the section's tubes (`Cache.tubes`) — the M11.4b deviation
+  "no delivery to on-map mortar tubes" is closed.
+- **Interface**: the card's gun row ends with "Fuel 640 / 900 l · re-arming / refuelling / going to re-arm"; the unit
+  list shows "re-arming" etc.; record and batch line: hulls re-armed or refuelled, rounds, litres, litres burnt. Debug
+  hook `__tcs.rearmScene(vid)`, `resupplyOf(vid)`; `--scene supply` shots 9-10 (phone and desktop, looked at).
+- **Lab** `npm run lab -- rearm` (empty stowage, 10 % fuel, a full cache 8 m off, or the supply truck): Puma 477 + 2,517
+  s, BMP-2 320 + 1,305 s, Leopard 2A7V 969 + 3,240 s, T-90M 819 + 3,300 s (re-arm + refuel from cans), each truck 180 s
+  for 200 l; measured equal to the hand calculation in all 8 (target 10 %), rounds and litres exact. (The litres poured
+  are the shortfall plus what the engine burns idling meanwhile: the hand calculation uses the litres poured.)
+- **Measured** (base 3e1139d in a scratch worktree vs this branch, same seeds): platoon, platoon-ru, platoon-vehicles,
+  platoon-ru-vehicles 10 x 1,200 s, hold-resupply and hold-resupply-ru 6 x 3,600 s with and without `--no-resupply`:
+  every battle the same winner, end second and casualties (attacker wins 9 / 10 / 9 / 1 as before; hold-resupply blue 4 red 2,
+  without resupply 3-3; hold-resupply-ru red 4 blue 2, without resupply 3-3). No hull re-armed or refuelled in any of them: stowage never fell below half
+  and tanks never below a quarter (litres burnt per battle: platoon-vehicles 33, platoon-ru-vehicles 16, hold 2). The
+  event streams differ only by the new `items.burnt` events (platoon-vehicles seed 2, 900 s: 27 more events, all else
+  identical).
+- **Goldens**: every replay's state hashes change (the catalog: fuel kinds, cans), orders identical; event streams as
+  before plus `items.burnt`.
+- **Tests** (`packages/tools/test/rearm.test.ts`): BMP-2 re-arm and refuel at a cache (stowage and tank full, rounds
+  and litres exact, roster out `vehicleRecordFromState` keeps both); the truck's pump above its reserve and never its
+  kit; an order stops it and it stays stopped; save and load mid-work identical; an idle hull drives 120 m to a cache
+  and works there; a mortar team fetches rounds without packing; the top-up cache beside the tubes. The conservation
+  tests also assert litres.
+- **Checks**: `npm run check` alone green: typecheck, lint, `npm test` 1534 pass, `npm run test:perf` 24 of 24, data lint
+  (no errors). bench-vehicles alternating base / this branch, alone, three times each: 8.5, 8.1, 7.8 / 8.3, 8.3, 8.2
+  (noise; the re-arming system runs once a second and returns at once with no cache or supply truck on the map).
+
+## 2026-11-17 — M11.8 (slice 52): the commander's logistics, the Logistics review tab, batch columns, BattleResult logistics, balance on hold-resupply
+Owner answers (binding): control automatic plus player orders; caches are legitimate targets, captured caches the
+captor's; the hold battle should let ammunition matter. Everything else is a software decision (values in
+`LOGISTICS_AI`, `packages/ai/src/logistics.ts`: game values, low).
+- **What was already there.** Most of the brief's point 1 lives in the sim and works the same for both sides and for the
+  player: the supply point is sited when a delivery is called (M11.3-M11.4b), squads ask and the platoon sends bearers
+  (never from a squad in a fight, never a gunner, leader or medic: M11.4a), a low point or an asking squad calls a
+  delivery (M11.4b), idle hulls re-arm and refuel, also between waves (M11.5), the commander shells enemy caches it has
+  seen (M11.3). Nothing of that is duplicated.
+- **New: the commander's logistics** (`logisticsOrders`, every 10 s, orders only): (1) a supply point that still holds
+  ammunition with an enemy its men know within `supply.site.threatM` 100 m is moved `site.backM` 100 m back, away from
+  that enemy (`supplyPoint`: the crates stay as a plain cache that squads close by still use; deliveries and bearers go to
+  the new point), once per point, and up to 4 of the side's men within `request.useM` 60 m of it who are short fill up
+  there first (`resupplyAt`). **Deviation:** the crates are not carried away (a moving full cache would need a carry
+  party; the point moves instead). (2) A squad below `request.below` 40 % of its load, quiet 30 s, halted, no drill, no
+  enemy known within 200 m, no bearers coming and no crate within 60 m sends its shortest men (under half their own
+  load), at most half its able men, to the nearest own cache within `take.reachM` 400 m (a captured enemy cache counts)
+  and back; at most every 120 s per squad. A held position is never stripped: half always stays.
+- **Logistics tab** (fourth review tab; `ui/aar.ts`, `app/review.ts` `logisticsLines`): per side rounds fired by weapon
+  type (with the M7.3 details of hulls, rockets and fire support indented), armed men without a round at the end,
+  delivered by bearers / vehicle runs / off the map and mortar rounds topped up, taken from own casualties / enemy men /
+  at caches, enemy caches captured and own caches set off or lost, requests answered with the median wait and those
+  still open, litres burnt / refuelled / delivered, re-arming; the M11.7a repair, M11.7b recovery and M11.6 battery,
+  off-net and water rows moved here from the Battle tab (not duplicated). The Battle tab keeps vehicles lost, drones,
+  enemies found and fire missions. Strings `aar.logistics.*`, `aar.wtype.*`.
+- **Battle record** (version 10 -> 11; an older save starts a fresh record): `supply` gains `fired` (by weapon type),
+  `takenCasualty`, `takenEnemy`, `roundsLost` (in caches the enemy captured), `litresDelivered`, `waitS` (each answered
+  request: from the squad's first request to the bearers' crate or its first taking at a cache), `open`, `dryEnd` and
+  `armedEnd` (at `battle.ended`, `dryMen`); `asks` holds the open requests.
+- **`BattleResult.logistics`** (optional; `ledger.ts` `logisticsFromEvents`): per side consumed, delivered, captured
+  (enemy caches and kit) and destroyed, rounds by ammunition id, other items by item id, litres by fuel kind, from the
+  events of the run. Its sums over the sides equal the conservation guard's tally (test). `forcesOut` carries the loads.
+- **Batch**: a logistics table (per side: fired, delivered foot / vehicle / off map, taken from casualties, captured,
+  destroyed, dry men at the end, requests, mean wait) and per-seed columns; supply orders per battle; rows carry
+  `logistics` and `supplyOrders`.
+- **Measured, same seeds, base 9e1de7a (slice 48) vs this branch.** platoon, platoon-ru, platoon-vehicles,
+  platoon-ru-vehicles 10 x 1,200 s: every battle the same winner and end second (attacker wins 9 / 10 / 9 / 1 as
+  before; 39 of 40 final states identical; platoon seed 8 ends in another state with the same winner, end second and casualties).
+  hold-resupply and hold-resupply-ru 6 x 3,600 s: the same winners in all 12 (four and three end at other seconds),
+  without resupply identical (the commander's logistics is off with `rules.resupply` false).
+- **Balance (20 seeds each way, 3,600 s).** German defence: holds 14 of 20 with resupply (70 %), 10 of 20 without
+  (50 %): 20 points apart. Russian defence: 16 of 20 (80 %), 13 of 20 without (65 %): 15 points. **Not met:** "at least
+  25 points fewer holds without resupply" in either direction, and the Russian defence holds above the 30-70 % band.
+  Ammunition is not what ends the defence: at the end, defenders with a weapon and no round for it are 0.3 of 10.7
+  (German, with resupply) and 0.35 of 10.2 (without); 0.05 and (seeds 1-16) 0.19 for the Russian defence. The defence
+  falls to casualties first. With resupply per battle (German / Russian defence): requests 2.1 / 0.9, answered 10 / 7
+  in 20 battles after a mean 627 / 370 s, bearer trips 0.9 / 0.3, rounds brought by bearers 290 / 380, from off the map
+  1,092 / 2,736 (4 / 6 deliveries in 20), taken from own casualties 53 / 148, at caches 90 / 209.
+- **How often the commander's logistics acts** (18 seeds each way, 3,600 s; orders per battle): the defender moves its
+  supply point 0.56 times (German and Russian defence alike) and sends 0.78 / 0.67 men to a cache; the attacker sends
+  2.1 (Russian) / 5.6 (German) men to a cache (the defenders' captured crates and the piles of its own casualties'
+  ammunition). The sim's own automatic takings and bearer trips are not orders and are counted above.
+- **Tried and not kept: defenders who have already fought** (`HoldDef.defenderLoadShare`, `HOLD.defenderLoadShare`,
+  default 1 = off): half their spare magazines empty and half their loose rounds. 20 seeds each way: German defence 9
+  holds with resupply and 9 without, Russian 13 and 13. It lowered the holds into the band but erased the difference
+  resupply makes (with half a load, the defence still falls to casualties before ammunition, and the requests arrive
+  under fire). Kept as an option for the owner; off.
+- **Goldens**: unchanged (the commander's logistics gives no order in the first 300 s of the hold goldens; strings are
+  outside the fingerprint).
+- **Tests** (`packages/tools/test/logistics.test.ts`): a threatened point moves back away from the enemy once, men near it
+  fill up there; a low quiet squad sends at most half (its shortest men) to a cache in reach, not with the enemy close,
+  not again within 120 s, and their rounds rise; the record's fired by type, taken, lost, waits, open requests and dry
+  men; `BattleResult.logistics` sums equal the conservation tally. `scenario-hold.test.ts`: the load share option. The
+  conservation tests are unchanged and exact.
+- **Screenshots** `--scene aar`: the Logistics tab after the 25-minute platoon battle and after 20 minutes of the hold
+  battle, phone and desktop (looked at: readable on the phone, the tab row fits).
+- **Checks**: `npm run check` alone green: typecheck, lint, `npm test` 1,539 pass (6 skipped), `npm run test:perf` 24 of
+  24, data lint (no errors). The commander's look runs every 10 s per side; the record and `BattleResult` folds are per
+  event.
+
+## 2026-11-17 — M11 review fixes (logistics, law of war at the nest, fighting-position rims)
+Software decisions from the independent review of the M11 branch (owner answers unchanged and binding). Goldens
+unchanged (no difference in their windows); no data or schema change (new behaviour only reads existing fields).
+- **No ammunition at the red cross, made strict.** A casualty at the Verwundetennest is stripped on arrival, no longer
+  only after his treatment (that gate stays for comrades taking a casualty's rounds in the field): the magazine in his
+  weapon comes out, he keeps nothing, the nearest able man of the platoon (never a red-cross wearer) takes it when
+  nobody is treating him, else a pile outside the nest; as he is taken aboard an ambulance the rest goes on a pile too
+  (`pileOutsideNest`). A medic is never sent to take a casualty's ammunition. The nest is never sited or ordered within
+  `nestClearM` of any cache holding ammunition (`ammoCacheNear`, `sitePoint` takes several zones); bearers put a crate
+  down outside a nest's clear zone.
+- **Ambulances and deliveries.** A delivery unload that a clear zone refuses keeps what stayed aboard as the load (and
+  the breach: `misuse` only clears when no ammunition is left). An ambulance back off the map with a load puts it into
+  the stock (`items.delivered` with negative counts: the ledger stays exact) before casualty work; if it cannot, it
+  keeps it as cargo and does no casualty work. A run reads its platoon's supply point as it is now (moved, replaced,
+  captured: after it, or back with its load), and a supply vehicle stranded for a while (wheel repaired, driver back)
+  goes on instead of staying "lost". Deliveries no longer load for hulls towed away, being recovered, abandoned or on a
+  rear run.
+- **Caches.** Emptied caches (packages and cans at charge 0) are empty for every purpose (`cacheHolds`): not set off,
+  captured, shelled, nor counted "full" by the commander; a point emptied that way is simply moved. A supply point that
+  burns out stops being the point; nothing goes into a burning or burnt cache. A cache that moves (automatic point,
+  ordered move of an empty point, a crate in bearers' hands) is unknown to the enemy until seen again; the commander
+  shells only caches seen where they are, holding something, not on the move.
+- **Vehicle supply runs.** Not at the point in time: the hull gives up with its share aboard (no unloading from afar);
+  the leg back to its squad has its own time.
+- **Commander's logistics.** A supply point moves only for an enemy seen, or placed to within half of `site.threatM`
+  (hold-resupply seed 2 moved a full point for a report 124 m off). Bearers fall back to the nearest own cache within
+  `take.reachM` of the point when the point holds nothing for the squad. The commander sends men only to a cache with
+  rounds for their weapons.
+- **Requests.** A squad whose platoon has no supply point and whose side has no stock with a supply vehicle does not
+  radio for ammunition (nobody could answer).
+- **Taking under fire.** Own casualties' ammunition is taken only when the squad has not been fired on for
+  `consolidate.quietS`; takeAmmo, takeKit and takeSupply end when the man is pinned or suppressed to the carrying
+  parties' `holdSuppression`.
+- **Fighting-position rims.** High explosive (cannon HE, rockets, grenades) stopped by a rim bursts there (impact fuse)
+  or bounces off it (time fuse) instead of vanishing.
+- **Measured** (same seeds as before; batch 10 x 1,200 s, 6 x 3,600 s): see the commit report. platoon attacker wins
+  8 of 10, platoon-ru 10 of 10 (open, owner); hold-resupply German defence holds 4 of 6 with resupply, 3 of 6 without;
+  Russian defence 3 of 6 with, 2 of 6 without. Attackers without any supply now send no requests (was 16.7 per battle).
+- **Checks**: typecheck, lint, data lint green; `npm test` 1,543 pass (6 skipped); consumption lab `--conservation`
+  exact in every scenario. `npm run test:perf` alone: 22 of 24 first run; the parked-hulls test passed on its rerun
+  (known noisy); the smoke spotting floor reads 7.5 / 7.9 / 7.8x against 8x, the same noise around the floor as in the
+  earlier M11 slices (no new per-tick work in spotting; the cache look now returns early for emptied caches).

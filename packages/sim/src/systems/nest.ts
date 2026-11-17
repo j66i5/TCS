@@ -38,6 +38,7 @@ import { navCostAt, nearestPassable } from "../nav";
 import { navFor } from "../navctx";
 import { newEntity, type SimState } from "../state";
 import { bearersBack, endCarry, startCarry } from "./carry";
+import { inPosition } from "../positions";
 import { coveredFrom } from "./decisions";
 import { assignCarer, careEnabled, releaseCarer, treatedNow, underFireForCare } from "./medical";
 
@@ -89,7 +90,56 @@ function freeMan(state: SimState, id: EntityId, s: SoldierState): boolean {
  * platoon has nobody left to site it from.
  */
 export function siteNest(ctx: SimContext, state: SimState, top: EntityId): { x: number; y: number } | null {
-  const N = ctx.catalog.medical!.nest!;
+  // (M11.3: never within `supply.nestApartM` of the platoon's supply point; review fix: nor within `nestClearM` of any
+  // cache holding ammunition — an old point, a crate, a pile, a captured cache.)
+  const sp = supplyPointOf(state, top), S = ctx.catalog.supply;
+  const avoid: { x: number; y: number; r: number }[] = [];
+  if (sp !== null && S) avoid.push({ x: state.rear.req(sp).x, y: state.rear.req(sp).y, r: S.nestApartM });
+  if (S && S.nestClearM > 0) for (const [k, c] of state.cache.entries()) {
+    if (c.burnt === true || !ammoIn(ctx, state.container.get(k))) continue;
+    const t = state.transform.req(k);
+    avoid.push({ x: t.x, y: t.y, r: S.nestClearM + 1 });
+  }
+  return sitePoint(ctx, state, top, ctx.catalog.medical!.nest!, avoid);
+}
+
+/** Does a container hold ammunition (rounds in a magazine or package, or whole rounds)? */
+function ammoIn(ctx: SimContext, c: { stacks: readonly { type: string; count: number; charge?: number }[] } | undefined): boolean {
+  if (c) for (const s of c.stacks) {
+    if (s.count <= 0) continue;
+    if (s.charge === undefined) { if (ctx.catalog.ammo[s.type] !== undefined) return true; continue; }
+    const ci = ctx.catalog.items[s.type]?.chargeItem;
+    if (s.charge > 0 && ci !== undefined && ctx.catalog.ammo[ci] !== undefined) return true;
+  }
+  return false;
+}
+
+/** Is a cache holding ammunition within `supply.nestClearM` of (x, y) (a nest may not go there)? */
+export function ammoCacheNear(ctx: SimContext, state: SimState, x: number, y: number): boolean {
+  const R = ctx.catalog.supply?.nestClearM ?? 0;
+  if (R <= 0) return false;
+  for (const [k, c] of state.cache.entries()) {
+    if (c.burnt === true) continue;
+    const t = state.transform.req(k);
+    if ((t.x - x) * (t.x - x) + (t.y - y) * (t.y - y) < R * R && ammoIn(ctx, state.container.get(k))) return true;
+  }
+  return false;
+}
+
+/** The supply point (a `rear` point of kind "supply") of top unit `top`, or null (M11.3). */
+export function supplyPointOf(state: SimState, top: EntityId): EntityId | null {
+  for (const [id, p] of state.rear.entries()) if (p.kind === "supply" && p.unit === top) return id;
+  return null;
+}
+
+/**
+ * A rear point's spot for top unit `top` (the nest, M10.5; the supply point, M11.3): `N.backM` behind the platoon's able
+ * men away from the enemy they know, the spot hidden from that enemy within `N.searchM`, between `N.minBackM` and
+ * `N.maxBackM` back, on open ground a wheeled vehicle can reach from the edge behind; never within `avoid.r` of `avoid`.
+ */
+export function sitePoint(ctx: SimContext, state: SimState, top: EntityId, N: { backM: number; searchM: number; minBackM: number; maxBackM: number }, avoidAt?: { x: number; y: number; r: number } | readonly { x: number; y: number; r: number }[]): { x: number; y: number } | null {
+  const zones = avoidAt === undefined ? [] : Array.isArray(avoidAt) ? avoidAt as readonly { x: number; y: number; r: number }[] : [avoidAt as { x: number; y: number; r: number }];
+  const inside = (x: number, y: number) => zones.some((z) => hypot2(x - z.x, y - z.y) < z.r);
   let cx = 0, cy = 0, n = 0, tx = 0, ty = 0, tn = 0;
   for (const m of menOf(state, top)) {
     const s = state.soldier.get(m), t = state.transform.get(m);
@@ -129,6 +179,7 @@ export function siteNest(ctx: SimContext, state: SimState, top: EntityId): { x: 
       const along = (x - cx) * bx + (y - cy) * by;
       if (along < N.minBackM || along > N.maxBackM) continue;
       if (navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
+      if (inside(x, y)) continue;
       const wc = Math.floor(x / wheel.cellM), wr = Math.floor(y / wheel.cellM);
       if (wc < 0 || wr < 0 || wc >= wheel.cols || wr >= wheel.rows) continue;
       const wi = wr * wheel.cols + wc;
@@ -141,7 +192,19 @@ export function siteNest(ctx: SimContext, state: SimState, top: EntityId): { x: 
   }
   if (best) return best;
   const fi = nearestPassable(foot, gx, gy, 15);
-  return fi >= 0 ? { x: (fi % foot.cols + 0.5) * foot.cellM, y: (Math.floor(fi / foot.cols) + 0.5) * foot.cellM } : { x: gx, y: gy };
+  const at = fi >= 0 ? { x: (fi % foot.cols + 0.5) * foot.cellM, y: (Math.floor(fi / foot.cols) + 0.5) * foot.cellM } : { x: gx, y: gy };
+  // (Every spot searched lay too near `avoid`: the nearest passable spot just outside it, in one of eight directions.)
+  if (inside(at.x, at.y)) {
+    let alt: { x: number; y: number } | null = null, altD = Infinity;
+    for (const z of zones) for (const [dx, dy] of DIRS) {
+      const x = z.x + dx * (z.r + 2), y = z.y + dy * (z.r + 2);
+      if (x < 10 || y < 10 || x > W - 10 || y > H - 10 || navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0 || inside(x, y)) continue;
+      const d = hypot2(x - gx, y - gy);
+      if (d < altD) { altD = d; alt = { x, y }; }
+    }
+    if (alt) return alt;
+  }
+  return at;
 }
 
 /** Put (or move) top unit `top`'s nest at (x, y); `placed` by the player. Its parties on the way go to the new place. */
@@ -372,6 +435,8 @@ function pickBearers(ctx: SimContext, state: SimState, top: EntityId, c: EntityI
     const t = state.transform.req(m);
     // (Not a man in a house under fire: his squad may have to get out of it.)
     if (indoorAt(ctx, t.x, t.y) >= 0 && underFireForCare(ctx, state, m)) continue;
+    // (M11: nor a man in a fighting position under fire: the defence keeps its holes manned; the carry waits.)
+    if (inPosition(ctx, state, m) && underFireForCare(ctx, state, m)) continue;
     cands.push({ m, d: hypot2(t.x - ct.x, t.y - ct.y) * (ident.unit === cu ? 0.5 : 1), u: ident.unit });
   }
   cands.sort((a, b) => a.d - b.d || a.m - b.m);
@@ -390,9 +455,12 @@ function pickBearers(ctx: SimContext, state: SimState, top: EntityId, c: EntityI
  * The player's `casualtyPoint` order (M10.5): the target's platoon puts its nest at (x, y) (snapped to passable ground
  * outside buildings). True if done.
  */
-export function casualtyPointOrder(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, x: number, y: number): boolean {
+export function casualtyPointOrder(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, x: number, y: number): true | false | { unable: string } {
   const uid = state.unit.has(target) ? target : state.identity.get(target)?.unit;
   if (uid === undefined) return false;
+  // (M11.3, owner: the nest and the supply point stay apart.)
+  const sp = supplyPointOf(state, topOf(state, uid)), S = ctx.catalog.supply;
+  if (sp !== null && S && hypot2(state.rear.req(sp).x - x, state.rear.req(sp).y - y) < S.nestApartM) return { unable: "radio.nestNearSupply" };
   const foot = navFor(ctx, "foot").grid;
   let px = x, py = y;
   if (navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) {
@@ -400,6 +468,8 @@ export function casualtyPointOrder(ctx: SimContext, state: SimState, events: Eve
     if (i < 0) return false;
     px = (i % foot.cols + 0.5) * foot.cellM; py = (Math.floor(i / foot.cols) + 0.5) * foot.cellM;
   }
+  // (Review fix: never on ammunition — any cache holding it within `supply.nestClearM`.)
+  if (ammoCacheNear(ctx, state, px, py)) return { unable: "radio.nestNearSupply" };
   return setNest(ctx, state, events, topOf(state, uid), px, py, "ordered") !== null;
 }
 

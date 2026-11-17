@@ -43,6 +43,7 @@ import { registerActionHandler, startAction } from "../actions";
 import { routeBetween, routeWaypoints, indoorAt } from "../interior-nav";
 import { navFor } from "../navctx";
 import { exposureAt } from "../nav";
+import { positionAt } from "../positions";
 import type { MoraleDef, QualityMoraleDef } from "../catalog";
 import { requestPosture } from "./body";
 import { unitSoldiers } from "./orders";
@@ -119,7 +120,8 @@ function situation(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
   let cover = false, armourNear = false;
   if (s.mount !== undefined) cover = true; // behind armour
   else if (t) {
-    cover = indoorAt(ctx, t.x, t.y) >= 0 || exposureAt(navFor(ctx, "foot").grid, t.x, t.y) < M.relief.coverExposure;
+    cover = indoorAt(ctx, t.x, t.y) >= 0 || exposureAt(navFor(ctx, "foot").grid, t.x, t.y) < M.relief.coverExposure
+      || (t.z === 0 && (state.terrain.positions?.length ?? 0) > 0 && positionAt(ctx, state, t.x, t.y) >= 0); // (M11: in a fighting position)
     const side = state.identity.get(id)?.side, ar = M.relief.armourNearM * M.relief.armourNearM;
     for (const [vid, v] of state.vehicle.entries()) {
       if (v.side !== side || v.status === "destroyed" || v.status === "abandoned" || v.offMap !== undefined) continue;

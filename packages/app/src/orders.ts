@@ -9,7 +9,7 @@ import {
 import { worldToScreen } from "@tcs/render";
 import {
   addPoint, centreOf, facingHandleAt, inPlacePoint, losPreview, modeAfterOrder, newPlan, ordersFor, paceToWaypoint,
-  planToOrder, playerOrder, shapeOf, slotSpan, turnFormation, undoPoint, type Eye, type LosLine, type Plan, type PlanKind,
+  planToOrder, playerOrder, shapeOf, slotSpan, turnFormation, undoPoint, unitCapabilities, type Eye, type LosLine, type Plan, type PlanKind,
 } from "@tcs/ui";
 import type { App, Pt } from "./app";
 import { activeMoveOf, hqMode, inMap, markerFor, unitCentre, unitMen, unitPlaces, selectedMen, slotsOf, vehicleClassOf } from "./units";
@@ -45,6 +45,45 @@ export function issue(a: App, order: Order): void {
 /** An order for the selected unit now (`kind` and its fields). */
 export function now(a: App, target: EntityId): { tick: number; issuer: string; target: EntityId } {
   return { tick: a.sim.state.tick, issuer: a.playerSide, target };
+}
+
+/** "Take enemy kit" (M11.2) for the selected unit: the nearest enemy casualty or prisoner its men know of. The source
+ *  ordered, or null (nothing known near: the button is not shown then). */
+export function takeKit(a: App): EntityId | null {
+  const uid = a.overlay.selectedUnit;
+  if (uid === null) return null;
+  const src = unitCapabilities(a.sim.state, a.input.catalog, uid, hqMode(a)).kitSource;
+  if (src === undefined) return null;
+  issue(a, { ...now(a, uid), kind: "takeKit", source: src });
+  return src;
+}
+
+/** "Resupply" (M11.3) for the selected unit: its men go to the nearest own cache with supplies. The cache, or null
+ *  (none in reach: the button is not shown then). */
+export function resupply(a: App): EntityId | null {
+  const uid = a.overlay.selectedUnit;
+  if (uid === null) return null;
+  const src = unitCapabilities(a.sim.state, a.input.catalog, uid, hqMode(a)).supplySource;
+  if (src === undefined) return null;
+  issue(a, { ...now(a, uid), kind: "resupplyAt", cache: src, ...(hqMode(a) ? { own: true as const } : {}) });
+  return src;
+}
+
+/** "Fetch ammunition" (M11.4a) for the selected squad: two of its men bring a crate from the platoon's supply point.
+ *  False when not offered (no supply point with supplies). */
+export function fetchAmmo(a: App): boolean {
+  const uid = a.overlay.selectedUnit;
+  if (uid === null || unitCapabilities(a.sim.state, a.input.catalog, uid, hqMode(a)).bearers !== true) return false;
+  issue(a, { ...now(a, uid), kind: "bearers", own: true });
+  return true;
+}
+
+/** The card's "Send bearers" (M11.4a): the platoon sends two men with a crate to the selected squad. */
+export function sendBearers(a: App): boolean {
+  const uid = a.overlay.selectedUnit;
+  if (uid === null) return false;
+  issue(a, { ...now(a, uid), kind: "bearers" });
+  return true;
 }
 
 /** A planned move for a vehicle: "reverse" legs drive the slowest pace backwards; no formation. */

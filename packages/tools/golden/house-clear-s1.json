@@ -149,7 +149,7 @@
    "fire": "free"
   },
   {
-   "tick": 7800,
+   "tick": 8400,
    "issuer": "blue",
    "target": 4,
    "kind": "move",
@@ -163,7 +163,7 @@
    "facing": -1.1363515157539068
   },
   {
-   "tick": 7800,
+   "tick": 8400,
    "issuer": "blue",
    "target": 5,
    "kind": "move",
@@ -177,7 +177,7 @@
    "facing": -1.457962304368365
   },
   {
-   "tick": 7800,
+   "tick": 8400,
    "issuer": "blue",
    "target": 6,
    "kind": "move",
@@ -191,7 +191,7 @@
    "facing": -0.7569879939842523
   },
   {
-   "tick": 7800,
+   "tick": 8400,
    "issuer": "blue",
    "target": 7,
    "kind": "move",
@@ -205,7 +205,7 @@
    "facing": -0.9919300768152622
   },
   {
-   "tick": 7800,
+   "tick": 8400,
    "issuer": "blue",
    "target": 8,
    "kind": "move",
@@ -237,24 +237,24 @@
   }
  ],
  "checkpoints": {
-  "600": "6d191c3f95ff4869",
-  "1200": "444b2aab08be00ad",
-  "1800": "965c9fc010b70425",
-  "2400": "0492140a70b40c18",
-  "3000": "14db84382f1495be",
-  "3600": "2adeec994055c26f",
-  "4200": "cce3b7ca6a29fa0a",
-  "4800": "765c83ba2a0f7938",
-  "5400": "92bbc4ce1cb74cd6",
-  "6000": "f0688527ef8b3fca",
-  "6600": "fc7fc4d35c0a8c05",
-  "7200": "f0b515999dbada45",
-  "7800": "18f3c93e115ce01d",
-  "8400": "3565fcd1aefcf969",
-  "9000": "96687d523310c372",
-  "9600": "b39504f8f4a63f14",
-  "10200": "99ff9aaf16e73c74",
-  "10800": "ca91e79f0887d11a"
+  "600": "bc3fcbb6ddceb209",
+  "1200": "5febea948e148be2",
+  "1800": "06cbfcb6f0deb6ce",
+  "2400": "d8d3676981207349",
+  "3000": "b5162b43b27c4b4b",
+  "3600": "d77e1ad3b74e2da6",
+  "4200": "36b26ec1f4fdb7cd",
+  "4800": "55ae4825b64ae0f3",
+  "5400": "cd030216cae5f1ec",
+  "6000": "776ec35a0ffc94bc",
+  "6600": "db3917faad39df89",
+  "7200": "fc38cd1f7e67cbeb",
+  "7800": "817c29224e7a932e",
+  "8400": "1dda51195f7ccef0",
+  "9000": "c7f3af6baeff72be",
+  "9600": "82b9ae02676962fc",
+  "10200": "34d89080fdd9b5fd",
+  "10800": "42c5541c35cedb0b"
  },
- "catalogFingerprint": "044862d59817b642"
+ "catalogFingerprint": "af5ab89ac76e6a38"
 }

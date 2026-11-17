@@ -6,7 +6,8 @@
  *   charge under its `chargeItem` (the cartridge); a whole item whose id is an ammunition id (a hand grenade, a
  *   rocket, a mortar bomb, a missile) counts one each. Wherever they are: containers (men, vehicles, crates, support
  *   sections, off-map assets, casualties, carried men), the magazine in a weapon, a vehicle's ready feeds, the box on
- *   an automatic grenade launcher, and an off-map fire mission's rounds already taken from the section.
+ *   an automatic grenade launcher, and an off-map fire mission's rounds already taken from the section. Not a side's
+ *   off-map stock (M11.4b): it is outside the battle; what leaves it for the battle is "delivered".
  * - `charge`: other charge by its `chargeKind` (litres of diesel, watt-hours).
  * - `items`: whole items by item id (every stack, magazines and tanks too, regardless of charge).
  *
@@ -43,7 +44,9 @@ export function ledgerOf(catalog: Catalog, state: SimView): Ledger {
     if (d?.chargeItem !== undefined) add(out.ammo, d.chargeItem, n);
     else if (d?.chargeKind !== undefined) add(out.charge, d.chargeKind, n);
   };
-  for (const [, c] of state.container.entries()) {
+  for (const [id, c] of state.container.entries()) {
+    // (M11.4b: a side's off-map stock is outside the battle: what leaves it is delivered, `items.delivered`.)
+    if (state.stock.has(id)) continue;
     for (const s of c.stacks) {
       add(out.items, s.type, s.count);
       if (s.charge !== undefined) rounds(s.type, s.charge * s.count);
@@ -51,7 +54,12 @@ export function ledgerOf(catalog: Catalog, state: SimView): Ledger {
     }
   }
   // mounted: ok every magazine counts, aboard or not
-  for (const [, w] of state.weapon.entries()) if (w.magazine) rounds(w.magazine.item, w.magazine.rounds);
+  for (const [, w] of state.weapon.entries()) {
+    if (w.magazine) { rounds(w.magazine.item, w.magazine.rounds); add(out.items, w.magazine.item, 1); }
+    // (M11.2: a weapon in the hands counts as its item, so a rifle put away or picked up neither appears nor vanishes.)
+    const wi = catalog.weapons[w.weapon]?.weaponItem;
+    if (wi !== undefined) add(out.items, wi, 1);
+  }
   for (const [, v] of state.vehicle.entries()) { // off-map: ok every vehicle's rounds count, on the map or not
     for (const st of v.stations) for (const w of st.weapons) for (const f of w.feeds) rounds(f.item, f.rounds);
     // (A smoke salvo ordered but not yet fired: its grenades left the container at the order, gunnery.ts.)
@@ -96,9 +104,20 @@ export function missionItem(state: SimView, side: string, asset: "artillery" | u
 
 /** What the events say left or entered the battle, by ammunition id: used (fired, thrown, launched, landed off-map
  *  rounds), destroyed and delivered. Tracer rounds count as their belt's cartridge (the belt counts them so). */
-export interface Consumption { used: Record<string, number>; destroyed: Record<string, number>; delivered: Record<string, number> }
+export interface Consumption {
+  used: Record<string, number>; destroyed: Record<string, number>; delivered: Record<string, number>;
+  /** M11.5: the same for charge by its kind (litres of diesel): burnt, destroyed, delivered. Absent in older tallies. */
+  charge?: { used: Record<string, number>; destroyed: Record<string, number>; delivered: Record<string, number> };
+}
 
-export function emptyConsumption(): Consumption { return { used: {}, destroyed: {}, delivered: {} }; }
+export function emptyConsumption(): Consumption { return { used: {}, destroyed: {}, delivered: {}, charge: { used: {}, destroyed: {}, delivered: {} } }; }
+
+/** M11.5: the charge kinds whose use the events report (fuels: litres burnt, `items.burnt`), sorted. */
+export function fuelKinds(catalog: Catalog): string[] {
+  const out = new Set<string>();
+  for (const d of Object.values(catalog.items)) if (d.category === "fuel" && d.chargeKind !== undefined) out.add(d.chargeKind);
+  return [...out].sort();
+}
 
 export function tracerMap(catalog: Catalog): Record<string, string> {
   const t: Record<string, string> = {};
@@ -113,8 +132,13 @@ export function consumedFromEvents(out: Consumption, events: readonly SimEvent[]
     else if (e.kind === "grenade.launched") add(out.used, e.ammo, 1);
     else if (e.kind === "vehicle.smoke") { if (e.item !== undefined) add(out.used, e.item, e.count ?? 0); }
     else if (e.kind === "support.round") { if (e.item !== undefined) add(out.used, e.item, 1); }
-    else if (e.kind === "items.destroyed") { if (e.ammo !== undefined) add(out.destroyed, e.ammo, e.rounds ?? 0); }
-    else if (e.kind === "items.delivered") { if (e.ammo !== undefined) add(out.delivered, e.ammo, e.rounds ?? 0); }
+    else if (e.kind === "items.destroyed") {
+      if (e.ammo !== undefined) add(out.destroyed, e.ammo, e.rounds ?? 0);
+      if (e.chargeKind !== undefined) add((out.charge ??= { used: {}, destroyed: {}, delivered: {} }).destroyed, e.chargeKind, e.amount ?? 0);
+    } else if (e.kind === "items.delivered") {
+      if (e.ammo !== undefined) add(out.delivered, e.ammo, e.rounds ?? 0);
+      if (e.chargeKind !== undefined) add((out.charge ??= { used: {}, destroyed: {}, delivered: {} }).delivered, e.chargeKind, e.amount ?? 0);
+    } else if (e.kind === "items.burnt") add((out.charge ??= { used: {}, destroyed: {}, delivered: {} }).used, e.chargeKind, e.amount);
   }
 }
 
@@ -128,4 +152,76 @@ export function checkConservation(start: Ledger, end: Ledger, c: Consumption): R
     if (d !== 0) leaks[k] = d;
   }
   return leaks;
+}
+
+/** M11.5: the same check for charge of kinds `kinds` (litres: equal within `tol`). Empty: exact. */
+export function checkChargeConservation(start: Ledger, end: Ledger, c: Consumption, kinds: readonly string[], tol = 1e-6): Record<string, number> {
+  const ch = c.charge ?? { used: {}, destroyed: {}, delivered: {} };
+  const leaks: Record<string, number> = {};
+  for (const k of kinds) {
+    const d = (start.charge[k] ?? 0) - (end.charge[k] ?? 0) - ((ch.used[k] ?? 0) + (ch.destroyed[k] ?? 0) - (ch.delivered[k] ?? 0));
+    if (Math.abs(d) > tol) leaks[k] = d;
+  }
+  return leaks;
+}
+
+/**
+ * M11.8 (`BattleResult.logistics`, input for M12 and M13): per side, what it consumed (rounds fired, thrown, launched
+ * and off-map rounds landed, by ammunition id), what was delivered to it from off the map, what it captured (enemy
+ * caches and enemy kit taken) and what it lost destroyed (cook-offs, burning hulls), rounds by ammunition id, whole
+ * items without a cartridge by item id; litres by fuel kind. From the events alone (rule 5).
+ */
+export interface SideLogistics {
+  side: string;
+  consumed: Record<string, number>; delivered: Record<string, number>; captured: Record<string, number>; destroyed: Record<string, number>;
+  litres: { consumed: Record<string, number>; delivered: Record<string, number>; destroyed: Record<string, number> };
+}
+
+export function emptyLogistics(side: string): SideLogistics {
+  return { side, consumed: {}, delivered: {}, captured: {}, destroyed: {}, litres: { consumed: {}, delivered: {}, destroyed: {} } };
+}
+
+/** The side of whatever holds items: a man, a vehicle, a cache, a support section. */
+function holderSide(state: SimView, id: number): string | undefined {
+  return state.identity.get(id)?.side ?? state.vehicle.get(id)?.side ?? state.cache.get(id)?.side ?? state.unit.get(id)?.side
+    ?? state.support.find((s) => s.battery === id)?.side ?? state.stock.get(id)?.side;
+}
+
+/** Add one tick's events (`state`: after that tick) to the per-side tallies (created on first use). */
+export function logisticsFromEvents(out: SideLogistics[], events: readonly SimEvent[], state: SimView, catalog: Catalog, tracer: Record<string, string>): void {
+  const of = (side: string | undefined): SideLogistics | undefined => {
+    if (side === undefined) return undefined;
+    let x = out.find((l) => l.side === side);
+    if (!x) { x = emptyLogistics(side); out.push(x); out.sort((a, b) => (a.side < b.side ? -1 : 1)); }
+    return x;
+  };
+  const items = (m: Record<string, number>, lit: Record<string, number>, e: { item: string; count: number; ammo?: string; rounds?: number; chargeKind?: string; amount?: number }) => {
+    if (e.ammo !== undefined) add(m, e.ammo, e.rounds ?? 0);
+    else if (e.chargeKind !== undefined) add(lit, e.chargeKind, e.amount ?? 0);
+    else add(m, e.item, e.count);
+  };
+  for (const e of events) {
+    switch (e.kind) {
+      case "shot.fired": { const l = of(e.vehicle !== undefined ? state.vehicle.get(e.vehicle)?.side : state.identity.get(e.shooter)?.side); if (l) add(l.consumed, tracer[e.ammo] ?? e.ammo, 1); break; }
+      case "grenade.launched": { const l = of(state.identity.get(e.soldier)?.side); if (l) add(l.consumed, e.ammo, 1); break; }
+      case "vehicle.smoke": { const l = of(state.vehicle.get(e.vehicle)?.side); if (l && e.item !== undefined) add(l.consumed, e.item, e.count ?? 0); break; }
+      case "support.round": { const l = of(e.side); if (l && e.item !== undefined) add(l.consumed, e.item, 1); break; }
+      case "items.burnt": { const l = of(holderSide(state, e.holder)); if (l) add(l.litres.consumed, e.chargeKind, e.amount); break; }
+      case "items.destroyed": { const l = of(holderSide(state, e.holder)); if (l) items(l.destroyed, l.litres.destroyed, e); break; }
+      case "items.delivered": { const l = of(holderSide(state, e.holder)); if (l) items(l.delivered, l.litres.delivered, e); break; }
+      case "cache.captured": {
+        const l = of(e.side);
+        if (l) for (const [k, n] of Object.entries(ammoOf(catalog, state, [e.cache]))) add(l.captured, k, n);
+        break;
+      }
+      case "items.taken": {
+        if (e.source !== "enemy") break;
+        const l = of(state.identity.get(e.to)?.side);
+        const cart = catalog.items[e.item]?.chargeItem;
+        if (l) { if (cart !== undefined) add(l.captured, cart, e.rounds); else add(l.captured, e.item, e.count); }
+        break;
+      }
+      default: break;
+    }
+  }
 }

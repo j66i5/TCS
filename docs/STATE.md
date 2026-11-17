@@ -1,10 +1,96 @@
 # State — handover note
 
-_Last updated: 2026-11-16 (M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-17 (M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.8 (slice 52) built (2026-11-17, branch `claude/m11-logistics`).** The commander's logistics (`ai/logistics.ts`):
+  a supply point still holding ammunition with a known enemy within 100 m moves 100 m back (the crates stay as a plain
+  cache; up to 4 short men near it fill up first); a low (under 40 %), quiet, halted squad with no enemy within 200 m and
+  no crate near sends its shortest men, at most half, to an own cache within 400 m (captured ones too). The rest of the
+  AI's supply was already in the sim for both sides (asking, bearers, deliveries, re-arming, shelling enemy caches).
+  Review: a fourth tab, Logistics (fired by weapon type, dry men at the end, delivered by bearers / vehicles / off map,
+  taken, captured and lost, requests and waits, fuel, re-arming; repair, recovery, batteries and water rows moved there
+  from the Battle tab). Record version 11; `BattleResult.logistics` per side (consumed, delivered, captured, destroyed;
+  sums equal the conservation tally); batch logistics table. Platoon batches and hold winners unchanged; goldens
+  unchanged. **Balance NOT met:** 20 seeds each way, holds with / without resupply: German defence 14 / 10, Russian 16 /
+  13 (need 25 points apart and 30-70 %); defenders hardly run dry (0.3 of 10.7 armed men at the end) — the defence falls
+  to casualties first. A "defenders already half spent" option (`defenderLoadShare`, off) erased the difference (9/9,
+  13/13). **Open for the owner:** how should resupply decide the hold battle (longer battle or more waves, a tougher
+  defence, a smaller starting supply)? Numbers in DECISIONS "M11.8". M11 chain (43-48, 52) complete; MP/POW next.
+- **M11.5 (slice 48) built (2026-11-17, branch `claude/m11-logistics`).** Re-arming and refuelling: a halted hull within
+  15 m of an own cache or supply truck takes back its stowage (whole items, a minute plus 1.2 s a kg; reactive tiles
+  moved as items only) and fills its tank from 20 l fuel cans (a minute each) or the truck's pump (100 l a minute
+  above a 100 l reserve: the truck's own tank stands in for a tanker); idle hulls below half their stowed ammunition
+  or a quarter of their tank drive to a cache within 300 m, else go on a supply run (which now also refuels from the
+  stock); deliveries bring what the platoon's hulls lack; an order stops it (2 min before it starts again). Fuel items
+  have `chargeKind: "diesel"`; every litre burnt is an `items.burnt` event and the conservation guard checks litres
+  (exact). On-map mortar teams under 10 rounds send a man to a cache within 150 m (the tube stays set up); the top-up
+  puts rounds 8 m behind on-map tubes. Card "Fuel 640 / 900 l · re-arming", list "re-arming"; `lab -- rearm` 8 of 8
+  equal to the hand calculation; `--scene supply` shots 9-10. All batches identical to the base (no hull ran low in
+  any battle). Numbers in DECISIONS "M11.5". Slice 52 (the AI's logistics, the Logistics review tab, balance) next.
+  New low-confidence data: `de-jerrycan`, `ru-jerrycan`, `supply.rearm`, `refuel`, `mortarFetch`.
+- **M11.4b (slice 47) built (2026-11-16, branch `claude/m11-logistics`).** Supplies from off the map: each side may
+  have an off-map stock (`stock` store, schema 24; everything leaving it is `items.delivered`, conservation exact); a
+  supply truck per side (HX2 / Ural-4320, manifest `supply`) is called when a supply point falls below 30 % of its fill
+  or by "Order a delivery" (bar; phone under "⋯"), comes after 10-20 min, unloads into the point and leaves; combat
+  vehicles' rear runs restock their stowage and bring up to 400 kg to the point ("Restock" for a hull, automatic below
+  half stowage); the off-map mortar allotment is topped up (hold battle: 6 rounds per 10 min); ammunition put into an
+  ambulance on the player's order is a recorded breach (`law.misuse`, Conduct tab) and the ambulance is unprotected
+  while it carries it (the AI never does it: 0 in 120 battles). `lab -- resupply` part 2 within 0.4 %; `--no-deliveries`;
+  `--scene supply` shots 7-8. Platoon batches unchanged. Hold battle 20 seeds each way, none / foot / all: defender
+  holds 10/12/15 and 13/13/15; squads dry at the end medians 0/0/0 (acceptance "fewer dry" NOT met: hardly any squad
+  runs dry, one automatic delivery in 40 battles). Deviations: no delivery to on-map mortar tubes (slice 48), the truck
+  drawn as a plain hull. **Open for the owner:** a smaller starting supply point in the hold battle so deliveries
+  matter? Numbers in DECISIONS "M11.4b". Slice 48 (re-arming and refuelling vehicles) next.
+- **M11.4a (slice 46) built (2026-11-16, branch `claude/m11-logistics`).** Resupply on foot: every squad on foot
+  looks at its rounds every 2 s; quiet and halted with an own crate within 60 m, its short men go and fill up; below
+  40 % of its standard load (or a gunner under one belt) it radios for ammunition (at most every 2 min) and its platoon
+  sends up to two bearers (headquarters first, then the asking squad's rear man; never a gunner, leader, medic or first
+  responder, never a squad in a drill or fired on within 30 s) who walk to the supply point, load a crate (40 kg for
+  two, 25 kg for one) and carry it to the squad leader with the carry store (cover when fired on, rests); the crate
+  lies there as a cache the squad takes from. Player: rule "Ammunition requests: send bearers / ask me" (Rules panel),
+  "Send bearers" on the card while a request waits, "Fetch ammunition" (order bar; phone under "⋯"). `lab -- resupply`
+  (400 m: within 1 % of the hand calculation), `--scene supply` shots 5-6. Platoon batches unchanged (no supply
+  point). Hold battle, 6 seeds each way: bearer trips are rare (German defence 3, Russian 6; 0 from a unit in an
+  assault or fired on); defenders' dry men 2 and 2 against 11 and 4 without resupply; the Russian defence's machine
+  guns run dry in 1 battle instead of 4. Deviations: the crate is put down beside the leader (no hand-out walk), no
+  covered-route choice, "Bring ammunition to" is the card's "Send bearers". **Open for the owner:** medics and first
+  responders never carry ammunition (law-of-war reading, software decision); bearers walk rather than run. Numbers
+  in DECISIONS "M11.4a". Slice 47 (vehicle runs and off-map deliveries) next.
+- **M11.3 (slice 45) built (2026-11-16, branch `claude/m11-logistics`).** Supply points and caches: a `cache` store
+  (schema 23) for every pile on the ground (the hold battle's crates are the defending platoon's supply point; the
+  M11.2 piles outside the nest are caches), kept 50 m apart from the Verwundetennest both ways and no ammunition within
+  15 m of any nest (owner); seen by the enemy within 250 m with a line of sight; HE bursts and fires beside it set it
+  off (chance per kg of filling; a 120 mm round on it 6 in 10, a 152/155 mm shell always), a cook-off burns 30-120 s
+  losing its contents step by step with its grenades going off (ledger exact); captured after 10 s with an enemy at it
+  and none of its side within 50 m (owner); orders `supplyPoint` (Move tray, or drag the marker) and `resupplyAt`
+  ("Resupply": men fill magazines, belts and bandoliers at the crate and walk back; four radio refusals); the AI shells
+  enemy caches it has seen when it has nothing better; crate icons at every zoom; `lab -- cache`, `bench-caches` (within
+  5 % of bench), `--scene supply`. Platoon batches unchanged; hold battle defender wins 4 -> 3 of 6 (id shift, no cache
+  event in the changed seeds). Deviations: no automatic siting in battle yet (deliveries site it, slices 46-47),
+  grenades not taken at a cache. Numbers in DECISIONS "M11.3". Slice 46 (resupply on foot) next.
+- **M11.2 (slice 44) built (2026-11-16, branch `claude/m11-logistics`).** From the interrupted WIP branch
+  `claude/m11-wip-44`, reviewed and finished. Quiet, halted squads even out ammunition (belts to the gunner first, then
+  magazines, then loose rounds; `bringAmmo` + `transferItems`); own casualties' ammunition is taken only after
+  treatment (or known dead) by the nearest low man (0 cases before treatment in 20 seeds of each platoon scenario and
+  hold-resupply); the Verwundetennest holds none (handed to a man of the platoon, else a pile 30 m outside: slice 45
+  makes piles caches); "Take enemy kit" on the player's order only (fitting ammunition, else a rifle swap: rifles have
+  `weaponItem`s, the ledger counts a weapon in the hands as its item). Review additions: men walk back to their place
+  after a hand-over or taking; consolidation waits until the squad has stood still 20 s. `lab -- redistribute` 8 of 8.
+  Hold battle: defender wins 2 -> 4 of 6 (13 of 20), median 309 rounds taken from casualties per battle. **Open for the
+  owner:** attacker wins in the foot platoon battles rose (platoon 7 -> 9 of 10, 15 of 20; platoon-ru 9 -> 10, 19 of
+  20). Numbers in DECISIONS "M11.2". Slice 45 (supply points and caches) built next (above).
+- **M11 hold battle: a stronger defence (2026-11-16, branch `claude/m11-logistics`).** Owner: dig the defenders in,
+  fewer attacker mortar rounds. New minimal fighting positions (`sim/positions.ts`, data `core/ballistics.json`
+  `fightingPosition`, low): a side with `rules.prepared` digs a hole under each man halted outdoors in a window
+  (hold battle 60-90 s, where the commander sites them); the rim stops rounds, fragments and blast that come in
+  below it (only head and weapon show); men keep their holes (cover seeking, side steps, drone hiding, re-siting,
+  bearers under fire), morale counts a hole as cover; drawn as a hole in spoil. Attacker mortar share 1/3 -> 1/6.
+  6 seeds x 60 min: wave 2 / wave 3 reached 5/4 and 6/5 without resupply (before 5/4, 4/4), defender wins 2 and 2
+  (before 0, 0), with resupply 2 and 3 (before 3, 1); squads out of spares by minute 30 met; a machine gun dry by
+  minute 45 NOT met (2 and 1 of 6). Numbers in DECISIONS "M11 hold battle: a stronger defence". Slice 44 next.
 - **M11.7b Recovery (2026-11-16, branch `claude/medical-ambulance-smoke`, roadmap-detail slice 51).** Each side with
   vehicles has a recovery vehicle off the map (Bergepanzer 3 Büffel: tows up to 70 t; BREM-1: up to 50 t, refuses a
   Leopard 2; fixture `xf-tug`). The player's Recover button (selected crew's immobilised or abandoned hull) or the AI
@@ -365,6 +451,16 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+- M11.5 re-arming and refuelling (2026-11-17; new data low: `de-jerrycan` 4.2 kg / `ru-jerrycan` 4.5 kg empty, 20 l;
+  core/supply.json `rearm` (60 s to start, 1.2 s a kg, quiet 20 s, ask below 50 %, drive up to 300 m), `refuel` (cans
+  20 l a minute, pump 100 l a minute, 60 s set-up, ask below 25 %, truck keeps 100 l), `mortarFetch` (below 10 rounds,
+  150 m, 30 kg, 3 s a round)). No tanker vehicle in the data: the supply truck pumps from its own tank. Should the
+  hold battle or a new scenario make vehicles run low (no battle today uses half its stowage or a quarter of its fuel)?
+
+- M11 hold battle (2026-11-16): fighting-position values are game values, low confidence (hole 1 m wide, up to 1.2 m
+  deep; head and weapon 0.1-0.3 m above the rim by posture); positions only prepared before the battle, no digging
+  in battle. Defending machine guns still rarely run dry in 45 min (they see and fire little); seed 4 of
+  hold-resupply still breaks in the first wave.
 
 - M11.7b recovery (2026-11-16; new data low unless noted: `de-bergepanzer3` (body, mass 54.3 t, drive, armour,
   components, the third crewman), `ru-brem1` (body, drive 618 kW, armour, components; mass 41 t and crew of three

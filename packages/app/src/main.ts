@@ -16,7 +16,7 @@ import {
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
-import { ageLabel, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
+import { ageLabel, cacheMarkers, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
 import { loadBundledData } from "./data";
 import type { App } from "./app";
 import { centredOn, centreOn, centreOnDrone, droneCentred, followStep, keepSelectedClear, startFollow, stopFollow } from "./camera";
@@ -25,7 +25,7 @@ import { installHooks } from "./hooks";
 import { attachPerfOverlay, FramePerf } from "./perf";
 import { attachKeys } from "./keys";
 import { carriersParam } from "./params";
-import { endPlan, forUnit, goPlan, issue, issueAi, now, setFormation, undoPlanPoint } from "./orders";
+import { endPlan, fetchAmmo, forUnit, goPlan, issue, issueAi, now, resupply, sendBearers, setFormation, takeKit, undoPlanPoint } from "./orders";
 import { refreshTiles, showCard, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
 import { loadOrCreate, reloadSaved, saveNow } from "./save";
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
     revealAll: false, sightAt: -1, lastSeen: new LastSeenBook(), rangingBook: new RangingBook(), ordersShownFor: undefined, ordersKey: "",
   };
   const vehicleDebug = new VehicleDebug();
-  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair" | "callRecovery") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
+  const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair" | "callRecovery" | "callDelivery") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
   const hud = a.hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -150,6 +150,13 @@ async function main(): Promise<void> {
     onRepair: () => { endPlan(a); orderFor("repair"); },
     // M11.7b: a recovery vehicle for the selected crew's disabled hull (or the one it bailed out of).
     onRecover: () => { endPlan(a); orderFor("callRecovery"); },
+    onTakeKit: () => { endPlan(a); takeKit(a); },
+    onResupply: () => { endPlan(a); resupply(a); },
+    onFetchAmmo: () => { endPlan(a); fetchAmmo(a); },
+    // M11.4b: a delivery from the rear to the selected unit's platoon's supply point; a hull's supply run.
+    onDelivery: () => { endPlan(a); orderFor("callDelivery"); },
+    onSupplyRun: () => { endPlan(a); if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind: "rearRun", cargo: "supplies" }); },
+    onSendBearers: () => { sendBearers(a); },
     onNature: (n) => { a.nature = n; },
     onCeaseFire: () => orderFor("ceaseFire"),
     onPace: (m) => { a.pace = m; },
@@ -358,6 +365,8 @@ async function main(): Promise<void> {
     }
     // M10.5: the side's Verwundetennester (one being dragged: its ghost where it would go).
     { const gs = a.gesture; overlay.nests = nestMarkers(sim.state, playerSide).map((n) => ({ x: n.x, y: n.y, count: n.count, drag: gs?.kind === "nest" && gs.unit === n.unit ? gs.at : null })); }
+    // M11.3: the caches the side knows of (its supply point being dragged: its ghost where it would go).
+    { const gs = a.gesture; overlay.caches = cacheMarkers(sim.state, a.input.catalog, playerSide).map((m) => ({ x: m.x, y: m.y, side: m.side, own: m.own, point: m.point, rounds: m.rounds, fill: m.fill, empty: m.empty, burning: m.burning, burnt: m.burnt, ...(m.carried === true ? { carried: true } : {}), drag: gs?.kind === "supply" && m.point && gs.unit === m.unit ? gs.at : null })); }
     planOverlay(a);
     overlay.gesture = gestureOverlay(a);
     syncOrders(a);

@@ -261,6 +261,8 @@ export interface BallisticsDef {
     shieldSteelMm: number;
   };
   fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number; clutterHeightM: number; clutterStopPerM: number };
+  /** M11 hold battle: dug fighting positions (`sim/positions.ts`). */
+  fightingPosition?: { halfWidthM: number; depthM: number; exposedM: { standing: number; crouching: number; prone: number }; spacingM: number };
   bounce: { restitution: number; tangentKeep: number; softFactor: number; vegetationFactor: number; softBelowDensityKgM3: number; stopSpeedMps: number };
   /** Rounds against vehicle armour (M7.4a). */
   armour: { losFloorCos: number; grazeFuseCos: number; jetDecayMmPerM: number; spallComponentDamage: number; seatHalfM: number; seatHeightM: number };
@@ -321,6 +323,9 @@ export interface WeaponDef {
   ammo: Record<DefId, number>;
   /** Machine guns: always fires bursts of this many rounds, this many seconds apart, whatever the range. */
   sustained?: { burstRounds: number; intervalS: number; recoilFactor: number; /** M11.1: rapid fire at the start of a task. */ rapidIntervalS?: number; rapidSeconds?: number };
+  /** M11.2: the item this weapon becomes when it is carried, not held (a rifle slung after taking an enemy's): an item
+   *  id in items.json of the same mass. Absent: it cannot be put away or picked up. */
+  weaponItem?: DefId;
 }
 
 /** Aiming error and fire control parameters (core/shooting.json). */
@@ -473,6 +478,22 @@ export interface BehaviourDef {
    *  not fired for `quietS`, is not under fire (suppression below `underFireBelow`) and stands still; one round per
    *  `secondsPerRound` by hand, `secondsPerRoundClips` from stripper clips. Absent: never. */
   refill?: { belowFraction: number; quietS: number; underFireBelow: number; secondsPerRound: number; secondsPerRoundClips: number };
+  /**
+   * M11.2 (systems/consolidate.ts): redistribution and taking ammunition. A squad not fired on for `quietS` and halted
+   * for `haltS` (all its men without a route) evens out
+   * its able men's ammunition, looked at every `stepS` per squad, at most `maxParallel` hand-overs at a time between
+   * men within `rangeM` of each other: belts first (a gunner below `beltsMin` spare belts), then magazines (no man
+   * `magGap` or more above another), then loose-round packages (`packageGap`). Own casualties: once treated (or dead),
+   * the nearest able man of the squad within `casualtyM` who is low (below `lowMags` spare magazines, or his gunner's
+   * belts) — or the man who treated him, if the squad is low — takes his ammunition in `takeS`, leaving a man who can
+   * still fight `leaveMags` magazines. At the Verwundetennest: the nearest able man of his platoon within `nestHandM`
+   * takes it, else it is left as a pile `nestCacheM` from the nest. `takeKit` (player order): a man within `kitM`
+   * takes enemy kit in `kitS`. Absent: none of it.
+   */
+  consolidate?: {
+    quietS: number; haltS: number; stepS: number; maxParallel: number; rangeM: number; beltsMin: number; magGap: number; packageGap: number;
+    casualtyM: number; lowMags: number; takeS: number; leaveMags: number; nestHandM: number; nestCacheM: number; kitM: number; kitS: number;
+  };
   surrender: {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     /** Morale rework 2026-11-15: a broken, outflanked unit (not attacking) gives up together with a known enemy this close (absent/0: never). */
@@ -1026,6 +1047,9 @@ export interface Catalog {
   repair?: RepairDef;
   /** Recovery from the rear (core/repair.json `recovery`, M11.7b); absent: no recovery vehicle is ever called. */
   recovery?: RecoveryDef;
+  /** Supply points and caches (core/supply.json, M11.3); absent: caches are plain containers (no capture, no
+   *  cook-off, no supply orders). */
+  supply?: SupplyDef;
   items: Record<DefId, ItemTypeDef>;
   movementModes: Record<DefId, MovementModeDef>;
   qualities: Record<DefId, QualityDef>;
@@ -1121,6 +1145,8 @@ export interface VehicleDef {
   /** A recovery vehicle (M11.7b): tows hulls up to `towMaxKg` at no more than `towMaxMps`; `hookUpMen` work `hookUpS`
    *  outside to hook one up. Absent: it tows nothing. */
   recovery?: { towMaxKg: number; towMaxMps: number; hookUpS: number; hookUpMen: number };
+  /** A supply vehicle (M11.4b): carries up to `kg` of supplies on a delivery. Absent: none. */
+  cargo?: { kg: number };
 }
 
 /** One field repair task (core/repair.json, M11.7a). */
@@ -1132,6 +1158,36 @@ export interface RepairDef {
   order: ComponentKind[];
   tasks: Partial<Record<ComponentKind, RepairTaskDef>>;
   workshopDays: Partial<Record<ComponentKind, number>>;
+}
+/** Supply points and caches (core/supply.json, M11.3) without provenance; see the schema (data/src/schemas.ts). */
+export interface SupplyDef {
+  stepS: number; nestApartM: number; nestClearM: number;
+  site: { backM: number; searchM: number; minBackM: number; maxBackM: number; threatM: number; driftM: number; checkS: number };
+  seeM: number; heightM: number;
+  capture: { holdM: number; enemyM: number; seconds: number };
+  blast: { reachScaledM: number; hpKg: number; chancePerKg: number; maxChance: number };
+  cookoff: { minS: number; maxS: number; stepS: number; maxBurstsPerStep: number; fireM: number; fireChancePerS: number; smokeRadiusM: number; smokeTopM: number };
+  take: { baseS: number; bulkSecondsPerRound: number; magSecondsPerRound: number; reachM: number; underFireS: number };
+  ai: { heRounds: number; everyS: number; ownClearM: number };
+  /** M11.4a: squads ask for ammunition (absent: they never ask, no bearers). */
+  request?: { stepS: number; below: number; beltsBelow: number; everyS: number; useM: number; useMinRounds: number };
+  /** M11.4a: bearers on foot and their carry methods (keyed `crate`, `load`; looked up beside the medical methods). */
+  bearers?: { maxKg: number; crateMaxKg: number; loadS: number; deliverM: number; waitMateS: number; giveUpS: number; contactS: number; methods: { crate: CarryMethodDef; load: CarryMethodDef } };
+  /** M11.4b: off-map deliveries by the side's supply vehicle (absent: none). */
+  delivery?: {
+    checkS: number; callBelow: number; delayMinS: number; delayMaxS: number; pace: DefId; nearPace: DefId; standM: number;
+    unloadBaseS: number; unloadSecondsPerKg: number; turnaroundS: number; heldMaxS: number; edgeM: number; ambulanceKg: number;
+  };
+  /** M11.4b: combat vehicles' rear runs with supplies (absent: casualties only). */
+  vehicleRun?: { stowageBelow: number; shareKg: number; unloadBaseS: number; unloadSecondsPerKg: number; standM: number };
+  /** M11.4b: how often the off-map stocks' support top-up is looked at (s; absent: 10). */
+  topUpCheckS?: number;
+  /** M11.5: re-arming at a cache or a supply vehicle (absent: none). */
+  rearm?: { stepS: number; standM: number; baseS: number; secondsPerKg: number; quietS: number; below: number; driveM: number };
+  /** M11.5: refuelling from jerrycans or a supply vehicle's tank (absent: none). */
+  refuel?: { jerrycanLpm: number; pumpLpm: number; setupS: number; callBelow: number; keepL: number };
+  /** M11.5: on-map mortar teams fetch rounds from a cache (absent: they do not). */
+  mortarFetch?: { checkS: number; below: number; reachM: number; carryKg: number; secondsPerRound: number };
 }
 /** Recovery from the rear (core/repair.json `recovery`, M11.7b) without provenance (see the schema). */
 export interface RecoveryDef {

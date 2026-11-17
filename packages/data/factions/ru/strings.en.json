@@ -147,6 +147,8 @@
   "radio.nestSited": "{callsign}: casualty collection point set up behind us.",
   "radio.nestMoved": "{callsign}: moving the casualty collection point, it is under threat.",
   "radio.ack.casualtyPoint": "{callsign}: casualty collection point there, understood.",
+  "radio.supplyNearNest": "{callsign}: negative, not at the casualty collection point: the supply point stays clear of it.",
+  "radio.nestNearSupply": "{callsign}: negative, not at the supply point: the casualty collection point stays clear of it.",
   "radio.ack.evacuate": "{callsign}: understood, taking him back to the collection point.",
   "radio.ack.callAmbulance": "{callsign}: requesting an ambulance to the collection point.",
   "radio.ambulanceCalled": "{callsign}: wounded at the collection point, ambulance requested, about {min} min.",
@@ -191,5 +193,8 @@
   "item.ru-762r-pack": "7.62x54R pack (20)",
   "item.ru-762r-tin": "7.62x54R sealed tin (440)",
   "item.ru-vog25-crate": "VOG-25 grenade crate (20)",
-  "item.ru-rgd5-crate": "Hand grenade crate (20)"
+  "item.ru-rgd5-crate": "Hand grenade crate (20)",
+  "vehicle.ru.ural4320": "Ural-4320",
+  "item.ru-ural-diesel": "Diesel (Ural tank)",
+  "item.ru-jerrycan": "Fuel can (20 l)"
 }

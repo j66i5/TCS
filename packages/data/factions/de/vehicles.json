@@ -4266,6 +4266,389 @@
       ],
       "confidence": "low",
       "note": "Bergepanzer 3 Bueffel (M11.7b): the Bundeswehr's armoured recovery vehicle on the Leopard 2 chassis (crane 30 t, main winch 35 t, dozer blade; search extracts, medium). Unarmed in the game (its MG3 is left out, D11): an off-map asset called from the battalion's recovery troop (Bergetrupp Kette), outside the side's strength. Crew of three: two in peacetime plus a seat (search extracts); the game fills the third seat (low)."
+    },
+    {
+      "id": "de-hx2-truck",
+      "nameKey": "vehicle.de.hx2-truck",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 7.6,
+        "widthM": 2.55,
+        "heightM": 3.3,
+        "groundClearanceM": 0.4,
+        "hull": {
+          "f": [
+            -3.8,
+            3.8
+          ],
+          "r": [
+            -1.275,
+            1.275
+          ],
+          "u": [
+            0.4,
+            3.3
+          ]
+        },
+        "wheelbaseM": 3.8,
+        "sources": [
+          "https://www.rheinmetall.com/en/products/logistic-vehicles/logistic-vehicles/hx-family",
+          "https://de.wikipedia.org/wiki/Rheinmetall_MAN_HX"
+        ],
+        "confidence": "low",
+        "note": "HX 4x4 class: about 7.6 x 2.55 x 3.3 m with the tarpaulin (search extracts give 7.3-7.7 m long, 2.55 m wide). The hull box and wheelbase are game values."
+      },
+      "mass": {
+        "kg": 15000,
+        "sources": [
+          "https://www.rheinmetall.com/en/products/logistic-vehicles/logistic-vehicles/hx-family",
+          "https://de.wikipedia.org/wiki/Rheinmetall_MAN_HX"
+        ],
+        "confidence": "low",
+        "note": "Gross combat mass about 15000 kg loaded (Search extracts only (the pages could not be opened here): game values, low.)"
+      },
+      "drive": {
+        "powerKw": 240,
+        "efficiency": 0.75,
+        "topSpeedKmh": 90,
+        "reverseTopSpeedKmh": 12,
+        "brakeMps2": 5,
+        "gears": [
+          {
+            "toKmh": 8
+          },
+          {
+            "toKmh": 16
+          },
+          {
+            "toKmh": 28
+          },
+          {
+            "toKmh": 42
+          },
+          {
+            "toKmh": 60
+          },
+          {
+            "toKmh": 90
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 30,
+          "steerRateDegS": 30,
+          "maxLatAccelMps2": 3
+        },
+        "idleKw": 10,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://www.rheinmetall.com/en/products/logistic-vehicles/logistic-vehicles/hx-family",
+          "https://de.wikipedia.org/wiki/Rheinmetall_MAN_HX"
+        ],
+        "confidence": "low",
+        "note": "About 240 kW (326 hp diesel of the HX 18.330) and 90 km/h on roads (search extracts; low). Gear bands, braking, steering and fuel use are game values."
+      },
+      "fuel": {
+        "item": "de-hx2-diesel",
+        "capacityL": 300
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            3.6,
+            0.6,
+            1.9
+          ],
+          "part": "hull",
+          "hatch": false,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                3.6,
+                0.6,
+                2.3
+              ],
+              "arcDeg": 180,
+              "sideFactor": 0.6,
+              "rearFactor": 0.05,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            3.6,
+            -0.6,
+            1.9
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            2.3,
+            1.875
+          ],
+          [
+            2.3,
+            -1.875
+          ]
+        ],
+        "openSeconds": 1,
+        "mountSecondsPerMan": 3,
+        "dismountSecondsPerMan": 2,
+        "bailOutSeconds": 4,
+        "seatSwapSeconds": 10,
+        "loadCasualtySeconds": 40,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: two cab doors; the cargo bed has no seats in this game (M11.4b)."
+      },
+      "stations": [],
+      "stowed": [
+        {
+          "item": "de-g36-mag",
+          "count": 4,
+          "charge": 30
+        },
+        {
+          "item": "de-bordwerkzeug",
+          "count": 1
+        }
+      ],
+      "signature": {
+        "sizeFactor": 1.1,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 250,
+        "noiseMovingM": 800,
+        "aimPoints": [
+          [
+            2.5999999999999996,
+            0,
+            1.8
+          ],
+          [
+            -1,
+            0,
+            1.6
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a tall truck with a tarpaulin over the bed."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 3,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 3,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 3,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 3,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "An unarmoured truck (soft skin): 3 mm steel equivalent everywhere (the cab sheet and the cargo bed); every rifle round goes through. Game value."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                2.1999999999999997,
+                3.5999999999999996
+              ],
+              "r": [
+                -0.8,
+                0.8
+              ],
+              "u": [
+                0.6,
+                1.6
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 30,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.5999999999999996,
+                2.1999999999999997
+              ],
+              "r": [
+                -0.5,
+                0.5
+              ],
+              "u": [
+                0.5,
+                1.0
+              ]
+            },
+            "toughnessMm": 25,
+            "absorbMm": 20
+          },
+          {
+            "id": "wheels-left",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.1999999999999997,
+                3.1999999999999997
+              ],
+              "r": [
+                -1.275,
+                -0.8749999999999999
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "wheels-right",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.1999999999999997,
+                3.1999999999999997
+              ],
+              "r": [
+                0.8749999999999999,
+                1.275
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -0.5,
+                0.5
+              ],
+              "r": [
+                0.575,
+                1.075
+              ],
+              "u": [
+                0.5,
+                1.1
+              ]
+            },
+            "toughnessMm": 5,
+            "absorbMm": 10,
+            "fireChance": 0.3
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.1999999999999997,
+                1.5999999999999996
+              ],
+              "r": [
+                0.2,
+                0.7
+              ],
+              "u": [
+                1.4,
+                1.9
+              ]
+            },
+            "toughnessMm": 5,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: engine under the cab at the front, the cargo bed behind; no fire suppression."
+      },
+      "sources": [
+        "https://www.rheinmetall.com/en/products/logistic-vehicles/logistic-vehicles/hx-family",
+        "https://de.wikipedia.org/wiki/Rheinmetall_MAN_HX"
+      ],
+      "confidence": "low",
+      "note": "M11.4b (plan slice 47): the side's supply vehicle, off the map until a delivery is called; it drives to the platoon's supply point, the load is put down there and it drives back. Bundeswehr: an unprotected 5-tonne cross-country truck (UTF 5 t gl, Rheinmetall MAN HX family); the plan allowed a truck or a Boxer in the transport role (none in service as such).",
+      "repair": {
+        "tool": "de-bordwerkzeug",
+        "parts": {
+          "wheels": [],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair as the other wheeled hulls (game values, low)."
+      },
+      "cargo": {
+        "kg": 5000,
+        "sources": [
+          "https://www.rheinmetall.com/en/products/logistic-vehicles/logistic-vehicles/hx-family",
+          "https://de.wikipedia.org/wiki/Rheinmetall_MAN_HX"
+        ],
+        "confidence": "low",
+        "note": "5 t payload class (UTF 5 t gl, 'geländegängig'; search extracts, low): what one delivery can carry."
+      }
     }
   ]
 }

@@ -37,6 +37,10 @@ import { evacuationSystem } from "./systems/evacuation";
 import { settleBattle } from "./systems/aftercare";
 import { rearRunSystem } from "./systems/rearrun";
 import { recoverySystem, settleVehicles, towSystem } from "./systems/recovery";
+import { consolidateSystem } from "./systems/consolidate";
+import { requestSystem, supplySystem } from "./systems/supply";
+import { deliverySystem } from "./systems/delivery";
+import { mortarFetchSystem, rearmSystem } from "./systems/rearm";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
@@ -54,6 +58,7 @@ import { carrySystem } from "./systems/carry";
 import { vehicleDriveSystem, vehicleSyncSystem } from "./systems/drive";
 import { physiologySystem, postureSystem } from "./systems/body";
 import { enqueueOrder, deliverOrders, receiveOrders } from "./systems/orders";
+import { positionsSystem } from "./positions";
 
 export interface Sim {
   ctx: SimContext;
@@ -173,6 +178,14 @@ export function step(sim: Sim): SimEvent[] {
   rearRunSystem(ctx, state, events);
   // Recovery vehicles' runs (M11.7b; once a second, returns at once without a run).
   recoverySystem(ctx, state, events);
+  // Redistribution in quiet squads, own casualties' ammunition after treatment, none left at the nest (M11.2).
+  consolidateSystem(ctx, state, events);
+  // Supply points and caches (M11.3): who sees them, capture, fire beside them, cook-offs (nothing without caches).
+  supplySystem(ctx, state, events);
+  requestSystem(ctx, state, events);
+  deliverySystem(ctx, state, events);
+  rearmSystem(ctx, state, events); // (M11.5)
+  mortarFetchSystem(ctx, state, events);
   // Ambushes (D4b): sprung before the decisions, so the men open fire at once.
   ambushSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
@@ -181,6 +194,7 @@ export function step(sim: Sim): SimEvent[] {
   // Getting in and out of vehicles, seat swaps (M7.2; returns at once without vehicles).
   boardingSystem(ctx, state, events);
   objectiveSystem(ctx, state, events);
+  if (ctx.rules.prepared !== undefined) positionsSystem(ctx, state, events); // (M11 hold battle)
   // Late arrivals (M11.1): a wave enters at its time (once a second; nothing without late units).
   if (ctx.late.length > 0) arrivalSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.

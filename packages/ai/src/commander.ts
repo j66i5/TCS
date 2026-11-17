@@ -26,11 +26,13 @@
 import { withDrones } from "./drone";
 import {
   atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
-  type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
+  positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
+  cacheHolds,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
 import { recoveryCalls } from "./recovery";
+import { logisticsOrders, type LogisticsMemory } from "./logistics";
 
 export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new assault by a squad pinned, broken or with morale below this. */ assaultMinMorale: 0.45, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20, houseResiteSeconds: 30,
   // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
@@ -147,7 +149,7 @@ export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new 
   baseBound: { maskedLooks: 2, everySeconds: 40, stepM: 60, minM: 150, turnDeg: [20, 40, 60], shiftM: 250, stepAsideM: [3, -3, 6, -6, 9, -9], stepAsideSeconds: 30 } } as const;
 
 type Phase = "start" | "ride" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
-interface Memory extends TanksMemory {
+interface Memory extends TanksMemory, LogisticsMemory {
   phase: Phase; phaseTick: number; target: number; lastFire: number; lastAssault: Record<string, number>; pulledBack: number[]; counterTick: number; lastGrenade?: Record<string, number>; lastHe?: number; lastSmoke?: number;
   /** M7.2 ride and dismount: the last vehicle hit it has seen (polled `lastHitTick`), squads and men ordered out,
    *  vehicles waiting for their squad to get back in during a withdrawal. */
@@ -158,6 +160,8 @@ interface Memory extends TanksMemory {
   /** M7.4b: crews that bailed out and were sent back; anti-tank tasks: the last look, each gunner's last shot
    *  order, and the men sent after a vehicle (target, since when). */
   sentBack?: number[]; lastAt?: number; atShot?: Record<string, number>; hunt?: Record<string, [number, number]>;
+  /** M11.3: when it last shelled an enemy cache. */
+  lastCacheHe?: number;
   /** M11.7b: hulls a recovery vehicle was called for, and the last look (recovery.ts). */
   recoveryCalled?: number[]; lastRecoveryLook?: number;
   /** Infantry attack (balance pass 2026-11-13): when each squad was last sent on toward its place; the assault
@@ -695,6 +699,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
         pts.push(...one);
         if (closing(id, cx, cy) > RQ.closingM) pts.push(...one); // (a closing enemy counts twice)
       }
+      const inPosition = (m: EntityId): boolean => { const t = view.transform.get(m)!; return t.z === 0 && positionAt(ctx, view, t.x, t.y) >= 0; };
       // Does he see any of the points from where he is now (kneeling outdoors, at his own eye indoors)?
       const seesNow = (m: EntityId): boolean => {
         const t = view.transform.get(m)!, s = view.soldier.get(m)!;
@@ -705,7 +710,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       };
       // (Only a blind man who sees none of them where he is may shift: if there is none, nothing to work out — review
       // fix, a cost bound; the others are anchored where they are.)
-      const shift = blind.filter((m) => !seesNow(m));
+      // (M11: a man in a dug fighting position keeps it: a prepared defence does not leave its holes to look.)
+      const shift = blind.filter((m) => !seesNow(m) && !inPosition(m));
       if (shift.length === 0) return;
       // (A squad blind as a whole for `longBlindSeconds` may reach as far as a follow, within the ring plus `longRingM`.)
       const longBlind = allBlind && men.every((m) => !fresh(m, RQ.longBlindSeconds));
@@ -878,6 +884,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || (v.status === "immobilised" && !fixing(v))).length;
       // M11.7b: a recovery vehicle for a hull out of the fight for good, when it is quiet there (recovery.ts).
       for (const o of recoveryCalls(view, ground(), side, tick, mem, () => all.flatMap((m) => known(m)), caller)) out.push(o);
+      // M11.8: a threatened supply point moved back, a low squad's short men to an own cache in reach (logistics.ts).
+      for (const o of logisticsOrders(view, ground(), side, tick, mem, () => all.flatMap((m) => known(m)))) out.push(o);
       mem.sentBack ??= [];
       // (M7.6b review fix: the tank sections' crews that bailed out too.)
       const tankBailed = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ground(), id)).flatMap(([, u]) => u.children).filter((c) => view.unit.get(c)?.exVehicle !== undefined).sort((a, b) => a - b);
@@ -951,6 +959,21 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];
       if (!main) return out;
+      // M11.3: an enemy cache its men have seen is a legitimate target: high explosive on it when the mortars have had
+      // nothing better to fire at for `supply.ai.everyS` and no own man is near it.
+      const SA = input.catalog.supply?.ai;
+      if (SA && view.cache.size > 0 && supportLeft(view, side, "he", input.catalog) > 0 && tick - (mem.lastHe ?? -1e9) >= SA.everyS * 60 && tick - (mem.lastCacheHe ?? -1e9) >= SA.everyS * 60) {
+        for (const [cid, c] of view.cache.entries()) {
+          // (Review fix: not a crate on the move, nor one emptied; `known` is cleared when a cache moves, so it is aimed
+          // at where it was seen.)
+          if (c.side === side || c.burnt === true || c.cookoff !== undefined || c.carried === true || !(c.known?.includes(side) ?? false) || !cacheHolds(view.container.get(cid))) continue;
+          const ct = view.transform.get(cid);
+          if (!ct || all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && hypot2(ft.x - ct.x, ft.y - ct.y) < SA.ownClearM; })) continue;
+          heCall(ct.x, ct.y, SA.heRounds);
+          mem.lastCacheHe = tick;
+          break;
+        }
+      }
 
       if (defending) {
         { const f = mem.front ?? front0(); tanks(cos(f), sin(f), () => ({ kind: "move", waypoints: [{ x: clamp(sx, W), y: clamp(sy, H), mode: "run" }] })); }

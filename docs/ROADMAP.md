@@ -405,6 +405,31 @@ for the owner's numbers answer after playing, not for more building).
     and thermal sights, swaps from own spares, flat radios take a unit off the net, flat sights fall back; drone
     items via transferItems; water in battles of 2 h or more; `lab -- batteries`; review and batch lines. Smoke and
     medical resupply are left to the resupply slices.
+  - ✅ **M11.2 (slice 44)** consolidation in quiet squads (belts first, then magazines, then loose rounds), own
+    casualties' ammunition after treatment, none at the Verwundetennest (a pile outside), "Take enemy kit" on the
+    player's order (rifle swap with `weaponItem`), `npm run lab -- redistribute` (DECISIONS "M11.2")
+  - ✅ **M11.3 (slice 45)** supply points and caches (`cache` store, schema 23): apart from the Verwundetennest (owner),
+    seen, set off by HE and fire (cook-off with bursts, ledger exact), captured (owner), orders `supplyPoint` and
+    `resupplyAt`, the AI shells enemy caches, map icons, `lab -- cache`, `bench-caches` (DECISIONS "M11.3")
+  - ✅ **M11.4a (slice 46)** resupply on foot: squads ask (below 40 % or a gunner under one belt), the platoon sends
+    two bearers (headquarters first, never a gunner, leader or medic, never a squad in a fight) with a crate through
+    the carry store; "Fetch ammunition", the card's "Send bearers", the rule "Ammunition requests"; `lab -- resupply`
+    (DECISIONS "M11.4a")
+  - ✅ **M11.4b (slice 47)** resupply by vehicle and off the map: each side's off-map stock (`stock` store, schema 24;
+    `items.delivered` balances it), the supply truck (HX2, Ural-4320) called by a low supply point or "Order a
+    delivery", combat vehicles' rear runs restock and bring a share ("Restock"), the mortar allotment topped up, an
+    ambulance with ammunition a recorded breach without protection; `lab -- resupply` part 2, `--no-deliveries`
+    (DECISIONS "M11.4b")
+  - ✅ **M11.5 (slice 48)** re-arming and refuelling vehicles: a halted hull beside an own cache or supply truck takes
+    its stowage back (whole items, timed per kg) and fills its tank from fuel cans or the truck's pump (litres by
+    `moveCharge`); idle hulls short of either drive to a cache near by, else go on a supply run (which also refuels from
+    the stock); deliveries bring what the platoon's hulls lack; litres in the conservation guard (`items.burnt`);
+    on-map mortar teams fetch rounds from a cache, the top-up puts them beside the tubes; `lab -- rearm`
+    (DECISIONS "M11.5")
+  - ✅ **M11.8 (slice 52)** the commander's logistics (a threatened supply point moved back, men near it fill up; a low
+    quiet squad's shortest half to an own cache in reach), the review's Logistics tab (fired by weapon type, delivered,
+    taken, captured and lost, requests and waits, dry men, fuel; the M11.6-M11.7 rows moved there), batch logistics
+    columns, `BattleResult.logistics`; balance on hold-resupply (DECISIONS "M11.8")
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

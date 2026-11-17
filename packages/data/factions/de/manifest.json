@@ -25,5 +25,9 @@
   "recovery": {
     "template": "bergepanzer3-besatzung",
     "count": 1
+  },
+  "supply": {
+    "template": "hx2-besatzung",
+    "count": 1
   }
 }

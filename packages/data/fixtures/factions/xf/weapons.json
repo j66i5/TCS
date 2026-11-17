@@ -28,7 +28,8 @@
       },
       "sources": [],
       "confidence": "low",
-      "note": "Made-up test fixture."
+      "note": "Made-up test fixture.",
+      "weaponItem": "xf-blaster-carried"
     },
     {
       "id": "xf-sling",

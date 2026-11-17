@@ -33,7 +33,8 @@
         "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/gewehr-g36"
       ],
       "confidence": "medium",
-      "note": "Mass, rate of fire and muzzle velocity published. Dispersion (about 15 cm groups at 100 m with service ammunition), reload time and stoppage rate are estimates. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+      "note": "Mass, rate of fire and muzzle velocity published. Dispersion (about 15 cm groups at 100 m with service ammunition), reload time and stoppage rate are estimates. See docs/research/ballistics.md (values from search extracts of the cited pages).",
+      "weaponItem": "de-g36-carried"
     },
     {
       "id": "de-mg5",

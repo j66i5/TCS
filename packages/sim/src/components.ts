@@ -351,12 +351,64 @@ export interface RearPoint {
   kind: "medical" | "supply";
   side: SideId;
   unit: EntityId;
+  /** kind "supply" (M11.3): the cache (an entity of the `cache` store) that is the platoon's supply point. */
+  cache?: EntityId;
   x: number;
   y: number;
   placed?: true;
   /** When it was sited (or last moved) and last checked. */
   sitedTick: number;
   checkTick: number;
+}
+
+/**
+ * A cache (M11.3, plan slice 45; the `cache` store, keyed by its own entity, which also has a transform and a
+ * container): ammunition and other supplies on the ground. `kind` "point": a platoon's supply point (a `rear` point of
+ * kind "supply" names it; never at or within `supply.nestApartM` of its Verwundetennest); "cache": any other pile
+ * (crates left at a delivery, a casualty's ammunition left outside the nest). `side`: whose it is now (a captured
+ * cache becomes the captor's: `capturedBy`, and `from` the side it was taken from). `hp`: what is left of it (1 whole;
+ * a burst nearby takes some; at 0 it is set off). `cookoff`: burning since `startTick` until `endTick`, its contents
+ * lost step by step (`nextTick`), with bursts when it holds explosive rounds (`bursts`). `burnt`: burnt out.
+ * `known`: the other sides whose men have seen it (its own side always knows it). `holdTick`: since when an enemy has
+ * stood at it with none of its side near (capture after `supply.capture.seconds`). `placed`: put there by an order (or
+ * the scenario); an automatic point moves when threatened or left behind while empty.
+ */
+export interface Cache {
+  side: SideId;
+  kind: "point" | "cache";
+  /** The top unit (platoon) it serves, for a supply point. */
+  top?: EntityId;
+  placed?: true;
+  hp: number;
+  cookoff?: { startTick: number; endTick: number; nextTick: number; bursts: boolean };
+  burnt?: true;
+  capturedBy?: SideId;
+  from?: SideId;
+  known?: SideId[];
+  holdTick?: number;
+  /** M11.4a: a crate on its way to a squad in bearers' hands (a carry party's payload): nobody takes from it on the
+   *  way. Absent: lying on the ground. */
+  carried?: true;
+  /** When it was sited (or last moved) and last checked (automatic points). */
+  sitedTick: number;
+  checkTick: number;
+  /** M11.4b: a supply point's standard fill (rounds): what it held when it became the point (or its first delivery);
+   *  a delivery is called below `delivery.callBelow` of it. Absent: not known yet. */
+  fill?: number;
+  /** M11.5: rounds put beside on-map mortar tubes (the off-map top-up of the mortar section `tubes`). Absent: none. */
+  tubes?: EntityId;
+}
+
+/**
+ * The side's off-map stock (M11.4b, plan section 4): an entity with a container of what the rear can send forward
+ * (`BattleInput` / scenario), parked off the map. The only source of anything delivered during a battle: items leave
+ * it by `transferItems` (event `items.delivered`); the ledger counts it as outside the battle. `topUp`: rounds moved
+ * into the side's off-map support sections every `everyS` (mortar and artillery allotments topped up, owner).
+ */
+export interface Stock {
+  side: SideId;
+  topUp?: { rounds: number; everyS: number };
+  nextTopUpTick?: number;
 }
 
 /**
@@ -392,6 +444,9 @@ export interface Carry {
   litter?: { type: DefId; from: EntityId };
   /** Taken to this rear point (M10.5, the Verwundetennest): on arrival he is at it; the bearers go back. */
   point?: EntityId;
+  /** M11.4a: the payload is supplies (a crate, a cache entity) taken to a squad by bearers: no medical bookkeeping;
+   *  carriers lost end the party (the bearers' errand picks it up again). Absent: a casualty. */
+  cargo?: true;
 }
 
 /** A triage tag (M10.3b). */
@@ -420,17 +475,37 @@ export interface CommState {
  * first responder or medic (else as a comrade).
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone" | "takeAmmo" | "takeKit" | "resupply" | "bear";
   tick: number;
+  /** takeAmmo (M11.2, systems/consolidate.ts): he goes to the own casualty `target` (treated, or dead) to take his
+   *  ammunition; takeKit: to the enemy casualty, prisoner or pile `target` the player named (order `takeKit`);
+   *  resupply (M11.3, order `resupplyAt`): to the own cache `target` to take up to his standard load. */
   target?: EntityId;
   /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
   item?: DefId;
+  /** bringAmmo (M11.2): a hand-over of the squad's consolidation (the receiver may still have some). */
+  consolidate?: true;
+  /** bringAmmo (consolidation), takeAmmo, takeKit (M11.2): the hand-over or taking has begun; once it is done he walks
+   *  back to (x, y, z), where he stood when he set out, faces `heading` (rad) and takes `posture` again. */
+  back?: true;
+  /** ... and he is on his way back now (the errand ends when he is there). */
+  returning?: true;
+  heading?: number;
+  posture?: Posture;
   x?: number;
   y?: number;
   /** takePrisoner, care: his height above the ground at (x, y) (his floor; absent = the ground, M7.5 review fix). */
   z?: number;
   /** care: he went as the first responder or medic (M10.3a). */
   responder?: true;
+  /** bear (M11.4a, systems/supply.ts): an ammunition bearer: to the supply point `target`, then with a crate (`load`,
+   *  a cache entity) to squad `squad`; his fellow bearer `mate` (absent: alone); `lead`: he loads and leads the carry. */
+  squad?: EntityId;
+  load?: EntityId;
+  mate?: EntityId;
+  lead?: true;
+  /** bear: since when he has waited at the point for his mate. */
+  waitTick?: number;
 }
 
 export interface Contact {
@@ -528,6 +603,9 @@ export interface Unit {
    *  Optional (absent = never). */
   ownFireTick?: number;
   ownContactTick?: number;
+  /** M11.2 (consolidate.ts): since when all of this unit's men on foot have stood still (no route; men on a
+   *  consolidation errand aside). Absent: moving, or not looked at yet. */
+  haltedTick?: number;
   /** Sight realism step 2 (2026-11-15): the last tick a man of this unit (or, on a top unit, of any unit under it)
    *  saw an enemy, not spared, within `drills.reactSeenM` (night: `reactSeenNightM`); and on the man's own unit the
    *  start of that spell of sightings (anew after `decisions.contactLostSeconds` without one): react to contact on
@@ -608,6 +686,13 @@ export interface Unit {
   /** An arc to defend (D4b, `defendArc` order): its men face `facing` (rad) and fire on their own only at enemies
    *  within `halfRad` of it. Absent: none. */
   arc?: { facing: number; halfRad: number };
+  /** M11.4a (systems/supply.ts): the squad's last request for ammunition (`tick`); `pending`: the player's standing
+   *  rule is "ask" and nobody has been sent yet (the card's "Send bearers"); `bearers`: the men on their way to it.
+   *  Absent: it never asked. */
+  supplyAsk?: { tick: number; pending?: true; bearers?: EntityId[] };
+  /** M11.4a standing rule: a squad's request sends bearers at once ("auto") or waits for the player ("ask"). Absent:
+   *  "auto". */
+  supplyRule?: "auto" | "ask";
 }
 
 /**
@@ -680,6 +765,8 @@ export interface TerrainState {
   craters: { x: number; y: number; radiusM: number; depthM: number; tick: number }[];
   /** Vegetation thinned by fire: [cell index, fraction removed 0..1], sorted by cell. */
   vegetationLoss: [number, number][];
+  /** M11 hold battle: dug fighting positions (`positions.ts`), in the order they were dug; anyone in one is in it. */
+  positions?: { x: number; y: number; side: string; tick: number }[];
 }
 
 /** A soldier's personal weapon. The loaded magazine is here, not in his container, while it is in the weapon. */
@@ -958,10 +1045,34 @@ export interface VehicleState {
   rearRun?: RearRun;
   /** A rear run was cancelled (M10.6b): none starts on its own again before this tick. Absent: no wait. */
   rearRunRetryTick?: number;
+  /** M11.4b: a marked ambulance with ammunition aboard (a player's order: a breach of the law of war, `law.misuse`):
+   *  it has no protection while it carries it. Absent: none. */
+  misuse?: true;
+  /** M11.5: re-arming or refuelling at `source` (systems/rearm.ts). Absent: neither. */
+  resupply?: VehicleResupply;
+  /** M11.5: an order stopped its re-arming or refuelling: none starts on its own again before this tick. Absent: none. */
+  resupplyHoldTick?: number;
+}
+
+/**
+ * M11.5: a hull re-arming or refuelling (systems/rearm.ts). `go`: driving on its own to `source` (a cache or a supply
+ * vehicle), from `from` (it drives back there when done); `work`: halted at it, `what` it is doing; the next piece of
+ * work (`chunk`: one item into stowage, or `litres` from a can or the pump) is done at `nextTick` (nothing pending:
+ * the setup time runs). `items`, `rounds`, `litres`: moved so far.
+ */
+export interface VehicleResupply {
+  phase: "go" | "work";
+  source: EntityId;
+  what: "rearm" | "refuel";
+  startTick: number;
+  nextTick: number;
+  chunk?: { type: DefId; charge?: number; litres?: number; pump?: true };
+  from?: { x: number; y: number };
+  items: number; rounds: number; litres: number;
 }
 
 /** The kinds of off-map asset (M10.6a ambulance, M11.7b recovery vehicle). */
-export type OffMapKind = "ambulance" | "recovery";
+export type OffMapKind = "ambulance" | "recovery" | "supply";
 
 /** A hull's recovery state (M11.7b, roster `VehicleRecord.recovery`): `towed` off the map by a recovery vehicle,
  *  `recovered` by its own side at the end (held ground), `captured` by the enemy holding the ground, `lost`
@@ -982,8 +1093,15 @@ export interface RepairState {
  * `rearRun` order. `top`: the platoon (top unit) whose nest it serves.
  */
 export interface RearRun {
-  phase: "toPoint" | "loading" | "outbound" | "away" | "return";
-  cargo: "casualties";
+  /** M11.4b: `unloading` halted at its platoon's supply point putting down the share it brought (`share`). */
+  phase: "toPoint" | "loading" | "outbound" | "away" | "return" | "unloading";
+  /** M11.4b: "supplies": a run started for supplies (its stowage was low, or ordered); a casualty run brings supplies
+   *  back as well when its side has a stock. */
+  cargo: "casualties" | "supplies";
+  /** M11.4b: the items it brought for its platoon's supply point `supplyPoint` (unloaded there, `unloadTick`). */
+  share?: { type: DefId; count: number; charge?: number }[];
+  supplyPoint?: EntityId;
+  unloadTick?: number;
   top: EntityId;
   point?: EntityId;
   ordered?: true;
@@ -1010,6 +1128,14 @@ export interface RearRun {
  */
 export interface OffMapAsset {
   kind: OffMapKind;
+  /** M11.4b: on a delivery run (a supply vehicle, or an ambulance the player sent with supplies: a breach). The
+   *  delivery's `point` is a supply rear point; `unloadTick` when it is unloaded; `backTick` when it is ready again
+   *  after leaving the map. */
+  cargo?: "supplies";
+  unloadTick?: number;
+  backTick?: number;
+  /** M11.4b: the supplies aboard for the point (taken from the side's stock at the call; unloaded at the point). */
+  load?: { type: DefId; count: number; charge?: number }[];
   /** M11.7b recovery adds `waiting` (short of a hull under fire), `hookUp` (its men outside hooking it up) and
    *  `towing` (driving off the map with it). */
   phase: "ready" | "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "waiting" | "hookUp" | "towing";

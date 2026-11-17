@@ -87,6 +87,9 @@ export type SimEvent =
    *  (deliberate only). Circumstances: range (m), light (0..1), the share of light smoke let through on the line, his
    *  stress or suppression (the higher), whether it was the player's or an AI order, and the hull he fired from. */
   | { kind: "law.breach"; tick: number; side: SideId; by: EntityId; target: EntityId; cause: "misidentified" | "deliberate"; protection: "medical" | "carrying" | "point" | "surrendered"; rangeM: number; light: number; smoke: number; stress: number; ordered: boolean; vehicle?: EntityId }
+  /** M11.4b (owner: an ambulance carrying ammunition is a breach of the law of war): ammunition put into a marked
+   *  ambulance (`vehicle`) of `side` on a player's order (`ordered`); it has no protection while it carries it. */
+  | { kind: "law.misuse"; tick: number; side: SideId; vehicle: EntityId; cause: "ammunitionInAmbulance"; ordered: boolean }
   /** A protected man or marked ambulance hit by fire of `side` (Q-8: incidental hits are a separate list in the review):
    *  `aimed` when the fire was at him; `fragment` a fragment's hit. Never shown live. */
   | { kind: "law.hit"; tick: number; side: SideId; by: EntityId; target: EntityId; protection: "medical" | "carrying" | "point" | "surrendered" | "wounded" | "prisoner"; aimed: boolean; fragment: boolean }
@@ -95,9 +98,11 @@ export type SimEvent =
    * A combat vehicle's rear run (M10.6b, owner Q-9): `phase` started (for the platoon `unit`'s nest `point`; `ordered`:
    * the player's `rearRun`), arrived (at the nest), loaded (`casualty` aboard), departed (`aboard` men), away (off the
    * map, `aboard` handed over), returned (back on the map), back (where it was sent: the run is over), cancelled
-   * (nobody to take, or an order ended it), lost (it can no longer drive).
+   * (nobody to take, or an order ended it), lost (it can no longer drive). M11.4b: `cargo` "supplies" on a run started
+   * for supplies; restocked (off the map: its stowage filled from the side's stock, `rounds`), unloaded (`rounds` put
+   * into its platoon's supply point `point`).
    */
-  | { kind: "medical.rearRun"; tick: number; side: SideId; vehicle: EntityId; phase: "started" | "arrived" | "loaded" | "departed" | "away" | "returned" | "back" | "cancelled" | "lost"; point?: EntityId; unit?: EntityId; casualty?: EntityId; aboard?: number; ordered?: boolean }
+  | { kind: "medical.rearRun"; tick: number; side: SideId; vehicle: EntityId; phase: "started" | "arrived" | "loaded" | "departed" | "away" | "returned" | "back" | "cancelled" | "lost" | "restocked" | "unloaded"; point?: EntityId; unit?: EntityId; casualty?: EntityId; aboard?: number; ordered?: boolean; cargo?: "supplies"; rounds?: number; litres?: number }
   /**
    * A wounded man's outcome beyond the battle is settled (M10.6b): he reaches Role 1 (`by` own) or the captor's aid
    * post at `role1Tick` (`inTime`: within `chain.role1S` of his first wound); `recoveryDays`; `diedOfWoundsTick` if he dies of his wounds; `cat` his triage tag then;
@@ -142,12 +147,57 @@ export type SimEvent =
   | { kind: "items.transferred"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number }
   /** M11.1: items gone from the battle other than by being fired (`count` items of `item` held by `holder`; the
    *  ammunition in them: `rounds` of `ammo`). The conservation guard reads it (ledger.ts). */
-  | { kind: "items.destroyed"; tick: number; holder: EntityId; item: DefId; count: number; ammo?: DefId; rounds?: number; cause: string }
+  | { kind: "items.destroyed"; tick: number; holder: EntityId; item: DefId; count: number; ammo?: DefId; rounds?: number; cause: string; chargeKind?: string; amount?: number }
   /** M11.1: items that came into the battle from off the map (`count` items of `item` to `holder`; the ammunition in
    *  them: `rounds` of `ammo`). */
-  | { kind: "items.delivered"; tick: number; holder: EntityId; item: DefId; count: number; ammo?: DefId; rounds?: number }
+  | { kind: "items.delivered"; tick: number; holder: EntityId; item: DefId; count: number; ammo?: DefId; rounds?: number; chargeKind?: string; amount?: number }
+  /** M11.5: charge used up other than by firing (litres of fuel burnt by `holder`'s engine: `amount` of `chargeKind`
+   *  from `item`). The conservation guard reads it (ledger.ts). */
+  | { kind: "items.burnt"; tick: number; holder: EntityId; item: DefId; chargeKind: string; amount: number }
+  /** M11.5: hull `vehicle` re-arms or refuels from `source` (a cache or a supply vehicle): `heading` there on its own,
+   *  `started`, `done` (all it could take) or `stopped` (`why`); `items` whole items, `rounds` and `litres` moved so far. */
+  | { kind: "vehicle.resupply"; tick: number; vehicle: EntityId; side: SideId; what: "rearm" | "refuel"; phase: "heading" | "started" | "done" | "stopped"; source: EntityId; items?: number; rounds?: number; litres?: number; why?: string }
   /** M11.1: a man loaded `rounds` loose rounds into a magazine (refillMagazines). */
   | { kind: "items.refilled"; tick: number; soldier: EntityId; item: DefId; rounds: number }
+  /** M11.2: `to` took `count` of `item` (with `rounds` of ammunition in them) from `from`: an own casualty
+   *  ("casualty"; `treated`: he had been treated, else he was dead), at the Verwundetennest ("nest"), an enemy
+   *  casualty or prisoner ("enemy") or a pile on the ground ("cache"). */
+  | { kind: "items.taken"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number; rounds: number; source: "casualty" | "nest" | "enemy" | "cache"; treated?: boolean; dead?: boolean }
+  /** M11.2: nobody to take a casualty's ammunition at the Verwundetennest: it was left as a pile (`cache`, a new entity
+   *  with a container) at (x, y). */
+  | { kind: "items.dropped"; tick: number; from: EntityId; cache: EntityId; x: number; y: number }
+  /** M11.3: top unit `unit`'s supply point (`point`, a rear point) is cache `cache` at (x, y): sited automatically, put
+   *  there by an order, or by the scenario. */
+  | { kind: "supply.point"; tick: number; side: SideId; point: EntityId; cache: EntityId; unit: EntityId; x: number; y: number; reason: "sited" | "ordered" | "scenario" }
+  /** M11.3: `men` men of `side` sent to cache `cache` for supplies (order `resupplyAt`). */
+  | { kind: "supply.resupply"; tick: number; side: SideId; cache: EntityId; men: number }
+  /** M11.4a: a squad asks for ammunition (its able men's rounds as a share of their standard load, %; `pending`: the
+   *  player's rule is "ask", nobody sent yet). */
+  | { kind: "supply.request"; tick: number; side: SideId; unit: EntityId; percent: number; pending?: true }
+  /** M11.4a: bearers sent to a squad from its platoon's supply point (`own`: from the squad itself, "Fetch
+   *  ammunition"); loaded at the point (`rounds` in the crate); the crate delivered beside the squad. */
+  | { kind: "supply.bearers"; tick: number; side: SideId; unit: EntityId; point: EntityId; men: EntityId[]; own?: true }
+  | { kind: "supply.loaded"; tick: number; side: SideId; unit: EntityId; load: EntityId; rounds: number; kg: number }
+  | { kind: "supply.delivered"; tick: number; side: SideId; unit: EntityId; load: EntityId; rounds: number }
+  /** M11.4b: a delivery from off the map by `vehicle` (the side's supply vehicle; an ambulance only on a player's
+   *  order) to supply rear point `point` of top unit `unit`: called (`dueS` until it comes on, `rounds` and `kg`
+   *  loaded from the side's stock), entered the map, arrived, unloaded (`rounds` put into the point's cache), away
+   *  (off the map again), ready (for the next call), lost (stranded on the map), cancelled (no way, gave up). */
+  | { kind: "supply.delivery"; tick: number; side: SideId; vehicle: EntityId; phase: "called" | "entered" | "arrived" | "unloaded" | "away" | "ready" | "lost" | "cancelled"; point?: EntityId; unit?: EntityId; rounds?: number; kg?: number; dueS?: number; ordered?: true }
+  /** M11.4b: rounds of `item` moved from `side`'s off-map stock into its support section (`battery`): the allotment
+   *  topped up. */
+  | { kind: "supply.topUp"; tick: number; side: SideId; battery: EntityId; item: DefId; count: number }
+  /** M11.3: men of `side` have seen cache `cache` (another side's). */
+  | { kind: "cache.seen"; tick: number; cache: EntityId; side: SideId }
+  /** M11.3: cache `cache` became `side`'s, taken from `from` with `rounds` rounds of ammunition in it. */
+  | { kind: "cache.captured"; tick: number; cache: EntityId; side: SideId; from: SideId; rounds: number }
+  /** M11.3: cache `cache` (of `side`) set off by a burst or a fire; it burns until `endTick`; `bursts`: explosive rounds
+   *  in it go off. */
+  | { kind: "cache.cookoff"; tick: number; cache: EntityId; side: SideId; cause: "blast" | "fire"; bursts: boolean; endTick: number }
+  /** M11.3: cache `cache` has burnt out. */
+  | { kind: "cache.burnt"; tick: number; cache: EntityId; side: SideId }
+  /** M11.2 (takeKit): `soldier` took `weapon` from `from` and carries his own `put` as an item. */
+  | { kind: "weapon.swapped"; tick: number; soldier: EntityId; from: EntityId; weapon: DefId; put: DefId }
   | { kind: "action.started"; tick: number; actor: EntityId; action: string; durationTicks: number }
   | { kind: "action.completed"; tick: number; actor: EntityId; action: string }
   | { kind: "action.interrupted"; tick: number; actor: EntityId; action: string; reason: string }

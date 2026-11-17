@@ -683,6 +683,211 @@ how much each man carried and fired, how many rounds a minute while in contact (
 last 60 s), how much of the load was gone at 20 minutes and at the end, who ran out of loaded spares or dry and when,
 and how many magazines were refilled. `--conservation` runs the conservation check over every scenario.
 
+## Sharing ammunition out, and taking it from casualties (M11.2)
+
+**Evening out in a quiet squad.** Once nobody has fired on a squad for a minute and it has stood still for 20
+seconds (not on the march), its leader evens out the ammunition
+of the men who can still fight. Belts come first: a machine gunner with fewer than two spare belts gets one from a man
+who carries belts for him. Then magazines: a man with two or more spare magazines more than another gives him one,
+until no two men of the same weapon differ by two or more. Then packages of loose rounds the same way. Each hand-over
+is a man walking over and handing one item across (3 s); at most two hand-overs at a time per squad, and only between
+men within 50 m of each other who are standing still. The man who walked over walks back to where he was (his
+fighting position, his place in the formation) and faces the way he faced. A marksman's magazines fit nobody else's
+rifle, so they stay with him. Fire on the squad stops it.
+
+**Own casualties.** A man who is down for good (dead, unconscious, wounded so badly that he cannot fight, or lying at
+the Verwundetennest) keeps his ammunition until his treatment is done — he has been treated and nothing urgent is
+left — or, if he is dead, until his comrades know he is dead. Never before (the owner's rule), never while someone is
+treating him, checking him, carrying him or on the way to him. Then the nearest man of his squad within 30 m who is
+running low (fewer than three spare magazines, or a gunner short of belts) goes over and takes his magazines, belts,
+loose rounds, grenades and rockets (8 s). If nobody near is low but the squad as a whole is, the man who treated him
+takes them, and then goes back to his place. A wounded man who can still use his arms keeps one full magazine.
+
+**No ammunition at the red cross.** The Verwundetennest holds none (owner): a treated casualty lying there hands his
+to the nearest man of his platoon within 30 m who does not wear the red cross; if nobody is there, it is left in a
+pile 30 m from the nest, towards the platoon (the next step makes such piles into caches the men can use).
+
+**Taking enemy kit (only on the player's order).** "Take enemy kit" appears on the order bar (on a phone under "⋯")
+when the selected squad or man knows of a dead or wounded enemy, or one who has given up, within 150 m. The nearest man
+goes over and takes the ammunition that fits a weapon he carries. If none fits, a rifleman swaps his rifle for the
+enemy's rifle with its magazines; his own rifle goes into his load (every rifle has an item of its own for that, so
+nothing appears or vanishes), and he fires the enemy's rounds from then on. When nothing there fits, the squad says so
+on the radio, as it does when nobody is near enough. The computer commander never gives this order. Taking weapons
+from enemy wounded and prisoners is lawful (disarming them): it is not recorded as a breach.
+
+**Measuring it.** `npm run lab -- redistribute` sets a squad's spare magazines to between none and six per man and
+checks that after a minute of quiet no man is more than one magazine from his squad's average, that the gunner got
+his belts first, and that not a round appeared or vanished. The consumption lab now also reports the rounds taken
+from casualties per battle, and checks that none was ever taken from a living man before his treatment;
+`--no-consolidate` runs the battles without this step for comparison.
+
+## Supply points and caches (M11.3)
+
+**A cache is a pile on the ground.** Crates, cans and tins lying somewhere are a cache: a thing with a place and a
+content, belonging to a side. A platoon's **supply point** is one such cache that the platoon uses; any other pile
+(crates left at a delivery, a casualty's ammunition left outside the Verwundetennest) is a plain cache. On the map a
+cache is a small crate in its side's colour, at every zoom; the supply point flies a pennant and shows how full its
+crates and cans are (a bar) and how many rounds are in it. An empty one is grey, a burnt-out one dark. The player sees
+the enemy's caches only once one of his men has seen them (within 250 m, with a line of sight), and then only that
+they are there, not how full.
+
+**Apart from the red cross (owner).** The supply point is never at the Verwundetennest: it stays at least 50 m from its
+platoon's nest, and the nest at least 50 m from the supply point (an order that would put one within 50 m of the other
+is refused on the radio). Nothing with ammunition in it is ever put within 15 m of any nest. In the hold battle the
+crates behind the village are the defending platoon's supply point from the start; otherwise a platoon gets one where
+the player puts it ("Supply point" in the Move tray: tap the map; or drag the marker), and the deliveries of the next
+steps will site one automatically like the nest (behind the platoon, out of the enemy's sight). An empty automatic one
+moves when the enemy comes near or the platoon has moved on; one with supplies in it stays where it is.
+
+**Resupply (player's order).** "Resupply" appears on the order bar (on a phone under "⋯") when an own cache with
+something in it lies within 400 m of the selected squad. Its men go there, each takes what brings him back to his
+standard load — every magazine and belt he carries full, his bandolier or packs of loose rounds full — and walks back to
+where he stood. Filling magazines at the crate takes time (0.4 s a round with stripper clips and a loader; loose clips
+into a bandolier much less), so an empty man spends a minute or so there. The squad refuses on the radio when no cache
+is within reach, when nothing there fits its weapons, when it is already full, or while it is under fire. The computer
+commander does not use this order yet (the squads' own requests come with the next steps).
+
+**Caches are targets (owner).** A high-explosive burst near a crate damages it and may set it off: within 5 m times the
+cube root of the filling in kilograms, more likely the nearer and the bigger the round (a 120 mm round bursting on a
+crate sets it off about six times in ten, a 152 or 155 mm shell always; nothing at 20 m). A burning vehicle or a
+burning cache within 8 m can set it off too. A cache that goes up burns for half a minute to two minutes: its contents
+are lost step by step, the grenades and bombs in it go off one by one (blast and fragments, dangerous to anyone near),
+rifle rounds only burn and pop; it smokes. Every round lost is counted (the conservation guard stays exact). The
+computer commander shells an enemy cache its men have seen when its mortars have had nothing better to fire at for five
+minutes and none of its own men is near it.
+
+**Capture (owner).** A cache with none of its side's men within 50 m and an enemy man within 10 m for 10 seconds
+becomes the enemy's, with everything in it (a supply point stops being one). At the end of the battle every cache is
+listed in the result with its side and what is left in it; a captured one names the side it was taken from (its
+contents count as captured), and the review tallies caches captured and set off and the rounds in them.
+
+**Measuring it.** `npm run lab -- cache [trials]` sets one high-explosive round off at 0, 5, 10 and 20 m from a full
+crate (tank guns, mortars, 152/155 mm) and compares the data's chance with real bursts, then lets crates burn out and
+checks that the rounds lost match the ledger. `bench-caches` (the bench battle with 20 caches, one shelled) must run
+within 5 % of the bench.
+
+## Resupply on foot: squads ask, bearers carry (M11.4a)
+
+**A squad asks.** Every two seconds each squad on foot looks at its ammunition: the rounds its able men hold for their
+own weapons (in the weapon, in their magazines and belts, in their bandoliers and packs) against their standard load
+(all of those full). Below 40 %, or with its machine gunner under one belt, it radios "running low on ammunition, request
+resupply" (at most every two minutes). If an own crate lies within 60 m with something for it, it asks nobody: when it
+has not been fired on for 15 seconds and stands still, its short men walk over, fill up and walk back to their places.
+
+**The platoon sends bearers.** On a request the platoon sends at most two men from its supply point: first a man of the
+headquarters (never the platoon leader), then the man of the asking squad nearest the supply point, else a man of a squad
+that is not fighting. Never a machine gunner, a leader, a medic or a first responder (medical men doing other work would
+lose their protection: a software decision from the law of war, for the owner to confirm), never a man of a squad in an
+assault, a house clearing, a withdrawal, a rout or fired on in the last 30 seconds (a defended position is not stripped).
+A man firing on his own may still be taken from the asking squad or the headquarters: one rifle less for a few minutes.
+The same rule holds for the computer's side and the player's. The player's standing rule "Ammunition requests" (Rules
+panel) is "send bearers" by default; set to "ask me", the request waits and the squad's card shows **Send bearers**.
+**Fetch ammunition** (order bar; on a phone under "⋯") sends two of the selected squad's own men at any time.
+
+**The trip.** The bearers walk to the supply point (where they are fired on they go down and wait until it is quiet),
+take a crate of whole cans, tins and magazines of what the squad is short of (two men up to 40 kg, one man up to 25 kg;
+half a minute to load) and carry it to the squad leader as a carrying party (the casualty carry of M10.4a with a crate:
+about 1.15 m/s, a rest every 250 m, into cover with it when fired on). The crate in their hands is a cache on the map
+(drawn just above them): a burst can set it off, nobody takes from it on the way. Beside the squad they put it down and
+walk back to their places; the squad's men fill up from it when it is quiet (as with "Resupply"), and what is left stays
+there for later. A bearer who loses his mate carries on alone if the crate is light enough, else leaves it where it is.
+
+**Measuring it.** `npm run lab -- resupply [distances]`: a German and a Russian platoon on open ground with the supply
+point 400 m behind, the first squad's spare magazines empty: request, bearers at the point, loaded, delivered, squad full,
+against a hand calculation (walk there with their load, load, carry back with rests, the men's run to the crate and
+taking). Both within 1 % (target 10 %).
+
+## Resupply by vehicle and from off the map (M11.4b)
+
+**The stock at the rear.** A side may have a stock behind the map (the scenario gives it; later the campaign): the only
+place anything arriving during a battle comes from. Nothing is made out of nothing: every can, tin or mortar bomb that
+comes forward leaves that stock and is counted as delivered, so the ammunition check (start minus end equals fired plus
+destroyed minus delivered) stays exact.
+
+**Deliveries.** Each side with a stock has a supply truck waiting off the map (Bundeswehr: an HX2 5-tonne truck;
+Russia: a Ural-4320). When a platoon's supply point holds less than 30 % of what it held at first, or a squad of a
+platoon without a supply point asked for ammunition lately (a point is sited then), the platoon calls it; the player can
+also press **Order a delivery** (order bar; on a phone under "⋯"), which brings a full point's worth. It is loaded at the
+call with whole cans and tins of what the platoon's men fire (up to its 5 t), comes onto the map 10-20 minutes later at
+the edge behind the point, drives there, is unloaded (a minute plus 0.3 s a kilogram), drives back and is ready for the
+next call 20 minutes after it left. One delivery per side at a time. The list of wounded and vehicles on runs shows it
+("delivery on its way, about N min", "unloading at the supply point").
+
+**Combat vehicles' rear runs.** A carrier or tank that goes off the map with wounded comes back with its stowage filled
+from the stock up to what the data stows, and with up to 400 kg for its platoon's supply point, which it drives to and
+unloads first. An idle hull whose stowed ammunition is below half goes back for it on its own (the same limits as the
+casualty runs: one per platoon at a time, one hull stays); the player's **Restock** does it at once. A marked ambulance
+never does this on its own.
+
+**Mortar rounds.** A stock can top up the side's off-map mortar or artillery allotment: so many rounds every ten
+minutes (the hold battle: six 120 mm bombs for the defender). The fire support panel shows the rounds as before.
+
+**The ambulance and ammunition.** The computer never puts ammunition into an ambulance. If the player orders a delivery
+with an ambulance (the order names it), it is carried out but recorded as a breach of the law of war, listed on the
+review's Conduct tab, and the ambulance has no protection while it carries the ammunition: an enemy who sees it close
+enough no longer spares it. Unloaded, it is protected again.
+
+**Measuring it.** `npm run lab -- resupply` also times a delivery 400 m from the edge and a Puma's and a BMP-2's supply
+run against a hand calculation (the wait, the drive at the run's pace, unloading): all within 1 % (target 10 %), the
+ammunition check exact. Batches take `--no-deliveries` (resupply on foot only) besides `--no-resupply`.
+
+## Re-arming and refuelling vehicles; rounds to mortars (M11.5)
+
+**At a cache.** A hull that stands still within 15 m of one of its side's caches (a supply point, a pile, crates a
+truck unloaded) or of its side's supply truck, with a crewman aboard, not hit in the last 20 s, not burning, under
+repair, on tow or away, takes back what its stowage is short of: whole belts, rounds, missiles, smoke grenades and
+reactive tiles of the kinds the data stows, up to what the data stows. Opening up takes a minute, then each item takes
+1.2 s per kilogram (a 120 mm round of about 20 kg: about 25 s). Its ready racks and belts then refill from the stowage
+as before. A marked ambulance takes no ammunition. A supply truck gives only what it carries as cargo, never its crew's
+own kit.
+
+**Fuel.** Fuel is litres in the tank item, as it always was; every litre burnt is now an event, so the ammunition check
+also covers litres (start minus end equals burnt plus destroyed minus delivered, to a millionth of a litre). After the
+rounds (or instead of them) the crew pours fuel cans (20 l steel cans, a minute each) into the tank, or takes litres
+from a supply truck's own tank by its pump (100 l a minute, keeping 100 l to drive back: there is no tanker in the data
+yet). Empty cans stay where they were.
+
+**Asking.** An idle hull (the rear-run rules: still, not hit, no enemy near, no squad aboard) below half its stowed
+ammunition or a quarter of its tank drives to the nearest own cache within 300 m that has something for it, works
+there and drives back. With none near, it goes on a supply run when its side has a stock at the rear (M11.4b); such a
+run now also fills the tank from the stock's fuel cans. A delivery truck also brings what the platoon's hulls are short
+of (their stowage, then fuel cans). Any order to the crew stops the work (what was moved stays) and it does not start
+again on its own for two minutes. The card shows "Fuel 640 / 900 l · re-arming", the unit list "re-arming".
+
+**Mortars on the map.** A mortar team holding fewer than 10 rounds sends a man (not its gunner if it can) to an own
+cache within 150 m of the tube that has its rounds; he takes up to 30 kg of them (3 s a round) and walks back; the tube
+stays set up while he goes. A stock's top-up for a side with mortars on the map puts the rounds into a cache 8 m behind
+the tubes.
+
+**Measuring it.** `npm run lab -- rearm`: a Puma, a BMP-2, a Leopard 2A7V and a T-90M with empty stowage and 10 % fuel
+beside a full cache, and beside a supply truck, against the hand calculation (target 10 %).
+
+## The commander's logistics, the Logistics review and the results (M11.8)
+
+**What the commander decides.** Most of supply runs in the simulation the same way for both sides and for the player:
+squads ask, the platoon sends bearers, a low supply point calls a delivery, idle hulls re-arm, mortar men fetch rounds,
+and the commander shells enemy caches it has seen. The computer's commander adds two things. When an enemy its men know
+of comes within 100 m of a supply point that still holds ammunition, it moves the point 100 m back, away from that
+enemy (the crates already there stay as a plain cache that squads close by still use; the next delivery and the bearers
+go to the new point), and up to four of its men near the old crates who are short fill up there before they are lost.
+And when a squad is below 40 % of its ammunition, quiet for 30 s, halted, with no enemy known within 200 m, no bearers
+on their way and no crate beside it, its shortest men, at most half of the squad, go to the nearest own cache within
+400 m (a captured enemy cache too) and come back; the other half stays, so a held position is never stripped. A squad
+is sent at most every two minutes.
+
+**The Logistics tab.** The after-action review has a fourth tab. Per side: rounds fired by weapon type (rifles,
+machine guns, grenades, missiles, cannons, mortar rounds...), with each hull's guns, the rockets and the fire support
+listed under it; how many armed men had no round left for their weapon at the end; rounds delivered by bearers, by
+vehicle runs and from off the map, and the mortar rounds topped up; rounds taken from own casualties, from enemy men
+and at caches; enemy caches captured, own caches set off or lost to the enemy; requests for ammunition, how many were
+answered and the median wait (from the first request to the bearers' crate or the squad's first taking at a cache);
+litres burnt, refuelled and delivered; re-arming; and the field repair, recovery, battery and water rows that used to
+stand in the Battle tab.
+
+**Results.** `BattleResult.logistics` lists per side what was consumed (rounds by ammunition id), delivered from off the
+map, captured (enemy caches and kit) and destroyed, with litres by fuel kind, from the events alone; together with the
+loads in `forcesOut` this is what a campaign carries on. The batch report has a logistics table with the same columns.
+
 ## Grenades
 
 A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one

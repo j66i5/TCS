@@ -176,7 +176,7 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "hold-resupply": {
-    description: "M11.1: a German platoon on foot holds the village centre against three Russian platoons coming in waves from the east at 0, 15 and 30 minutes (the attacker's usual mortar allotment); a supply point of cans 150 m behind the village; 60 minutes. The battle where ammunition runs short (`--no-resupply` for comparisons).",
+    description: "M11.1: a German platoon on foot holds the village centre against three Russian platoons coming in waves from the east at 0, 15 and 30 minutes (a sixth of the attacker's usual mortar allotment); the defenders dig in where they are sited in the first 90 s (fighting positions); a supply point of cans 150 m behind the village; M11.4b: the defender's stock at the rear (twice the point's load), its supply truck off the map (called when the point falls below 30 %) and 6 mortar rounds topped up every 10 minutes; 60 minutes. The battle where ammunition runs short (`--no-resupply`, `--no-deliveries` for comparisons).",
     build: (data, seed, seconds) => holdBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds }),
     controllers: (input) => [commanderController("blue", input), waveCommanders("red", input)],
   },
@@ -351,6 +351,32 @@ export const SCENARIOS: Record<string, NamedScenario> = {
       both(wanderController("blue", input.seed * 2 + 1, input.map, 60), droneWander("blue", input.seed * 2 + 11, input.map, 90)),
       both(wanderController("red", input.seed * 2 + 2, input.map, 60), droneWander("red", input.seed * 2 + 12, input.map, 90)),
     ],
+  },
+  "bench-caches": {
+    description: "Benchmark (M11.3): the bench battle (304 men moving) with 20 ammunition caches spread over the map (10 a side: a can of rifle rounds and a crate of hand grenades each), one of them shelled by blue's mortars every 30 s.",
+    build: (data, seed, seconds) => {
+      const input = demoBattle(data, { seed, factions: ["de", "ru"], templates: ["demo-team", "demo-team"], unitsPerSide: 38, mapKind: "farmland", timeLimitSeconds: seconds });
+      const W = input.map.widthM, H = input.map.heightM;
+      for (const f of input.forces) {
+        const de = f.faction === "de";
+        const load = de ? [{ type: "de-556-can", count: 1, charge: 840 }, { type: "de-dm51-crate", count: 1, charge: 20 }] : [{ type: "ru-545-tin", count: 1, charge: 1080 }, { type: "ru-rgd5-crate", count: 1, charge: 20 }];
+        f.caches = Array.from({ length: 10 }, (_, k) => freeSpot(input.map, input.catalog, (de ? 0.15 : 0.55) * W + (k % 5) * 0.06 * W, (0.2 + Math.floor(k / 5) * 0.5) * H)).map((p) => ({ x: p.x, y: p.y, load }));
+      }
+      input.rules.support = [{ side: "blue", he: 200, smoke: 0 }];
+      return input;
+    },
+    controllers: (input) => {
+      const target = input.forces.find((f) => f.side === "red")!.caches![0]!;
+      const shell: Controller = {
+        side: "blue",
+        think(view, tick) {
+          if (tick % (30 * 60) !== 60) return [];
+          const top = [...view.unit.entries()].find(([, u]) => u.side === "blue" && u.parent === null);
+          return top ? [{ tick, issuer: "blue", target: top[0], kind: "callFire", x: target.x, y: target.y, ammo: "he", rounds: 4 } as Order] : [];
+        },
+      };
+      return [both(wanderController("blue", input.seed * 2 + 1, input.map, 60), shell), wanderController("red", input.seed * 2 + 2, input.map, 60)];
+    },
   },
   bench: {
     description: "Benchmark: 38 four-man teams per side (304 soldiers; the old placeholder team, kept so the benchmark stays comparable) on a generated 2 x 2 km farmland map, all moving.",

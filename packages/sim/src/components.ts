@@ -102,8 +102,44 @@ export interface UnitMorale {
 /** Why a man gave up (carried by the `surrendered` event). */
 export type SurrenderReason = "wounded" | "panicked" | "routed";
 
-/** A man who has given up. Moves forward only: null -> surrendered -> captured. Never back. */
-export interface Captive { state: "surrendered" | "captured"; /** Tick at which he gave up. */ tick: number }
+/** A prisoner's group by rank (M11.9 segregation): from his rank's NATO code (OF-* officer, from
+ *  `prisoners.segregation.ncoFrom` NCO, else man; a rank without a code: man). */
+export type PrisonerGroup = "officer" | "nco" | "man";
+
+/**
+ * A man who has given up. Moves forward only: null -> surrendered -> captured. Never back.
+ * M11.9 (systems/prisoners.ts; all optional, set once he is taken): `by` the side holding him; `unit` the unit whose
+ * man took him (its squad sends his escort; its platoon's collection point and Verwundetennest are his);
+ * `group` officer / NCO / man; `searchTicks` how long he has been searched so far (kept when a search is
+ * interrupted); `searched` the tick his search ended; `escort` the man walking him back (or guarding him on the way);
+ * `point` the collection point (a `rear` point of kind "prisoners") he has reached and is held at.
+ */
+export interface Captive {
+  state: "surrendered" | "captured";
+  /** Tick at which he gave up. */
+  tick: number;
+  by?: SideId;
+  unit?: EntityId;
+  group?: PrisonerGroup;
+  searchTicks?: number;
+  searched?: number;
+  escort?: EntityId;
+  point?: EntityId;
+  /** M11.9b: aboard the military police hull `vehicle` (boarded at its point); `evacTick`: taken off the map by it (an
+   *  evacuated prisoner, roster `powEvacuated`). */
+  vehicle?: EntityId;
+  evacTick?: number;
+  /** M11.9b: documents items taken from him in his search (`BattleResult.prisoners`). */
+  documents?: number;
+  /**
+   * M11.9c: he is escaping (systems/prisoners.ts "escapes"; the one way back from "captured": free, `captive` null, when
+   * he reaches a fit man of his side; recaptured, back to "surrendered", when a fit man of the holding side reaches
+   * him). `tick` he set off; `openTick`: from then on the enemy no longer sees a man giving up (`surrendered` flag);
+   * `open`: the flags have been taken back; `routeTick`: when his way was last set. His `point` and `escort` are gone,
+   * `by`, `unit`, `group` and `searched` stay (for the record and a recapture).
+   */
+  escape?: { tick: number; openTick: number; open?: true; routeTick: number };
+}
 
 /** Individual soldier state (SPEC 6.4). M0 holds the fields; systems that change them come in M1-M4. */
 /**
@@ -291,6 +327,14 @@ export interface SoldierState {
    */
   carrying?: EntityId;
   /**
+   * Escorting or guarding prisoners (M11.9, systems/prisoners.ts): the collection point `point` he works for; `phase`
+   * "search" (searching his prisoners where they were taken), "escort" (walking them back, 3-5 m behind them),
+   * "guard" (at the point until relieved; then the field is cleared and he walks back to his squad leader). `men`: the prisoners he searches and walks (one group). `took`: what he took from them in the search
+   * (whatever is beyond `search.maxKg` goes into the point's cache when he gets there). While set he is out of the fight: he fires only in self-defence within `guard.selfDefenceM`, and orders to his unit
+   * pass him by. Absent: no such duty.
+   */
+  guard?: { point: EntityId; phase: "search" | "escort" | "guard"; men: EntityId[]; took?: { type: DefId; count: number; charge?: number }[]; tick: number };
+  /**
    * He lies (or sits) at this rear point (M10.5, the Verwundetennest; the `rear` store's key): brought there by bearers
    * or walked there himself. His unit's orders and drills pass him by. Cleared when he is more than twice the nest's
    * `arriveM` from it (the nest moved, an order to him alone). Absent: not at a nest.
@@ -318,6 +362,9 @@ export interface SoldierState {
    * is "evacuated" (the aid station's outcome is M10.6b). Absent: not evacuated.
    */
   evacuated?: { tick: number; vehicle?: EntityId; via?: "ambulance" | "vehicle" | "end" };
+  /** M11.9c review fix: the side he got away from as a prisoner in this battle (escaped, freed by his own men, or back
+   *  with his side at the end; `SideResult.prisonersEscaped`). Absent: never. */
+  freedFrom?: SideId;
   /**
    * What his roster record brought into this battle when it had been settled after an earlier one (review fix, rule
    * 11): how many of his wounds were already there (not handed over again) and the recovery days he still had.
@@ -348,14 +395,28 @@ export interface Aftercare {
  * player's `casualtyPoint` order (it stays; an automatic one moves when threatened or left behind).
  */
 export interface RearPoint {
-  kind: "medical" | "supply";
+  /** M11.9: "prisoners", the platoon's prisoner collection point (systems/prisoners.ts). */
+  kind: "medical" | "supply" | "prisoners";
   side: SideId;
   unit: EntityId;
-  /** kind "supply" (M11.3): the cache (an entity of the `cache` store) that is the platoon's supply point. */
+  /** kind "supply" (M11.3): the cache (an entity of the `cache` store) that is the platoon's supply point. kind
+   *  "prisoners" (M11.9): the captured cache at the point where searchers leave what they cannot carry (absent: none
+   *  yet). */
   cache?: EntityId;
   x: number;
   y: number;
   placed?: true;
+  /** kind "prisoners" (M11.9b): the military police hull at the point that has taken over the guard. */
+  mp?: EntityId;
+  /** kind "prisoners" (M11.9c): where and when rounds last landed within `pcp.fireM` of it; since when its prisoners
+   *  have been exposed (a known enemy within `pcp.enemyM`, or suppressed) without being moved, and whether that
+   *  exposure has been recorded (`law.exposure`). */
+  fire?: { tick: number; x: number; y: number };
+  /** kind "prisoners" (review fix): where rounds landed when it was last moved away (kept `pcp.fireMemoryS`, at most
+   *  four), avoided by its next moves as well, so that it does not go back to a spot it just left. */
+  fireSpots?: { tick: number; x: number; y: number }[];
+  exposedTick?: number;
+  exposureNoted?: true;
   /** When it was sited (or last moved) and last checked. */
   sitedTick: number;
   checkTick: number;
@@ -519,7 +580,8 @@ export interface Contact {
   tick: number;
   /** When he last passed this contact on (reports are not passed on again: no gossip chains). */
   reportedTick: number;
-  /** He knows this enemy has given up: he saw it, or a comrade told him. Absent until set; never cleared while the contact lasts. */
+  /** He knows this enemy has given up: he saw it, or a comrade told him. Absent until set; never cleared while the contact
+   *  lasts, except for a prisoner escaping (M11.9c: after `escape.graceSeconds`, never by a guard) or one back free. */
   surrendered?: true;
   /**
    * He knows this enemy is down (soldier AI package A): he saw him lying hit or saw him fall, or a comrade told him.
@@ -693,6 +755,9 @@ export interface Unit {
   /** M11.4a standing rule: a squad's request sends bearers at once ("auto") or waits for the player ("ask"). Absent:
    *  "auto". */
   supplyRule?: "auto" | "ask";
+  /** M11.9c standing rule: the unit's prisoners get escorts on their own ("auto") or only on the player's
+   *  `escortPrisoners` ("ask"). Absent: "auto" (its top unit's rule when it has none). */
+  prisonerRule?: "auto" | "ask";
 }
 
 /**
@@ -1072,7 +1137,7 @@ export interface VehicleResupply {
 }
 
 /** The kinds of off-map asset (M10.6a ambulance, M11.7b recovery vehicle). */
-export type OffMapKind = "ambulance" | "recovery" | "supply";
+export type OffMapKind = "ambulance" | "recovery" | "supply" | "mp";
 
 /** A hull's recovery state (M11.7b, roster `VehicleRecord.recovery`): `towed` off the map by a recovery vehicle,
  *  `recovered` by its own side at the end (held ground), `captured` by the enemy holding the ground, `lost`
@@ -1141,6 +1206,12 @@ export interface OffMapAsset {
   phase: "ready" | "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "waiting" | "hookUp" | "towing";
   /** M11.7b: the hull a recovery vehicle was called for. */
   target?: EntityId;
+  /** M11.9b (kind "mp", phase "loading"): the step at the collection point (`out`: its men taking over the guard and
+   *  the prisoners boarding; `mount`: its men getting back in), the prisoner walking to it and when he is aboard
+   *  (`doneTick` set once he is at the door), and how many it has taken aboard. */
+  mpStep?: "out" | "mount";
+  boarding?: { prisoner: EntityId; doneTick?: number; sinceTick: number };
+  taken?: number;
   /** M11.7b: hook-up work done (s, at full crew), when it began waiting short, the last tick its target was not
    *  quiet, whether the towed hull hangs on by its rear, and the bar length (hitch to the towed hull's centre, m). */
   hookDoneS?: number;

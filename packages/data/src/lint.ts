@@ -4,6 +4,9 @@
  */
 import { loadDataSet, type DataError, type DataSet } from "./loader";
 
+/** M11.9: item categories whose items must say `prisonerKeeps` (protective and personal kit, papers). */
+const PERSONAL_CATEGORIES: readonly string[] = ["armour", "kit", "medical", "identity", "load", "documents"];
+
 interface Prov { sources: string[]; confidence: string; note?: string | undefined; id?: string }
 
 export function lintDataSet(files: Record<string, unknown>): { data: DataSet | null; errors: DataError[] } {
@@ -63,6 +66,12 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
       for (const k of ["pace", "nearPace"] as const) if (!data.movementModes[D[k]]) errors.push({ file: "core/supply.json", path: `supply.delivery.${k}`, message: `unknown movement mode '${D[k]}'`, severity: "error" });
     }
   }
+  // Prisoners of war (M11.9): game values; search extracts at most.
+  if (data.prisoners) {
+    check("core/prisoners.json", "prisoners", data.prisoners.prisoners, false); notHigh("core/prisoners.json", "prisoners", data.prisoners.prisoners);
+    const MP = data.prisoners.prisoners.mp;
+    if (MP && MP.delayMinS > MP.delayMaxS) errors.push({ file: "core/prisoners.json", path: "prisoners.mp.delayMinS", message: "delayMinS above delayMaxS", severity: "error" });
+  }
   if (data.medical) {
     const m = data.medical, f = "core/medical.json";
     for (const [k, b] of [["physiology", m.physiology], ["levels", m.levels], ["chain", m.chain], ["protection", m.protection], ["triage", m.triage]] as const) { check(f, k, b, false); notHigh(f, k, b); }
@@ -115,11 +124,22 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
       const vt = pack.units[sup.template]?.vehicle;
       if (vt === undefined || pack.vehicles[vt]?.cargo === undefined) errors.push({ file: `${d}/manifest.json`, path: "supply.template", message: `'${sup.template}' is not the crew of a supply vehicle (one with cargo)`, severity: "error" });
     }
+    // Military police off the map (M11.9b): the template must crew a vehicle with passenger seats (room for prisoners).
+    const mp = pack.manifest.mp;
+    if (mp) {
+      const vt = pack.units[mp.template]?.vehicle;
+      if (vt === undefined || !(pack.vehicles[vt]?.seats ?? []).some((q) => q.station === "passenger")) errors.push({ file: `${d}/manifest.json`, path: "mp.template", message: `'${mp.template}' is not the crew of a vehicle with passenger seats`, severity: "error" });
+    }
     check(`${d}/names.json`, "names", pack.names, fx);
     check(`${d}/doctrine.json`, "doctrine", pack.doctrine, fx);
     Object.values(pack.ranks).forEach((x) => check(`${d}/ranks.json`, x.id, x, fx));
     Object.values(pack.roles).forEach((x) => { check(`${d}/roles.json`, x.id, x, fx); if (x.medical) notHigh(`${d}/roles.json`, x.id, x); });
     Object.values(pack.items).forEach((x) => { check(`${d}/items.json`, x.id, x, fx); if (x.medical || x.emblem) notHigh(`${d}/items.json`, x.id, x); });
+    // M11.9: every protective or personal item says whether a searched prisoner keeps it (GC III art. 18).
+    if (data.prisoners) for (const x of Object.values(pack.items)) {
+      if (PERSONAL_CATEGORIES.includes(x.category) && x.prisonerKeeps === undefined) errors.push({ file: `${d}/items.json`, path: x.id, message: `a '${x.category}' item must say prisonerKeeps (true or false)`, severity: "error" });
+      if (x.documents === true && x.prisonerKeeps === true) errors.push({ file: `${d}/items.json`, path: x.id, message: "military documents are taken in the search (prisonerKeeps false)", severity: "error" });
+    }
     Object.values(pack.units).forEach((x) => check(`${d}/units.json`, x.id, x, fx));
     Object.values(pack.weapons).forEach((x) => check(`${d}/weapons.json`, x.id, x, fx));
     // Vehicles (M7): provenance per vehicle and per block; power-to-weight within what tracked and wheeled

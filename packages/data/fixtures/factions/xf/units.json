@@ -34,6 +34,10 @@
             {
               "item": "xf-puff",
               "count": 1
+            },
+            {
+              "item": "xf-papers",
+              "count": 1
             }
           ],
           "weapon": "xf-blaster"
@@ -121,7 +125,12 @@
           "role": "carter",
           "rank": "boss",
           "seat": "carter",
-          "load": []
+          "load": [
+            {
+              "item": "xf-papers",
+              "count": 1
+            }
+          ]
         }
       ],
       "subunits": [],
@@ -176,7 +185,12 @@
           "role": "carter",
           "rank": "boss",
           "seat": "carter",
-          "load": []
+          "load": [
+            {
+              "item": "xf-papers",
+              "count": 1
+            }
+          ]
         }
       ],
       "subunits": [],
@@ -203,6 +217,10 @@
               "item": "xf-dart-tube",
               "count": 1,
               "charge": 1
+            },
+            {
+              "item": "xf-papers",
+              "count": 1
             }
           ],
           "weapon": "xf-blaster"
@@ -245,7 +263,12 @@
           "role": "boss",
           "rank": "boss",
           "seat": "cmd",
-          "load": []
+          "load": [
+            {
+              "item": "xf-papers",
+              "count": 1
+            }
+          ]
         },
         {
           "role": "slinger",
@@ -296,7 +319,12 @@
           "role": "carter",
           "rank": "boss",
           "seat": "carter",
-          "load": []
+          "load": [
+            {
+              "item": "xf-papers",
+              "count": 1
+            }
+          ]
         },
         {
           "role": "slinger",
@@ -321,7 +349,12 @@
           "role": "boss",
           "rank": "boss",
           "seat": "cmd",
-          "load": []
+          "load": [
+            {
+              "item": "xf-papers",
+              "count": 1
+            }
+          ]
         },
         {
           "role": "carter",

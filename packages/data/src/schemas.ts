@@ -859,6 +859,10 @@ export const FactionManifest = withProv({
   /** Supply vehicles off the map (M11.4b): battles with an off-map stock give the side `count` of this crew template's
    *  vehicle (a template with `vehicle`, a vehicle with `cargo`), waiting at the rear to be called for a delivery. */
   supply: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
+  /** Military police off the map (M11.9b): generated battles give each side `count` of this crew template's vehicle
+   *  (a template with `vehicle`, a vehicle with passenger seats), waiting at the rear to be called to a prisoner
+   *  collection point. */
+  mp: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -979,6 +983,12 @@ export const ItemSchema = withProv({
   /** Medical supplies (M10.1): tags matched by core/medical.json `consumes`; slower / less reliable than the
    *  reference item by these factors (e.g. a rubber tourniquet against the CAT). */
   medical: z.object({ tags: z.array(Id).min(1), timeFactor: Num(0.2, 5).default(1), successFactor: Num(0, 2).default(1) }).strict().optional(),
+  /** M11.9: a prisoner keeps it when he is searched (GC III art. 18: protective equipment, personal effects, identity
+   *  documents and tags). Absent or false: taken from him (weapons, ammunition, radios, sights, documents ...). Every
+   *  item of the categories armour, kit, medical, identity, load and documents says it explicitly (lint). */
+  prisonerKeeps: z.boolean().optional(),
+  /** M11.9: military papers (maps, orders, notebooks) a leader carries: taken in the search (`pow.documents`). */
+  documents: z.literal(true).optional(),
   /** A protective emblem worn by medical personnel (red cross armband). */
   emblem: z.literal(true).optional(),
 });
@@ -1471,3 +1481,64 @@ export const SupplyFile = z.object({
   }),
 }).strict();
 export type SupplyT = z.infer<typeof SupplyFile>;
+
+/**
+ * core/prisoners.json (M11.9, plan docs/plans/m11-mp-pow.md section 4; optional file): the prisoner collection point,
+ * the search, escorts and guards, segregation by rank. Game values (low) unless a source says more.
+ */
+export const PrisonersFile = z.object({
+  prisoners: withProv({
+    /** The prisoners are looked at every `stepS` (s). */
+    stepS: Num(0.1, 60),
+    /** The collection point: `backM` behind the platoon (between `minBackM` and `maxBackM`), searched within `searchM`
+     *  for a spot hidden from the enemy the platoon knows, never within `apartM` of the platoon's Verwundetennest or
+     *  supply point (both ways), nor within `enemyM` of a known enemy; checked every `checkS` (moved back when a known
+     *  enemy comes within `enemyM`). Men within `arriveM` of their spot are there. */
+    pcp: z.object({ backM: Num(10, 1000), searchM: Num(0, 500), minBackM: Num(0, 1000), maxBackM: Num(10, 2000), apartM: Num(0, 500), enemyM: Num(0, 2000), checkS: Num(1, 600), arriveM: Num(0.5, 20),
+      /** M11.9c: rounds landing within `fireM` of the point move it to a spot at least `fireClearM` from where they
+       *  landed (absent: only a known enemy moves it). */
+      fireM: Num(0, 500).optional(), fireClearM: Num(0, 1000).optional(),
+      /** Review fix: the spots it was moved away from are avoided for `fireMemoryS` (absent: only the latest). */
+      fireMemoryS: Num(0, 3600).optional() }).strict(),
+    /** The search: `seconds` a man, by a searcher within `reachM`; he takes up to `maxKg` himself, the rest goes into a
+     *  captured cache at the collection point when he gets there. */
+    search: z.object({ seconds: Num(1, 600), maxKg: Num(0, 200), reachM: Num(0.5, 10) }).strict(),
+    /** Escorts: one man walks up to `perGuard` prisoners of one group, `gapMinM`-`gapMaxM` behind them; none from a unit
+     *  fired on within `quietS` or in an assault, none leaving a unit below `minLeft` able men. */
+    escort: z.object({ perGuard: z.number().int().min(1).max(20), gapMinM: Num(0, 20), gapMaxM: Num(0, 50), quietS: Num(0, 600), minLeft: z.number().int().min(0).max(20) }).strict(),
+    /** Guards at the point: one per `perGuard` prisoners held there, standing `standM` from the prisoners; a guard fires
+     *  only in self-defence within `selfDefenceM`. */
+    guard: z.object({ perGuard: z.number().int().min(1).max(50), standM: Num(0, 50), selfDefenceM: Num(0, 500),
+      /** M11.9c: a fit man of the holding side within `watchM` who sees a prisoner keeps him from trying to escape. */
+      watchM: Num(0, 500).optional() }).strict(),
+    /** Segregation: officers (NATO code OF-*), NCOs (OR codes from `ncoFrom` up), men (the rest, and ranks without a
+     *  NATO code); each group has its own spot `apartM` from the others at the point. */
+    segregation: z.object({ ncoFrom: z.string().regex(/^OR-[1-9]$/), apartM: Num(0, 100) }).strict(),
+    /** M11.9c escapes (absent: none): a walking prisoner nobody of the holding side watches (`guard.watchM`, a view
+     *  through smoke of at least `seeMin`) tries once a minute with chance `perMinute`, times `darkFactor` below light
+     *  `darkBelowLight`, `smokeFactor` when the view across him lets through less than `smokeBelow`, `mixedFactor` with
+     *  a prisoner of another group within `mixedM`, `searchedFactor` once searched (stream "prisoners"). Enemies keep
+     *  the "surrendered" flag `graceSeconds`; he is free within `freeM` of a fit man of his side, recaptured within
+     *  `recaptureM` of a fit man of the holding side; he re-routes every `routeS`. */
+    escape: z.object({
+      perMinute: Num(0, 1), darkFactor: Num(0, 20), darkBelowLight: Num(0, 1), smokeFactor: Num(0, 20), smokeBelow: Num(0, 1), mixedFactor: Num(0, 20),
+      mixedM: Num(0, 50), searchedFactor: Num(0, 20), seeMin: Num(0, 1), graceSeconds: Num(0, 600), freeM: Num(0, 500), recaptureM: Num(0, 50), routeS: Num(1, 600),
+    }).strict().optional(),
+    /** M11.9c: prisoners kept more than `seconds` within `pcp.enemyM` of a known enemy or suppressed, without being
+     *  moved, are a `law.exposure` (absent: never recorded). */
+    exposure: z.object({ seconds: Num(1, 3600) }).strict().optional(),
+    /** The military police team off the map (M11.9b; absent: none is ever called): it comes on `delayMinS`-`delayMaxS`
+     *  after the call (stream "mp"), drives at `pace` (`nearPace` the last stretch) to `standM` short of the collection
+     *  point; it waits `waitShortM` short while the point is not quiet (a known enemy within `enemyNearM`, or a man
+     *  there suppressed within `quietS`), going back after `giveUpS` of waiting; at the point its men take over the
+     *  guard, each walking prisoner takes `loadS` to board (officers, then NCOs, then men); off the map within `edgeM`
+     *  of its entry (or `heldMaxS` after it set off); it is ready again `backS` after it left the map; a route not found
+     *  is tried again after `retryS`. */
+    mp: z.object({
+      delayMinS: Num(0, 7200), delayMaxS: Num(0, 7200), pace: Id, nearPace: Id, standM: Num(0, 200), waitShortM: Num(0, 2000),
+      enemyNearM: Num(0, 2000), quietS: Num(0, 3600), giveUpS: Num(0, 36000), loadS: Num(0, 600), backS: Num(0, 36000),
+      edgeM: Num(1, 200), heldMaxS: Num(10, 7200), retryS: Num(1, 600),
+    }).strict().optional(),
+  }),
+}).strict();
+export type PrisonersT = z.infer<typeof PrisonersFile>;

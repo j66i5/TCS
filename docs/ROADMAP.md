@@ -397,7 +397,7 @@ back (far casualties now reachable, no reassignment loops, the nest medic re-tag
 commander; numbers there. **M10 is complete** (all slices built, reviewed and fixed; the open targets above wait
 for the owner's numbers answer after playing, not for more building).
 
-- **M11 Logistics** (SPEC 9.2) 🔨 plan written 2026-11-16: `docs/plans/m11-logistics.md` (owner answers, measured
+- **M11 Logistics** (SPEC 9.2) ✅ (complete 2026-11-17 with MP/POW, slice 55) plan written 2026-11-16: `docs/plans/m11-logistics.md` (owner answers, measured
   consumption, slices 43-48 and 52; 49 and 50-51 in parallel sessions)
   - ✅ **M11.1 (slice 43)** consumption lab, moveCharge, ledger and conservation guard, packaging, loose rounds,
     refillMagazines, late arrival and `hold-resupply`, machine-gun rates (DECISIONS "M11.1"; balance points open)
@@ -430,7 +430,23 @@ for the owner's numbers answer after playing, not for more building).
     quiet squad's shortest half to an own cache in reach), the review's Logistics tab (fired by weapon type, delivered,
     taken, captured and lost, requests and waits, dry men, fuel; the M11.6-M11.7 rows moved there), batch logistics
     columns, `BattleResult.logistics`; balance on hold-resupply (DECISIONS "M11.8")
-  - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
+  - ✅ **M11.9a (slice 53)** prisoners: the platoon's prisoner collection point (sited behind it, hidden, wheeled-reachable,
+    50 m from its nest and supply point, 250 m from known enemies, moved back when threatened; `prisonerPoint`), the
+    search (30 s a man: weapons, ammunition, radios, sights, documents taken as counted items; `prisonerKeeps` items
+    kept; overflow into a captured cache at the point), groups by NATO rank code kept apart, escorts (one per 4 of one
+    group, the bearer filter, not under fire or in an assault; `escortPrisoners`), guards (one per 6, self-defence
+    only; `releaseGuard`), wounded prisoners carried to the captors' nest and evacuated with their wounded; card and
+    man-box lines, the point's marker; `lab -- prisoners`, `--scene prisoners` (DECISIONS "M11.9a")
+  - ✅ **M11.9b (slice 54)** the military police off the map (`OffMapKind` "mp"; DE Feldjägertrupp in a Dingo-class
+    hull, RU military police in a KamAZ "Patrul"; called at the first prisoner held or by "Call MP"; 15-30 min; waits
+    short under fire; takes over the guard; boards officers first, never over its places; evacuates off the map; a
+    second run for the rest; stranded = ordinary hull), roster `heldBy` / `powEvacuated`, `BattleResult.prisoners`,
+    `SideResult` counts, end settlement of men never taken (DECISIONS "M11.9b")
+  - ✅ **M11.9c (slice 55)** prisoners under fire (the point moved when rounds land within 30 m), `law.exposure`,
+    rare escapes (stream "prisoners", recapture, guards never fire, free beside his own side), the rule "Prisoners:
+    escort automatically / ask me", the AI's guards, battle record version 12, the Conduct tab's Prisoners block, the
+    batch line (DECISIONS "M11.9c"). **MP/POW done; M11 complete.** Optional slice 56 (more prisoners) waits for owner Q1.
+  - ✅ **Military police and prisoners of war** (owner request 2026-11-15; plan `docs/plans/m11-mp-pow.md`, slices 53-55; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):
     - *Prisoner collection point* behind each company, like the Verwundetennest: the capturing squad walks or

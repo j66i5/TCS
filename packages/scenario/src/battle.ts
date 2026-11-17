@@ -15,7 +15,7 @@ import {
 import { defaultRules, freeSpot, SIDES } from "./demo";
 import { allMembers, buildForceWithVehicles, withoutVehicles, type ForceVehicle } from "./forces";
 import { generateMap, type MapKind } from "./mapgen/index";
-import { addRecoveryAssets, addSupplyAssets, platoonTemplateOf, type CarrierClass } from "./vehicles";
+import { addMpAssets, addRecoveryAssets, addSupplyAssets, platoonTemplateOf, type CarrierClass } from "./vehicles";
 
 export interface ScenarioDef {
   kind: "platoon-attack";
@@ -74,6 +74,9 @@ export interface ScenarioDef {
   /** M11.7b: each side with vehicles of its own gets its faction's recovery vehicles off the map (manifest
    *  `recovery`), called to tow disabled hulls. Default true; false: none (comparisons, `--no-recovery`). */
   recovery?: boolean;
+  /** M11.9b: each side gets its faction's military police team off the map (manifest `mp`), called to its platoons'
+   *  prisoner collection points. Default true; false: none (comparisons, `--no-mp`). */
+  mp?: boolean;
   /** M11.1 (hold-resupply): the main objective at the building nearest the map's centre (the village centre). */
   hold?: boolean;
   /** Balance pass after M11: the defender's men dig in where they are sited in the first minutes (fighting positions,
@@ -267,6 +270,8 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     }
     // Recovery vehicles off the map (M11.7b): only for a side with vehicles of its own, after the ambulances.
     if (def.recovery !== false && (fv !== null || tv !== null)) addRecoveryAssets(data, catalog, force, def.seed * 47 + s * 19);
+    // The military police off the map (M11.9b): every side (built last of all in the battle: setup.ts).
+    if (def.mp !== false) addMpAssets(data, catalog, force, def.seed * 59 + s * 23);
     if (!attacking) {
       // What the defence sees from (dead ground for the attacker's start): its vehicles' sights and its men.
       const eye = (type: string) => { const vd = catalog.vehicles[type]; let z = vd?.body.heightM ?? 2.5; for (const q of vd?.seats ?? []) for (const k of q.sensors ?? []) z = Math.max(z, k.pos?.[2] ?? 0); return z; };

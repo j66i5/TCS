@@ -5,9 +5,10 @@
  * `ordersFor` turns it into the bar. Nothing selected: every button shown greyed (`none`). Pure: tested
  * without a DOM.
  */
-import { isAble, isOffMap, isOut, repairTaskFor, supportLeft, type Catalog, type EntityId, type SimView } from "@tcs/sim";
+import { isAble, isOffMap, isOut, mpLeft, repairTaskFor, supportLeft, type Catalog, type EntityId, type SimView } from "@tcs/sim";
 import type { OrderMode } from "./hud";
 import { supplySourceNear } from "./supply";
+import { prisonerSummary } from "./prisoners";
 
 export type Nature = "ap" | "he" | "mg";
 
@@ -51,6 +52,14 @@ export interface OrderSet {
   deliveryLeft?: number;
   /** "Restock" (M11.4b): the hull goes back for ammunition (its side has a stock). Absent: not offered. */
   supplyRun?: boolean;
+  /** "Escort prisoners" (M11.9a): the unit's prisoners wait for an escort. Absent: not offered. */
+  escortPrisoners?: boolean;
+  /** "Release guard" (M11.9a): men of the unit are on prisoner duty. Absent: not offered. */
+  releaseGuard?: boolean;
+  /** "Call MP" (M11.9b): the platoon holds prisoners; `mpLeft` military police teams wait off the map. Absent: not
+   *  offered. */
+  callMp?: boolean;
+  mpLeft?: number;
 }
 
 /** What the selected unit can do about vehicles now (M7.2). */
@@ -90,6 +99,14 @@ export interface UnitCapabilities {
   canRearRun?: boolean;
   /** The crew can start a field repair now (M11.7a): a task with its parts aboard, not already working at it. */
   canRepair?: boolean;
+  /** M11.9a: the platoon holds prisoners (or has a collection point): "Prisoner point" is offered. */
+  prisonerPoint?: boolean;
+  /** M11.9a: prisoners of the unit waiting for an escort, and its men on prisoner duty. */
+  powWaiting?: number;
+  /** M11.9b: the platoon holds prisoners (the military police can be called; `mpLeft` wait off the map). */
+  powHeld?: boolean;
+  mpLeft?: number;
+  powDuty?: number;
   /** A recovery vehicle can be called for this crew's hull (M11.7b): immobilised or abandoned, none coming yet, one
    *  waiting (`recoverLeft`). */
   canRecover?: boolean;
@@ -233,6 +250,17 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     const left = deliveriesLeft(view, catalog, u.side);
     if (left > 0 && u.members.length > 0 && u.vehicle === undefined) out.deliveryLeft = left;
   }
+  if (catalog.prisoners !== undefined && u.vehicle === undefined) {
+    // (M11.9a: the platoon's collection point once it holds prisoners; escorts and guards of the unit's own.)
+    let top = unitId;
+    for (let p = view.unit.get(top)?.parent ?? null; p !== null; p = view.unit.get(top)?.parent ?? null) top = p;
+    const mine = prisonerSummary(view, unitId);
+    if (mine.waiting > 0) out.powWaiting = mine.waiting;
+    if (mine.escorts + mine.guards > 0) out.powDuty = mine.escorts + mine.guards;
+    const held = prisonerSummary(view, top).total;
+    if (held > 0 || [...view.rear.entries()].some(([, r]) => r.kind === "prisoners" && r.unit === top)) out.prisonerPoint = true;
+    if (held > 0 && catalog.prisoners.mp !== undefined) { out.powHeld = true; out.mpLeft = mpLeft(view, u.side); }
+  }
   if (out.ableMen === 1) out.kind = "man";
   if (out.ableMen === 0) out.kind = "none"; // nobody left to take an order
   return out;
@@ -323,6 +351,18 @@ function vehicleOrders(vehicleClass: "tracked" | "wheeled", modes: Modes, boardi
  * Given a vehicle class or null (M7.1c form, kept for the planner): the full bar of that class.
  */
 export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, modes: Modes, boarding: BoardingChoice = { mount: false, dismount: false }): OrderSet {
+  const o = ordersForBase(cap, modes, boarding);
+  // (M11.9a: prisoners — the collection point in the Move tray, escorts now, a guard back to his squad.)
+  if (cap !== null && typeof cap !== "string" && cap.kind !== "none" && cap.kind !== "vehicle") {
+    if (cap.prisonerPoint === true && cap.own !== true) o.modes = [...o.modes, "prisoners"];
+    if ((cap.powWaiting ?? 0) > 0) o.escortPrisoners = true;
+    if ((cap.powDuty ?? 0) > 0) o.releaseGuard = true;
+    if (cap.powHeld === true) { o.callMp = true; o.mpLeft = cap.mpLeft ?? 0; }
+  }
+  return o;
+}
+
+function ordersForBase(cap: UnitCapabilities | "tracked" | "wheeled" | null, modes: Modes, boarding: BoardingChoice): OrderSet {
   if (cap === null) return { modes: FOOT_MODES, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: boarding.mount, dismount: boarding.dismount, discharge: false, nature: false };
   if (typeof cap === "string") return vehicleOrders(cap, modes, boarding);
   if (cap.kind === "none") return noOrders();

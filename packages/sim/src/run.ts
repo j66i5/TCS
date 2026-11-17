@@ -4,7 +4,10 @@ import { emptyLogistics, logisticsFromEvents, tracerMap, type SideLogistics } fr
 import { rosterStatus } from "./impair";
 import { isAssetUnit, isOffMap } from "./offmap";
 import { battleScore } from "./systems/objectives";
-import type { BattleInput, BattleResult, Controller, RunOptions, SaveGame, SideResult } from "./battle";
+import type { BattleInput, BattleResult, Controller, PrisonerResult, RunOptions, SaveGame, SideResult, UnitInput } from "./battle";
+import type { SimState } from "./state";
+import type { SimContext } from "./context";
+import { prisonerGroup } from "./systems/prisoners";
 import type { SimEventKind } from "./events";
 import { secondsToTicks, ticksToSeconds } from "./ids";
 import type { Order } from "./orders";
@@ -63,6 +66,7 @@ function summarize(
   eventCounts: Partial<Record<SimEventKind, number>>,
 ): BattleResult {
   const { state } = sim;
+  const prisoners = prisonersAtEnd(sim.ctx, state, input);
   const sides: SideResult[] = state.sides.map((sd) => {
     let start = 0, fit = 0, wounded = 0, killed = 0, surrendered = 0, captured = 0, evacuated = 0, dow = 0;
     // mounted: ok results count every man, aboard or not (not the crews of off-map assets, M10.6a: not of the force)
@@ -78,6 +82,14 @@ function summarize(
       else { wounded++; if (st === "evacuated") evacuated++; }
     }
     const out: SideResult = { side: sd.id, faction: sd.faction, soldiersStart: start, soldiersFit: fit, wounded, killed, surrendered, captured, ...(evacuated > 0 ? { evacuated } : {}), ...(dow > 0 ? { diedOfWounds: dow } : {}) };
+    // (M11.9b: the prisoners it holds, and those its military police took off the map.)
+    const taken = prisoners.filter((p) => p.holder === sd.id);
+    if (taken.length > 0) { out.prisonersTaken = taken.length; const ev = taken.filter((p) => p.evacuated === "mp").length; if (ev > 0) out.prisonersEvacuated = ev; }
+    // (Review fix: the enemy men who got away from it — escaped, freed by their own men, back with their side at the end.)
+    let escaped = 0;
+    // mounted: ok (a man who got away counts wherever he is)
+    for (const [, s] of state.soldier.entries()) if (s.freedFrom === sd.id) escaped++;
+    if (escaped > 0) out.prisonersEscaped = escaped;
     // Vehicles (M7): only for a side that has any, so infantry results keep their shape.
     let vs: NonNullable<SideResult["vehicles"]> | null = null;
     for (const [, v] of state.vehicle.entries()) {
@@ -121,10 +133,34 @@ function summarize(
     })),
     ...([...state.vehicle.values()].some((v) => v.offMap === undefined) || wrecks.length > 0 ? { wrecks } : {}),
     ...(caches.length > 0 ? { caches } : {}),
+    ...(prisoners.length > 0 ? { prisoners } : {}),
     orders,
     eventCounts,
     ...battleScore(sim.ctx, state),
   };
+}
+
+/**
+ * The prisoners each side holds at the end (M11.9b, `BattleResult.prisoners`): every living man held "captured" by a
+ * side (`captive.by`; the end settlement included), in entity order, with his roster place.
+ */
+export function prisonersAtEnd(ctx: SimContext, state: SimState, input: BattleInput): PrisonerResult[] {
+  const place = new Map<string, { unitKey: string; personIndex: number }>();
+  const walk = (u: UnitInput) => { u.members.forEach((m, i) => place.set(m.personId, { unitKey: u.key, personIndex: i })); u.subunits.forEach(walk); };
+  for (const f of input.forces) f.units.forEach(walk);
+  const out: PrisonerResult[] = [];
+  // mounted: ok results count every man, aboard or not
+  for (const [id, ident] of state.identity.entries()) {
+    const s = state.soldier.get(id), c = s?.captive;
+    if (!s || !c || c.state !== "captured" || c.by === undefined || !s.physiology.alive || isAssetUnit(state, ident.unit)) continue;
+    const at = place.get(ident.personId);
+    if (!at) continue;
+    out.push({
+      holder: c.by, side: ident.side, unitKey: at.unitKey, personIndex: at.personIndex, group: c.group ?? prisonerGroup(ctx, state, id), wounded: s.wounds.length > 0,
+      evacuated: c.evacTick !== undefined ? "mp" : s.evacuated !== undefined ? "medical" : "held", documents: c.documents ?? 0,
+    });
+  }
+  return out;
 }
 
 /** Save a running battle: simulation state plus each controller's memory. Plain data (JSON-safe). */

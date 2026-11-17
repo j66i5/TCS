@@ -18,5 +18,9 @@
   "recovery": {
     "template": "tug-crew",
     "count": 1
+  },
+  "mp": {
+    "template": "wagon-crew",
+    "count": 1
   }
 }

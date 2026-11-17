@@ -9,7 +9,7 @@ import { type ReviewTally, type SupplyReview, type MedicalSideSummary, MISSING_S
 import { attackStats, type AttackStats } from "@tcs/ai";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
-import { withoutRecovery } from "@tcs/scenario";
+import { withoutMp, withoutRecovery } from "@tcs/scenario";
 import { buildingsMarkdown, buildingsTally, type BuildingsTally } from "../buildings";
 import { lossTally } from "../vehicle-losses";
 
@@ -27,6 +27,8 @@ const noMedical = args["no-medical"] !== undefined;
 const noRepair = args["no-repair"] !== undefined;
 /** `--no-recovery` (M11.7b): no recovery vehicles (none built, `rules.recovery: false`), for comparison batches. */
 const noRecovery = args["no-recovery"] !== undefined;
+/** `--no-mp` (M11.9b): no military police off the map (none built), for comparison batches. */
+const noMp = args["no-mp"] !== undefined;
 /** `--no-resupply` (M11.1): no refilling of magazines and no resupply route (`rules.resupply: false`). */
 const noResupply = args["no-resupply"] !== undefined;
 /** `--no-deliveries` (M11.4b): resupply on foot only (no deliveries from off the map, no vehicle supply runs, no top-up). */
@@ -98,6 +100,9 @@ interface Row {
   supply: Record<string, SideRecord["supply"]>;
   /** M11.8: `BattleResult.logistics` (per side: consumed, delivered, captured, destroyed). */
   logistics: BattleResult["logistics"];
+  /** M11.9c per holding side: the battle record's prisoners block (`pow`: taken by group, searched, escorts, duty
+   *  seconds, handed to the military police and evacuated, escaped, still held at the end, ...). */
+  pow: Record<string, SideRecord["pow"]>;
   /** M11.8 per side: the orders `supplyPoint` and `resupplyAt` in the order stream (the commander's logistics and the player's). */
   supplyOrders: Record<string, { points: number; errands: number }>;
   role1: Record<string, SideRecord["role1"]>;
@@ -118,6 +123,7 @@ for (let i = 0; i < runs; i++) {
   if (noMedical) input.rules.medicalCare = false;
   if (noRepair) input.rules.repair = false;
   if (noRecovery) withoutRecovery(input);
+  if (noMp) withoutMp(input);
   if (noResupply) input.rules.resupply = false;
   if (noDeliveries) input.rules.deliveries = false;
   const s0 = performance.now();
@@ -262,6 +268,7 @@ for (let i = 0; i < runs; i++) {
     recovery: perSide((x) => x.recovery),
     supply: perSide((x) => x.supply),
     logistics: r.logistics,
+    pow: perSide((x) => x.pow),
     supplyOrders: Object.fromEntries(["blue", "red"].map((x) => [x, { points: r.orders.filter((o) => o.issuer === x && o.kind === "supplyPoint").length, errands: r.orders.filter((o) => o.issuer === x && o.kind === "resupplyAt").length }])),
     role1: perSide((x) => x.role1),
     settled: perSide((x) => x.settled),
@@ -293,6 +300,7 @@ const md = [
   `- Care of the wounded: ${noMedical ? "off (--no-medical)" : "on"}`,
   `- Field repair: ${noRepair ? "off (--no-repair)" : "on"}`,
   `- Recovery: ${noRecovery ? "off (--no-recovery)" : "on"}`,
+  `- Military police: ${noMp ? "off (--no-mp)" : "on"}`,
   `- Resupply: ${noResupply ? "off (--no-resupply)" : noDeliveries ? "on foot only (--no-deliveries)" : "on"}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   ...(timeOfDay !== null ? [`- Local time at the start: ${args["time"]} (moon ${args["moon"] ?? 0.5}; M9.1, light from the clock)`] : []),
@@ -303,6 +311,7 @@ const md = [
   `- Mean orders per battle: ${mean(rows.map((r) => r.orders)).toFixed(1)}`,
   `- Mean casualties per side: ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.casualties[s] ?? 0)).toFixed(2)}`).join(", ")}`,
   `- Mean surrendered or taken prisoner per side: ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.prisoners[s] ?? 0)).toFixed(2)}`).join(", ")}`,
+  `- Prisoners (M11.9c, battle record; per battle, by the holding side): ${["blue", "red"].map((s) => { const g = (f: (p: SideRecord["pow"]) => number) => mean(rows.map((r) => (r.pow[s] ? f(r.pow[s]!) : 0))); return `${s} taken ${g((p) => p.taken.officer + p.taken.nco + p.taken.man).toFixed(2)} (+${g((p) => p.settled).toFixed(2)} at the end), searched ${g((p) => p.searched).toFixed(2)}, escorts ${g((p) => p.escorts).toFixed(2)}, guard and escort minutes ${g((p) => p.dutyS / 60).toFixed(1)}, handed to MP ${g((p) => p.mp).toFixed(2)}, evacuated ${g((p) => p.evacuated).toFixed(2)} (wounded ${g((p) => p.medEvac).toFixed(2)}), escaped ${g((p) => p.escaped).toFixed(2)} (tried ${g((p) => p.escapes).toFixed(2)}), held at the end ${g((p) => p.heldEnd).toFixed(2)}, under fire ${g((p) => p.underFireS).toFixed(1)} s, exposures ${g((p) => p.exposures).toFixed(2)}, hits ${g((p) => p.hitsAimed + p.hitsIncidental).toFixed(2)}`; }).join("; ")}`,
   "",
   `- Winners: ${["blue", "red"].map((w) => `${w} ${rows.filter((r) => r.winner === w).length}`).join(", ")}, draw ${rows.filter((r) => r.winner === null).length}; mean score ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.scores[s] ?? 0)).toFixed(1)}`).join(", ")}`,
   "(Winner and score: objectives held at the end minus men down, M6; without objectives every battle is a draw.)",
@@ -458,8 +467,8 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noResupply ? "-no-resupply" : ""}${noDeliveries ? "-no-deliveries" : ""}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noMp ? "-no-mp" : ""}${noResupply ? "-no-resupply" : ""}${noDeliveries ? "-no-deliveries" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
-console.log(md.split("\n").slice(0, 20).join("\n"));
+console.log(md.split("\n").slice(0, 21).join("\n"));
 console.log(`\nWrote ${base}.md and .json`);

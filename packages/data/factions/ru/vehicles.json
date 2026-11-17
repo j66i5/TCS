@@ -4925,6 +4925,473 @@
         "confidence": "low",
         "note": "5 t payload across country (search extracts, low): what one delivery can carry."
       }
+    },
+    {
+      "id": "ru-kamaz-patrul-vp",
+      "nameKey": "vehicle.ru.kamaz-patrul-vp",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 6.9,
+        "widthM": 2.55,
+        "heightM": 2.9,
+        "groundClearanceM": 0.4,
+        "hull": {
+          "f": [
+            -3.45,
+            3.45
+          ],
+          "r": [
+            -1.275,
+            1.275
+          ],
+          "u": [
+            0.4,
+            2.9
+          ]
+        },
+        "wheelbaseM": 3.8,
+        "sources": [
+          "https://rg.ru/2023/02/14/voennaia-policiia-poluchila-bronirovannye-avtomobili-patrul.html",
+          "https://aif.ru/society/army/patrul",
+          "https://www.consultant.ru/document/cons_doc_LAW_176433/"
+        ],
+        "confidence": "low",
+        "note": "KamAZ-43502 'Patrul' class: about 6.9 x 2.55 x 2.9 m (game values from the chassis class; low). The hull box and wheelbase are game values."
+      },
+      "mass": {
+        "kg": 14000,
+        "sources": [
+          "https://rg.ru/2023/02/14/voennaia-policiia-poluchila-bronirovannye-avtomobili-patrul.html",
+          "https://aif.ru/society/army/patrul",
+          "https://www.consultant.ru/document/cons_doc_LAW_176433/"
+        ],
+        "confidence": "low",
+        "note": "KamAZ-43502 chassis class: about 14 t gross (search extracts; low)."
+      },
+      "drive": {
+        "powerKw": 191,
+        "efficiency": 0.75,
+        "topSpeedKmh": 90,
+        "reverseTopSpeedKmh": 12,
+        "brakeMps2": 5,
+        "gears": [
+          {
+            "toKmh": 10
+          },
+          {
+            "toKmh": 20
+          },
+          {
+            "toKmh": 35
+          },
+          {
+            "toKmh": 55
+          },
+          {
+            "toKmh": 90
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          }
+        ],
+        "shiftSeconds": 0.8,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 30,
+          "steerRateDegS": 30,
+          "maxLatAccelMps2": 3
+        },
+        "idleKw": 10,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://rg.ru/2023/02/14/voennaia-policiia-poluchila-bronirovannye-avtomobili-patrul.html",
+          "https://aif.ru/society/army/patrul",
+          "https://www.consultant.ru/document/cons_doc_LAW_176433/"
+        ],
+        "confidence": "low",
+        "note": "About 191 kW (260 hp diesel) and 90 km/h on roads (search extracts give the KamAZ-43502 engine class; low). Gear bands, braking, steering and fuel use are game values."
+      },
+      "fuel": {
+        "item": "ru-patrul-diesel",
+        "capacityL": 350
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            1.85,
+            0.5,
+            1.5
+          ],
+          "part": "hull",
+          "hatch": false,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                1.85,
+                0.5,
+                1.9
+              ],
+              "arcDeg": 180,
+              "sideFactor": 0.6,
+              "rearFactor": 0.05,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            1.85,
+            -0.5,
+            1.5
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "mp3",
+          "station": "loader",
+          "pos": [
+            0.8500000000000001,
+            0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p1",
+          "station": "passenger",
+          "pos": [
+            0.8500000000000001,
+            -0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p2",
+          "station": "passenger",
+          "pos": [
+            0.050000000000000044,
+            0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p3",
+          "station": "passenger",
+          "pos": [
+            0.050000000000000044,
+            -0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p4",
+          "station": "passenger",
+          "pos": [
+            -0.75,
+            0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p5",
+          "station": "passenger",
+          "pos": [
+            -0.75,
+            -0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p6",
+          "station": "passenger",
+          "pos": [
+            -1.5500000000000003,
+            0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p7",
+          "station": "passenger",
+          "pos": [
+            -1.5500000000000003,
+            -0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -4.25,
+            0.0
+          ],
+          [
+            1.85,
+            1.875
+          ],
+          [
+            1.85,
+            -1.875
+          ]
+        ],
+        "openSeconds": 1,
+        "mountSecondsPerMan": 3,
+        "dismountSecondsPerMan": 2,
+        "bailOutSeconds": 4,
+        "seatSwapSeconds": 10,
+        "loadCasualtySeconds": 40,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a rear door (prisoners in and out) and two cab doors."
+      },
+      "stations": [],
+      "stowed": [
+        {
+          "item": "ru-ak74-mag",
+          "count": 4,
+          "charge": 30
+        },
+        {
+          "item": "ru-zip",
+          "count": 1
+        }
+      ],
+      "sources": [
+        "https://rg.ru/2023/02/14/voennaia-policiia-poluchila-bronirovannye-avtomobili-patrul.html",
+        "https://aif.ru/society/army/patrul",
+        "https://www.consultant.ru/document/cons_doc_LAW_176433/"
+      ],
+      "confidence": "low",
+      "note": "M11.9b (plan docs/plans/m11-mp-pow.md 4.9, owner question Q4 option (a)): the military police section's armoured 'Patrul' (KamAZ-43502 chassis), off the map until called to a prisoner collection point. In 2023 military police units received 'Patrul' vehicles for 9-10 men (rg.ru, aif.ru extracts; medium for the vehicle, low for its prisoner role); 10 seats here (driver, commander, eight behind). Not a protected vehicle under the laws of war (no emblem).",
+      "signature": {
+        "sizeFactor": 0.9,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 250,
+        "noiseMovingM": 800,
+        "aimPoints": [
+          [
+            1.85,
+            0,
+            1.6
+          ],
+          [
+            -0.8,
+            0,
+            1.4
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a protected patrol vehicle."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 8,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 8,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 8,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 8,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "A protected patrol vehicle (protection against rifle rounds, search extracts): 8 mm armour-steel equivalent everywhere, game value (low)."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.9500000000000002,
+                3.25
+              ],
+              "r": [
+                -0.8,
+                0.8
+              ],
+              "u": [
+                0.6,
+                1.6
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 30,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.4500000000000002,
+                1.9500000000000002
+              ],
+              "r": [
+                -0.5,
+                0.5
+              ],
+              "u": [
+                0.5,
+                1.0
+              ]
+            },
+            "toughnessMm": 25,
+            "absorbMm": 20
+          },
+          {
+            "id": "wheels-left",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2.85,
+                2.85
+              ],
+              "r": [
+                -1.275,
+                -0.8749999999999999
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "wheels-right",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2.85,
+                2.85
+              ],
+              "r": [
+                0.8749999999999999,
+                1.275
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -0.5,
+                0.5
+              ],
+              "r": [
+                0.55,
+                1.05
+              ],
+              "u": [
+                0.5,
+                1.1
+              ]
+            },
+            "toughnessMm": 5,
+            "absorbMm": 10,
+            "fireChance": 0.3
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.1500000000000004,
+                1.5500000000000003
+              ],
+              "r": [
+                0.2,
+                0.7
+              ],
+              "u": [
+                1.4,
+                1.9
+              ]
+            },
+            "toughnessMm": 5,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: engine at the front under the bonnet, crew and passenger cell behind it; no fire suppression."
+      },
+      "repair": {
+        "tool": "ru-zip",
+        "parts": {
+          "wheels": [],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair as the other wheeled hulls (game values, low)."
+      }
     }
   ]
 }

@@ -62,6 +62,17 @@ function storeyBand(map: SimContext["map"], id: number, rel: number): [number, n
   return [f * H, (f + 1) * H];
 }
 
+/** M11.9c: a burst within `prisoners.pcp.fireM` of a prisoner collection point is noted on it (systems/prisoners.ts
+ *  moves the point and counts the seconds it was under fire). */
+export function notePointFire(ctx: SimContext, state: SimState, x: number, y: number): void {
+  const r = ctx.catalog.prisoners?.pcp.fireM;
+  if (r === undefined || r <= 0 || state.rear.size === 0) return;
+  for (const [, p] of state.rear.entries()) {
+    if (p.kind !== "prisoners" || (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) > r * r) continue;
+    p.fire = { tick: state.tick, x, y };
+  }
+}
+
 export function detonate(ctx: SimContext, state: SimState, events: EventSink, x: number, y: number, z: number, ammoIdx: number, owner: EntityId): void {
   const ammoId = ctx.catalog.ammoIds[ammoIdx]!;
   const def = ctx.catalog.ammo[ammoId];
@@ -79,6 +90,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   const severeR = BL.severeScaledM * cube, injuryR = BL.injuryScaledM * cube, stunR = BL.stunScaledM * cube;
   events.emit({ kind: "explosion", tick: state.tick, x, y, z, ammo: ammoId, owner, stunRadiusM: stunR });
   suppressByBurst(ctx, state, x, y, stunR, state.identity.get(owner)?.side);
+  notePointFire(ctx, state, x, y);
 
   // ---- blast
   // M7.6d (SPEC 3, an abstract effect): a thermobaric filling bursting in a room (or on its outer wall) fills it:

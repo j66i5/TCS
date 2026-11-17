@@ -225,18 +225,26 @@ export function unitMenRows(view: SimView, catalog: Catalog, unit: EntityId, own
 }
 
 /** What he is doing now, as a string key under `man.activity.` (and the pace when he moves). */
-export interface Activity { key: string; pace?: string; posture?: string }
+export interface Activity { key: string; pace?: string; posture?: string; /** M11.9a: prisoners he escorts or guards. */ n?: number }
 
 export function activityOf(view: SimView, id: EntityId): Activity {
   const s = view.soldier.get(id);
   if (!s) return { key: "unknown" };
-  if (s.captive !== null) return { key: s.captive.state };
+  // (M11.9a: a prisoner held at a collection point, or being searched.)
+  // (M11.9b: boarding the military police hull, aboard it, taken away by it.)
+  if (s.captive !== null) return { key: s.captive.escape !== undefined ? "powEscaping" : s.captive.evacTick !== undefined ? "powEvacuated" : s.captive.vehicle !== undefined ? (s.mount !== undefined ? "powAboard" : "boarding") : s.captive.point !== undefined && s.atNest === undefined ? "held" : s.captive.state };
   if (s.casualty === "killed" || !s.physiology.alive) return { key: "killed" };
   if (s.casualty === "incapacitated" || !isAble(s)) return { key: "incapacitated" };
   if (s.mount !== undefined) return { key: "aboard" };
   if (s.evade && view.tick >= s.evade.startTick && view.tick < s.evade.untilTick) return { key: "evading" };
   // Care (M10.2-M10.3b): treating himself or a comrade, dragging one into cover, on his way to one.
   const act = view.action.get(id);
+  // (M11.9a: searching a prisoner, escorting prisoners back, guarding them at the collection point.)
+  if (act?.kind === "searchPrisoner") return { key: "searching" };
+  if (s.guard !== undefined) {
+    if (s.guard.phase === "guard") { let n = 0; for (const [, x] of view.soldier.entries()) if (x.captive?.point === s.guard.point && x.physiology.alive && x.atNest === undefined && x.evacuated === undefined) n++; return { key: "guarding", n }; }
+    return { key: "escorting", n: s.guard.men.length };
+  }
   if (act?.kind === "treat") return { key: Number(act.params["casualty"]) === id ? "selfAid" : "treating" };
   // A man down (owner request 2026-11-15): checking him, taking his identity tag.
   if (act?.kind === "checkDown") return { key: "checking" };
@@ -358,7 +366,7 @@ export function fireChoiceRules(c: FireChoice, now: Pick<UnitRules, "fire" | "am
 export function settleRules(pend: Partial<UnitRules>, now: UnitRules, kind?: string): boolean {
   if (kind === "ambush") delete pend.ambush;
   if (kind === "rules") {
-    delete pend.fire; delete pend.maxEngageM; delete pend.onContact; delete pend.ammo; delete pend.at; delete pend.supply;
+    delete pend.fire; delete pend.maxEngageM; delete pend.onContact; delete pend.ammo; delete pend.at; delete pend.supply; delete pend.prisoners;
     if (pend.ambush === 0) delete pend.ambush;
   }
   for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === (now[k] ?? 0)) delete pend[k];
@@ -372,7 +380,7 @@ export function rulesOrder(base: { tick: number; issuer: string; target: EntityI
   return {
     ...base, kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}),
     ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}), ...(r.at ? { at: r.at } : {}),
-    ...(r.supply ? { supply: r.supply } : {}),
+    ...(r.supply ? { supply: r.supply } : {}), ...(r.prisoners ? { prisoners: r.prisoners } : {}),
   };
 }
 
@@ -432,6 +440,8 @@ export interface UnitCardModel {
   supplyAsk?: boolean;
   /** M11.5: the vehicle's fuel and what it is doing about supplies; absent: no vehicle. */
   fuel?: VehicleFuel;
+  /** M11.9a: the unit's prisoners and men on prisoner duty, as one line (`prisonerCardText`); absent: none. */
+  prisoners?: string;
 }
 
 export interface UnitCardCallbacks {
@@ -526,9 +536,13 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
   gunRow.dataset["row"] = "guns";
   gunRow.title = s.t("card.gun.title");
   gunRow.hidden = true;
+  // M11.9a: the unit's prisoners and its men on prisoner duty ("Prisoners 4 (1 NCO) · guard 1").
+  const powRow = h("div", "hud-seg hud-card-pow");
+  powRow.dataset["row"] = "prisoners";
+  powRow.hidden = true;
   let gunKey = "";
   const list = h("div", "hud-card-list");
-  root.append(head, paceRow, fireRow, gunRow, list);
+  root.append(head, paceRow, fireRow, gunRow, powRow, list);
 
   const store = (): Storage | null => { try { return globalThis.localStorage; } catch { return null; } };
   let detailed = false;
@@ -571,6 +585,8 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
       badge.hidden = !m.badge; badge.textContent = m.badge ?? "";
       bearersBtn.hidden = m.supplyAsk !== true;
       men.textContent = `${s.t("side.men", { fit: m.fit, total: m.total })} · ${m.state}`;
+      powRow.hidden = m.prisoners === undefined;
+      if (m.prisoners !== undefined && powRow.textContent !== m.prisoners) powRow.textContent = m.prisoners;
       const guns = [...(m.guns ?? []).map((g) => gunText(s, g)), ...(m.fuel ? [fuelText(s, m.fuel)] : [])];
       const gk = guns.join("\n");
       if (gk !== gunKey) {
@@ -691,6 +707,7 @@ export function createManBox(s: Strings, onClose: () => void): ManBox {
       const a = d.ammo;
       const act = d.activity;
       const doing = s.t(`man.activity.${act.key}`, {
+        n: act.n ?? 0,
         pace: act.pace ? s.t(`move.${act.pace}`) : "",
         posture: act.posture ? s.t(`card.posture.${act.posture}`) : "",
       });

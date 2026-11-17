@@ -5,6 +5,7 @@
       "nameKey": "item.ru-basic-load",
       "category": "load",
       "massKg": 8,
+      "prisonerKeeps": true,
       "sources": [],
       "confidence": "low",
       "note": "Aggregate placeholder for webbing, water, rations and small kit until M2.5 itemises it; rifle, magazines, helmet and vest are separate items."
@@ -85,6 +86,7 @@
       "nameKey": "item.ru-helmet",
       "category": "armour",
       "massKg": 1.1,
+      "prisonerKeeps": true,
       "armour": [
         {
           "zone": "head",
@@ -105,6 +107,7 @@
       "nameKey": "item.ru-vest",
       "category": "armour",
       "massKg": 7.8,
+      "prisonerKeeps": true,
       "armour": [
         {
           "zone": "chest",
@@ -183,6 +186,7 @@
       "nameKey": "item.ru-water",
       "category": "kit",
       "massKg": 0,
+      "prisonerKeeps": true,
       "chargeCapacity": 2000,
       "chargeMassKg": 0.0008,
       "water": true,
@@ -195,6 +199,7 @@
       "nameKey": "item.ru-rations",
       "category": "kit",
       "massKg": 0.8,
+      "prisonerKeeps": true,
       "sources": [],
       "confidence": "low",
       "note": "One day of rations. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
@@ -204,6 +209,7 @@
       "nameKey": "item.ru-ifak",
       "category": "kit",
       "massKg": 0.27,
+      "prisonerKeeps": true,
       "sources": [],
       "confidence": "low",
       "note": "The pouch of the individual first-aid kit; its contents are counted items since M10.1 (a rubber tourniquet, two IPP-1 dressings, haemostatic powder, a pain-relief syringe tube: 0.6 kg with the pouch, the old placeholder mass). 2011-model Russian kit contents from nordsint.org and CNA 2024 (search extracts; quantities one each, low)."
@@ -213,6 +219,7 @@
       "nameKey": "item.ru-webbing",
       "category": "kit",
       "massKg": 3.2,
+      "prisonerKeeps": true,
       "sources": [],
       "confidence": "low",
       "note": "Load-carrying vest or belt kit, pouches, small pack, weather clothing, tools. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
@@ -222,6 +229,7 @@
       "nameKey": "item.ru-nvg",
       "category": "kit",
       "massKg": 0.585,
+      "prisonerKeeps": false,
       "sensor": "night",
       "power": {
         "battery": "ru-nvg-battery",
@@ -254,6 +262,7 @@
       "nameKey": "item.ru-radio",
       "category": "kit",
       "massKg": 0.55,
+      "prisonerKeeps": false,
       "radio": true,
       "power": {
         "battery": "ru-radio-battery",
@@ -370,6 +379,7 @@
       "nameKey": "item.ru-tourniquet-rubber",
       "category": "medical",
       "massKg": 0.1,
+      "prisonerKeeps": true,
       "medical": {
         "tags": [
           "tourniquet"
@@ -388,6 +398,7 @@
       "nameKey": "item.ru-ipp1",
       "category": "medical",
       "massKg": 0.08,
+      "prisonerKeeps": true,
       "medical": {
         "tags": [
           "pressure-dressing"
@@ -404,6 +415,7 @@
       "nameKey": "item.ru-hemostatic-powder",
       "category": "medical",
       "massKg": 0.05,
+      "prisonerKeeps": true,
       "medical": {
         "tags": [
           "hemostatic"
@@ -422,6 +434,7 @@
       "nameKey": "item.ru-pain-syringe",
       "category": "medical",
       "massKg": 0.02,
+      "prisonerKeeps": true,
       "medical": {
         "tags": [
           "pain-injector"
@@ -438,6 +451,7 @@
       "nameKey": "item.ru-rescue-blanket",
       "category": "medical",
       "massKg": 0.06,
+      "prisonerKeeps": true,
       "medical": {
         "tags": [
           "blanket"
@@ -452,6 +466,7 @@
       "nameKey": "item.ru-litter",
       "category": "medical",
       "massKg": 7,
+      "prisonerKeeps": true,
       "medical": {
         "tags": [
           "litter"
@@ -466,6 +481,7 @@
       "nameKey": "item.ru-fr-bag",
       "category": "medical",
       "massKg": 0.4,
+      "prisonerKeeps": true,
       "sources": [],
       "confidence": "low",
       "note": "The rifleman-medic's (strelok-sanitar) bag, empty; contents counted in his load (three rubber tourniquets, six dressings, two haemostatic powders, two pain syringe tubes, a rescue blanket). Proposal: kit not found beyond the individual one (research 2026-11-14)."
@@ -475,6 +491,7 @@
       "nameKey": "item.ru-armband",
       "category": "medical",
       "massKg": 0.02,
+      "prisonerKeeps": true,
       "emblem": true,
       "sources": [
         "https://www.icrc.org/en/war-and-law/emblems"
@@ -510,6 +527,7 @@
       "nameKey": "item.ru-thermal-sight",
       "category": "kit",
       "massKg": 0.955,
+      "prisonerKeeps": false,
       "sensor": "thermal",
       "power": {
         "battery": "ru-thermal-battery",
@@ -540,6 +558,7 @@
       "nameKey": "item.ru-thermal-blanket",
       "category": "kit",
       "massKg": 0.8,
+      "prisonerKeeps": true,
       "thermalCover": 0.25,
       "sources": [],
       "confidence": "low",
@@ -704,6 +723,7 @@
       "nameKey": "item.ru-lichny-znak",
       "category": "identity",
       "massKg": 0.015,
+      "prisonerKeeps": true,
       "sources": [
         "https://www.kontur-extern.ru/info/normativ/document/1/8312-prikaz-ministra-oborony-rf-ot-05-11-2000-n-500",
         "https://harant.ru/questions/q-13226/"
@@ -1111,6 +1131,56 @@
       "sources": [],
       "confidence": "low",
       "note": "M11.5: a 20 l steel fuel can (kanistra; about 4.5 kg empty: general knowledge, no page could be opened here); the charge is litres of diesel. Poured into a tank by hand (core/supply.json refuel.jerrycanLpm)."
+    },
+    {
+      "id": "ru-dokumenty",
+      "nameKey": "item.ru-dokumenty",
+      "category": "documents",
+      "massKg": 0.3,
+      "prisonerKeeps": false,
+      "documents": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "M11.9 (plan slice 53): a leader's military papers (map, orders, notebook) as one counted item, 0.3 kg (game value, no source). Carried by every unit leader; taken from him when he is searched as a prisoner (GC III art. 18: military documents are taken; his identity documents and tag stay)."
+    },
+    {
+      "id": "ru-pkp-carried",
+      "nameKey": "weapon.ru-pkp",
+      "category": "weapon",
+      "massKg": 8.2,
+      "sources": [
+        "https://en.wikipedia.org/wiki/PKP_Pecheneg"
+      ],
+      "confidence": "low",
+      "note": "M11.9: the weapon as an item (taken from a prisoner in the search, or put away); the same mass as the weapon entry (weapons.json, its sources)."
+    },
+    {
+      "id": "ru-svd-carried",
+      "nameKey": "weapon.ru-svd",
+      "category": "weapon",
+      "massKg": 4.3,
+      "sources": [
+        "https://en.wikipedia.org/wiki/SVD_(rifle)",
+        "https://esp.fsvts.gov.ru/catalog/1030.en.html"
+      ],
+      "confidence": "medium",
+      "note": "M11.9: the weapon as an item (taken from a prisoner in the search, or put away); the same mass as the weapon entry (weapons.json, its sources)."
+    },
+    {
+      "id": "ru-patrul-diesel",
+      "nameKey": "item.ru-patrul-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 350,
+      "chargeMassKg": 0.84,
+      "chargeKind": "diesel",
+      "sources": [
+        "https://rg.ru/2023/02/14/voennaia-policiia-poluchila-bronirovannye-avtomobili-patrul.html",
+        "https://aif.ru/society/army/patrul",
+        "https://www.consultant.ru/document/cons_doc_LAW_176433/"
+      ],
+      "confidence": "low",
+      "note": "The military police 'Patrul's fuel tank (M11.9b): litres of diesel; 350 L (game value, low). Part of the hull (mass 0)."
     }
   ]
 }

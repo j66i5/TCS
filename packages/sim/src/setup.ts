@@ -4,7 +4,7 @@
  */
 import { lightAt } from "./light";
 import type { BattleInput, ForceInput, Placement, SoldierRecord, UnitInput, VehicleRecord } from "./battle";
-import type { DriveState, SoldierState, VehicleState } from "./components";
+import type { DriveState, OffMapKind, SoldierState, VehicleState } from "./components";
 import { CREW_STATION_ORDER } from "./mount";
 import { cos, sin } from "./math";
 import type { EntityId, SideId, DefId } from "./ids";
@@ -41,22 +41,9 @@ export function buildInitialState(input: BattleInput): SimState {
     for (const u of force.units) if ((u.arriveS ?? 0) <= 0 && (u.vehicleId === undefined || !offMap.has(u.vehicleId))) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
     seatPassengers(state, force, vehicles, input.catalog);
   }
-  // Off-map assets (M10.6a): their crews are nobody's to order; they wait at the off-map park until called.
-  for (const force of input.forces) {
-    if (!force.offMap || force.offMap.length === 0) continue;
-    const offMap = new Set(force.offMap.map((a) => a.vehicleId));
-    const placements = new Map(force.placements.map((p) => [p.personId, p]));
-    const vehicles = addVehicles(state, force, input.catalog, (id) => offMap.has(id));
-    for (const u of force.units) if (u.vehicleId !== undefined && offMap.has(u.vehicleId)) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
-    for (const a of force.offMap) {
-      const vid = vehicles.get(a.vehicleId);
-      if (vid === undefined) throw new Error(`off-map asset: no vehicle '${a.vehicleId}' in force ${force.side}`);
-      const v = state.vehicle.req(vid);
-      v.offMap = { kind: a.kind, phase: "ready" };
-      if (v.unit !== null) state.unit.req(v.unit).asset = a.kind;
-      parkOffMap(state, vid);
-    }
-  }
+  // Off-map assets (M10.6a): their crews are nobody's to order; they wait at the off-map park until called. (M11.9b:
+  // the military police come after everything else, below, so that no other entity moves its id.)
+  addOffMap(state, input, (k) => k !== "mp");
   // Crates and cans on the ground (M11.1): a place and a container (after everything else, so the other entities keep
   // their ids).
   // M11.3: each is a cache of its side (placed: it stays where it is); one marked `point` is the supply point of the
@@ -80,7 +67,29 @@ export function buildInitialState(input: BattleInput): SimState {
     const tu = force.stock.supportTopUp;
     state.stock.set(id, { side: force.side, ...(tu && tu.rounds > 0 && tu.everyS > 0 ? { topUp: { rounds: tu.rounds, everyS: tu.everyS }, nextTopUpTick: secondsToTicks(tu.everyS) } : {}) });
   }
+  // M11.9b: the military police off the map, last of all.
+  addOffMap(state, input, (k) => k === "mp");
   return state;
+}
+
+/** The forces' off-map assets of the kinds `which` takes: hulls, crews, parked off the map, waiting to be called. */
+function addOffMap(state: SimState, input: BattleInput, which: (kind: OffMapKind) => boolean): void {
+  for (const force of input.forces) {
+    const list = (force.offMap ?? []).filter((a) => which(a.kind));
+    if (list.length === 0) continue;
+    const offMap = new Set(list.map((a) => a.vehicleId));
+    const placements = new Map(force.placements.map((p) => [p.personId, p]));
+    const vehicles = addVehicles(state, force, input.catalog, (id) => offMap.has(id));
+    for (const u of force.units) if (u.vehicleId !== undefined && offMap.has(u.vehicleId)) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
+    for (const a of list) {
+      const vid = vehicles.get(a.vehicleId);
+      if (vid === undefined) throw new Error(`off-map asset: no vehicle '${a.vehicleId}' in force ${force.side}`);
+      const v = state.vehicle.req(vid);
+      v.offMap = { kind: a.kind, phase: "ready" };
+      if (v.unit !== null) state.unit.req(v.unit).asset = a.kind;
+      parkOffMap(state, vid);
+    }
+  }
 }
 
 /** A fresh drive state: standing still, no route. */
@@ -339,7 +348,8 @@ function addSoldier(
     s.posture = "prone";
   }
   // A prisoner record (M6.6) enters the battle out of the fight.
-  if (rec.status === "surrendered" || rec.status === "captured") { s.captive = { state: rec.status, tick: 0 }; s.mental.behaviour = "surrendered"; }
+  // (M11.9b: with the side holding him, `heldBy`.)
+  if (rec.status === "surrendered" || rec.status === "captured") { s.captive = { state: rec.status, tick: 0, ...(rec.heldBy !== undefined ? { by: rec.heldBy } : {}) }; s.mental.behaviour = "surrendered"; }
   // (Review fix: a record with recovery days was settled after an earlier battle: those wounds are not handed over
   // again, and his recovery days go out again unless new wounds are settled here. Wounds without them — a scenario
   // that starts with wounded men — are this battle's to settle.)
@@ -408,6 +418,9 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     // (A man not settled again keeps the recovery days he came in with; a new settlement covers all his wounds.)
     ...(dow === undefined && (s.aftercare?.recoveryDays ?? s.rosterIn?.recoveryDays) !== undefined ? { recoveryDays: s.aftercare?.recoveryDays ?? s.rosterIn!.recoveryDays } : {}),
     ...(dow !== undefined ? { diedOfWoundsTick: dow } : {}),
+    // (M11.9b: a prisoner's holder, and when the military police took him off the map.)
+    ...(s.captive?.state === "captured" && s.captive.by !== undefined ? { heldBy: s.captive.by } : {}),
+    ...(s.captive?.evacTick !== undefined ? { powEvacuated: s.captive.evacTick } : {}),
   };
 }
 

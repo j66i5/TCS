@@ -952,6 +952,25 @@ function carrierSelfDefence(ctx: SimContext, state: SimState, id: EntityId, s: S
 }
 
 /**
+ * A guard's or escort's fire (M11.9, owner question Q8 option (a): self-defence only): at the nearest threat he sees
+ * within `prisoners.guard.selfDefenceM` while he is not walking and not pinned (searching or guarding); otherwise none.
+ * Never at a prisoner (pickTarget skips men known to have given up).
+ */
+function guardSelfDefence(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState): void {
+  const cur = state.fire.get(id), m = state.mover.get(id);
+  const still = !m || m.waypoints.length === 0;
+  const R = ctx.catalog.prisoners?.guard.selfDefenceM ?? 50;
+  const pick = still && !isCowering(s) && s.impair.canFight && !state.action.has(id) ? pickTarget(ctx, state, id, s, R, false) : null;
+  // (M11.9c: never at a prisoner escaping, flag or not: GC III art. 42; our guards let him go.)
+  if (!pick || state.soldier.get(pick.target)?.captive?.escape !== undefined) { if (cur) state.fire.delete(id); return; }
+  if (cur?.contact === pick.target) return;
+  if (assignFireTask(ctx, state, id, pick.x, pick.y, aimHeightAt(ctx, pick))) {
+    const ft = state.fire.get(id)!;
+    ft.contact = pick.target; ft.self = true; ft.aimAuto = true;
+  }
+}
+
+/**
  * Not on top of a comrade (fire discipline, 2026-11-14): the last resort when every other spacing rule has failed
  * (two men from different squads sent to the same fold, a crawl ending where another man lies). A halted man
  * outdoors within `soldier.overlapM` of a halted man of his side on his level steps 2-3 m aside, sideways to the
@@ -1292,6 +1311,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (s.intent?.kind === "takePrisoner") continue;
     // Carrying a casualty (M10.4a; or walking out himself): out of the fight, firing only in self-defence.
     if (s.carrying !== undefined) { carrierSelfDefence(ctx, state, id, s); continue; }
+    // Escorting or guarding prisoners (M11.9, systems/prisoners.ts): out of the fight, firing only in self-defence.
+    if (s.guard !== undefined) { guardSelfDefence(ctx, state, id, s); continue; }
     // Gone to a wounded comrade (systems/medical.ts, M10.3a): he has left the fight and does not fire.
     if (s.intent?.kind === "care") continue;
     const m = state.mover.get(id);

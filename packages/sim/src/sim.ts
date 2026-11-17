@@ -30,6 +30,7 @@ import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
 import { ambushSystem } from "./systems/ambush";
+import { prisonersSystem } from "./systems/prisoners";
 import { surrenderSystem } from "./systems/surrender";
 import { medicalSystem } from "./systems/medical";
 import { nestSystem } from "./systems/nest";
@@ -37,6 +38,7 @@ import { evacuationSystem } from "./systems/evacuation";
 import { settleBattle } from "./systems/aftercare";
 import { rearRunSystem } from "./systems/rearrun";
 import { recoverySystem, settleVehicles, towSystem } from "./systems/recovery";
+import { mpSystem } from "./systems/mp";
 import { consolidateSystem } from "./systems/consolidate";
 import { requestSystem, supplySystem } from "./systems/supply";
 import { deliverySystem } from "./systems/delivery";
@@ -170,6 +172,7 @@ export function step(sim: Sim): SimEvent[] {
   contactSystem(ctx, state, events);
   // Surrender (M6.6): after contacts (what he knows is fresh), before any decision, drill or objective check.
   surrenderSystem(ctx, state, events);
+  prisonersSystem(ctx, state, events); // (M11.9)
   // Self-aid and buddy aid (M10.2): before decisions, so a man who starts treating is not given something else.
   medicalSystem(ctx, state, events);
   nestSystem(ctx, state, events);
@@ -178,6 +181,7 @@ export function step(sim: Sim): SimEvent[] {
   rearRunSystem(ctx, state, events);
   // Recovery vehicles' runs (M11.7b; once a second, returns at once without a run).
   recoverySystem(ctx, state, events);
+  mpSystem(ctx, state, events); // (M11.9b)
   // Redistribution in quiet squads, own casualties' ammunition after treatment, none left at the nest (M11.2).
   consolidateSystem(ctx, state, events);
   // Supply points and caches (M11.3): who sees them, capture, fire beside them, cook-offs (nothing without caches).

@@ -104,6 +104,12 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
         oneTapDone(a);
         return;
       }
+      if (mode === "prisoners") {
+        // Prisoner point (M11.9a): the selected unit's platoon has its prisoner collection point at the tapped point.
+        issue(a, { ...now(a, uid), kind: "prisonerPoint", x: w.x, y: w.y });
+        oneTapDone(a);
+        return;
+      }
       if (mode === "arc") {
         // Defend arc (D4b): the unit faces from its middle toward the tapped point and fires on its own only into it.
         const c = centreOf(placesOf(a, uid));

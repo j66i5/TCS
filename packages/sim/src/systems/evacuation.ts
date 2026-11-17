@@ -234,7 +234,8 @@ export function waitingAt(state: SimState, pid: EntityId, men: readonly EntityId
   const out: EntityId[] = [];
   for (const c of men) {
     const s = state.soldier.get(c);
-    if (!s || s.atNest !== pid || !s.physiology.alive || isMounted(s) || s.captive !== null || state.carry.has(c)) continue;
+    // (M11.9: a prisoner at his captors' nest goes with their wounded, by urgency alone.)
+    if (!s || s.atNest !== pid || !s.physiology.alive || isMounted(s) || (s.captive !== null && s.captive.unit === undefined) || state.carry.has(c)) continue;
     out.push(c);
   }
   const cat = (c: EntityId) => state.soldier.req(c).triage?.cat ?? 2;
@@ -496,7 +497,7 @@ export function evacuateAboard(ctx: SimContext, state: SimState, events: EventSi
     let woundedTick = state.tick;
     for (const w of s.wounds) woundedTick = Math.min(woundedTick, w.tickInflicted);
     events.emit({ kind: "medical.evacuated", tick: state.tick, side: v.side, casualty: sid, vehicle: vid, woundedTick, via });
-    handOver(ctx, state, events, sid, "own", state.tick);
+    handOver(ctx, state, events, sid, s.captive !== null ? "captor" : "own", state.tick);
     n++;
   }
   return n;

@@ -42,6 +42,7 @@
       "type": "machine-gun",
       "calibre": "7.62x51",
       "massKg": 11.6,
+      "weaponItem": "de-mg5-carried",
       "feed": {
         "magazine": "de-mg5-belt"
       },
@@ -83,6 +84,7 @@
       "type": "marksman-rifle",
       "calibre": "7.62x51",
       "massKg": 7.9,
+      "weaponItem": "de-g28-carried",
       "feed": {
         "magazine": "de-g28-mag"
       },

@@ -56,6 +56,10 @@ export interface SoldierRecord {
   recoveryDays?: number;
   /** He died of his wounds after the battle, at this battle tick (M10.6b; it may lie after the battle's end). */
   diedOfWoundsTick?: number;
+  /** M11.9b: a "captured" man: the side holding him (placed in a later battle he is its prisoner from the first tick). */
+  heldBy?: SideId;
+  /** M11.9b: the battle tick the holder's military police took him off the map (an evacuated prisoner). */
+  powEvacuated?: number;
 }
 
 export interface UnitInput {
@@ -168,10 +172,21 @@ export interface SideResult {
   /** Of the wounded and prisoners (M10.6b): died of their wounds after the battle (roster status "killed" with
    *  `diedOfWoundsTick`; not in `killed`, which counts the men killed in the battle). Absent: none. */
   diedOfWounds?: number;
+  /** M11.9b (absent: none): the enemy men this side took prisoner in the battle and holds at the end (end settlement
+   *  included), how many of them its military police took off the map, and how many escaped from it (M11.9c). */
+  prisonersTaken?: number;
+  prisonersEvacuated?: number;
+  prisonersEscaped?: number;
   /** Vehicles (M7): how many started and how they ended; absent for a force without vehicles. */
   vehicles?: { start: number; ok: number; immobilised: number; disarmed: number; abandoned: number; destroyed: number; captured: number;
     /** M11.7b (absent: none): towed off the map in the battle; recovered by the own side at the end. */
     towed?: number; recovered?: number };
+}
+
+/** A prisoner at the end of a battle (M11.9b, `BattleResult.prisoners`). */
+export interface PrisonerResult {
+  holder: SideId; side: SideId; unitKey: string; personIndex: number;
+  group: "officer" | "nco" | "man"; wounded: boolean; evacuated: "mp" | "medical" | "held"; documents: number;
 }
 
 export interface BattleResult {
@@ -195,6 +210,11 @@ export interface BattleResult {
    *  items by item id, litres by fuel kind), from the events of this run (`ledger.ts` `logisticsFromEvents`; a run
    *  continued from a save counts from there). Input for M12 and M13; `forcesOut` carries the loads. */
   logistics?: SideLogistics[];
+  /** M11.9b: the prisoners each side holds at the end (absent: none): who holds him (`holder`), his own side and roster
+   *  place (`unitKey`, `personIndex` among the unit's members), his group, wounded, how he left the battle (`mp`: taken
+   *  off the map by the holder's military police; `medical`: by the holder's medical chain, wounded; `held`: still
+   *  held on the map at the end), and the documents items taken from him. Input for M12 (roster) and M13 (intelligence). */
+  prisoners?: PrisonerResult[];
   /** Full order stream, including orders produced by controllers during the battle. */
   orders: Order[];
   eventCounts: Partial<Record<SimEventKind, number>>;

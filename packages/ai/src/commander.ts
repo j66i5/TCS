@@ -251,7 +251,7 @@ const moraleReady = (u: { morale?: { state: string; value: number } }) =>
   u.morale === undefined || (u.morale.state !== "pinned" && u.morale.state !== "broken" && u.morale.value >= COMMANDER.assaultMinMorale);
 /** M10.5: a man carrying a casualty back, gone to one, or on his way to (or at) the Verwundetennest is not the
  *  commander's to task (an order to him alone would take him out of it). */
-const committed = (s: SoldierState | undefined) => s !== undefined && (s.carrying !== undefined || s.atNest !== undefined || s.intent?.kind === "care");
+const committed = (s: SoldierState | undefined) => s !== undefined && (s.carrying !== undefined || s.atNest !== undefined || s.intent?.kind === "care" || s.guard !== undefined);
 
 /** The men of a unit and its sub-units, vehicle crews left out (they fight from their vehicles). */
 function members(view: SimView, uid: EntityId): EntityId[] {

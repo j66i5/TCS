@@ -24,7 +24,9 @@ export function isOffMap(v: { readonly offMap?: { readonly phase: OffMapAsset["p
 }
 
 /** Is this man off the map (aboard an off-map vehicle)? */
-export function isOffMapMan(state: SimView, s: Pick<SoldierState, "mount"> | undefined): boolean {
+export function isOffMapMan(state: SimView, s: Pick<SoldierState, "mount" | "captive"> | undefined): boolean {
+  // (M11.9b: a prisoner the military police took off the map stays off it, aboard its hull, whatever it does next.)
+  if (s?.captive?.evacTick !== undefined) return true;
   const vid = s?.mount?.vehicle;
   return vid !== undefined && isOffMap(state.vehicle.get(vid));
 }

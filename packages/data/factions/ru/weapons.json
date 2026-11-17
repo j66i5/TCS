@@ -42,6 +42,7 @@
       "type": "marksman-rifle",
       "calibre": "7.62x54R",
       "massKg": 4.3,
+      "weaponItem": "ru-svd-carried",
       "feed": {
         "magazine": "ru-svd-mag"
       },
@@ -114,6 +115,7 @@
       "type": "machine-gun",
       "calibre": "7.62x54R",
       "massKg": 8.2,
+      "weaponItem": "ru-pkp-carried",
       "feed": {
         "magazine": "ru-pkp-belt"
       },

@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]|repair [seeds]|batteries [seed] [speedup]|consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-consolidate]|redistribute [trials]|cache [trials]|resupply [distances, e.g. 200,400]|rearm` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]|repair [seeds]|batteries [seed] [speedup]|consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-consolidate]|redistribute [trials]|cache [trials]|resupply [distances, e.g. 200,400]|rearm|prisoners [runs] [--part 1,2,3,4]` prints the lab tables and writes them to reports/. */
 import { buildCatalog } from "@tcs/data";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -40,6 +40,7 @@ import { redistributeLab, redistributeLabMarkdown } from "../labs/redistribute";
 import { cacheBurnLab, cacheChanceLab, cacheLabMarkdown } from "../labs/cache";
 import { resupplyLab, resupplyLabMarkdown, vehicleResupplyLab, vehicleResupplyLabMarkdown } from "../labs/resupply";
 import { rearmLab, rearmLabMarkdown } from "../labs/rearm";
+import { escapeLab, escapeLabMarkdown, fireLab, fireLabMarkdown, mpLab, mpLabMarkdown, prisonersLab, prisonersLabMarkdown } from "../labs/prisoners";
 import { loadData, SCENARIOS } from "../scenarios";
 
 const LABS: Record<string, () => string> = {
@@ -51,6 +52,23 @@ const LABS: Record<string, () => string> = {
   cache: () => { const n = Number(process.argv[3] ?? 40), d = loadData(); return `# Cache lab (M11.3)\n\n${cacheLabMarkdown(cacheChanceLab(d, n), cacheBurnLab(d), n)}\n`; },
   redistribute: () => `# Redistribution lab (M11.2)\n\n${redistributeLabMarkdown(redistributeLab(loadData(), Number(process.argv[3] ?? 4)))}\n`,
   rearm: () => `# Re-arming and refuelling lab (M11.5)\n\n${rearmLabMarkdown(rearmLab(loadData()))}\n`,
+  // M11.9a: `lab -- prisoners [runs]` (part 1: search, segregation, escorts, guards, the point, wounded to the nest).
+  // M11.9b: part 2 (the military police: delay, drive, take-over, boarding order, places, evacuation, a second run);
+  // `--part 1|2` for one part, `--mp-runs n` battles per faction for part 2 (default 10).
+  // M11.9c: part 3 (rounds landing near the point and 300 m away; `--fire-runs n` per faction and kind, default 10) and
+  // part 4 (escapes: day, night, searched, smoke, guarded; `--escape-seeds n` runs of 100 prisoners x 30 min each,
+  // default 2). `--part` takes a list (e.g. `--part 3,4`).
+  prisoners: () => {
+    const d = loadData(), cat = buildCatalog(d, ["de", "ru"]);
+    const parts = (argValue("--part") ?? "1,2,3,4").split(","), mpRuns = Number(argValue("--mp-runs") ?? 10);
+    const fireRuns = Number(argValue("--fire-runs") ?? 10), escSeeds = Number(argValue("--escape-seeds") ?? 2);
+    const n1 = process.argv[3] !== undefined && /^\d+$/.test(process.argv[3]) ? Number(process.argv[3]) : 20;
+    const p1 = !parts.includes("1") ? "" : `## Part 1: taken to held (M11.9a)\n\n${prisonersLabMarkdown(prisonersLab(d, n1), cat)}\n\n`;
+    const p2 = !parts.includes("2") ? "" : `## Part 2: the military police (M11.9b)\n\n${mpLabMarkdown(mpLab(d, mpRuns), cat)}\n\n`;
+    const p3 = !parts.includes("3") ? "" : `## Part 3: under fire (M11.9c)\n\n${fireLabMarkdown(fireLab(d, fireRuns), cat)}\n\n`;
+    const p4 = !parts.includes("4") ? "" : `## Part 4: escapes (M11.9c)\n\n${escapeLabMarkdown(escapeLab(d, escSeeds), cat)}\n`;
+    return `# Prisoners lab (M11.9)\n\n${p1}${p2}${p3}${p4}`;
+  },
   resupply: () => { const d = (process.argv[3] ?? "400").split(",").map(Number); return `# Resupply lab (M11.4a-b)\n\n## On foot (M11.4a)\n\n${resupplyLabMarkdown(resupplyLab(loadData(), d))}\n\n## By vehicle and from off the map (M11.4b)\n\n${vehicleResupplyLabMarkdown(vehicleResupplyLab(loadData(), d))}\n`; },
   movement: () => `# Movement and fatigue lab\n\n${movementLabMarkdown(movementLab(loadData()))}\n`,
   carry: () => `# Carry lab\n\n${carryLabMarkdown(carryLab(loadData()))}\n`,
@@ -104,3 +122,9 @@ const dir = fileURLToPath(new URL("../../../../reports", import.meta.url));
 mkdirSync(dir, { recursive: true });
 // (M11.1: the consumption lab keeps every run: reports/consumption-<stamp>.md.)
 writeFileSync(name === "consumption" ? `${dir}/consumption-${new Date().toISOString().replace(/[:.]/g, "-")}.md` : `${dir}/lab-${name}.md`, md);
+
+/** The value after `flag` on the command line (M11.9b), if any. */
+function argValue(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}

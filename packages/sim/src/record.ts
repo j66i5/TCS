@@ -17,9 +17,10 @@ import { isAble } from "./impair";
 import { isAssetUnit } from "./offmap";
 import type { SimView } from "./state";
 import { newReviewTally, tallyReview, type ReviewTally } from "./review";
+import { rankGroup } from "./systems/prisoners";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 11;
+export const RECORD_VERSION = 12;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -120,6 +121,29 @@ export interface SideRecord {
   conduct: { breaches: BreachEntry[]; misidentified: number; deliberate: number; hits: Record<string, { aimed: number; incidental: number }>; /** Orders to fire at a recognised protected target the men refused (owner Q-7; M10.8). */ refused: number;
     /** M11.4b: ammunition put into a marked ambulance (a breach; optional): when and which hull. */
     misuse?: { tick: number; vehicle: string; ordered: boolean }[] };
+  /** M11.9c (version 12): the prisoners this side HELD (the Conduct tab's Prisoners block, the batch's Prisoners line). */
+  pow: PowRecord;
+}
+
+/**
+ * Prisoners held by a side (M11.9c, plan 4.12), from the events: taken in battle by group; searched and what was taken
+ * (weapons, rounds, documents); escorts sent and each prisoner's walk (escort sent to held at the point, s); seconds
+ * its men spent on prisoner duty (escorting, guarding: out of the fight); wounded prisoners treated by its men, carried
+ * to its nest and evacuated with its wounded; handed to its military police and taken off the map; escape attempts,
+ * escaped (free), recaptured; seconds a point of its was under fire with prisoners held; exposures (`law.exposure`) and
+ * hits on its prisoners (aimed, incidental: by anyone); taken at the end (surrendered men on ground it held) and still
+ * held at the end (on the map).
+ */
+export interface PowRecord {
+  taken: { officer: number; nco: number; man: number }; searched: number; weapons: number; rounds: number; documents: number;
+  escorts: number; walkS: number[]; dutyS: number; treated: number; carried: number; medEvac: number; mp: number; evacuated: number;
+  escapes: number; escaped: number; recaptured: number; underFireS: number; exposures: number; hitsAimed: number; hitsIncidental: number;
+  settled: number; heldEnd: number;
+}
+
+export function newPowRecord(): PowRecord {
+  return { taken: { officer: 0, nco: 0, man: 0 }, searched: 0, weapons: 0, rounds: 0, documents: 0, escorts: 0, walkS: [], dutyS: 0, treated: 0, carried: 0, medEvac: 0, mp: 0, evacuated: 0,
+    escapes: 0, escaped: 0, recaptured: 0, underFireS: 0, exposures: 0, hitsAimed: 0, hitsIncidental: 0, settled: 0, heldEnd: 0 };
 }
 
 /**
@@ -167,6 +191,9 @@ export interface BattleRecord {
   track: Record<string, CareTrack>;
   /** M11.8: unit id -> tick of its open request for ammunition (cleared when it is answered). Optional. */
   asks?: Record<string, number>;
+  /** M11.9c: prisoner id -> tick his escort was sent (his walk to the point); man id -> tick his prisoner duty began. */
+  powWalk: Record<string, number>;
+  powDuty: Record<string, number>;
   /** Filled by `finishRecord`. */
   end: { tick: number; reason: BattleEndReason; winner: string | null; loser: string | null } | null;
 }
@@ -194,12 +221,13 @@ export function newSideRecord(): SideRecord {
     role1: { men: 0, t1: 0, t1InTime: 0, captor: 0, dow: 0, dowH: [], recoveryD: [] },
     settled: { evacuated: 0, captured: 0, prisoner: 0, stays: 0 },
     conduct: { breaches: [], misidentified: 0, deliberate: 0, hits: {}, refused: 0 },
+    pow: newPowRecord(),
   };
 }
 
 /** An empty record for a battle between these sides. */
 export function newBattleRecord(sides: readonly string[]): BattleRecord {
-  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, review: newReviewTally(), sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, ambCall: {}, evacuated: {}, track: {}, asks: {}, end: null };
+  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, review: newReviewTally(), sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, ambCall: {}, evacuated: {}, track: {}, asks: {}, powWalk: {}, powDuty: {}, end: null };
 }
 
 /** A record read back from a save, or null if it is from another version (the review then starts afresh). */
@@ -263,6 +291,7 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       case "surrendered": case "captured": case "surrender.walk": case "surrender.crawl": {
         if (e.kind === "surrender.crawl") { const r = side(e.side); if (r) r.down.surrenderCrawled++; }
         const id = view.identity.get(e.soldier);
+        if (e.kind === "captured" && e.again === true) break;
         if (id) rec.timeline.push({ tick: e.tick, side: id.side, key: `timeline.${e.kind}`, name: id.family, callsign: callsignOf(e.soldier) });
         break;
       }
@@ -486,6 +515,7 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
     }
     if (e.kind === "items.taken" && e.source === "cache" && view.cache.has(e.from)) { const r = side(sideOfMan(e.to))?.supply; if (r) r.roundsTaken += e.rounds; }
     logisticsFold(rec, e, view, catalog);
+    powFold(rec, e, view, catalog);
     if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
       const r = side(view.vehicle.get(e.vehicle)?.side);
       if (r) { if (e.kind === "vehicle.reaction" && e.reaction === "reverseOut") r.crews.reversedOut++; else if (e.kind === "vehicle.fire") r.crews.fires++; else if (e.kind === "vehicle.extinguished") r.crews.firesOut++; }
@@ -581,6 +611,87 @@ function logisticsFold(rec: BattleRecord, e: SimEvent, view: SimView, catalog: C
         r.open = Object.keys(asks).filter((k) => view.unit.get(Number(k))?.side === sd.id).length;
       }
       break;
+    default: break;
+  }
+}
+
+/**
+ * The prisoners' part of the record (M11.9c): by the HOLDING side (the captor's side for "captured", `by` on the pow
+ * events, the prisoner's `captive.by` in the view for care, hits and the end).
+ */
+function powFold(rec: BattleRecord, e: SimEvent, view: SimView, catalog: Catalog): void {
+  const P = (sd: string | undefined) => (sd === undefined ? undefined : rec.sides[sd]?.pow);
+  const sideOf = (id: EntityId) => view.identity.get(id)?.side;
+  const holderOf = (id: EntityId) => { const c = view.soldier.get(id)?.captive; return c && c.state === "captured" ? c.by : undefined; };
+  const dutyEnd = (id: EntityId, tick: number) => {
+    const k = String(id), t0 = rec.powDuty[k];
+    if (t0 === undefined) return;
+    delete rec.powDuty[k];
+    const r = P(sideOf(id));
+    if (r) r.dutyS += ticksToSeconds(tick - t0);
+  };
+  switch (e.kind) {
+    case "captured": {
+      const r = P(sideOf(e.by)), id = view.identity.get(e.soldier);
+      if (r && id && e.again !== true) r.taken[rankGroup(catalog, id.faction, id.rank)]++;
+      break;
+    }
+    case "pow.searched": { const r = P(sideOf(e.by)); if (r) { r.searched++; r.weapons += e.weapons; r.rounds += e.rounds; r.documents += e.documents; } break; }
+    case "pow.escort": {
+      const r = P(e.side);
+      if (r) r.escorts++;
+      rec.powDuty[String(e.escort)] ??= e.tick;
+      for (const m of e.prisoners) rec.powWalk[String(m)] ??= e.tick;
+      break;
+    }
+    case "pow.held": {
+      const k = String(e.soldier), t0 = rec.powWalk[k];
+      if (t0 !== undefined) { delete rec.powWalk[k]; const r = P(sideOf(e.escort ?? -1) ?? holderOf(e.soldier)); if (r) r.walkS.push(Math.round(ticksToSeconds(e.tick - t0))); }
+      break;
+    }
+    case "pow.guard":
+      if (e.phase === "guard") rec.powDuty[String(e.soldier)] ??= e.tick;
+      else dutyEnd(e.soldier, e.tick);
+      break;
+    case "medical.treated": { const h = holderOf(e.casualty); if (h !== undefined && sideOf(e.by) === h) { const r = P(h); if (r) r.treated++; } break; }
+    case "medical.evac": { if (e.phase === "arrived") { const h = holderOf(e.casualty); const r = P(h); if (r) r.carried++; } break; }
+    case "medical.evacuated": { const r = P(holderOf(e.casualty)); if (r) r.medEvac++; break; }
+    case "pow.boarded": { const r = P(e.by); if (r) r.mp++; break; }
+    case "pow.evacuated": { const r = P(e.by); if (r) r.evacuated++; break; }
+    case "pow.escape": {
+      const r = P(e.by);
+      if (r) { if (e.phase === "started") r.escapes++; else if (e.phase === "free") r.escaped++; else if (e.phase === "recaptured") r.recaptured++; }
+      if (e.phase === "started" || e.phase === "free") {
+        const id = view.identity.get(e.soldier);
+        if (id) rec.timeline.push({ tick: e.tick, side: id.side, key: e.phase === "started" ? "timeline.powEscape" : "timeline.powFree", name: id.family, callsign: view.unit.get(id.unit)?.callsign ?? "" });
+      }
+      break;
+    }
+    case "pow.underFire": { const r = P(e.side); if (r) r.underFireS++; break; }
+    case "law.exposure": { const r = P(e.side); if (r) r.exposures++; break; }
+    case "law.hit": {
+      if (e.protection !== "prisoner") break;
+      const r = P(holderOf(e.target) ?? view.vehicle.get(e.target)?.side);
+      if (r) { if (e.aimed) r.hitsAimed++; else r.hitsIncidental++; }
+      break;
+    }
+    case "pow.settled": { if (e.outcome === "captured") { const r = P(e.holder); if (r) r.settled++; } break; }
+    // (Review fix: the wounded the medical settlement captures at the end are taken at the end too, so that "held at the
+    // end" never shows more than were taken.)
+    case "medical.settled": { if (e.outcome === "captured") { const r = P(e.holder); if (r) r.settled++; } break; }
+    case "battle.ended": {
+      for (const k of Object.keys(rec.powDuty)) dutyEnd(Number(k), e.tick);
+      // mounted: ok (a prisoner aboard a military police hull on the map is still held)
+      for (const [id, s] of view.soldier.entries()) {
+        const c = s.captive;
+        if (!c || c.state !== "captured" || c.by === undefined || c.escape !== undefined || c.evacTick !== undefined || s.evacuated !== undefined || !s.physiology.alive) continue;
+        const ident = view.identity.get(id);
+        if (!ident || isAssetUnit(view, ident.unit)) continue;
+        const r = P(c.by);
+        if (r) r.heldEnd++;
+      }
+      break;
+    }
     default: break;
   }
 }

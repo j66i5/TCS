@@ -159,8 +159,8 @@ function runTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: num
   return true;
 }
 
-/** Put a man in a seat (from outside). */
-function seatIn(state: SimState, def: VehicleDef, vid: EntityId, seat: number, sid: EntityId, events: EventSink): void {
+/** Put a man in a seat (from outside; M11.9b: exported for the military police hull). */
+export function seatIn(state: SimState, def: VehicleDef, vid: EntityId, seat: number, sid: EntityId, events: EventSink): void {
   const v = state.vehicle.req(vid), t = state.transform.req(vid), mt = state.transform.req(sid), s = state.soldier.req(sid);
   v.seats[seat] = sid;
   s.mount = { vehicle: vid, seat };

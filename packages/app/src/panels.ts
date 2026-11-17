@@ -5,7 +5,7 @@
 import { atRuleOf, fuelLitres, isOut, launcherOf, aglRoundsLeft, mortarTeams, teamRounds, navFor, repairWorkers, supportLeft, ticksToSeconds, vehicleItems, workRate, type EntityId } from "@tcs/sim";
 import { shownCallsigns } from "@tcs/render";
 import { endPlan } from "./orders";
-import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleFuel, vehicleGuns, woundedRows, settleRules, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
+import { ambulanceRows, droneOrders, manDetail, prisonerCardText, prisonerSummary, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleFuel, vehicleGuns, woundedRows, settleRules, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
 import type { App } from "./app";
 import { centreOn, startFollow } from "./camera";
 import { ambulanceCallerName, droneMode, fmtClock, hqMode, localClock, selectedMen, selPart, sideColour, sideName, vehicleClassOf } from "./units";
@@ -63,7 +63,7 @@ export function showCard(a: App, tiles: UnitTile[] = unitTiles(a.sim.state, a.pl
     state += ` · ${a.strings.t("card.teamRow")}: ${a.strings.t(mt.guide ? "card.team.guiding" : `card.team.${mt.state}`, { rounds })}`;
   }
   // (The same callsign in two platoons: "1/Puma 2", as on the map; review fix.)
-  hud.setCard({ callsign: shownCallsigns(a.sim.state.unit.entries()).get(uid) ?? tile.callsign, ...(hq ? { badge: a.strings.t("side.hq") } : {}), fit: tile.fit, total: tile.total, state, men, guns: vehicleGuns(a.sim.state, a.input.catalog, uid), ...((f) => (f ? { fuel: f } : {}))(vehicleFuel(a.sim.state, a.input.catalog, uid)), ...(a.sim.state.unit.get(uid)?.supplyAsk?.pending === true ? { supplyAsk: true } : {}) });
+  hud.setCard({ callsign: shownCallsigns(a.sim.state.unit.entries()).get(uid) ?? tile.callsign, ...(hq ? { badge: a.strings.t("side.hq") } : {}), fit: tile.fit, total: tile.total, state, men, guns: vehicleGuns(a.sim.state, a.input.catalog, uid), ...((f) => (f ? { fuel: f } : {}))(vehicleFuel(a.sim.state, a.input.catalog, uid)), ...(a.sim.state.unit.get(uid)?.supplyAsk?.pending === true ? { supplyAsk: true } : {}), ...((t) => (t !== null ? { prisoners: t } : {}))(prisonerCardText(a.strings, prisonerSummary(a.sim.state, uid))) });
   hud.setInspected(a.inspected);
   hud.showMan(a.inspected === null ? null : manDetail(a.sim.state, a.input.catalog, a.inspected));
 }
@@ -88,7 +88,7 @@ export function selectAndCentre(a: App, uid: EntityId): void {
 function rulesNow(a: App, uid: EntityId): UnitRules | null {
   const u = a.sim.state.unit.get(uid);
   if (!u) return null;
-  return { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, a.sim.state, uid), ambush: u.ambush?.rangeM ?? 0, supply: u.supplyRule ?? "auto" };
+  return { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, a.sim.state, uid), ambush: u.ambush?.rangeM ?? 0, supply: u.supplyRule ?? "auto", prisoners: u.prisonerRule ?? "auto" };
 }
 
 /**

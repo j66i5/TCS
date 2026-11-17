@@ -4649,6 +4649,451 @@
         "confidence": "low",
         "note": "5 t payload class (UTF 5 t gl, 'geländegängig'; search extracts, low): what one delivery can carry."
       }
+    },
+    {
+      "id": "de-dingo2-feldjaeger",
+      "nameKey": "vehicle.de.dingo2-feldjaeger",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 6.1,
+        "widthM": 2.4,
+        "heightM": 2.5,
+        "groundClearanceM": 0.4,
+        "hull": {
+          "f": [
+            -3.05,
+            3.05
+          ],
+          "r": [
+            -1.2,
+            1.2
+          ],
+          "u": [
+            0.4,
+            2.5
+          ]
+        },
+        "wheelbaseM": 3.35,
+        "sources": [
+          "https://www.bundeswehr.de/de/organisation/streitkraeftebasis/feldjaegertruppe",
+          "https://defensearchives.de/development-and-variants-of-the-dingo-1-and-2",
+          "https://de.wikipedia.org/wiki/ATF_Dingo"
+        ],
+        "confidence": "low",
+        "note": "Dingo 2 class: about 6.1 x 2.4 x 2.5 m (search extracts give 6.08 m long, 2.39 m wide; medium at best, kept low). The hull box and wheelbase are game values."
+      },
+      "mass": {
+        "kg": 12500,
+        "sources": [
+          "https://www.bundeswehr.de/de/organisation/streitkraeftebasis/feldjaegertruppe",
+          "https://defensearchives.de/development-and-variants-of-the-dingo-1-and-2",
+          "https://de.wikipedia.org/wiki/ATF_Dingo"
+        ],
+        "confidence": "low",
+        "note": "Dingo 2 class: about 12.5 t gross (search extracts give 11.9-12.5 t; low)."
+      },
+      "drive": {
+        "powerKw": 162,
+        "efficiency": 0.75,
+        "topSpeedKmh": 90,
+        "reverseTopSpeedKmh": 12,
+        "brakeMps2": 5,
+        "gears": [
+          {
+            "toKmh": 10
+          },
+          {
+            "toKmh": 20
+          },
+          {
+            "toKmh": 35
+          },
+          {
+            "toKmh": 55
+          },
+          {
+            "toKmh": 90
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 30,
+          "steerRateDegS": 30,
+          "maxLatAccelMps2": 3
+        },
+        "idleKw": 10,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://www.bundeswehr.de/de/organisation/streitkraeftebasis/feldjaegertruppe",
+          "https://defensearchives.de/development-and-variants-of-the-dingo-1-and-2",
+          "https://de.wikipedia.org/wiki/ATF_Dingo"
+        ],
+        "confidence": "low",
+        "note": "About 162 kW (220 hp diesel) and 90 km/h on roads (search extracts; low). Gear bands, braking, steering and fuel use are game values."
+      },
+      "fuel": {
+        "item": "de-dingo2-diesel",
+        "capacityL": 220
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            1.4499999999999997,
+            0.5,
+            1.5
+          ],
+          "part": "hull",
+          "hatch": false,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                1.4499999999999997,
+                0.5,
+                1.9
+              ],
+              "arcDeg": 180,
+              "sideFactor": 0.6,
+              "rearFactor": 0.05,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            1.4499999999999997,
+            -0.5,
+            1.5
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "mp3",
+          "station": "loader",
+          "pos": [
+            0.44999999999999973,
+            0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p1",
+          "station": "passenger",
+          "pos": [
+            0.44999999999999973,
+            -0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p2",
+          "station": "passenger",
+          "pos": [
+            -0.3500000000000003,
+            0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p3",
+          "station": "passenger",
+          "pos": [
+            -0.3500000000000003,
+            -0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p4",
+          "station": "passenger",
+          "pos": [
+            -1.1500000000000004,
+            0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p5",
+          "station": "passenger",
+          "pos": [
+            -1.1500000000000004,
+            -0.5,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -3.8499999999999996,
+            0.0
+          ],
+          [
+            1.4499999999999997,
+            1.7999999999999998
+          ],
+          [
+            1.4499999999999997,
+            -1.7999999999999998
+          ]
+        ],
+        "openSeconds": 1,
+        "mountSecondsPerMan": 3,
+        "dismountSecondsPerMan": 2,
+        "bailOutSeconds": 4,
+        "seatSwapSeconds": 10,
+        "loadCasualtySeconds": 40,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a rear door (prisoners in and out) and two cab doors."
+      },
+      "stations": [],
+      "stowed": [
+        {
+          "item": "de-g36-mag",
+          "count": 4,
+          "charge": 30
+        },
+        {
+          "item": "de-bordwerkzeug",
+          "count": 1
+        }
+      ],
+      "signature": {
+        "sizeFactor": 0.9,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 250,
+        "noiseMovingM": 800,
+        "aimPoints": [
+          [
+            1.4499999999999997,
+            0,
+            1.6
+          ],
+          [
+            -0.8,
+            0,
+            1.4
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a protected patrol vehicle."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 12,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 12,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 12,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 12,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "A protected patrol vehicle (mine and ballistic protection against rifle rounds): 12 mm armour-steel equivalent everywhere, game value (low)."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.5499999999999998,
+                2.8499999999999996
+              ],
+              "r": [
+                -0.8,
+                0.8
+              ],
+              "u": [
+                0.6,
+                1.6
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 30,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.0499999999999998,
+                1.5499999999999998
+              ],
+              "r": [
+                -0.5,
+                0.5
+              ],
+              "u": [
+                0.5,
+                1.0
+              ]
+            },
+            "toughnessMm": 25,
+            "absorbMm": 20
+          },
+          {
+            "id": "wheels-left",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2.4499999999999997,
+                2.4499999999999997
+              ],
+              "r": [
+                -1.2,
+                -0.7999999999999999
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "wheels-right",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2.4499999999999997,
+                2.4499999999999997
+              ],
+              "r": [
+                0.7999999999999999,
+                1.2
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -0.5,
+                0.5
+              ],
+              "r": [
+                0.575,
+                1.075
+              ],
+              "u": [
+                0.5,
+                1.1
+              ]
+            },
+            "toughnessMm": 5,
+            "absorbMm": 10,
+            "fireChance": 0.3
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                0.75,
+                1.15
+              ],
+              "r": [
+                0.2,
+                0.7
+              ],
+              "u": [
+                1.4,
+                1.9
+              ]
+            },
+            "toughnessMm": 5,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: engine at the front under the bonnet, crew and passenger cell behind it; no fire suppression."
+      },
+      "sources": [
+        "https://www.bundeswehr.de/de/organisation/streitkraeftebasis/feldjaegertruppe",
+        "https://defensearchives.de/development-and-variants-of-the-dingo-1-and-2",
+        "https://de.wikipedia.org/wiki/ATF_Dingo"
+      ],
+      "confidence": "low",
+      "note": "M11.9b (plan docs/plans/m11-mp-pow.md 4.9, owner question Q4 option (a)): the Feldjaegertrupp's protected vehicle, off the map until called to a prisoner collection point. The ATF Dingo is in Feldjaeger service with police lights and a hardtop (search extracts: bundeswehr.de, defensearchives.de; medium); the Dingo 2 seats up to 8 (driver, commander, six behind; search extracts, low). Not a protected vehicle under the laws of war (no emblem).",
+      "repair": {
+        "tool": "de-bordwerkzeug",
+        "parts": {
+          "wheels": [],
+          "radio": []
+        },
+        "sources": [],
+        "confidence": "low",
+        "note": "M11.7a field repair as the other wheeled hulls (game values, low)."
+      }
     }
   ]
 }

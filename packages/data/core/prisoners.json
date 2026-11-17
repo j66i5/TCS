@@ -1,0 +1,80 @@
+{
+  "prisoners": {
+    "stepS": 1,
+    "pcp": {
+      "backM": 150,
+      "searchM": 40,
+      "minBackM": 100,
+      "maxBackM": 200,
+      "apartM": 50,
+      "enemyM": 250,
+      "checkS": 10,
+      "arriveM": 2,
+      "fireM": 30,
+      "fireClearM": 60,
+      "fireMemoryS": 300
+    },
+    "search": {
+      "seconds": 30,
+      "maxKg": 15,
+      "reachM": 2
+    },
+    "escort": {
+      "perGuard": 4,
+      "gapMinM": 3,
+      "gapMaxM": 5,
+      "quietS": 30,
+      "minLeft": 2
+    },
+    "guard": {
+      "perGuard": 6,
+      "standM": 5,
+      "selfDefenceM": 50,
+      "watchM": 25
+    },
+    "segregation": {
+      "ncoFrom": "OR-5",
+      "apartM": 10
+    },
+    "escape": {
+      "perMinute": 0.02,
+      "darkFactor": 2,
+      "darkBelowLight": 0.3,
+      "smokeFactor": 2,
+      "smokeBelow": 0.7,
+      "mixedFactor": 2,
+      "mixedM": 5,
+      "searchedFactor": 0.5,
+      "seeMin": 0.3,
+      "graceSeconds": 10,
+      "freeM": 30,
+      "recaptureM": 5,
+      "routeS": 10
+    },
+    "exposure": {
+      "seconds": 60
+    },
+    "mp": {
+      "delayMinS": 900,
+      "delayMaxS": 1800,
+      "pace": "walk",
+      "nearPace": "walk",
+      "standM": 15,
+      "waitShortM": 300,
+      "enemyNearM": 250,
+      "quietS": 60,
+      "giveUpS": 1200,
+      "loadS": 20,
+      "backS": 1800,
+      "edgeM": 20,
+      "heldMaxS": 900,
+      "retryS": 30
+    },
+    "sources": [
+      "https://www.globalsecurity.org/military/library/policy/army/fm/3-19-40/ch3.htm",
+      "https://www.icrc.org/en/doc/assets/files/publications/icrc-002-0173.pdf"
+    ],
+    "confidence": "low",
+    "note": "M11.9a (plan docs/plans/m11-mp-pow.md, slice 53). Research from search extracts only (pages could not be opened from the container), so nothing here is above medium, and every number is a game value (low). The order of the steps (search, segregate, speed to the rear, safeguard) follows the US/NATO 'five S' doctrine extracts (FM 3-19.40); the capturing unit guards its prisoners until relieved and takes them to a collecting point, non-walking wounded go to the nearest medical aid post (FM 3-19.40 extracts, medium). GC III art. 18 (extracts): personal effects, protective equipment and identity documents stay with him; weapons, military equipment and military documents are taken (item field prisonerKeeps). The collection point 100-200 m behind the platoon (backM 150), 50 m apart from the Verwundetennest and the supply point, 250 m from known enemies: plan values. The search 30 s a man, the searcher taking up to 15 kg (the rest into a captured cache at the point): plan values. One escort per 4 prisoners of one group on the move, one guard per 6 at the point: no sourced figure found (owner question Q3; the recommended option (a) built). A guard fires only in self-defence within 50 m (owner question Q8; option (a) built, the medic rule's gate). Officers OF-*, NCOs from OR-5 (NATO STANAG 2116 codes in ranks.json); a rank without a code counts as a man; groups 10 m apart at the point (plan). Segregation of officers from other ranks is GC III camp practice (art. 79/97 by memory, not confirmed by the extracts: low). M11.9b military police (mp): called when the point holds its first prisoner (or by the player), it comes on 900-1800 s later (owner question Q6, option (a) 15-30 min built; game value, low), drives at the 'walk' pace as the ambulance (about 30 % of its top speed), stops 15 m short of the point, waits 300 m short while the point is not quiet (a known enemy within 250 m, or a man there suppressed within 60 s; the recovery vehicle's rule), goes back after 1200 s of waiting; each walking prisoner boards in 20 s (registration and loading; plan value), officers first, then NCOs, then men; ready again 1800 s after it left the map (the trip to the rear and back). The MP takes over the guard at the point (the capturing unit guards its prisoners until relieved, FM 3-19.40 extracts, medium; MPs take prisoners over as far forward as possible, ibid.). M11.9c: the point is moved (unless the player placed it) when rounds land within pcp.fireM 30 m of it (a burst there, or rounds cracking past a man held or guarding there), to a spot at least fireClearM 60 m from where they landed (plan values). A side keeping prisoners for more than exposure.seconds 60 within enemyM of a known enemy or suppressed without moving them commits law.exposure (GC III art. 19/23: not unnecessarily exposed to danger while awaiting evacuation; extracts, medium; the 60 s is a plan value, low). Escapes (owner question Q5, option (a) built: rare, from unguarded prisoners, more at night or in smoke): a walking prisoner with no fit man of the holding side within guard.watchM 25 m who sees him (sight through smoke at least seeMin) rolls once a minute against escape.perMinute 0.02, times darkFactor 2 when the light is below darkBelowLight, smokeFactor 2 when the view across him lets through less than smokeBelow, mixedFactor 2 when a prisoner of another group stands within mixedM (leaders organise), searchedFactor 0.5 once searched; stream 'prisoners'. All game values (low): no sourced escape rate found. Enemies who see him keep the 'surrendered' flag for graceSeconds 10 (GC III art. 42: weapons against escaping prisoners only as an extreme measure, preceded by warnings; extracts, medium); he is free when he reaches a fit man of his side within freeM 30 m, recaptured when a fit man of the holding side comes within recaptureM 5 m; he re-routes every routeS 10 s. Review fixes: the spots a point was moved away from under fire are avoided for pcp.fireMemoryS 300 s (at most four; game value, low); a searcher puts what he took beyond search.maxKg 15 kg into a captured cache where he searched (the plan's 15 kg), not at the point; the military police is called when the point has its first prisoner taken (held there or on the way), not only once one is held (GC III art. 19: as soon as possible)."
+  }
+}

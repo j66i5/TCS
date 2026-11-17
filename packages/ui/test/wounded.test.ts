@@ -53,7 +53,8 @@ describe("woundedRows and nestMarkers (M10.5)", () => {
   it("M10.6a: the side's ambulances: waiting ones counted, runs listed with the minutes left and the men aboard; evacuated men listed without Back", () => {
     const sim2 = createSim(getScenario("platoon").build(loadData(), 1, 600));
     const s2 = sim2.state;
-    const own = [...s2.vehicle.entries()].filter(([, v]) => v.side === "blue" && v.offMap !== undefined);
+    // (M11.9b: the military police wait off the map too; ambulances only here.)
+    const own = [...s2.vehicle.entries()].filter(([, v]) => v.side === "blue" && v.offMap?.kind === "ambulance");
     expect(own.length).toBe(2);
     expect(ambulanceRows(s2, "blue")).toEqual({ rows: [], ready: 2 });
     const [vid, v] = own[0]!;

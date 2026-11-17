@@ -91,6 +91,10 @@ export interface ItemTypeDef {
   medical?: { tags: string[]; timeFactor: number; successFactor: number };
   /** A protective emblem (red cross armband, M10.1): a man wearing one is marked as medical personnel. */
   emblem?: true;
+  /** M11.9: a prisoner keeps it when searched (helmet, vest, water, rations, first aid, tag, armband ...). */
+  prisonerKeeps?: true;
+  /** M11.9: military papers a leader carries (taken in the search). */
+  documents?: true;
 }
 
 export type MovementClass = "foot" | "wheeled" | "tracked";
@@ -860,6 +864,9 @@ export interface FactionDef {
   /** The identity tag every man carries (owner request 2026-11-15): `perMan` of `item` each, `taken` of them taken
    *  from a man confirmed dead. Absent: no tags. */
   identityTag?: { item: DefId; perMan: number; taken: number };
+  /** M11.9: each rank's NATO code (ranks.json `natoCode`; ranks without one are absent): a prisoner's group
+   *  (officer, NCO, man) comes from it. */
+  natoCodes?: Record<DefId, string>;
 }
 
 export interface FormationDef {
@@ -1050,6 +1057,8 @@ export interface Catalog {
   /** Supply points and caches (core/supply.json, M11.3); absent: caches are plain containers (no capture, no
    *  cook-off, no supply orders). */
   supply?: SupplyDef;
+  /** Prisoners of war (core/prisoners.json, M11.9); absent: a prisoner stays where he was taken (as before M11.9). */
+  prisoners?: PrisonersDef;
   items: Record<DefId, ItemTypeDef>;
   movementModes: Record<DefId, MovementModeDef>;
   qualities: Record<DefId, QualityDef>;
@@ -1188,6 +1197,21 @@ export interface SupplyDef {
   refuel?: { jerrycanLpm: number; pumpLpm: number; setupS: number; callBelow: number; keepL: number };
   /** M11.5: on-map mortar teams fetch rounds from a cache (absent: they do not). */
   mortarFetch?: { checkS: number; below: number; reachM: number; carryKg: number; secondsPerRound: number };
+}
+/** Prisoners of war (core/prisoners.json, M11.9) without provenance; see the schema (data/src/schemas.ts). */
+export interface PrisonersDef {
+  stepS: number;
+  pcp: { backM: number; searchM: number; minBackM: number; maxBackM: number; apartM: number; enemyM: number; checkS: number; arriveM: number; /** M11.9c */ fireM?: number; fireClearM?: number; /** review fix */ fireMemoryS?: number };
+  search: { seconds: number; maxKg: number; reachM: number };
+  escort: { perGuard: number; gapMinM: number; gapMaxM: number; quietS: number; minLeft: number };
+  guard: { perGuard: number; standM: number; selfDefenceM: number; /** M11.9c */ watchM?: number };
+  segregation: { ncoFrom: string; apartM: number };
+  /** M11.9c: escapes (absent: none). */
+  escape?: { perMinute: number; darkFactor: number; darkBelowLight: number; smokeFactor: number; smokeBelow: number; mixedFactor: number; mixedM: number; searchedFactor: number; seeMin: number; graceSeconds: number; freeM: number; recaptureM: number; routeS: number };
+  /** M11.9c: `law.exposure` after this long (absent: never). */
+  exposure?: { seconds: number };
+  /** M11.9b: the military police team off the map (absent: none is called). */
+  mp?: { delayMinS: number; delayMaxS: number; pace: DefId; nearPace: DefId; standM: number; waitShortM: number; enemyNearM: number; quietS: number; giveUpS: number; loadS: number; backS: number; edgeM: number; heldMaxS: number; retryS: number };
 }
 /** Recovery from the rear (core/repair.json `recovery`, M11.7b) without provenance (see the schema). */
 export interface RecoveryDef {

@@ -194,12 +194,15 @@ export function noteHit(ctx: SimContext, state: SimState, events: EventSink, tar
   const s = state.soldier.get(target);
   if (s) {
     if (!s.physiology.alive) return;
-    if (s.captive !== null) prot = s.captive.state === "captured" ? "prisoner" : "surrendered";
+    // (M11.9c: a prisoner escaping is not protected as one: GC III art. 42 allows weapons as the last resort.)
+    if (s.captive !== null) { if (s.captive.escape !== undefined) return; prot = s.captive.state === "captured" ? "prisoner" : "surrendered"; }
     else if (s.casualty !== "none") prot = "wounded";
     else if (s.carrying !== undefined || s.atNest !== undefined || wearsEmblem(ctx.catalog, state, target)) prot = kindOf(protectionNow(ctx.catalog, state, target));
   } else if (state.vehicle.has(target)) {
     const v = state.vehicle.get(target)!;
     if (ctx.catalog.vehicles[v.def]?.ambulance?.marked === true) prot = kindOf(protectionNow(ctx.catalog, state, target));
+    // (M11.9b: a hull with prisoners aboard — the military police taking them back — carries protected persons.)
+    else if (v.offMap?.kind === "mp") for (const m of v.seats) { const ms = m === null ? undefined : state.soldier.get(m); if (ms?.captive?.state === "captured" && ms.physiology.alive && ms.captive.evacTick === undefined) { prot = "prisoner"; break; } }
   }
   if (prot === null) return;
   // (Review fix: aimed only when he sees the man he fires at; fire at an old reported spot of a man already down there

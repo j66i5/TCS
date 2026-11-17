@@ -38,6 +38,7 @@
  * No random draws. Squared distances only.
  */
 import { isMounted } from "../mount";
+import { isAssetUnit } from "../offmap";
 import type { SoldierState, SurrenderReason } from "../components";
 import type { SimContext } from "../context";
 import { routeBetween, routeWaypoints } from "../interior-nav";
@@ -142,8 +143,9 @@ function captor(ctx: SimContext, state: SimState, id: EntityId): EntityId | null
   const R = ctx.catalog.behaviour.surrender;
   const p = state.transform.req(id), ps = state.soldier.req(id), side = state.identity.req(id).side, r2 = R.captureM * R.captureM;
   for (const [m, ms] of state.soldier.entries()) {
-    // A man aboard a vehicle takes nobody prisoner (M7.2).
-    if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms)) continue;
+    // A man aboard a vehicle takes nobody prisoner (M7.2); nor does an off-map asset's crew (review fix: its unit is no
+    // platoon, nobody would escort its prisoners).
+    if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms) || isAssetUnit(state, state.identity.get(m)?.unit)) continue;
     const t = state.transform.req(m);
     if ((t.x - p.x) * (t.x - p.x) + (t.y - p.y) * (t.y - p.y) > r2) continue;
     const ez = standZ(ctx.map, t) + eyeHeightM(ctx, ms.posture);
@@ -227,7 +229,7 @@ function handOverTarget(ctx: SimContext, state: SimState, id: EntityId, s: Soldi
 /**
  * Under fire, out of the line of fire (header "crawl"): true while he crawls to cover (started now or on his way).
  */
-function crawlOutOfFire(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState): boolean {
+export function crawlOutOfFire(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState): boolean {
   const R = ctx.catalog.behaviour.surrender, D = ctx.catalog.behaviour.decisions, crawl = ctx.catalog.behaviour.soldier.crawlMode;
   const m = state.mover.get(id);
   if (!m || !(R.crawlSearchM !== undefined && R.crawlSearchM > 0) || !ctx.catalog.movementModes[crawl]) return false;
@@ -343,7 +345,11 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
       if (s.captive.state === "surrendered" && s.physiology.alive && R.captureM > 0) {
         const by = captor(ctx, state, id);
         if (by !== null) {
+          // (Review fix: taken again after an escape — he was held before, so he has his group — is not a second prisoner.)
+          const again = s.captive.group !== undefined;
           s.captive.state = "captured";
+          // (M11.9: who holds him, and whose man took him: his escort, collection point and nest come from there.)
+          if (ctx.catalog.prisoners) { const bi = state.identity.req(by); s.captive.by = bi.side; s.captive.unit = bi.unit; }
           // He stops where he is; his captor, if idle, turns to cover him.
           if (s.handOver) { delete s.handOver; halt(state, id); }
           const bm = state.mover.get(by);
@@ -351,7 +357,7 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
             const bt = state.transform.req(by), p = state.transform.req(id);
             bt.heading = atan2(p.y - bt.y, p.x - bt.x);
           }
-          events.emit({ kind: "captured", tick: state.tick, soldier: id, side: state.identity.req(id).side, by });
+          events.emit({ kind: "captured", tick: state.tick, soldier: id, side: state.identity.req(id).side, by, ...(again ? { again: true as const } : {}) });
           continue;
         }
         // Under fire: out of the line of fire first (owner request 2026-11-15).
@@ -365,7 +371,7 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
           const seen = secondsToTicks(D.seenWithinSeconds);
           let best: EntityId | null = null, bestD = Infinity;
           for (const [m, ms] of state.soldier.entries()) {
-            if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms) || ms.intent !== null || ms.evade !== null) continue;
+            if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms) || ms.intent !== null || ms.evade !== null || ms.guard !== undefined) continue;
             if (ms.mental.suppression >= D.underFireSuppression || state.fire.has(m) || state.action.has(m)) continue;
             if ((state.mover.get(m)?.waypoints.length ?? 0) > 0) continue;
             const c = ms.contacts.find((k) => k.target === id);

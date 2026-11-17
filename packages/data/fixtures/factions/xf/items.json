@@ -26,6 +26,7 @@
       "nameKey": "item.xf-vest",
       "category": "armour",
       "massKg": 5,
+      "prisonerKeeps": true,
       "armour": [
         {
           "zone": "chest",
@@ -85,6 +86,7 @@
       "nameKey": "item.xf-strap",
       "category": "remedy",
       "massKg": 0.1,
+      "prisonerKeeps": true,
       "medical": {
         "tags": [
           "tourniquet"
@@ -100,6 +102,7 @@
       "nameKey": "item.xf-poultice",
       "category": "remedy",
       "massKg": 0.2,
+      "prisonerKeeps": true,
       "medical": {
         "tags": [
           "pressure-dressing",
@@ -115,6 +118,7 @@
       "nameKey": "item.xf-sash",
       "category": "remedy",
       "massKg": 0.05,
+      "prisonerKeeps": true,
       "emblem": true,
       "sources": [],
       "confidence": "low",
@@ -125,6 +129,7 @@
       "nameKey": "item.xf-heat-eye",
       "category": "kit",
       "massKg": 0.5,
+      "prisonerKeeps": false,
       "sensor": "thermal",
       "sources": [],
       "confidence": "low",
@@ -135,6 +140,7 @@
       "nameKey": "item.xf-cool-cloak",
       "category": "kit",
       "massKg": 0.5,
+      "prisonerKeeps": true,
       "thermalCover": 0.1,
       "sources": [],
       "confidence": "low",
@@ -281,6 +287,17 @@
       "sources": [],
       "confidence": "low",
       "note": "M11.2: the rifle as an item, carried slung or in the load instead of in the hands (taking an enemy rifle puts one's own away); the same mass as the weapon entry (weapons.json, its sources)."
+    },
+    {
+      "id": "xf-papers",
+      "nameKey": "item.xf-papers",
+      "category": "documents",
+      "massKg": 0.3,
+      "prisonerKeeps": false,
+      "documents": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Fixture: a leader's papers (M11.9 test of the prisoners' search)."
     }
   ]
 }

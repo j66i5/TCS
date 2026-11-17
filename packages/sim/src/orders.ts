@@ -60,6 +60,8 @@ export type OrderBody =
     at?: "vehicles" | "vehiclesAndPositions" | "hold";
     /** M11.4a: a squad's request for ammunition sends bearers at once ("auto") or waits for the player ("ask"). */
     supply?: "auto" | "ask";
+    /** M11.9c: the unit's prisoners get escorts on their own ("auto") or only on `escortPrisoners` ("ask"). */
+    prisoners?: "auto" | "ask";
   }
   /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs.
    *  M7.5e: `building` (a building's id, with an interior) makes it a house clearing: the halves close in by bounds
@@ -149,7 +151,20 @@ export type OrderBody =
    *  off-map stock to its supply point (sited now if it has none). `vehicle`: the vehicle to send (an ambulance waiting
    *  off the map: carried out, but a breach of the law of war; the computer never names one). Refused on the radio:
    *  none waiting, one already coming, nothing in the stock for them, no way in. */
-  | { kind: "callDelivery"; vehicle?: EntityId };
+  | { kind: "callDelivery"; vehicle?: EntityId }
+  /** Put the prisoner collection point here (M11.9): the target's platoon (its top unit) has it at (x, y) from now on;
+   *  the prisoners held there and their guards walk over. Refused within `prisoners.pcp.apartM` of its nest or supply
+   *  point. */
+  | { kind: "prisonerPoint"; x: number; y: number }
+  /** Escort prisoners now (M11.9): the target unit's prisoners waiting are searched and walked back at once, even while
+   *  it is fighting. Refused on the radio: no prisoners waiting, nobody free. */
+  | { kind: "escortPrisoners" }
+  /** Release guard (M11.9): the target man on prisoner duty (or the target unit's men on it) go back to their squads.
+   *  The last guard of prisoners with a known enemy within `prisoners.pcp.enemyM` is refused unless `confirm`. */
+  | { kind: "releaseGuard"; confirm?: boolean }
+  /** Call the military police (M11.9b): the target's platoon calls its side's MP team to its prisoner collection point.
+   *  Refused on the radio: no prisoners, one already on its way, none left. */
+  | { kind: "callMp" };
 
 export type OrderKind = OrderBody["kind"];
 

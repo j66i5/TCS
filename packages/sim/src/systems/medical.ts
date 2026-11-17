@@ -149,7 +149,7 @@ export function careSide(state: SimState, c: EntityId): string | undefined {
 /** Is this man free to treat a comrade now (not firing, busy, on the move, pinned down by panic)? */
 function freeHelper(state: SimState, id: EntityId): boolean {
   const s = state.soldier.get(id);
-  if (!s || !isAble(s) || !s.impair.canUseArms || isMounted(s) || state.action.has(id) || state.fire.has(id) || s.evade !== null || s.intent?.kind === "care") return false;
+  if (!s || !isAble(s) || !s.impair.canUseArms || isMounted(s) || state.action.has(id) || state.fire.has(id) || s.evade !== null || s.intent?.kind === "care" || s.guard !== undefined) return false;
   if (state.tick < s.stunnedUntilTick || s.mental.behaviour === "panicked" || s.mental.behaviour === "routed") return false;
   return (state.mover.get(id)?.waypoints.length ?? 0) === 0;
 }
@@ -507,7 +507,7 @@ function pickCarer(ctx: SimContext, state: SimState, c: EntityId, responders: bo
     const s = state.soldier.get(m);
     if (!s || !isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.evade !== null || state.action.has(m)) continue;
     // (Review fix: not a bearer of a carrying party, nor a man at the Verwundetennest.)
-    if (s.carrying !== undefined || s.atNest !== undefined) continue;
+    if (s.carrying !== undefined || s.atNest !== undefined || s.guard !== undefined) continue;
     if (s.intent !== null && s.intent.kind !== "engage" && s.intent.kind !== "cover") continue;
     if (state.tick < s.stunnedUntilTick || (state.mover.get(m)?.waypoints.length ?? 0) > 0) continue;
     if (isResponder(ctx.catalog, state, m) !== responders || leads(state, m)) continue;

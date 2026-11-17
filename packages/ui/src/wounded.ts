@@ -60,13 +60,13 @@ export function woundedRows(view: SimView, side: string): WoundedRow[] {
 export interface AmbulanceRow {
   id: EntityId;
   callsign: string;
-  phase: "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "toPoint" | "return" | "unloading";
+  phase: "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "toPoint" | "return" | "unloading" | "waiting";
   dueS: number;
   aboard: number;
   /** A combat vehicle on a rear run (M10.6b; phases toPoint, loading, outbound, away — back in about `dueS` —, return;
    *  M11.4b unloading); a supply run (M11.4b, "supplyRun"); a delivery from off the map (M11.4b, "delivery": called,
    *  inbound, loading = unloading at the supply point, outbound). */
-  kind?: "rearRun" | "supplyRun" | "delivery";
+  kind?: "rearRun" | "supplyRun" | "delivery" | "mp";
 }
 
 /** The side's ambulances (M10.6a): those on a run or done (rows), and how many still wait to be called. */
@@ -81,6 +81,16 @@ export function ambulanceRows(view: SimView, side: string): { rows: AmbulanceRow
       if (o.phase === "called" || o.phase === "inbound" || o.phase === "loading" || o.phase === "outbound") {
         const due = o.phase === "called" ? Math.max(0, Math.round(((o.enterTick ?? view.tick) - view.tick) / TICK_HZ)) : 0;
         rows.push({ id, callsign: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? "" : "", phase: o.phase, dueS: due, aboard: 0, kind: "delivery" });
+      }
+      continue;
+    }
+    // (M11.9b: the military police on a run, `aboard` its prisoners.)
+    if (o.kind === "mp") {
+      if (o.phase === "called" || o.phase === "inbound" || o.phase === "waiting" || o.phase === "loading" || o.phase === "outbound") {
+        let n = 0;
+        for (const sid of v.seats) { const c = sid === null ? undefined : view.soldier.get(sid)?.captive; if (c?.vehicle !== undefined && c.evacTick === undefined) n++; }
+        const due = o.phase === "called" ? Math.max(0, Math.round(((o.enterTick ?? view.tick) - view.tick) / TICK_HZ)) : 0;
+        rows.push({ id, callsign: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? "" : "", phase: o.phase, dueS: due, aboard: n, kind: "mp" });
       }
       continue;
     }

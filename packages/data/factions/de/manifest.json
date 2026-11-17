@@ -16,7 +16,7 @@
     "template": "boxer-san-besatzung",
     "count": 2
   },
-  "note": "M10.6a ambulance: two Boxer ambulances (SanKfz) of the company/battalion medical element wait off the map for each generated battle (search extracts: 'company: Sanitaetstrupp + protected ambulance on request'; the count is a game value, low). M11.7b recovery: one Bergepanzer 3 Bueffel of the battalion's recovery troop (Bergetrupp Kette) waits off the map for each generated battle with vehicles (search extracts: Bergetrupp with Bueffel; the count is a game value, low).",
+  "note": "M10.6a ambulance: two Boxer ambulances (SanKfz) of the company/battalion medical element wait off the map for each generated battle (search extracts: 'company: Sanitaetstrupp + protected ambulance on request'; the count is a game value, low). M11.7b recovery: one Bergepanzer 3 Bueffel of the battalion's recovery troop (Bergetrupp Kette) waits off the map for each generated battle with vehicles (search extracts: Bergetrupp with Bueffel; the count is a game value, low). M11.9b military police: one Feldjaegertrupp in its Dingo waits off the map for each generated battle and is called to a prisoner collection point (search extracts; the count is a game value, low).",
   "platoonTemplates": {
     "tracked": "pzgren-zug",
     "wheeled": "jaeger-zug"
@@ -28,6 +28,10 @@
   },
   "supply": {
     "template": "hx2-besatzung",
+    "count": 1
+  },
+  "mp": {
+    "template": "feldjaegertrupp",
     "count": 1
   }
 }

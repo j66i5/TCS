@@ -92,6 +92,10 @@ export type SimEvent =
   | { kind: "law.misuse"; tick: number; side: SideId; vehicle: EntityId; cause: "ammunitionInAmbulance"; ordered: boolean }
   /** A protected man or marked ambulance hit by fire of `side` (Q-8: incidental hits are a separate list in the review):
    *  `aimed` when the fire was at him; `fragment` a fragment's hit. Never shown live. */
+  /** M11.9c: side `side` kept `prisoners` prisoners at collection point `point` (of platoon `unit`) for more than
+   *  `prisoners.exposure.seconds` within `pcp.enemyM` of a known enemy ("enemy") or under fire ("fire") without moving
+   *  them; `placed`: the player put the point there. Review only (no radio line). */
+  | { kind: "law.exposure"; tick: number; side: SideId; point: EntityId; unit: EntityId; prisoners: number; cause: "enemy" | "fire"; seconds: number; placed: boolean }
   | { kind: "law.hit"; tick: number; side: SideId; by: EntityId; target: EntityId; protection: "medical" | "carrying" | "point" | "surrendered" | "wounded" | "prisoner"; aimed: boolean; fragment: boolean }
   | { kind: "medical.evacuated"; tick: number; side: SideId; casualty: EntityId; vehicle: EntityId; woundedTick: number; via?: "ambulance" | "vehicle" }
   /**
@@ -142,7 +146,42 @@ export type SimEvent =
   /** A surrendered man under fire crawls out of the line of fire to cover (owner request 2026-11-15). */
   | { kind: "surrender.crawl"; tick: number; soldier: EntityId; side: SideId; distanceM: number }
   /** A surrendered man has been taken prisoner by the enemy soldier `by`. `side` is the prisoner's. */
-  | { kind: "captured"; tick: number; soldier: EntityId; side: SideId; by: EntityId }
+  | { kind: "captured"; tick: number; soldier: EntityId; side: SideId; by: EntityId; again?: true }
+  /** M11.9: side `side`'s platoon `unit` has its prisoner collection point `point` at (x, y): sited, moved back
+   *  (a known enemy near it; M11.9c: rounds landing near it, "underFire") or put there by an order. */
+  | { kind: "pow.point"; tick: number; side: SideId; point: EntityId; unit: EntityId; x: number; y: number; reason: "sited" | "threatened" | "underFire" | "ordered" }
+  /** M11.9c: a second in which collection point `point` of side `side` (the holding side) with `held` prisoners was
+   *  under fire (rounds landing within `pcp.fireM`, or a man held or guarding there suppressed). */
+  | { kind: "pow.underFire"; tick: number; side: SideId; point: EntityId; held: number }
+  /** M11.9c: prisoner `soldier` (side `side`, his own) held by side `by`: set off to escape (`chance` the roll he
+   *  made; `point` where he was held), reached his own side ("free"), recaptured, or gave it up hurt ("stopped"). */
+  | { kind: "pow.escape"; tick: number; soldier: EntityId; side: SideId; by: SideId; phase: "started" | "free" | "recaptured" | "stopped"; chance?: number; point?: EntityId; searched?: boolean }
+  /** M11.9: man `escort` of side `side` is sent to search and walk back `prisoners` (one group); `ordered`: by the
+   *  player's escortPrisoners. */
+  | { kind: "pow.escort"; tick: number; side: SideId; escort: EntityId; point: EntityId; group: "officer" | "nco" | "man"; prisoners: EntityId[]; ordered?: true }
+  /** M11.9: prisoner `soldier` (side `side`, his own) has been searched by `by`: `weapons` weapons, `rounds` rounds and
+   *  `documents` documents items taken, `kg` in all; `kept` items left with him. */
+  | { kind: "pow.searched"; tick: number; soldier: EntityId; side: SideId; by: EntityId; weapons: number; rounds: number; documents: number; kg: number; kept: number }
+  /** M11.9: documents taken from prisoner `soldier` (a hook for intelligence, M13). */
+  | { kind: "pow.documents"; tick: number; soldier: EntityId; side: SideId; by: EntityId; count: number }
+  /** M11.9: prisoner `soldier` has reached collection point `point` (his escort `escort`). */
+  | { kind: "pow.held"; tick: number; soldier: EntityId; side: SideId; point: EntityId; group: "officer" | "nco" | "man"; escort?: EntityId }
+  /** M11.9: man `soldier` of side `side` stays at collection point `point` as a guard ("guard"), goes back to his squad
+   *  ("released"; `ordered` by releaseGuard), or his duty ended because he can no longer do it ("lost"). */
+  | { kind: "pow.guard"; tick: number; soldier: EntityId; side: SideId; point: EntityId; phase: "guard" | "released" | "lost"; ordered?: true }
+  /** M11.9: escort `soldier` put what he took beyond `search.maxKg` into the collection point's cache `cache`. */
+  | { kind: "pow.cached"; tick: number; soldier: EntityId; side: SideId; point: EntityId; cache: EntityId; kg: number }
+  /** M11.9b: side `side`'s military police hull `vehicle` on a run to collection point `point`: called (`dueS` until it
+   *  comes on; `ordered` by callMp), on the map, waiting short of a point under fire, at the point (it took over the
+   *  guard), set off back (`aboard` prisoners), off the map, stood down, stranded, no route, back off the map ready. */
+  | { kind: "pow.mp"; tick: number; side: SideId; vehicle: EntityId; point?: EntityId; phase: "called" | "entered" | "waiting" | "arrived" | "departed" | "away" | "cancelled" | "lost" | "noRoute" | "ready"; dueS?: number; aboard?: number; ordered?: true; why?: string }
+  /** M11.9b: prisoner `soldier` (side `side`, his own) boarded the military police hull `vehicle` of side `by`. */
+  | { kind: "pow.boarded"; tick: number; soldier: EntityId; side: SideId; by: SideId; vehicle: EntityId; group: "officer" | "nco" | "man" }
+  /** M11.9b (plan Q7): at the end, man `soldier` (side `side`) who gave up but was never taken goes to the side holding
+   *  the ground around him: `holder`'s prisoner ("captured") or back to his own side ("returned"). */
+  | { kind: "pow.settled"; tick: number; soldier: EntityId; side: SideId; holder: SideId; outcome: "captured" | "returned" }
+  /** M11.9b: prisoner `soldier` (side `side`, his own) was taken off the map by the military police of side `by`. */
+  | { kind: "pow.evacuated"; tick: number; soldier: EntityId; side: SideId; by: SideId; vehicle: EntityId; group: "officer" | "nco" | "man"; wounded: boolean }
   | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }
   | { kind: "items.transferred"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number }
   /** M11.1: items gone from the battle other than by being fired (`count` items of `item` held by `holder`; the

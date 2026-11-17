@@ -31,6 +31,7 @@ import {
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
 import { recoveryCalls } from "./recovery";
+import { logisticsOrders, type LogisticsMemory } from "./logistics";
 
 export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new assault by a squad pinned, broken or with morale below this. */ assaultMinMorale: 0.45, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20, houseResiteSeconds: 30,
   // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
@@ -147,7 +148,7 @@ export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new 
   baseBound: { maskedLooks: 2, everySeconds: 40, stepM: 60, minM: 150, turnDeg: [20, 40, 60], shiftM: 250, stepAsideM: [3, -3, 6, -6, 9, -9], stepAsideSeconds: 30 } } as const;
 
 type Phase = "start" | "ride" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
-interface Memory extends TanksMemory {
+interface Memory extends TanksMemory, LogisticsMemory {
   phase: Phase; phaseTick: number; target: number; lastFire: number; lastAssault: Record<string, number>; pulledBack: number[]; counterTick: number; lastGrenade?: Record<string, number>; lastHe?: number; lastSmoke?: number;
   /** M7.2 ride and dismount: the last vehicle hit it has seen (polled `lastHitTick`), squads and men ordered out,
    *  vehicles waiting for their squad to get back in during a withdrawal. */
@@ -882,6 +883,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || (v.status === "immobilised" && !fixing(v))).length;
       // M11.7b: a recovery vehicle for a hull out of the fight for good, when it is quiet there (recovery.ts).
       for (const o of recoveryCalls(view, ground(), side, tick, mem, () => all.flatMap((m) => known(m)), caller)) out.push(o);
+      // M11.8: a threatened supply point moved back, a low squad's short men to an own cache in reach (logistics.ts).
+      for (const o of logisticsOrders(view, ground(), side, tick, mem, () => all.flatMap((m) => known(m)))) out.push(o);
       mem.sentBack ??= [];
       // (M7.6b review fix: the tank sections' crews that bailed out too.)
       const tankBailed = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ground(), id)).flatMap(([, u]) => u.children).filter((c) => view.unit.get(c)?.exVehicle !== undefined).sort((a, b) => a - b);

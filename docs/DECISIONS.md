@@ -8065,3 +8065,73 @@ from general knowledge, low: no source page could be opened here).
 - **Checks**: `npm run check` alone green: typecheck, lint, `npm test` 1534 pass, `npm run test:perf` 24 of 24, data lint
   (no errors). bench-vehicles alternating base / this branch, alone, three times each: 8.5, 8.1, 7.8 / 8.3, 8.3, 8.2
   (noise; the re-arming system runs once a second and returns at once with no cache or supply truck on the map).
+
+## 2026-11-17 — M11.8 (slice 52): the commander's logistics, the Logistics review tab, batch columns, BattleResult logistics, balance on hold-resupply
+Owner answers (binding): control automatic plus player orders; caches are legitimate targets, captured caches the
+captor's; the hold battle should let ammunition matter. Everything else is a software decision (values in
+`LOGISTICS_AI`, `packages/ai/src/logistics.ts`: game values, low).
+- **What was already there.** Most of the brief's point 1 lives in the sim and works the same for both sides and for the
+  player: the supply point is sited when a delivery is called (M11.3-M11.4b), squads ask and the platoon sends bearers
+  (never from a squad in a fight, never a gunner, leader or medic: M11.4a), a low point or an asking squad calls a
+  delivery (M11.4b), idle hulls re-arm and refuel, also between waves (M11.5), the commander shells enemy caches it has
+  seen (M11.3). Nothing of that is duplicated.
+- **New: the commander's logistics** (`logisticsOrders`, every 10 s, orders only): (1) a supply point that still holds
+  ammunition with an enemy its men know within `supply.site.threatM` 100 m is moved `site.backM` 100 m back, away from
+  that enemy (`supplyPoint`: the crates stay as a plain cache that squads close by still use; deliveries and bearers go to
+  the new point), once per point, and up to 4 of the side's men within `request.useM` 60 m of it who are short fill up
+  there first (`resupplyAt`). **Deviation:** the crates are not carried away (a moving full cache would need a carry
+  party; the point moves instead). (2) A squad below `request.below` 40 % of its load, quiet 30 s, halted, no drill, no
+  enemy known within 200 m, no bearers coming and no crate within 60 m sends its shortest men (under half their own
+  load), at most half its able men, to the nearest own cache within `take.reachM` 400 m (a captured enemy cache counts)
+  and back; at most every 120 s per squad. A held position is never stripped: half always stays.
+- **Logistics tab** (fourth review tab; `ui/aar.ts`, `app/review.ts` `logisticsLines`): per side rounds fired by weapon
+  type (with the M7.3 details of hulls, rockets and fire support indented), armed men without a round at the end,
+  delivered by bearers / vehicle runs / off the map and mortar rounds topped up, taken from own casualties / enemy men /
+  at caches, enemy caches captured and own caches set off or lost, requests answered with the median wait and those
+  still open, litres burnt / refuelled / delivered, re-arming; the M11.7a repair, M11.7b recovery and M11.6 battery,
+  off-net and water rows moved here from the Battle tab (not duplicated). The Battle tab keeps vehicles lost, drones,
+  enemies found and fire missions. Strings `aar.logistics.*`, `aar.wtype.*`.
+- **Battle record** (version 10 -> 11; an older save starts a fresh record): `supply` gains `fired` (by weapon type),
+  `takenCasualty`, `takenEnemy`, `roundsLost` (in caches the enemy captured), `litresDelivered`, `waitS` (each answered
+  request: from the squad's first request to the bearers' crate or its first taking at a cache), `open`, `dryEnd` and
+  `armedEnd` (at `battle.ended`, `dryMen`); `asks` holds the open requests.
+- **`BattleResult.logistics`** (optional; `ledger.ts` `logisticsFromEvents`): per side consumed, delivered, captured
+  (enemy caches and kit) and destroyed, rounds by ammunition id, other items by item id, litres by fuel kind, from the
+  events of the run. Its sums over the sides equal the conservation guard's tally (test). `forcesOut` carries the loads.
+- **Batch**: a logistics table (per side: fired, delivered foot / vehicle / off map, taken from casualties, captured,
+  destroyed, dry men at the end, requests, mean wait) and per-seed columns; supply orders per battle; rows carry
+  `logistics` and `supplyOrders`.
+- **Measured, same seeds, base 9e1de7a (slice 48) vs this branch.** platoon, platoon-ru, platoon-vehicles,
+  platoon-ru-vehicles 10 x 1,200 s: every battle the same winner and end second (attacker wins 9 / 10 / 9 / 1 as
+  before; 39 of 40 final states identical; platoon seed 8 ends in another state with the same winner, end second and casualties).
+  hold-resupply and hold-resupply-ru 6 x 3,600 s: the same winners in all 12 (four and three end at other seconds),
+  without resupply identical (the commander's logistics is off with `rules.resupply` false).
+- **Balance (20 seeds each way, 3,600 s).** German defence: holds 14 of 20 with resupply (70 %), 10 of 20 without
+  (50 %): 20 points apart. Russian defence: 16 of 20 (80 %), 13 of 20 without (65 %): 15 points. **Not met:** "at least
+  25 points fewer holds without resupply" in either direction, and the Russian defence holds above the 30-70 % band.
+  Ammunition is not what ends the defence: at the end, defenders with a weapon and no round for it are 0.3 of 10.7
+  (German, with resupply) and 0.35 of 10.2 (without); 0.05 and (seeds 1-16) 0.19 for the Russian defence. The defence
+  falls to casualties first. With resupply per battle (German / Russian defence): requests 2.1 / 0.9, answered 10 / 7
+  in 20 battles after a mean 627 / 370 s, bearer trips 0.9 / 0.3, rounds brought by bearers 290 / 380, from off the map
+  1,092 / 2,736 (4 / 6 deliveries in 20), taken from own casualties 53 / 148, at caches 90 / 209.
+- **How often the commander's logistics acts** (18 seeds each way, 3,600 s; orders per battle): the defender moves its
+  supply point 0.56 times (German and Russian defence alike) and sends 0.78 / 0.67 men to a cache; the attacker sends
+  2.1 (Russian) / 5.6 (German) men to a cache (the defenders' captured crates and the piles of its own casualties'
+  ammunition). The sim's own automatic takings and bearer trips are not orders and are counted above.
+- **Tried and not kept: defenders who have already fought** (`HoldDef.defenderLoadShare`, `HOLD.defenderLoadShare`,
+  default 1 = off): half their spare magazines empty and half their loose rounds. 20 seeds each way: German defence 9
+  holds with resupply and 9 without, Russian 13 and 13. It lowered the holds into the band but erased the difference
+  resupply makes (with half a load, the defence still falls to casualties before ammunition, and the requests arrive
+  under fire). Kept as an option for the owner; off.
+- **Goldens**: unchanged (the commander's logistics gives no order in the first 300 s of the hold goldens; strings are
+  outside the fingerprint).
+- **Tests** (`packages/tools/test/logistics.test.ts`): a threatened point moves back away from the enemy once, men near it
+  fill up there; a low quiet squad sends at most half (its shortest men) to a cache in reach, not with the enemy close,
+  not again within 120 s, and their rounds rise; the record's fired by type, taken, lost, waits, open requests and dry
+  men; `BattleResult.logistics` sums equal the conservation tally. `scenario-hold.test.ts`: the load share option. The
+  conservation tests are unchanged and exact.
+- **Screenshots** `--scene aar`: the Logistics tab after the 25-minute platoon battle and after 20 minutes of the hold
+  battle, phone and desktop (looked at: readable on the phone, the tab row fits).
+- **Checks**: `npm run check` alone green: typecheck, lint, `npm test` 1,539 pass (6 skipped), `npm run test:perf` 24 of
+  24, data lint (no errors). The commander's look runs every 10 s per side; the record and `BattleResult` folds are per
+  event.

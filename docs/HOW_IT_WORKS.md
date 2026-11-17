@@ -862,6 +862,32 @@ the tubes.
 **Measuring it.** `npm run lab -- rearm`: a Puma, a BMP-2, a Leopard 2A7V and a T-90M with empty stowage and 10 % fuel
 beside a full cache, and beside a supply truck, against the hand calculation (target 10 %).
 
+## The commander's logistics, the Logistics review and the results (M11.8)
+
+**What the commander decides.** Most of supply runs in the simulation the same way for both sides and for the player:
+squads ask, the platoon sends bearers, a low supply point calls a delivery, idle hulls re-arm, mortar men fetch rounds,
+and the commander shells enemy caches it has seen. The computer's commander adds two things. When an enemy its men know
+of comes within 100 m of a supply point that still holds ammunition, it moves the point 100 m back, away from that
+enemy (the crates already there stay as a plain cache that squads close by still use; the next delivery and the bearers
+go to the new point), and up to four of its men near the old crates who are short fill up there before they are lost.
+And when a squad is below 40 % of its ammunition, quiet for 30 s, halted, with no enemy known within 200 m, no bearers
+on their way and no crate beside it, its shortest men, at most half of the squad, go to the nearest own cache within
+400 m (a captured enemy cache too) and come back; the other half stays, so a held position is never stripped. A squad
+is sent at most every two minutes.
+
+**The Logistics tab.** The after-action review has a fourth tab. Per side: rounds fired by weapon type (rifles,
+machine guns, grenades, missiles, cannons, mortar rounds...), with each hull's guns, the rockets and the fire support
+listed under it; how many armed men had no round left for their weapon at the end; rounds delivered by bearers, by
+vehicle runs and from off the map, and the mortar rounds topped up; rounds taken from own casualties, from enemy men
+and at caches; enemy caches captured, own caches set off or lost to the enemy; requests for ammunition, how many were
+answered and the median wait (from the first request to the bearers' crate or the squad's first taking at a cache);
+litres burnt, refuelled and delivered; re-arming; and the field repair, recovery, battery and water rows that used to
+stand in the Battle tab.
+
+**Results.** `BattleResult.logistics` lists per side what was consumed (rounds by ammunition id), delivered from off the
+map, captured (enemy caches and kit) and destroyed, with litres by fuel kind, from the events alone; together with the
+loads in `forcesOut` this is what a campaign carries on. The batch report has a logistics table with the same columns.
+
 ## Grenades
 
 A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one

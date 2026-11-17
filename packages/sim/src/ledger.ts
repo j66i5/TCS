@@ -164,3 +164,64 @@ export function checkChargeConservation(start: Ledger, end: Ledger, c: Consumpti
   }
   return leaks;
 }
+
+/**
+ * M11.8 (`BattleResult.logistics`, input for M12 and M13): per side, what it consumed (rounds fired, thrown, launched
+ * and off-map rounds landed, by ammunition id), what was delivered to it from off the map, what it captured (enemy
+ * caches and enemy kit taken) and what it lost destroyed (cook-offs, burning hulls), rounds by ammunition id, whole
+ * items without a cartridge by item id; litres by fuel kind. From the events alone (rule 5).
+ */
+export interface SideLogistics {
+  side: string;
+  consumed: Record<string, number>; delivered: Record<string, number>; captured: Record<string, number>; destroyed: Record<string, number>;
+  litres: { consumed: Record<string, number>; delivered: Record<string, number>; destroyed: Record<string, number> };
+}
+
+export function emptyLogistics(side: string): SideLogistics {
+  return { side, consumed: {}, delivered: {}, captured: {}, destroyed: {}, litres: { consumed: {}, delivered: {}, destroyed: {} } };
+}
+
+/** The side of whatever holds items: a man, a vehicle, a cache, a support section. */
+function holderSide(state: SimView, id: number): string | undefined {
+  return state.identity.get(id)?.side ?? state.vehicle.get(id)?.side ?? state.cache.get(id)?.side ?? state.unit.get(id)?.side
+    ?? state.support.find((s) => s.battery === id)?.side ?? state.stock.get(id)?.side;
+}
+
+/** Add one tick's events (`state`: after that tick) to the per-side tallies (created on first use). */
+export function logisticsFromEvents(out: SideLogistics[], events: readonly SimEvent[], state: SimView, catalog: Catalog, tracer: Record<string, string>): void {
+  const of = (side: string | undefined): SideLogistics | undefined => {
+    if (side === undefined) return undefined;
+    let x = out.find((l) => l.side === side);
+    if (!x) { x = emptyLogistics(side); out.push(x); out.sort((a, b) => (a.side < b.side ? -1 : 1)); }
+    return x;
+  };
+  const items = (m: Record<string, number>, lit: Record<string, number>, e: { item: string; count: number; ammo?: string; rounds?: number; chargeKind?: string; amount?: number }) => {
+    if (e.ammo !== undefined) add(m, e.ammo, e.rounds ?? 0);
+    else if (e.chargeKind !== undefined) add(lit, e.chargeKind, e.amount ?? 0);
+    else add(m, e.item, e.count);
+  };
+  for (const e of events) {
+    switch (e.kind) {
+      case "shot.fired": { const l = of(e.vehicle !== undefined ? state.vehicle.get(e.vehicle)?.side : state.identity.get(e.shooter)?.side); if (l) add(l.consumed, tracer[e.ammo] ?? e.ammo, 1); break; }
+      case "grenade.launched": { const l = of(state.identity.get(e.soldier)?.side); if (l) add(l.consumed, e.ammo, 1); break; }
+      case "vehicle.smoke": { const l = of(state.vehicle.get(e.vehicle)?.side); if (l && e.item !== undefined) add(l.consumed, e.item, e.count ?? 0); break; }
+      case "support.round": { const l = of(e.side); if (l && e.item !== undefined) add(l.consumed, e.item, 1); break; }
+      case "items.burnt": { const l = of(holderSide(state, e.holder)); if (l) add(l.litres.consumed, e.chargeKind, e.amount); break; }
+      case "items.destroyed": { const l = of(holderSide(state, e.holder)); if (l) items(l.destroyed, l.litres.destroyed, e); break; }
+      case "items.delivered": { const l = of(holderSide(state, e.holder)); if (l) items(l.delivered, l.litres.delivered, e); break; }
+      case "cache.captured": {
+        const l = of(e.side);
+        if (l) for (const [k, n] of Object.entries(ammoOf(catalog, state, [e.cache]))) add(l.captured, k, n);
+        break;
+      }
+      case "items.taken": {
+        if (e.source !== "enemy") break;
+        const l = of(state.identity.get(e.to)?.side);
+        const cart = catalog.items[e.item]?.chargeItem;
+        if (l) { if (cart !== undefined) add(l.captured, cart, e.rounds); else add(l.captured, e.item, e.count); }
+        break;
+      }
+      default: break;
+    }
+  }
+}

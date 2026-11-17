@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type ReviewTally, type SupplyReview, type MedicalSideSummary, MISSING_STEPS, medianOf, medicalSummary, careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
+import { type ReviewTally, type SupplyReview, type MedicalSideSummary, MISSING_STEPS, medianOf, medicalSummary, careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim, type BattleResult } from "@tcs/sim";
 import { attackStats, type AttackStats } from "@tcs/ai";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
@@ -96,6 +96,10 @@ interface Row {
   recovery: Record<string, SideRecord["recovery"]>;
   /** M11.3-M11.4a per side: caches, men sent to a cache, requests for ammunition, bearer trips (battle record `supply`). */
   supply: Record<string, SideRecord["supply"]>;
+  /** M11.8: `BattleResult.logistics` (per side: consumed, delivered, captured, destroyed). */
+  logistics: BattleResult["logistics"];
+  /** M11.8 per side: the orders `supplyPoint` and `resupplyAt` in the order stream (the commander's logistics and the player's). */
+  supplyOrders: Record<string, { points: number; errands: number }>;
   role1: Record<string, SideRecord["role1"]>;
   settled: Record<string, SideRecord["settled"]>;
   /** Men down (owner request 2026-11-15) per side of the man down: checked, found dead, dead dragged before the
@@ -257,6 +261,8 @@ for (let i = 0; i < runs; i++) {
     repair: perSide((x) => x.repair),
     recovery: perSide((x) => x.recovery),
     supply: perSide((x) => x.supply),
+    logistics: r.logistics,
+    supplyOrders: Object.fromEntries(["blue", "red"].map((x) => [x, { points: r.orders.filter((o) => o.issuer === x && o.kind === "supplyPoint").length, errands: r.orders.filter((o) => o.issuer === x && o.kind === "resupplyAt").length }])),
     role1: perSide((x) => x.role1),
     settled: perSide((x) => x.settled),
     down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
@@ -421,6 +427,31 @@ const md = [
     return `${s} killed ${g("killed")}, checked ${g("checked")} (found dead ${g("checkedDead")}), dead dragged into cover before the check ${g("deadDragged")}, tags recovered from ${g("tagMen")} fallen (${g("tags")} items), wounded crawled to cover ${g("crawled")}, treatments as prisoners ${g("prisonersTreated")}, surrendered crawled out of the fire ${g("surrenderCrawled")}`;
   }).join("; ")}`,
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
+  "",
+  // M11.8: the logistics columns (battle record `supply`; per side and battle: rounds fired, delivered by bearers /
+  // vehicle runs / from off the map, taken from own casualties, captured (enemy caches and kit), destroyed (cook-offs
+  // and caches lost to the enemy), armed men without a round at the end, requests and their mean wait).
+  "",
+  "Logistics per battle (M11.8; means per side):",
+  "",
+  "| side | fired | delivered foot / vehicle / off map | taken from casualties | captured | destroyed | dry men at the end | requests | mean wait s |",
+  "|---|---:|---|---:|---:|---:|---:|---:|---:|",
+  ...["blue", "red"].map((s) => {
+    const m = (f: (x: NonNullable<SideRecord["supply"]>) => number) => mean(rows.map((r) => { const x = r.supply?.[s]; return x ? f(x) : 0; }));
+    const waits = rows.flatMap((r) => r.supply?.[s]?.waitS ?? []);
+    const fired = (x: NonNullable<SideRecord["supply"]>) => Object.values(x.fired ?? {}).reduce((a, b) => a + b, 0);
+    return `| ${s} | ${m(fired).toFixed(0)} | ${m((x) => x.roundsDelivered ?? 0).toFixed(0)} / ${m((x) => (x.roundsVehicle ?? 0) + (x.roundsRestocked ?? 0)).toFixed(0)} / ${m((x) => x.roundsOffMap ?? 0).toFixed(0)} | ${m((x) => x.takenCasualty ?? 0).toFixed(0)} | ${m((x) => x.roundsCaptured + (x.takenEnemy ?? 0)).toFixed(0)} | ${m((x) => x.roundsDestroyed + (x.roundsLost ?? 0)).toFixed(0)} | ${m((x) => x.dryEnd ?? 0).toFixed(2)} | ${m((x) => x.requests ?? 0).toFixed(1)} | ${waits.length > 0 ? mean(waits).toFixed(0) : "-"} |`;
+  }),
+  "",
+  `Supply orders per battle (the commander's logistics, M11.8): ${["blue", "red"].map((x) => `${x} supply points moved ${mean(rows.map((r) => r.supplyOrders[x]?.points ?? 0)).toFixed(2)}, men sent to a cache ${mean(rows.map((r) => r.supplyOrders[x]?.errands ?? 0)).toFixed(2)}`).join("; ")}`,
+  "",
+  "| seed | winner | fired blue/red | delivered blue/red | taken from casualties blue/red | dry at the end blue/red | requests blue/red |",
+  "|---:|---|---|---|---|---|---|",
+  ...rows.slice(0, 20).map((r) => {
+    const g = (s: string, f: (x: NonNullable<SideRecord["supply"]>) => number) => { const x = r.supply?.[s]; return x ? f(x) : 0; };
+    const both = (f: (x: NonNullable<SideRecord["supply"]>) => number) => `${g("blue", f)}/${g("red", f)}`;
+    return `| ${r.seed} | ${r.winner ?? "draw"} | ${both((x) => Object.values(x.fired ?? {}).reduce((a, b) => a + b, 0))} | ${both((x) => (x.roundsDelivered ?? 0) + (x.roundsVehicle ?? 0) + (x.roundsRestocked ?? 0) + (x.roundsOffMap ?? 0))} | ${both((x) => x.takenCasualty ?? 0)} | ${both((x) => x.dryEnd ?? 0)} | ${both((x) => x.requests ?? 0)} |`;
+  }),
   "",
   "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",
   "|---:|---:|---|---|---|---:|---|---|",

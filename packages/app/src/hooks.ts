@@ -36,7 +36,7 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     /** D2: the battle record so far (the review's source; the batch tool keeps the same record). */
     record: () => a.record,
     /** D2: the review's tab (battle, medical, conduct) — read, or switch with an argument. */
-    reviewTab: (t?: "battle" | "medical" | "conduct") => a.review?.tab(t) ?? null,
+    reviewTab: (t?: "battle" | "medical" | "conduct" | "logistics") => a.review?.tab(t) ?? null,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
     grenadeAt: (x: number, y: number, count = 1) => issue(a, { ...to(), kind: "grenade", x, y, count }),
     smokeAt: (x: number, y: number) => issue(a, { ...to(), kind: "grenade", x, y, smoke: true }),

@@ -71,3 +71,4 @@ export { DRONE, droneUse, withDrones } from "./drone";
 export * from "./siting";
 export * from "./tanks";
 export { RECOVERY_AI, recoveryCalls, type RecoveryMemory } from "./recovery";
+export { LOGISTICS_AI, logisticsOrders, type LogisticsMemory } from "./logistics";

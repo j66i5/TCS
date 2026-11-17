@@ -492,6 +492,10 @@ export const HOLD = {
   /** M11.4b: the defender's off-map stock holds this many times the supply point's starting load (deliveries by its
    *  supply vehicle), and tops its mortar allotment up by `topUpRounds` every `topUpEveryS` (game values). */
   stockLoads: 2, topUpRounds: 6, topUpEveryS: 600,
+  /** M11.8 balance option: the defenders have been fighting since first light: of each man's spare magazines, belts and
+   *  loose rounds only this share is still loaded (the rest empty). 1 (off): measured at 0.5 over 20 seeds each way it
+   *  lowered the holds with and without resupply alike (DECISIONS "M11.8"); kept for the owner's choice. */
+  defenderLoadShare: 1,
 } as const;
 
 export interface HoldDef {
@@ -505,6 +509,8 @@ export interface HoldDef {
   waveS?: number[];
   /** M11.4b: false: no off-map stock and no supply vehicle (the battle as in slice 46). Default true. */
   deliveries?: boolean;
+  /** M11.8: the share of the defenders' spare rounds still loaded (default HOLD.defenderLoadShare; 1: a full load). */
+  defenderLoadShare?: number;
 }
 
 /**
@@ -534,6 +540,23 @@ export function holdBattle(data: DataSet, def: HoldDef): BattleInput {
   // Prepared positions (owner 2026-11-16, "a stronger defence"): the defenders dug in where their commander sites
   // them; a man halted on the ground in the first minutes is in a fighting position there.
   input.rules.prepared = [{ side: defender, fromS: HOLD.preparedS[0], untilS: HOLD.preparedS[1] }];
+  // M11.8 balance: the defenders start with part of their spare rounds spent (`defenderLoadShare`): of each stack of
+  // magazines or belts that share stays full (rounded down; the one in the weapon is the fullest) and the rest is empty;
+  // loose rounds (packages) keep that share of their rounds.
+  const share = def.defenderLoadShare ?? HOLD.defenderLoadShare;
+  if (share < 1) for (const u of df.units) for (const m of allMembers(u)) {
+    const out: typeof m.load = [];
+    for (const l of m.load) {
+      const d = input.catalog.items[l.type];
+      if (d?.chargeItem === undefined || l.charge === undefined || l.charge <= 0) { out.push(l); continue; }
+      if (d.category === "ammo-package") { out.push({ ...l, charge: Math.floor(l.charge * share) }); continue; }
+      if (d.category !== "magazine" || l.count < 2) { out.push(l); continue; }
+      const full = Math.max(1, Math.floor(l.count * share));
+      out.push({ ...l, count: full });
+      if (l.count - full > 0) out.push({ ...l, count: l.count - full, charge: 0 });
+    }
+    m.load = out;
+  }
   // The supply point: behind the main objective, away from the attack.
   const main = input.rules.objectives[0]!;
   const dx = defender === "blue" ? -1 : 1;

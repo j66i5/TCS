@@ -64,7 +64,7 @@ import { isOffMap } from "../offmap";
 import { ammoIndexOf } from "../projectiles";
 import { nextFloat, nextRange, Streams } from "../rng";
 import { addSmoke } from "../smoke";
-import { newEntity, type SimState } from "../state";
+import { newEntity, type SimState, type SimView } from "../state";
 import { heightAt } from "../terrain";
 import { requestPosture } from "./body";
 import { bearersBack, endCarry, startCarry } from "./carry";
@@ -689,7 +689,7 @@ registerActionHandler("takeSupply", {
  * of its feed and every package of its cartridge he carries (full: their capacities). `belt`: a machine gunner's belt
  * capacity (0 for anyone else).
  */
-export function roundsOfMan(ctx: SimContext, state: SimState, id: EntityId): { rounds: number; full: number; belt: number } {
+export function roundsOfMan(ctx: { catalog: SimContext["catalog"] }, state: SimView, id: EntityId): { rounds: number; full: number; belt: number } {
   const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
   if (!w || !wd) return { rounds: 0, full: 0, belt: 0 };
   const feed = wd.feed.magazine, fd = ctx.catalog.items[feed], cart = fd?.chargeItem;

@@ -426,6 +426,10 @@ for the owner's numbers answer after playing, not for more building).
     the stock); deliveries bring what the platoon's hulls lack; litres in the conservation guard (`items.burnt`);
     on-map mortar teams fetch rounds from a cache, the top-up puts them beside the tubes; `lab -- rearm`
     (DECISIONS "M11.5")
+  - ✅ **M11.8 (slice 52)** the commander's logistics (a threatened supply point moved back, men near it fill up; a low
+    quiet squad's shortest half to an own cache in reach), the review's Logistics tab (fired by weapon type, delivered,
+    taken, captured and lost, requests and waits, dry men, fuel; the M11.6-M11.7 rows moved there), batch logistics
+    columns, `BattleResult.logistics`; balance on hold-resupply (DECISIONS "M11.8")
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

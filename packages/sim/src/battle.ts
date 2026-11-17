@@ -13,6 +13,7 @@ import type { BattleEndReason, SimEvent, SimEventKind } from "./events";
 import type { DefId, SideId } from "./ids";
 import type { OffMapKind, VehicleRecovery, VehicleStatus } from "./components";
 import type { ItemStack } from "./items";
+import type { SideLogistics } from "./ledger";
 import type { MapDef } from "./map";
 import type { Order } from "./orders";
 import type { Physiology, Wound } from "./wounds";
@@ -190,6 +191,10 @@ export interface BattleResult {
    *  is left in them, `burnt`. The contents of a captured cache count as captured (the campaign gives them to its
    *  captor). */
   caches?: { side: SideId; kind: "point" | "cache"; x: number; y: number; load: ItemStack[]; from?: SideId; burnt?: true }[];
+  /** M11.8: per side, consumed, delivered from off the map, captured and destroyed (rounds by ammunition id, whole
+   *  items by item id, litres by fuel kind), from the events of this run (`ledger.ts` `logisticsFromEvents`; a run
+   *  continued from a save counts from there). Input for M12 and M13; `forcesOut` carries the loads. */
+  logistics?: SideLogistics[];
   /** Full order stream, including orders produced by controllers during the battle. */
   orders: Order[];
   eventCounts: Partial<Record<SimEventKind, number>>;

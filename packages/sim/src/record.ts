@@ -13,11 +13,13 @@ import type { Catalog } from "./catalog";
 import type { BattleEndReason, SimEvent } from "./events";
 import { tallyExpenditure, type Expenditure } from "./expenditure";
 import { ticksToSeconds, type EntityId } from "./ids";
+import { isAble } from "./impair";
+import { isAssetUnit } from "./offmap";
 import type { SimView } from "./state";
 import { newReviewTally, tallyReview, type ReviewTally } from "./review";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 10;
+export const RECORD_VERSION = 11;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -59,7 +61,14 @@ export interface SideRecord {
     deliveries?: number; roundsOffMap?: number; vehicleRuns?: number; roundsVehicle?: number; roundsRestocked?: number; topUp?: number;
     /** M11.5: re-armings and refuellings finished or stopped (`vehicle.resupply`), rounds into stowage and litres into
      *  tanks there, litres burnt by the side's engines. Optional. */
-    rearms?: number; roundsRearmed?: number; litresRefuelled?: number; litresBurnt?: number };
+    rearms?: number; roundsRearmed?: number; litresRefuelled?: number; litresBurnt?: number;
+    /** M11.8 (the Logistics tab, the batch): rounds fired (and grenades thrown, missiles and support rounds) by weapon
+     *  type; rounds taken from own casualties (and the nest) and from the enemy's men; rounds lost in caches the enemy
+     *  captured; litres delivered from off the map; seconds each answered request for ammunition waited (to the
+     *  bearers' crate, or the squad's first taking at a cache), requests still open at the end; able men with a weapon
+     *  and no round for it at the end, and of all able men with a weapon. Optional: records before version 11. */
+    fired?: Record<string, number>; takenCasualty?: number; takenEnemy?: number; roundsLost?: number; litresDelivered?: number;
+    waitS?: number[]; open?: number; dryEnd?: number; armedEnd?: number };
   /** Guided missiles fired by the side's hulls and how they ended; enemy hulls penetrated by its missiles and by its
    *  shoulder-fired rockets. */
   missiles: { fired: number; hit: number; lost: number; miss: number; penetrated: number; rocketPenetrated: number };
@@ -156,6 +165,8 @@ export interface BattleRecord {
   evacuated: Record<string, number>;
   /** Casualty id -> his way through the chain of care (M10.8). */
   track: Record<string, CareTrack>;
+  /** M11.8: unit id -> tick of its open request for ammunition (cleared when it is answered). Optional. */
+  asks?: Record<string, number>;
   /** Filled by `finishRecord`. */
   end: { tick: number; reason: BattleEndReason; winner: string | null; loser: string | null } | null;
 }
@@ -169,7 +180,7 @@ export function newSideRecord(): SideRecord {
     crews: { reversedOut: 0, fires: 0, firesOut: 0 },
     repair: { started: 0, done: 0, failed: 0, interrupted: 0, parts: 0 },
     recovery: { called: 0, ordered: 0, arrived: 0, towed: 0, lost: 0, cancelled: 0, callToArrivalS: [], recovered: 0, captured: 0 },
-    supply: { captured: 0, roundsCaptured: 0, cookoffs: 0, roundsDestroyed: 0, sent: 0, roundsTaken: 0, requests: 0, trips: 0, roundsDelivered: 0 },
+    supply: { captured: 0, roundsCaptured: 0, cookoffs: 0, roundsDestroyed: 0, sent: 0, roundsTaken: 0, requests: 0, trips: 0, roundsDelivered: 0, fired: {}, takenCasualty: 0, takenEnemy: 0, roundsLost: 0, litresDelivered: 0, waitS: [], open: 0 },
     missiles: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 },
     mortar: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 },
     care: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 },
@@ -188,7 +199,7 @@ export function newSideRecord(): SideRecord {
 
 /** An empty record for a battle between these sides. */
 export function newBattleRecord(sides: readonly string[]): BattleRecord {
-  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, review: newReviewTally(), sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, ambCall: {}, evacuated: {}, track: {}, end: null };
+  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, review: newReviewTally(), sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, ambCall: {}, evacuated: {}, track: {}, asks: {}, end: null };
 }
 
 /** A record read back from a save, or null if it is from another version (the review then starts afresh). */
@@ -474,10 +485,103 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       if (r) (r.conduct.misuse ??= []).push({ tick: e.tick, vehicle: v ? (v.unit !== null ? view.unit.get(v.unit)?.callsign ?? v.vehicleId : v.vehicleId) : "", ordered: e.ordered });
     }
     if (e.kind === "items.taken" && e.source === "cache" && view.cache.has(e.from)) { const r = side(sideOfMan(e.to))?.supply; if (r) r.roundsTaken += e.rounds; }
+    logisticsFold(rec, e, view, catalog);
     if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
       const r = side(view.vehicle.get(e.vehicle)?.side);
       if (r) { if (e.kind === "vehicle.reaction" && e.reaction === "reverseOut") r.crews.reversedOut++; else if (e.kind === "vehicle.fire") r.crews.fires++; else if (e.kind === "vehicle.extinguished") r.crews.firesOut++; }
     }
+  }
+}
+
+/** The supply record of a side, made complete for the M11.8 fields (records of this version start with them). */
+function sup(rec: BattleRecord, sd: string | undefined): NonNullable<SideRecord["supply"]> | undefined {
+  const r = sd === undefined ? undefined : rec.sides[sd];
+  if (!r) return undefined;
+  return (r.supply ??= { captured: 0, roundsCaptured: 0, cookoffs: 0, roundsDestroyed: 0, sent: 0, roundsTaken: 0 });
+}
+
+/** The weapon type a fired round counts under in the Logistics tab (`aar.wtype.*`). */
+export function firedType(catalog: Catalog, e: SimEvent): string | null {
+  if (e.kind === "shot.fired") {
+    if (e.indirect === true) return "mortar";
+    if (catalog.ammo[e.ammo]?.guided !== undefined) return "missile";
+    return catalog.weapons[e.weapon]?.type ?? "other";
+  }
+  if (e.kind === "grenade.launched") return e.method === "thrown" ? "hand-grenade" : e.method === "launched" ? "grenade-launcher" : "launcher";
+  if (e.kind === "support.round") return e.item !== undefined ? e.asset : null; // (an on-map tube's round counts at its shot)
+  if (e.kind === "vehicle.smoke") return "smoke-launcher";
+  return null;
+}
+
+/** Able men with a personal weapon, and of them those with no round for it (the magazine in it, its magazines and
+ *  belts, packages of its cartridge), at the end of the battle (M11.8). */
+export function dryMen(catalog: Catalog, view: SimView, sideId: string): { armed: number; dry: number } {
+  let armed = 0, dry = 0;
+  // mounted: ok every man of the side, aboard or not
+  for (const [id, s] of view.soldier.entries()) {
+    if (view.identity.get(id)?.side !== sideId || !isAble(s) || isAssetUnit(view, view.identity.get(id)!.unit)) continue;
+    const w = view.weapon.get(id), wd = w ? catalog.weapons[w.weapon] : undefined;
+    if (!w || !wd) continue;
+    const feed = wd.feed.magazine, cart = catalog.items[feed]?.chargeItem;
+    let rounds = w.magazine?.rounds ?? 0;
+    for (const st of view.container.get(id)?.stacks ?? []) {
+      const d = catalog.items[st.type];
+      if (d && st.charge !== undefined && (st.type === feed || (cart !== undefined && d.category === "ammo-package" && d.chargeItem === cart))) rounds += st.charge * st.count;
+    }
+    armed++;
+    if (rounds === 0) dry++;
+  }
+  return { armed, dry };
+}
+
+/** M11.8: the Logistics tab's counts (fired by weapon type, taken, lost, litres delivered, request waits, dry men). */
+function logisticsFold(rec: BattleRecord, e: SimEvent, view: SimView, catalog: Catalog): void {
+  const sideOfMan = (id: EntityId) => view.identity.get(id)?.side;
+  const ft = firedType(catalog, e);
+  if (ft !== null) {
+    const sd = e.kind === "shot.fired" ? (e.vehicle !== undefined ? view.vehicle.get(e.vehicle)?.side : sideOfMan(e.shooter))
+      : e.kind === "grenade.launched" ? sideOfMan(e.soldier) : e.kind === "support.round" ? e.side : e.kind === "vehicle.smoke" ? view.vehicle.get(e.vehicle)?.side : undefined;
+    const r = sup(rec, sd);
+    if (r) { const f = (r.fired ??= {}); f[ft] = (f[ft] ?? 0) + (e.kind === "vehicle.smoke" ? e.count ?? 1 : 1); }
+    return;
+  }
+  const asks = (rec.asks ??= {});
+  const answer = (uid: EntityId | undefined, sd: string | undefined, tick: number) => {
+    if (uid === undefined) return;
+    const k = String(uid), t0 = asks[k];
+    if (t0 === undefined) return;
+    delete asks[k];
+    const r = sup(rec, sd);
+    if (r) (r.waitS ??= []).push(Math.round(ticksToSeconds(tick - t0)));
+  };
+  switch (e.kind) {
+    case "items.taken": {
+      const r = sup(rec, sideOfMan(e.to));
+      if (r && (e.source === "casualty" || e.source === "nest")) r.takenCasualty = (r.takenCasualty ?? 0) + e.rounds;
+      else if (r && e.source === "enemy") r.takenEnemy = (r.takenEnemy ?? 0) + e.rounds;
+      else if (e.source === "cache") answer(view.identity.get(e.to)?.unit, sideOfMan(e.to), e.tick);
+      break;
+    }
+    case "cache.captured": { const r = sup(rec, e.from); if (r) r.roundsLost = (r.roundsLost ?? 0) + e.rounds; break; }
+    case "items.delivered": {
+      if (e.chargeKind === undefined || e.amount === undefined || catalog.items[e.item]?.category !== "fuel") break;
+      const sd = view.vehicle.get(e.holder)?.side ?? view.cache.get(e.holder)?.side ?? sideOfMan(e.holder);
+      const r = sup(rec, sd);
+      if (r) r.litresDelivered = (r.litresDelivered ?? 0) + e.amount;
+      break;
+    }
+    case "supply.request": { const k = String(e.unit); if (asks[k] === undefined) asks[k] = e.tick; break; }
+    case "supply.delivered": answer(e.unit, e.side, e.tick); break;
+    case "battle.ended":
+      for (const sd of view.sides) {
+        const r = sup(rec, sd.id);
+        if (!r) continue;
+        const m = dryMen(catalog, view, sd.id);
+        r.dryEnd = m.dry; r.armedEnd = m.armed;
+        r.open = Object.keys(asks).filter((k) => view.unit.get(Number(k))?.side === sd.id).length;
+      }
+      break;
+    default: break;
   }
 }
 

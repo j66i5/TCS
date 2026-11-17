@@ -2333,11 +2333,23 @@ try {
     await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
     await page.evaluate(new Function("globalThis.__tcs.setSpeed(0); globalThis.__tcs.stepTicks(1500 * 60 + 60);") as () => void);
     await page.waitForTimeout(900);
-    for (const tab of ["medical", "conduct"]) {
+    for (const tab of ["medical", "conduct", "logistics"]) {
       await page.evaluate(new Function(`globalThis.__tcs.reviewTab(${JSON.stringify(tab)});`) as () => void);
       await page.waitForTimeout(300);
       const q3 = `${outDir}/platoon-${seed}-${name}-3-review-${tab}.png`;
       await page.screenshot({ path: q3 }); shots.push(q3);
+    }
+    // M11.8 (`--scene aar` only): the Logistics tab after 20 minutes of the hold battle (supply point, requests,
+    // bearers, the mortar top-up), the player holding with blue.
+    if (args["scene"] === "aar") {
+      await page.goto(`http://localhost:${port}/?scenario=hold&seed=${seed}&side=blue&limit=1200`);
+      await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+      await page.evaluate(new Function("globalThis.__tcs.setSpeed(0); globalThis.__tcs.stepTicks(1200 * 60 + 60);") as () => void);
+      await page.waitForTimeout(900);
+      await page.evaluate(new Function(`globalThis.__tcs.reviewTab("logistics");`) as () => void);
+      await page.waitForTimeout(300);
+      const q4 = `${outDir}/hold-${seed}-${name}-4-review-logistics.png`;
+      await page.screenshot({ path: q4 }); shots.push(q4);
     }
     console.log(`${name}: platoon battle, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     await page.close();

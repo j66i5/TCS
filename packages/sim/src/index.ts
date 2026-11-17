@@ -46,7 +46,7 @@ export * from "./medical";
 export { careEnabled, medicalSystem, startTreatment, treatedNow, underFireForCare } from "./systems/medical";
 export { carryLeader, carryParams, carrySpeedMps, carrySystem, coverSpotNear, endCarry, isCarried, leaveCarry, payloadMassKg, startCarry, type CarryOptions } from "./systems/carry";
 export { casualtyPointOrder, evacuateOrder, nestFor, nestOf, nestSystem, setNest, siteNest, supplyPointOf } from "./systems/nest";
-export { cacheBurst, cookoffChance, ensureSupplyPoint, ignite, nearNest, newCache, putInCache, mortarTake, resupplyAtOrder, roundsInContainer, siteSupply, supplyPointOrder, supplySystem, takePlan } from "./systems/supply";
+export { cacheBurst, cookoffChance, ensureSupplyPoint, ignite, nearNest, newCache, putInCache, mortarTake, resupplyAtOrder, roundsInContainer, roundsOfMan, siteSupply, supplyPointOrder, supplySystem, takePlan } from "./systems/supply";
 export { isAssetMan, isAssetUnit, isOffMap, isOffMapMan, OFF_MAP_PARK, parkOffMap } from "./offmap";
 export { callAmbulance, callAmbulanceOrder, entryPoint, evacuationSystem, onRun } from "./systems/evacuation";
 export { rearRunOrder, rearRunSystem } from "./systems/rearrun";

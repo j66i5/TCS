@@ -1,5 +1,6 @@
 /** runBattle: the battle-as-a-function entry point (SPEC 4.3 rule 11). */
 import { isWreck } from "./hulls";
+import { emptyLogistics, logisticsFromEvents, tracerMap, type SideLogistics } from "./ledger";
 import { rosterStatus } from "./impair";
 import { isAssetUnit, isOffMap } from "./offmap";
 import { battleScore } from "./systems/objectives";
@@ -26,6 +27,9 @@ export function continueBattle(sim: Sim, input: BattleInput, opts: RunOptions = 
   const allOrders: Order[] = input.orders.filter((o) => o.tick < sim.state.tick);
   let next = 0;
   const counts: Partial<Record<SimEventKind, number>> = {};
+  // M11.8: the sides' logistics (consumed, delivered, captured, destroyed) from the events.
+  const logistics: SideLogistics[] = sim.state.sides.map((s) => emptyLogistics(s.id));
+  const tracer = tracerMap(sim.ctx.catalog);
   const maxTicks = opts.maxTicks ?? secondsToTicks(input.rules.timeLimitSeconds) + 1;
 
   while (!sim.state.ended && sim.state.tick < maxTicks) {
@@ -45,10 +49,11 @@ export function continueBattle(sim: Sim, input: BattleInput, opts: RunOptions = 
     }
     const ev = step(sim);
     for (const e of ev) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
+    if (ev.length > 0) logisticsFromEvents(logistics, ev, sim.state, sim.ctx.catalog, tracer);
     opts.onEvents?.(ev, tick);
     opts.onTick?.(sim);
   }
-  return summarize(sim, input, allOrders, counts);
+  return { ...summarize(sim, input, allOrders, counts), logistics };
 }
 
 function summarize(

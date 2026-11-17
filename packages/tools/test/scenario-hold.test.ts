@@ -71,3 +71,28 @@ describe("hold-resupply (M11.1)", () => {
     expect(hashState(copy.state)).toBe(hashState(sim.state));
   }, 120_000);
 });
+
+describe("hold-resupply balance (M11.8)", () => {
+  it("defenderLoadShare 0.5: the defenders start with half their spare magazines loaded (the rest empty) and half their loose rounds; the attackers in full; off by default", () => {
+    expect(HOLD.defenderLoadShare).toBe(1);
+    const full = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderLoadShare: 1 });
+    const part = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderLoadShare: 0.5 });
+    const cat = part.catalog;
+    const rounds = (i: typeof part, side: string, cats: string[]) => {
+      let n = 0, mags = 0;
+      for (const u of i.forces.find((f) => f.side === side)!.units) {
+        const walk = (x: typeof u): void => { for (const m of x.members) for (const l of m.load) { const d = cat.items[l.type]; if (d?.chargeItem !== undefined && cats.includes(d.category)) { n += (l.charge ?? 0) * l.count; mags += l.count; } } x.subunits.forEach(walk); };
+        walk(u);
+      }
+      return { n, mags };
+    };
+    const fm = rounds(full, "blue", ["magazine"]), pm = rounds(part, "blue", ["magazine"]);
+    expect(pm.mags).toBe(fm.mags); // (no magazine lost: the empty ones are still carried)
+    expect(pm.n).toBeLessThan(fm.n * 0.65);
+    expect(pm.n).toBeGreaterThan(fm.n * 0.35);
+    expect(rounds(part, "red", ["magazine", "ammo-package"])).toEqual(rounds(full, "red", ["magazine", "ammo-package"]));
+    // Every defender still has a loaded magazine for his weapon.
+    const sim = createSim(part);
+    for (const [id, i] of sim.state.identity.entries()) if (i.side === "blue" && sim.state.weapon.get(id)?.magazine === null) throw new Error(`defender ${id} has no loaded magazine`);
+  });
+});

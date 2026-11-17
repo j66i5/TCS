@@ -1,10 +1,24 @@
 # State — handover note
 
-_Last updated: 2026-11-17 (M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-17 (M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M11.8 (slice 52) built (2026-11-17, branch `claude/m11-logistics`).** The commander's logistics (`ai/logistics.ts`):
+  a supply point still holding ammunition with a known enemy within 100 m moves 100 m back (the crates stay as a plain
+  cache; up to 4 short men near it fill up first); a low (under 40 %), quiet, halted squad with no enemy within 200 m and
+  no crate near sends its shortest men, at most half, to an own cache within 400 m (captured ones too). The rest of the
+  AI's supply was already in the sim for both sides (asking, bearers, deliveries, re-arming, shelling enemy caches).
+  Review: a fourth tab, Logistics (fired by weapon type, dry men at the end, delivered by bearers / vehicles / off map,
+  taken, captured and lost, requests and waits, fuel, re-arming; repair, recovery, batteries and water rows moved there
+  from the Battle tab). Record version 11; `BattleResult.logistics` per side (consumed, delivered, captured, destroyed;
+  sums equal the conservation tally); batch logistics table. Platoon batches and hold winners unchanged; goldens
+  unchanged. **Balance NOT met:** 20 seeds each way, holds with / without resupply: German defence 14 / 10, Russian 16 /
+  13 (need 25 points apart and 30-70 %); defenders hardly run dry (0.3 of 10.7 armed men at the end) — the defence falls
+  to casualties first. A "defenders already half spent" option (`defenderLoadShare`, off) erased the difference (9/9,
+  13/13). **Open for the owner:** how should resupply decide the hold battle (longer battle or more waves, a tougher
+  defence, a smaller starting supply)? Numbers in DECISIONS "M11.8". M11 chain (43-48, 52) complete; MP/POW next.
 - **M11.5 (slice 48) built (2026-11-17, branch `claude/m11-logistics`).** Re-arming and refuelling: a halted hull within
   15 m of an own cache or supply truck takes back its stowage (whole items, a minute plus 1.2 s a kg; reactive tiles
   moved as items only) and fills its tank from 20 l fuel cans (a minute each) or the truck's pump (100 l a minute

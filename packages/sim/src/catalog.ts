@@ -376,7 +376,7 @@ export interface BehaviourDef {
   decisions: {
     stepSeconds: number; defaultFireRule: FireRule;
     engageRangeM: { rifle: number; magnified: number; sustained: number };
-    underFireSuppression: number; underFireMemorySeconds: number; seenWithinSeconds: number; contactLostSeconds: number;
+    underFireSuppression: number; underFireMemorySeconds: number; /** Balance pass after M11 (built, off in the data): a unit's range rule (`rules.maxEngageM`) is lifted while the unit is fired on (absent: never). */ rangeRuleLiftsUnderFire?: boolean; seenWithinSeconds: number; contactLostSeconds: number;
     seekCoverSuppression: number; coverSearchM: number; coverRetrySeconds: number; threatEyeHeightM: number;
     shareRangeM: number; keepSpare: number; passSeconds: number;
     /** Self-defence under rule "return" (sight realism step 2, 2026-11-15): not fired on lately, a man still opens

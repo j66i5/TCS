@@ -447,7 +447,9 @@ re-arming at a cache (`--scene supply`).
    litres) and `forcesOut` already carries the loads: input for M12 and M13.
 5. **Balance**: hold-resupply 20 seeds each way (German defence, Russian defence): the defender holds in 30-70 % of
    battles, and holds clearly less often with resupply switched off (the "resupply decides" check: at least 25
-   percentage points fewer holds). The four platoon scenarios stay in their bands.
+   percentage points fewer holds; **relaxed by the owner on 2026-11-17: 10-17 percentage points more holds with
+   resupply than without is accepted**, DECISIONS "Balance pass after M11"). The four platoon scenarios stay in their
+   bands.
 
 **Acceptance.** The numbers above; the review tab on the phone and the desktop (screenshots `--scene aar` with the new
 tab, looked at); a write-up with the `balance-report` skill in DECISIONS; you (the owner) play

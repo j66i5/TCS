@@ -1,10 +1,18 @@
 # State — handover note
 
-_Last updated: 2026-11-17 (M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-17 (balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass after M11 (2026-11-17, branch `claude/balance-m11`; owner: "Rebalance next").** The platoon battle's
+  defender is now a prepared defence (`rules.prepared`, the hold battle's fighting positions dug where the commander
+  sites its men in the first 60-90 s; `ScenarioDef.prepared: false` for the old open defence). 20 seeds x 1,200 s,
+  attacker wins before -> after: platoon 14 -> 9, platoon-ru 19 -> 12 (both in the 2-8 of 10 band, near the middle);
+  platoon-vehicles 16 of 20 and platoon-ru-vehicles 1 of 20 stay outside (the Puma decides the mounted battles; owner
+  question). Built and switched off: the defence's 300 m range rule lifted while fired on
+  (`decisions.rangeRuleLiftsUnderFire`). Hold battle unchanged; the owner relaxed its resupply target to 10-17 points,
+  but the current build shows 5 / -5 points over 20 seeds each way (open). Numbers in DECISIONS "Balance pass after M11".
 - **M11.8 (slice 52) built (2026-11-17, branch `claude/m11-logistics`).** The commander's logistics (`ai/logistics.ts`):
   a supply point still holding ammunition with a known enemy within 100 m moves 100 m back (the crates stay as a plain
   cache; up to 4 short men near it fill up first); a low (under 40 %), quiet, halted squad with no enemy within 200 m and

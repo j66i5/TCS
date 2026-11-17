@@ -28,6 +28,18 @@ describe("standing rules (M5.1)", () => {
     }
   });
 
+  it("balance pass after M11: a range limit holds their fire only until they are fired on (then lifted while under fire)", () => {
+    for (const [lifts, expectFire] of [[true, true], [false, false]] as const) {
+      const sim = createSim(setup((i) => { const b = i.catalog.behaviour; i.catalog = { ...i.catalog, behaviour: { ...b, decisions: { ...b.decisions, rangeRuleLiftsUnderFire: lifts } } }; }));
+      const [bid, blue] = unitOf(sim, "blue");
+      submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "rules", fire: "free", maxEngageM: 80 });
+      submitOrder(sim, { tick: 0, issuer: "red", target: unitOf(sim, "red")[0], kind: "rules", fire: "free" });
+      const ev = run(sim, 30);
+      expect((blue.ownFireTick ?? -1e9) > 0).toBe(true); // (fired on)
+      if (expectFire) expect(blueShots(sim, ev)).toBeGreaterThan(3); else expect(blueShots(sim, ev)).toBe(0);
+    }
+  });
+
   it("a range limit set while they are already firing on their own stops fire beyond it", () => {
     const sim = createSim(setup());
     const [bid, blue] = unitOf(sim, "blue");

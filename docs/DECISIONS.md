@@ -8556,3 +8556,57 @@ prisoners), `core/prisoners.json` (`pcp.fireM` 30, `pcp.fireClearM` 60, `guard.w
 - **Checks** (`npm run check` alone): typecheck, lint, `npm test` 1,571 pass (6 skipped); `test:perf` inside it 20 of 24
   (spotting 7.x, spotting with smoke, bench-vehicles, the hull-hit variant); `lint:data` no errors (run after, as the
   chain stops at `test:perf`).
+
+## 2026-11-17 — MP/POW review fixes (after slice 55; goldens regenerated: fingerprint only)
+Independent review of slices 53-55 (behaviour probes with 5 men giving up at once, code review). Data:
+`core/prisoners.json` `pcp.fireMemoryS` 300 (game value, low) and the note. State: optional `RearPoint.fireSpots`,
+`SoldierState.freedFrom`; event field `captured.again`. No schema bump (all optional).
+- **Duty and care:** a man on guard or escort duty is never picked as a carer (`pickCarer`), as the other helpers.
+  A guard whose platoon holds nobody any more (last prisoner dead, escaped, taken off the map) goes back to his squad.
+- **Wounded prisoners:** one who cannot walk goes to the holding platoon's nest searched or not (GC III: treated and
+  evacuated like own men); an escort searches him there (the prisoner step now sends escorts to unsearched men at the
+  nest; a man carried off by the bearers is no longer his escort's).
+- **Escort choice:** the nearest man to the prisoners of the capturing unit or of any other unit of the platoon that is
+  not fighting (was: the first unit in id order); the capturing unit fighting no longer blocks an escort from a quiet
+  unit. A man with a radio or an anti-tank round is taken only when nobody else is free. **Decided without the owner**
+  (owner question below). Nobody is sent to prisoners fired at or suppressed within `escort.quietS`.
+- **The search:** an escort walks to a prisoner on his floor (route goal height = the prisoner's), so a prisoner taken
+  upstairs is searched. What a searcher took beyond `search.maxKg` 15 kg goes into a captured cache where he searched
+  (the plan's 15 kg; slice 53 had him carry it all to the point, 60-80 kg for four men, about 0.25 m/s). **Decided
+  without the owner** (owner question below).
+- **Arrival:** a prisoner within 3 x `pcp.arriveM` of a place the route cannot bring him closer to (the goal snapped
+  back onto his own cell) counts as there; escorts no longer wait beside him for the rest of the battle.
+- **The point:** the spots it was moved away from under fire are avoided for `fireMemoryS` (at most four), so it no
+  longer moves back and forth; neither move (fire, threat) while the military police's men are out loading there, and
+  no exposure is counted then; the military police breaks off loading and leaves when the point is no longer quiet (a
+  known enemy within `enemyNearM`, rounds landing there within `quietS`, a man there suppressed).
+- **Military police:** called when the point has its first prisoner taken (held there or on the way), not only once
+  one is held (GC III art. 19, as soon as possible); it waits there `heldMaxS` for those on the way. The 900-1800 s
+  delay (owner Q6) is unchanged. From a hull destroyed outright the prisoners who can walk get out.
+- **Liberation:** a held prisoner with a fit man of his side within `escape.freeM` and no fit man of the holding side
+  within that is freed (`pow.escape` "free" without an attempt). At the end a prisoner held on foot on ground his own
+  side holds (`holderAt`, as the wounded) is back with it (`pow.settled` "returned").
+- **Records and results:** a man recaptured is not counted taken twice (`captured.again`); `SideResult.prisonersEscaped`
+  is filled (men with `freedFrom` = that side); the wounded the medical settlement captures at the end count in the
+  review's "taken at the end"; the escort order runs only the escort part of the step for the whole platoon's prisoners
+  (it no longer releases the point's guards or adds seconds under fire); `releaseGuard` refuses when the guards left
+  after releasing ALL of the target's would be none at a threatened point; the `rules` order's `prisoners` field is
+  validated; the crew of an off-map asset takes nobody prisoner. The PW marker stands 4 m north of the point.
+- **Not changed:** the photo/flat screenshot divergence of the prisoners scene (not reproduced in the sim: the goldens and
+  save/load tests are deterministic; likely the hook flow between page loads; not investigated further).
+- **Probes** (the review's 26 forced-surrender battles, 5 men each, same seeds and scripts; before -> after): searched
+  74 -> 88 of 130; ever held at the point 36 -> 58 (median 864 -> 721 s after capture; first per battle 790 -> 618 s);
+  handed to the military police 2 -> 28, evacuated 0 -> 21; escape attempts 17 -> 8 (free 5 -> 5); escorts and guards
+  lost on duty 34 -> 34. hold-resupply-ru seed 1 (red): the cache left at the search places (12-22 kg each) instead
+  of 69.7 kg carried to the point. hold-resupply seed 5 (blue): still never searched, but there the probe teleports the
+  prisoners beside their captor OUTSIDE the house at z 2.8 (floating; `indoorAt` -1); with them put inside, both escorts
+  search on the first floor within 1 min.
+- **Goldens:** `npm run golden:update`: the 12 goldens' event streams are byte-identical to slice 55's (1ccf202); only
+  the catalog fingerprint (data) changed. `golden/no-interiors` untouched.
+- **Batches** (same seeds as the review; base main 659292a / slice 55 1ccf202 / these fixes; attacker wins, hold:
+  blue wins): platoon 10 x 1,200 6 / 5 / 5; platoon-ru 6 / 5 / 5 (red attacker: blue wins 4 / 5 / 5); platoon-vehicles
+  8 / 7 / 7; platoon-ru-vehicles red 1 / 0 / 0; hold-resupply 6 x 3,600 4 / 4 / 4; hold-resupply-ru 3 / 4 / 3. Within
+  noise; the four platoon scenarios are identical to slice 55 but for one battle's casualty (platoon 17.1 -> 17.0,
+  platoon-vehicles 10.7 -> 10.6).
+- **Checks:** typecheck, lint, lint:data clean; `npm test` 1,574 pass (6 skipped); `test:perf` alone 21 of 24
+  (spotting with smoke 7.9x, bench-vehicles 7.6x, photo woods paint: the floors main misses in this container too).

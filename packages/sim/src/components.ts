@@ -362,6 +362,9 @@ export interface SoldierState {
    * is "evacuated" (the aid station's outcome is M10.6b). Absent: not evacuated.
    */
   evacuated?: { tick: number; vehicle?: EntityId; via?: "ambulance" | "vehicle" | "end" };
+  /** M11.9c review fix: the side he got away from as a prisoner in this battle (escaped, freed by his own men, or back
+   *  with his side at the end; `SideResult.prisonersEscaped`). Absent: never. */
+  freedFrom?: SideId;
   /**
    * What his roster record brought into this battle when it had been settled after an earlier one (review fix, rule
    * 11): how many of his wounds were already there (not handed over again) and the recovery days he still had.
@@ -409,6 +412,9 @@ export interface RearPoint {
    *  have been exposed (a known enemy within `pcp.enemyM`, or suppressed) without being moved, and whether that
    *  exposure has been recorded (`law.exposure`). */
   fire?: { tick: number; x: number; y: number };
+  /** kind "prisoners" (review fix): where rounds landed when it was last moved away (kept `pcp.fireMemoryS`, at most
+   *  four), avoided by its next moves as well, so that it does not go back to a spot it just left. */
+  fireSpots?: { tick: number; x: number; y: number }[];
   exposedTick?: number;
   exposureNoted?: true;
   /** When it was sited (or last moved) and last checked. */

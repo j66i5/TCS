@@ -67,13 +67,15 @@ describe("military police (M11.9b)", () => {
     for (const sd of a.sides) expect(sd.vehicles?.start ?? 0).toBe(b.sides.find((x) => x.side === sd.side)!.vehicles?.start ?? 0);
   });
 
-  it("called when the point holds its first prisoner; takes over the guard, officers first, never over its places; off the map they are evacuated; a second run takes the rest", () => {
+  it("called when the point has its first prisoner taken (review fix: held there or on the way); takes over the guard, officers first, never over its places; off the map they are evacuated; a second run takes the rest", () => {
     const b = battle("de");
     const st = b.sim.state, v = st.vehicle.req(b.vid);
     const places = b.sim.ctx.catalog.vehicles[v.def]!.seats.filter((q) => q.station === "passenger").length;
-    expect(b.run(b.sim, 1200, () => b.phase() === "called")).toBe(true);
-    const held = [...st.soldier.values()].filter((s) => s.captive?.point !== undefined && s.mount === undefined).length;
-    expect(held).toBeGreaterThan(0);
+    // (Review fix: called at the first prisoner taken; the hull is hurried on once a guard stands at the point.)
+    expect(b.run(b.sim, 1200, () => [...st.soldier.values()].some((s) => s.guard?.phase === "guard"))).toBe(true);
+    expect(b.phase()).toBe("called");
+    const taken = [...st.soldier.values()].filter((s) => s.captive?.state === "captured" && s.captive.unit !== undefined && s.mount === undefined).length;
+    expect(taken).toBeGreaterThan(0);
     let maxAboard = 0;
     const until = (ph: string) => () => { maxAboard = Math.max(maxAboard, v.seats.filter((m) => m !== null && st.soldier.get(m)?.captive?.vehicle !== undefined && st.soldier.get(m)?.captive?.evacTick === undefined).length); b.hurry(); return b.phase() === ph; };
     expect(b.run(b.sim, 3000, until("away"))).toBe(true);

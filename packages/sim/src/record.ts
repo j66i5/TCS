@@ -291,6 +291,7 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       case "surrendered": case "captured": case "surrender.walk": case "surrender.crawl": {
         if (e.kind === "surrender.crawl") { const r = side(e.side); if (r) r.down.surrenderCrawled++; }
         const id = view.identity.get(e.soldier);
+        if (e.kind === "captured" && e.again === true) break;
         if (id) rec.timeline.push({ tick: e.tick, side: id.side, key: `timeline.${e.kind}`, name: id.family, callsign: callsignOf(e.soldier) });
         break;
       }
@@ -632,7 +633,7 @@ function powFold(rec: BattleRecord, e: SimEvent, view: SimView, catalog: Catalog
   switch (e.kind) {
     case "captured": {
       const r = P(sideOf(e.by)), id = view.identity.get(e.soldier);
-      if (r && id) r.taken[rankGroup(catalog, id.faction, id.rank)]++;
+      if (r && id && e.again !== true) r.taken[rankGroup(catalog, id.faction, id.rank)]++;
       break;
     }
     case "pow.searched": { const r = P(sideOf(e.by)); if (r) { r.searched++; r.weapons += e.weapons; r.rounds += e.rounds; r.documents += e.documents; } break; }
@@ -675,6 +676,9 @@ function powFold(rec: BattleRecord, e: SimEvent, view: SimView, catalog: Catalog
       break;
     }
     case "pow.settled": { if (e.outcome === "captured") { const r = P(e.holder); if (r) r.settled++; } break; }
+    // (Review fix: the wounded the medical settlement captures at the end are taken at the end too, so that "held at the
+    // end" never shows more than were taken.)
+    case "medical.settled": { if (e.outcome === "captured") { const r = P(e.holder); if (r) r.settled++; } break; }
     case "battle.ended": {
       for (const k of Object.keys(rec.powDuty)) dutyEnd(Number(k), e.tick);
       // mounted: ok (a prisoner aboard a military police hull on the map is still held)

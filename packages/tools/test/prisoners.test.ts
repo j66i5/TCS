@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCatalog } from "@tcs/data";
 import {
-  checkConservation, consumedFromEvents, createSim, emptyConsumption, hashState, isResponder, ledgerOf, loadSim, prisonerGroup, saveSim, step, submitOrder, tracerMap,
+  checkConservation, consumedFromEvents, stackMassKg, createSim, emptyConsumption, hashState, isResponder, ledgerOf, loadSim, prisonerGroup, saveSim, step, submitOrder, tracerMap,
   type EntityId, type SerializedState, type SimEvent,
 } from "@tcs/sim";
 import { loadData } from "../src/scenarios";
@@ -69,7 +69,8 @@ describe("prisoners (M11.9a)", () => {
     it(`${f}: search, segregation, escorts, guards, the point and the nest (same rules for both sides)`, () => {
       const b = battle(f);
       const st = b.sim.state, cat = b.input.catalog, P = cat.prisoners!;
-      b.run(1200, () => b.pris.slice(0, 6).every((m) => st.soldier.req(m).captive?.point !== undefined) && st.soldier.req(b.pris[6]!).atNest !== undefined);
+      // (Review fix: the man who cannot walk goes to the nest unsearched and is searched there.)
+      b.run(1200, () => b.pris.slice(0, 6).every((m) => st.soldier.req(m).captive?.point !== undefined) && st.soldier.req(b.pris[6]!).atNest !== undefined && st.soldier.req(b.pris[6]!).captive?.searched !== undefined);
       // The point: behind the platoon, apart from the nest and the supply point.
       const pt = [...st.rear.entries()].find(([, p]) => p.kind === "prisoners")!;
       expect(pt).toBeDefined();
@@ -105,14 +106,13 @@ describe("prisoners (M11.9a)", () => {
         if (e.kind === "action.completed" && e.action === "searchPrisoner") expect(e.tick - started.get(e.actor)!).toBe(P.search.seconds * 60);
       }
       expect(of(b.events, "pow.documents").length).toBeGreaterThan(0);
-      // What the escorts could not carry is in a captured cache at the point.
-      const cached = of(b.events, "pow.cached");
-      if (cached.length > 0) {
-        const c = st.cache.req(cached[0]!.cache);
+      // What the escorts could not carry is in a captured cache (review fix: where they searched); none walks his
+      // prisoners back with more than maxKg of what he took.
+      for (const e of of(b.events, "pow.cached")) {
+        const c = st.cache.req(e.cache);
         expect(c.side).toBe("blue"); expect(c.capturedBy).toBe("blue"); expect(c.from).toBe("red");
-        const ct = st.transform.req(cached[0]!.cache);
-        expect(Math.hypot(ct.x - pt[1].x, ct.y - pt[1].y)).toBeLessThan(15);
       }
+      for (const [, s] of st.soldier.entries()) if (s.guard?.took) expect(s.guard.took.reduce((n, x) => n + stackMassKg(cat, x), 0)).toBeLessThanOrEqual(P.search.maxKg + 1e-6);
       // Held apart by group; guards = ceil(held / perGuard), out of the fight.
       let held = 0;
       for (const m of b.pris.slice(0, 6)) {
@@ -192,7 +192,21 @@ describe("prisoners (M11.9a)", () => {
     submitOrder(b.sim, { tick: st.tick, issuer: "blue", target: st.identity.req(g).unit, kind: "move", waypoints: [{ x: at.x + 60, y: at.y, mode: "walk" }] });
     b.run(20);
     expect(gs.guard?.phase).toBe("guard");
-    expect(Math.hypot(st.transform.req(g).x - at.x, st.transform.req(g).y - at.y)).toBeLessThan(5);
+    // (He may still be stepping to his own place at the point, up to 3 x arriveM from where his escort ended; the
+    // order would have taken him 60 m east.)
+    expect(Math.hypot(st.transform.req(g).x - at.x, st.transform.req(g).y - at.y)).toBeLessThan(8);
+  });
+
+  it("review fix: a guard goes back to his squad once his platoon holds nobody", () => {
+    const b = battle("de");
+    const st = b.sim.state;
+    b.run(1200, () => [...st.soldier.values()].some((s) => s.guard?.phase === "guard"));
+    const [g, gs] = [...st.soldier.entries()].find(([, s]) => s.guard?.phase === "guard")!;
+    // (Every prisoner taken off the map at once.)
+    for (const m of b.pris) st.soldier.req(m).evacuated = { tick: st.tick, via: "end" };
+    b.run(3);
+    expect(gs.guard).toBeUndefined();
+    expect(of(b.events, "pow.guard").some((e) => e.soldier === g && e.phase === "released")).toBe(true);
   });
 
   it("save and load mid-search and mid-escort give the same battle", () => {

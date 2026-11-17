@@ -101,6 +101,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.ammo !== undefined && o.ammo !== "conserve" && o.ammo !== "normal" && o.ammo !== "max") return "invalid-params";
       if (o.at !== undefined && o.at !== "vehicles" && o.at !== "vehiclesAndPositions" && o.at !== "hold") return "invalid-params";
       if (o.supply !== undefined && o.supply !== "auto" && o.supply !== "ask") return "invalid-params";
+      if (o.prisoners !== undefined && o.prisoners !== "auto" && o.prisoners !== "ask") return "invalid-params";
       return null;
     case "callFire":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";

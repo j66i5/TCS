@@ -85,6 +85,11 @@ function summarize(
     // (M11.9b: the prisoners it holds, and those its military police took off the map.)
     const taken = prisoners.filter((p) => p.holder === sd.id);
     if (taken.length > 0) { out.prisonersTaken = taken.length; const ev = taken.filter((p) => p.evacuated === "mp").length; if (ev > 0) out.prisonersEvacuated = ev; }
+    // (Review fix: the enemy men who got away from it — escaped, freed by their own men, back with their side at the end.)
+    let escaped = 0;
+    // mounted: ok (a man who got away counts wherever he is)
+    for (const [, s] of state.soldier.entries()) if (s.freedFrom === sd.id) escaped++;
+    if (escaped > 0) out.prisonersEscaped = escaped;
     // Vehicles (M7): only for a side that has any, so infantry results keep their shape.
     let vs: NonNullable<SideResult["vehicles"]> | null = null;
     for (const [, v] of state.vehicle.entries()) {

@@ -66,6 +66,31 @@ describe("prisoners: escapes (M11.9c)", () => {
     expect(ownNear()).toBeLessThanOrEqual(E.freeM + 1);
     expect(s.mental.behaviour).not.toBe("surrendered");
     expect(of(ev, "pow.escape").some((e) => e.soldier === m && e.phase === "free")).toBe(true);
+    // (Review fix: noted for the result, SideResult.prisonersEscaped.)
+    expect(s.freedFrom).toBe("blue");
+  });
+
+  it("review fix: freed by his own men beside him with none of the holding side near, without an attempt", () => {
+    const b = sure(1, 5);
+    b.sim.ctx.catalog.prisoners!.escape!.perMinute = 0;
+    const st = b.sim.state, m = b.pris[0]!;
+    const ev: SimEvent[] = [];
+    runFor(b.sim, 5, ev);
+    expect(st.soldier.req(m).captive?.state).toBe("captured");
+    const p = st.transform.req(m), d = st.transform.req(b.dest);
+    d.x = p.x + 10; d.y = p.y;
+    runFor(b.sim, 3, ev);
+    expect(st.soldier.req(m).captive).toBeNull();
+    expect(st.soldier.req(m).freedFrom).toBe("blue");
+    const esc = of(ev, "pow.escape").filter((e) => e.soldier === m);
+    expect(esc.map((e) => e.phase)).toEqual(["free"]);
+  });
+
+  it("review fix: the rules order's prisoners field is validated", () => {
+    const b = sure(1, 5);
+    const st = b.sim.state;
+    submitOrder(b.sim, { tick: st.tick, issuer: "blue", target: b.squad, kind: "rules", prisoners: "foo" as "ask" });
+    expect(step(b.sim).find((e) => e.kind === "order.rejected")).toMatchObject({ reason: "invalid-params" });
   });
 
   it("no escapes while watched by a fit man of the holding side, nor with rules.prisonerEscapes false", () => {
@@ -93,6 +118,8 @@ describe("prisoners: escapes (M11.9c)", () => {
     runFor(b.sim, 30, ev, () => { const p = st.transform.req(m), tr = st.transform.req(g); tr.x = p.x + 2; tr.y = p.y; });
     expect(of(ev, "pow.escape").some((e) => e.soldier === m && e.phase === "recaptured")).toBe(true);
     expect(of(ev, "captured").some((e) => e.soldier === m)).toBe(true);
+    // (Review fix: taken again, not a second prisoner: the record counts him once.)
+    expect(of(ev, "captured").find((e) => e.soldier === m)!.again).toBe(true);
     expect(st.soldier.req(m).captive?.state).toBe("captured");
     expect(st.soldier.req(m).captive?.escape).toBeUndefined();
   });

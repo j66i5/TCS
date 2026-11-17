@@ -146,7 +146,7 @@ export type SimEvent =
   /** A surrendered man under fire crawls out of the line of fire to cover (owner request 2026-11-15). */
   | { kind: "surrender.crawl"; tick: number; soldier: EntityId; side: SideId; distanceM: number }
   /** A surrendered man has been taken prisoner by the enemy soldier `by`. `side` is the prisoner's. */
-  | { kind: "captured"; tick: number; soldier: EntityId; side: SideId; by: EntityId }
+  | { kind: "captured"; tick: number; soldier: EntityId; side: SideId; by: EntityId; again?: true }
   /** M11.9: side `side`'s platoon `unit` has its prisoner collection point `point` at (x, y): sited, moved back
    *  (a known enemy near it; M11.9c: rounds landing near it, "underFire") or put there by an order. */
   | { kind: "pow.point"; tick: number; side: SideId; point: EntityId; unit: EntityId; x: number; y: number; reason: "sited" | "threatened" | "underFire" | "ordered" }

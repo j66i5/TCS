@@ -1201,7 +1201,7 @@ export interface SupplyDef {
 /** Prisoners of war (core/prisoners.json, M11.9) without provenance; see the schema (data/src/schemas.ts). */
 export interface PrisonersDef {
   stepS: number;
-  pcp: { backM: number; searchM: number; minBackM: number; maxBackM: number; apartM: number; enemyM: number; checkS: number; arriveM: number; /** M11.9c */ fireM?: number; fireClearM?: number };
+  pcp: { backM: number; searchM: number; minBackM: number; maxBackM: number; apartM: number; enemyM: number; checkS: number; arriveM: number; /** M11.9c */ fireM?: number; fireClearM?: number; /** review fix */ fireMemoryS?: number };
   search: { seconds: number; maxKg: number; reachM: number };
   escort: { perGuard: number; gapMinM: number; gapMaxM: number; quietS: number; minLeft: number };
   guard: { perGuard: number; standM: number; selfDefenceM: number; /** M11.9c */ watchM?: number };

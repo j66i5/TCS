@@ -1497,7 +1497,9 @@ export const PrisonersFile = z.object({
     pcp: z.object({ backM: Num(10, 1000), searchM: Num(0, 500), minBackM: Num(0, 1000), maxBackM: Num(10, 2000), apartM: Num(0, 500), enemyM: Num(0, 2000), checkS: Num(1, 600), arriveM: Num(0.5, 20),
       /** M11.9c: rounds landing within `fireM` of the point move it to a spot at least `fireClearM` from where they
        *  landed (absent: only a known enemy moves it). */
-      fireM: Num(0, 500).optional(), fireClearM: Num(0, 1000).optional() }).strict(),
+      fireM: Num(0, 500).optional(), fireClearM: Num(0, 1000).optional(),
+      /** Review fix: the spots it was moved away from are avoided for `fireMemoryS` (absent: only the latest). */
+      fireMemoryS: Num(0, 3600).optional() }).strict(),
     /** The search: `seconds` a man, by a searcher within `reachM`; he takes up to `maxKg` himself, the rest goes into a
      *  captured cache at the collection point when he gets there. */
     search: z.object({ seconds: Num(1, 600), maxKg: Num(0, 200), reachM: Num(0.5, 10) }).strict(),

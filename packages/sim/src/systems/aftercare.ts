@@ -150,9 +150,20 @@ export function settleBattle(ctx: SimContext, state: SimState, events: EventSink
       if (s?.captive?.escape !== undefined && s.physiology.alive) {
         const t = pos(id), by = s.captive.by ?? ident.side;
         const holder = t ? holderAt(able, t.x, t.y, holdM) ?? by : by;
-        if (holder === ident.side) { s.captive = null; s.mental.behaviour = "shaken"; }
+        if (holder === ident.side) { s.captive = null; s.mental.behaviour = "shaken"; s.freedFrom = by; }
         else { delete s.captive.escape; s.captive.by = holder; }
         events.emit({ kind: "pow.settled", tick: state.tick, soldier: id, side: ident.side, holder, outcome: holder === ident.side ? "returned" : "captured" });
+        continue;
+      }
+      // (Review fix: a prisoner held on the map — on foot, not taken off it — on ground his own side holds at the end is
+      // back with it: the point overrun, its guards gone.)
+      if (s?.captive?.state === "captured" && s.physiology.alive && s.captive.by !== undefined && s.captive.by !== ident.side && s.captive.evacTick === undefined && s.evacuated === undefined && s.mount === undefined && !isAssetUnit(state, ident.unit) && !isOffMapMan(state, s)) {
+        const t = pos(id), by = s.captive.by;
+        if (t && holderAt(able, t.x, t.y, holdM) === ident.side) {
+          s.captive = null; s.mental.behaviour = "shaken"; s.freedFrom = by;
+          delete s.atNest;
+          events.emit({ kind: "pow.settled", tick: state.tick, soldier: id, side: ident.side, holder: ident.side, outcome: "returned" });
+        }
         continue;
       }
       if (!s || !s.physiology.alive || s.captive?.state !== "surrendered" || s.evacuated !== undefined || isAssetUnit(state, ident.unit) || isOffMapMan(state, s)) continue;

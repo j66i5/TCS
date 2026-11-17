@@ -162,7 +162,9 @@ export function mpSystem(ctx: SimContext, state: SimState, events: EventSink): v
   if (ready && state.rear.size > 0) {
     for (const [pid, p] of state.rear.entries()) {
       if (p.kind !== "prisoners" || mpServing(state, pid) !== null || readyMp(state, p.side) === null) continue;
-      if (!onAir(state, p.unit) || boardable(ctx, state, pid).length === 0) continue;
+      // (Review fix: called when the point has its first prisoner taken — held there or bound for it —, not only once one
+      // is held: GC III art. 19, as soon as possible; it waits there for those on the way, `heldMaxS`.)
+      if (!onAir(state, p.unit) || (boardable(ctx, state, pid).length === 0 && !boundFor(state, pid, p.unit))) continue;
       callMp(ctx, state, events, pid, false);
     }
   }
@@ -180,6 +182,8 @@ function quietAt(ctx: SimContext, state: SimState, MP: MpDef, pid: EntityId): bo
   const p = state.rear.req(pid);
   // (What the platoon's men know: fresh, not down, not giving up — the rule that moves the point back.)
   for (const e of knownEnemies(ctx, state, p.unit)) if (hypot2(e.x - p.x, e.y - p.y) < MP.enemyNearM) return false;
+  // (Review fix: nor rounds landing at the point within quietS, prisoners.ts notes them.)
+  if (p.fire !== undefined && state.tick - p.fire.tick < secondsToTicks(MP.quietS)) return false;
   const seek = ctx.catalog.behaviour.decisions.seekCoverSuppression;
   // mounted: ok (prisoners and guards at the point are on foot)
   for (const [, s] of state.soldier.entries()) {
@@ -368,6 +372,14 @@ function stepLoading(ctx: SimContext, state: SimState, events: EventSink, vid: E
   const pid = o.point!, p = state.rear.get(pid);
   const men = outsideMen(ctx, state, v);
   const dr = door(ctx, state, vid, v);
+  // (Review fix: the point no longer quiet — a known enemy near, rounds landing, a man there suppressed —: it breaks off
+  // the loading and leaves with those aboard; the point may then move back and the guards come again, prisoners.ts.)
+  if (o.mpStep === "out" && p && !quietAt(ctx, state, MP, pid)) {
+    const b = o.boarding;
+    if (b) { const c = state.soldier.get(b.prisoner)?.captive; if (c && state.soldier.get(b.prisoner)?.mount === undefined) delete c.vehicle; delete o.boarding; }
+    o.mpStep = "mount"; o.waitTick = tick;
+    emit(state, events, vid, v, "waiting", { why: "underFire" });
+  }
   if (o.mpStep === "out" && p) {
     // Its men stand guard over the prisoners (at the guards' places).
     men.forEach((m, k) => {
@@ -480,11 +492,13 @@ function strand(ctx: SimContext, state: SimState, events: EventSink, vid: Entity
   o.phase = "lost";
   emit(state, events, vid, v, "lost");
   const def = ctx.catalog.vehicles[v.def]!;
-  if (v.status === "destroyed") return;
+  // (Review fix: from a hull destroyed outright the prisoners who can still walk get out too — the armour bail-out moves
+  // only able men, never a prisoner.)
+  const wreck = v.status === "destroyed";
   const exits = Math.max(1, def.ramp.exits.length);
   for (const m of prisonersAboard(state, v)) {
     const s = state.soldier.req(m);
-    if (!s.physiology.alive) continue;
+    if (!s.physiology.alive || (wreck && !walks(state, s))) continue;
     getOut(ctx, state, m, vid, 0 % exits, events);
     delete s.captive!.vehicle;
   }

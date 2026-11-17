@@ -64,6 +64,8 @@ export function photoTileOptions(map: MapDef, tier: { phone: boolean; strong: bo
     maxInFlight: 4, maxUploads: 2, contourAlphas: [0.3, 0.5], vectorContours: true,
   };
 }
+/** The prisoner collection point marker's offset north of the point (m; review fix). */
+const PW_MARKER_M = 4;
 /** Ticks a man shows his firing frame after a shot. */
 const FIRE_FRAME_TICKS = 6;
 
@@ -1283,7 +1285,9 @@ export class BattleRenderer {
       if (n.count > 0) this.request(String(n.count), s.x, s.y + 17, 4, 0xf4f1ea, 1, k++);
     }
     for (const p of overlay.prisonerPoints ?? []) {
-      const s = worldToScreen(c, p.x, p.y);
+      // (Review fix: the marker stands PW_MARKER_M north of the point, so that it never hides a prisoner of the men's
+      // group whose places start at the point itself.)
+      const s = worldToScreen(c, p.x, p.y - PW_MARKER_M);
       drawPrisonerPointMarker(g, s.x, s.y, 1);
       this.request(p.held > 0 ? `${p.label} ${p.held}` : p.label, s.x, s.y + 17, 4, 0xf4f1ea, 1, k++);
     }

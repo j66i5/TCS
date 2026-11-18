@@ -8,7 +8,7 @@
  * (suppression 0.1 or more) within the last 60 s. VEHICLE STOWAGE USED: rounds of the men's cartridges gone from the
  * vehicles' containers (not their guns' feeds).
  *
- *   npm run lab -- consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-deliveries]
+ *   npm run lab -- consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-deliveries] [--no-refill]
  */
 import {
   continueBattle, createSim, isAssetUnit, isOffMapMan, type BattleInput, type Catalog, type EntityId, type SimEvent, type SimView,
@@ -189,7 +189,7 @@ export function consumptionMarkdown(battles: ConsumptionBattle[], markS: number)
   return out.join("\n");
 }
 
-export interface ConsumptionOptions { seeds: number[]; marks: number[]; scenarios: string[]; conservation: boolean; noResupply: boolean; /** M11.4b: resupply on foot only (no deliveries from off the map, no vehicle supply runs, no top-up). */ noDeliveries?: boolean; /** M11.2: without consolidation and taking (the slice 43 behaviour), for before/after. */ noConsolidate?: boolean; /** `--scenarios` given (the conservation run then takes only those). */ scenariosGiven?: boolean }
+export interface ConsumptionOptions { seeds: number[]; marks: number[]; scenarios: string[]; conservation: boolean; noResupply: boolean; /** M11.4b: resupply on foot only (no deliveries from off the map, no vehicle supply runs, no top-up). */ noDeliveries?: boolean; /** M11.2: without consolidation and taking (the slice 43 behaviour), for before/after. */ noConsolidate?: boolean; /** Balance pass 3: no refilling from own loose rounds or evening out (`rules.refill: false`). */ noRefill?: boolean; /** `--scenarios` given (the conservation run then takes only those). */ scenariosGiven?: boolean }
 
 export function consumptionOptions(argv: string[]): ConsumptionOptions {
   const o: ConsumptionOptions = { seeds: [1, 2, 3, 4, 5, 6], marks: [1200, 2400], scenarios: CONSUMPTION_SCENARIOS, conservation: false, noResupply: false };
@@ -202,6 +202,7 @@ export function consumptionOptions(argv: string[]): ConsumptionOptions {
     else if (a === "--no-resupply") o.noResupply = true;
     else if (a === "--no-deliveries") o.noDeliveries = true;
     else if (a === "--no-consolidate") o.noConsolidate = true;
+    else if (a === "--no-refill") o.noRefill = true;
     else if (/^\d+$/.test(a)) o.seeds = Array.from({ length: Number(a) }, (_, k) => k + 1);
   }
   return o;
@@ -209,8 +210,9 @@ export function consumptionOptions(argv: string[]): ConsumptionOptions {
 
 /** The lab: the consumption tables, or (`--conservation`) the conservation guard over every named scenario. */
 export function consumptionLab(data: DataSet, dataFixtures: DataSet, o: ConsumptionOptions, scenarioNames: string[]): string {
-  const tweak = o.noResupply || o.noDeliveries || o.noConsolidate ? (input: BattleInput) => {
+  const tweak = o.noResupply || o.noDeliveries || o.noConsolidate || o.noRefill ? (input: BattleInput) => {
     if (o.noResupply) input.rules.resupply = false;
+    if (o.noRefill) input.rules.refill = false;
     if (o.noDeliveries) input.rules.deliveries = false;
     if (o.noConsolidate) { const { consolidate: _c, ...rest } = input.catalog.behaviour; void _c; input.catalog = { ...input.catalog, behaviour: rest }; }
   } : undefined;

@@ -11,6 +11,7 @@ import {
   type Contact, type EntityId, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { getScenario, loadData } from "../src/scenarios";
+import { holdBattle } from "@tcs/scenario";
 
 const data = loadData();
 
@@ -87,6 +88,9 @@ describe("the commander's logistics (M11.8)", () => {
     drain(sim, sq);
     const u = sim.state.unit.req(sq);
     u.moving = false;
+    // (Balance pass 3: the hold battle's defenders start with no loose rounds, so the squad has bearers on the way
+    // already; this test is about the commander's own errand.)
+    delete u.supplyAsk;
     const able = u.members.filter((m) => sim.state.soldier.req(m).physiology.alive);
     // The enemy close: nothing.
     const mt = sim.state.transform.req(u.members[0]!);
@@ -155,7 +159,8 @@ describe("the Logistics record and BattleResult.logistics (M11.8)", () => {
 
   it("BattleResult.logistics: per side from the events; its sums equal the conservation tally", () => {
     const sc = getScenario("hold-resupply");
-    const input = sc.build(data, 1, 300);
+    // (Balance pass 3: the first wave comes at 600 s now; the old timing, so that both sides fire within 300 s.)
+    const input = holdBattle(data, { seed: 1, factions: ["de", "ru"], timeLimitSeconds: 300, waveS: [0, 900, 1800] });
     const c = emptyConsumption(), tr = tracerMap(input.catalog);
     const r = runBattle(input, { controllers: sc.controllers?.(input) ?? [], onEvents: (ev) => consumedFromEvents(c, ev, tr) });
     const L = r.logistics!;

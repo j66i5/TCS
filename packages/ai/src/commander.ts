@@ -30,7 +30,7 @@ import {
   cacheHolds,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
-import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
+import { isArmourSection, overwatchBounds, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
 import { recoveryCalls } from "./recovery";
 import { logisticsOrders, type LogisticsMemory } from "./logistics";
 
@@ -1492,6 +1492,17 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
             if (hypot2(vt.x - px, vt.y - py) < COMMANDER.followReplanM) { mem.followAt[String(c)] = [px, py]; continue; }
             order(c, { kind: "move", waypoints: [{ x: px, y: py, mode: "walk" }], facing: atan2(uy, ux) });
             mem.followAt[String(c)] = [px, py];
+          }
+        } else if (!defending && input.catalog.behaviour.mounting.overwatchBound) {
+          // Balance pass 3 (owner 2026-11-18): overwatch carriers idle for a while bound forward (tanks.ts
+          // `overwatchBounds`); not one with men aboard or a squad getting back in.
+          const obCrews = fighting.filter((c) => {
+            const vid = view.unit.get(c)?.vehicle;
+            return vid !== undefined && ![...squads, ...topIds].some((sq) => { const u = view.unit.get(sq); return u?.carrier === vid && (riders(view, sq).length > 0 || u.boarding !== undefined); });
+          });
+          if (obCrews.length > 0) {
+            const ownFoot = all.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined; }).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
+            overwatchBounds({ view, tick, side, ctx: ground(), objectives, mem, order, ux, uy, target: mem.target, crews: obCrews, ownFoot, bound: input.catalog.behaviour.mounting.overwatchBound, reverseHoldSeconds: COMMANDER.reverseOutHoldSeconds });
           }
         }
       }

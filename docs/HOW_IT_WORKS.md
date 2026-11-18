@@ -661,13 +661,14 @@ bandolier into a magazine) goes through one function, `moveCharge`, that keeps t
 batteries (watt-hours) will use the same one.
 
 **The long hold (`hold-resupply`, in the app `?scenario=hold`).** A German platoon on foot holds the village centre
-for an hour against three Russian platoons that come in waves from the east, at the start, after 15 and after 30
-minutes (the attacker has a third of the platoon battle's mortar rounds, all from the start: with more, the first wave shelled the defence apart). A wave is not on the map before its time (it does not exist in the
+for an hour against three Russian platoons that come in waves from the east, after 10, 25 and 40 minutes (until
+balance pass 3: at the start, after 15 and after 30) (the attacker has a third of the platoon battle's mortar rounds, all from the start: with more, the first wave shelled the defence apart). A wave is not on the map before its time (it does not exist in the
 battle yet, so it costs nothing and nobody can see it); the side is not beaten while a wave is still to come. Each
 wave has its own computer commander, who plans its attack from where it comes in. The defenders have a supply point
 150 m behind the village: per squad one can of loose rounds for each kind of rifle and machine-gun round it fires.
 In this step nobody fetches from it yet (the next steps bring bearers, vehicle runs and deliveries); `--no-resupply`
-(headless and batch) switches refilling and, later, every resupply off for comparisons. `hold-resupply-ru` swaps the
+(headless and batch) switches every resupply off for comparisons (until balance pass 3 it also switched off a man
+refilling from his own loose rounds; that is `--no-refill` now). `hold-resupply-ru` swaps the
 sides.
 
 **Men fire a little more (where the sources support it).** Two changes, each measured on its own: (1) a unit firing
@@ -829,7 +830,9 @@ enough no longer spares it. Unloaded, it is protected again.
 
 **Measuring it.** `npm run lab -- resupply` also times a delivery 400 m from the edge and a Puma's and a BMP-2's supply
 run against a hand calculation (the wait, the drive at the run's pace, unloading): all within 1 % (target 10 %), the
-ammunition check exact. Batches take `--no-deliveries` (resupply on foot only) besides `--no-resupply`.
+ammunition check exact. Batches take `--no-deliveries` (resupply on foot only) besides `--no-resupply` (since balance
+pass 3 the whole supply chain off, while each man still refills his magazines from his own loose rounds and the squad
+still evens out its ammunition; `--no-refill` switches those two off as well).
 
 ## Re-arming and refuelling vehicles; rounds to mortars (M11.5)
 
@@ -1556,7 +1559,12 @@ If the attack fails, squads within 100 m of their vehicle get back in and ride b
 stand behind its position with only their crews and fire at will. Once the squads are out, the German Pumas stay
 where they dropped them and support by fire from there; the Russian BMP-2s follow their squads about 150 m behind
 (both from the research on each army's doctrine). During the assault each vehicle fires at an enemy its side
-knows near the objective, never close to its own men.
+knows near the objective, never close to its own men. Since balance pass 3 (owner 2026-11-18) a vehicle in overwatch
+that has fired nothing for 75 s bounds forward: the AI picks a hull-down spot up to 150 m ahead (the same search as
+the tanks' posts), at least 40 m farther forward, always 100 m or more behind the side's foremost man on foot and
+200 m from houses or woods the enemy may still hold and from enemy men it knows; if there is none it tries again 30 s
+later. A vehicle that is busy with an enemy vehicle, out of main-gun rounds, hit and reversing, or still carrying men
+stays where it is (game values in `core/behaviour.json` `mounting.overwatchBound`; without them the vehicles stay).
 
 **Wheeled carriers (M7.6c).** Each army also has a wheeled platoon: the German **Jägerzug** in four **GTK Boxer**
 (eight-wheeled; a crew of two, the commander working the remote weapon station on the roof — a 12.7 mm heavy

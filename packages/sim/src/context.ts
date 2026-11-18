@@ -41,9 +41,15 @@ export interface BattleRules {
   /** Recovery vehicles called to tow disabled hulls (M11.7b): false switches it off (`--no-recovery`). Default on
    *  whenever the data has core/repair.json `recovery`. */
   recovery?: boolean;
-  /** M11: resupply (refilling magazines from loose rounds, and every route of slices 44-48); false switches it off
-   *  (`--no-resupply`, comparison batches). Default on. */
+  /** M11: the supply chain (slices 44-48: supply points and caches, men sent to a cache, bearers, requests, vehicles
+   *  re-arming, mortars fetching rounds, deliveries and the support top-up); false switches it off (`--no-resupply`,
+   *  comparison batches). Balance pass 3 (owner 2026-11-18): it no longer switches off a man refilling his magazines
+   *  from his own loose rounds or the squad evening out its ammunition (`refill`). Default on. */
   resupply?: boolean;
+  /** Balance pass 3: a man refilling his magazines from his own loose rounds (M11.1) and the squad evening out and
+   *  taking its casualties' ammunition (M11.2, consolidate.ts); false switches both off (`--no-refill`, comparison
+   *  batches). Default on, with or without `resupply`. */
+  refill?: boolean;
   /** M11.4b: supplies from off the map (supply vehicle deliveries, combat vehicles' rear runs with supplies, the
    *  support top-up); false switches them off and leaves resupply on foot (`--no-deliveries`, comparison batches:
    *  "foot only"). Default on; off too with `resupply: false`. */

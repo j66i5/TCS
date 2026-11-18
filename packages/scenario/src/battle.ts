@@ -542,7 +542,7 @@ function placeVehicles(
 
 /** M11.1 hold-resupply: what the waves and the supply point are (game values). */
 export const HOLD = {
-  waveS: [0, 900, 1800], timeLimitSeconds: 3600, supplyBehindM: 150, canMaxRounds: 1200, attackerMortarShare: 1 / 6, preparedS: [60, 90],
+  waveS: [600, 1500, 2400], timeLimitSeconds: 3600, supplyBehindM: 150, canMaxRounds: 1200, attackerMortarShare: 1 / 6, preparedS: [60, 90],
   /** M11.4b: the defender's off-map stock holds this many times the supply point's starting load (deliveries by its
    *  supply vehicle), and tops its mortar allotment up by `topUpRounds` every `topUpEveryS` (game values). */
   stockLoads: 2, topUpRounds: 6, topUpEveryS: 600,
@@ -559,10 +559,16 @@ export const HOLD = {
    *  resupply; with no loose rounds at all 1 of 8 held with resupply): ammunition decides this battle only when the
    *  men are short enough to hold their fire (DECISIONS "Balance pass 2", review fixes). */
   defenderMagazineShare: 0.25,
+  /** Balance pass 3 (owner 2026-11-18: the supply chain itself must make the difference, now that `--no-resupply`
+   *  leaves the men refilling from their own pockets): the share of the defenders' loose rounds (packages) still on
+   *  them (the smaller of this and `defenderLoadShare` applies). 0: they have none; what they refill from is at the
+   *  supply point (`pointShare` 1) and in the deliveries, so only the chain can load their empty magazines. With the
+   *  first wave at 600 s (`waveS`) the bearers have time to bring the point's rounds forward before contact. */
+  defenderLooseShare: 0,
   /** Balance pass 2: the supply point (and with it the off-map stock, `stockLoads` times it) holds this share of the
    *  rounds of one can per squad and cartridge: full cans and one part-filled can per cartridge (so a fresh point's
-   *  marker reads 0.75 full). */
-  pointShare: 0.5,
+   *  marker reads 0.75 full). Balance pass 3: 1 (full cans), with the men's loose rounds gone. */
+  pointShare: 1,
 } as const;
 
 export interface HoldDef {
@@ -583,6 +589,8 @@ export interface HoldDef {
   defenderMagazineShare?: number;
   /** Balance pass 2: the share of the supply point's full load it holds (default HOLD.pointShare). */
   pointShare?: number;
+  /** Balance pass 3: the share of their loose rounds still there (default HOLD.defenderLooseShare). */
+  defenderLooseShare?: number;
 }
 
 /**
@@ -618,12 +626,13 @@ export function holdBattle(data: DataSet, def: HoldDef): BattleInput {
   // Balance pass 2: magazines and belts at `defenderMagazineShare` (the smaller of the two), loose rounds full.
   const share = def.defenderLoadShare ?? HOLD.defenderLoadShare;
   const magShare = Math.min(share, def.defenderMagazineShare ?? HOLD.defenderMagazineShare);
-  if (share < 1 || magShare < 1) for (const u of df.units) for (const m of allMembers(u)) {
+  const looseShare = Math.min(share, def.defenderLooseShare ?? HOLD.defenderLooseShare);
+  if (share < 1 || magShare < 1 || looseShare < 1) for (const u of df.units) for (const m of allMembers(u)) {
     const out: typeof m.load = [];
     for (const l of m.load) {
       const d = input.catalog.items[l.type];
       if (d?.chargeItem === undefined || l.charge === undefined || l.charge <= 0) { out.push(l); continue; }
-      if (d.category === "ammo-package") { out.push({ ...l, charge: Math.floor(l.charge * share) }); continue; }
+      if (d.category === "ammo-package") { out.push({ ...l, charge: Math.floor(l.charge * looseShare) }); continue; }
       if (d.category !== "magazine" || l.count < 2) { out.push(l); continue; }
       const full = Math.max(1, Math.floor(l.count * magShare));
       out.push({ ...l, count: full });

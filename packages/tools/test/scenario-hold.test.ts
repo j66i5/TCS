@@ -10,11 +10,11 @@ const input0 = () => holdBattle(data, { factions: ["de", "ru"], seed: 1 });
 const blueCommander = (input: ReturnType<typeof input0>) => commanderController("blue", input);
 
 describe("hold-resupply (M11.1)", () => {
-  it("one defending platoon, three attacking platoons of which two arrive at 15 and 30 min; a supply point of cans", () => {
+  it("one defending platoon, three attacking platoons arriving at 10, 25 and 40 min (balance pass 3); a supply point of cans", () => {
     const input = holdBattle(data, { factions: ["de", "ru"], seed: 2 });
     const red = input.forces.find((f) => f.side === "red")!, blue = input.forces.find((f) => f.side === "blue")!;
     const plats = red.units.filter((u) => u.echelon === "platoon");
-    expect(plats.map((u) => u.arriveS ?? 0)).toEqual([0, 900, 1800]);
+    expect(plats.map((u) => u.arriveS ?? 0)).toEqual([600, 1500, 2400]);
     expect(new Set(plats.map((u) => u.callsign)).size).toBe(3);
     expect(blue.units.filter((u) => u.echelon === "platoon")).toHaveLength(1);
     expect(input.rules.timeLimitSeconds).toBe(3600);
@@ -119,23 +119,27 @@ describe("hold-resupply balance pass 2", () => {
     const f = i.forces.find((x) => x.side === side)!;
     return (f.caches ?? []).flatMap((c) => c.load).reduce((n, l) => n + (l.charge ?? 0) * l.count, 0);
   };
-  it("by default the defenders carry one loaded magazine or belt of each stack (the rest empty) and all their loose rounds; the attackers in full", () => {
+  it("by default the defenders carry one loaded magazine or belt of each stack (the rest empty) and no loose rounds (balance pass 3); the attackers in full", () => {
     expect(HOLD.defenderMagazineShare).toBe(0.25);
+    expect(HOLD.defenderLooseShare).toBe(0);
     const now = holdBattle(data, { factions: ["de", "ru"], seed: 4 });
-    const before = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderMagazineShare: 1 });
+    const before = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderMagazineShare: 1, defenderLooseShare: 1 });
     const a = tally(now, "blue"), b = tally(before, "blue");
     expect(a.loaded + a.empty).toBe(b.loaded + b.empty);
     expect(a.loaded).toBeLessThan(b.loaded * 0.5);
-    expect(a.loose).toBe(b.loose);
+    expect(b.loose).toBeGreaterThan(0);
+    expect(a.loose).toBe(0);
+    // (Balance pass 2's setting, loose rounds in full, is still there for comparisons.)
+    expect(tally(holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderLooseShare: 1 }), "blue").loose).toBe(b.loose);
     expect(tally(now, "red")).toEqual(tally(before, "red"));
     const sim = createSim(now);
     for (const [id, i] of sim.state.identity.entries()) if (i.side === "blue" && sim.state.weapon.get(id)?.magazine === null) throw new Error(`defender ${id} has no loaded magazine`);
   });
-  it("the supply point and the off-map stock hold HOLD.pointShare of a full point's rounds (full cans and one part-filled can per cartridge)", () => {
-    expect(HOLD.pointShare).toBe(0.5);
+  it("the supply point and the off-map stock hold pointShare of a full point's rounds (full cans and one part-filled can per cartridge); full by default (balance pass 3)", () => {
+    expect(HOLD.pointShare).toBe(1);
     for (const defender of ["blue", "red"] as const) {
-      const now = holdBattle(data, { factions: ["de", "ru"], seed: 4, defender });
-      const full = holdBattle(data, { factions: ["de", "ru"], seed: 4, defender, pointShare: 1 });
+      const now = holdBattle(data, { factions: ["de", "ru"], seed: 4, defender, pointShare: 0.5 });
+      const full = holdBattle(data, { factions: ["de", "ru"], seed: 4, defender });
       const p = pointRounds(now, defender), q = pointRounds(full, defender);
       expect(q).toBeGreaterThan(0);
       expect(Math.abs(p - q * 0.5)).toBeLessThanOrEqual(4);

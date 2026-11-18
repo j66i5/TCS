@@ -8,142 +8,71 @@
  "orders": [
   {
    "tick": 0,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "rules",
-   "fire": "return",
-   "onContact": "ground"
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 5,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 261.9899476137031,
-     "y": 274.6087513202914,
-     "mode": "walk"
-    },
-    {
-     "x": 309.138594514911,
-     "y": 291.2522213726939,
-     "mode": "sneak"
-    }
-   ],
-   "facing": 0.33934487773365746
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 12,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 242.01778355082013,
-     "y": 331.1871276017409,
-     "mode": "walk"
-    },
-    {
-     "x": 289.166430452028,
-     "y": 347.8305976541434,
-     "mode": "sneak"
-    }
-   ],
-   "facing": 0.33934487773365746
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 19,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 231.47534886817863,
-     "y": 391.09419789367087,
-     "mode": "walk"
-    },
-    {
-     "x": 278.6239957693865,
-     "y": 407.7376679460734,
-     "mode": "sneak"
-    }
-   ],
-   "facing": 0.33934487773365746
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 2,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 260.8772423113033,
-     "y": 337.84451562270186,
-     "mode": "walk"
-    }
-   ]
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 3,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 260.8772423113033,
-     "y": 337.84451562270186,
-     "mode": "walk"
-    }
-   ]
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
+   "issuer": "red",
    "target": 4,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 260.8772423113033,
-     "y": 337.84451562270186,
-     "mode": "walk"
-    }
-   ]
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 392.89345363468533,
-   "y": 384.4462317694289,
-   "altM": 120
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 392.89345363468533,
-   "y": 384.4462317694289,
-   "altM": 120
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 392.89345363468533,
-   "y": 384.4462317694289,
-   "altM": 120
+   "kind": "resupplyAt",
+   "cache": 48
   },
   {
    "tick": 0,
    "issuer": "red",
-   "target": 26,
+   "target": 7,
+   "kind": "resupplyAt",
+   "cache": 48
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 8,
+   "kind": "resupplyAt",
+   "cache": 48
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 11,
+   "kind": "resupplyAt",
+   "cache": 48
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 14,
+   "kind": "resupplyAt",
+   "cache": 48
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 15,
+   "kind": "resupplyAt",
+   "cache": 48
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 18,
+   "kind": "resupplyAt",
+   "cache": 48
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 21,
+   "kind": "resupplyAt",
+   "cache": 48
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 22,
+   "kind": "resupplyAt",
+   "cache": 48
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 1,
    "kind": "rules",
    "fire": "free",
    "maxEngageM": 300
@@ -151,7 +80,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 27,
+   "target": 2,
    "kind": "move",
    "waypoints": [
     {
@@ -165,7 +94,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 29,
+   "target": 4,
    "kind": "occupy",
    "building": 93,
    "windowIndex": 4,
@@ -174,7 +103,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 30,
+   "target": 5,
    "kind": "move",
    "waypoints": [
     {
@@ -188,7 +117,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 31,
+   "target": 6,
    "kind": "occupy",
    "building": 93,
    "windowIndex": 5,
@@ -197,7 +126,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 32,
+   "target": 7,
    "kind": "occupy",
    "building": 93,
    "windowIndex": 1,
@@ -206,7 +135,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 33,
+   "target": 8,
    "kind": "move",
    "waypoints": [
     {
@@ -220,7 +149,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 34,
+   "target": 9,
    "kind": "move",
    "waypoints": [
     {
@@ -234,7 +163,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 36,
+   "target": 11,
    "kind": "occupy",
    "building": 29,
    "windowIndex": 1,
@@ -243,7 +172,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 37,
+   "target": 12,
    "kind": "move",
    "waypoints": [
     {
@@ -257,7 +186,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 38,
+   "target": 13,
    "kind": "occupy",
    "building": 93,
    "windowIndex": 0,
@@ -266,7 +195,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 39,
+   "target": 14,
    "kind": "occupy",
    "building": 29,
    "windowIndex": 2,
@@ -275,7 +204,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 40,
+   "target": 15,
    "kind": "move",
    "waypoints": [
     {
@@ -289,7 +218,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 41,
+   "target": 16,
    "kind": "move",
    "waypoints": [
     {
@@ -303,7 +232,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 43,
+   "target": 18,
    "kind": "occupy",
    "building": 107,
    "windowIndex": 2,
@@ -312,7 +241,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 44,
+   "target": 19,
    "kind": "move",
    "waypoints": [
     {
@@ -326,7 +255,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 45,
+   "target": 20,
    "kind": "move",
    "waypoints": [
     {
@@ -340,7 +269,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 46,
+   "target": 21,
    "kind": "move",
    "waypoints": [
     {
@@ -354,7 +283,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 47,
+   "target": 22,
    "kind": "move",
    "waypoints": [
     {
@@ -368,7 +297,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 48,
+   "target": 23,
    "kind": "move",
    "waypoints": [
     {
@@ -382,224 +311,45 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 26,
+   "target": 1,
    "kind": "drone",
    "op": "fly",
    "x": 370.2314222040235,
    "y": 452.18100710936704,
    "altM": 120
-  },
-  {
-   "tick": 1500,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "callFire",
-   "x": 600.3475000000001,
-   "y": 457.6775,
-   "ammo": "he",
-   "rounds": 6
-  },
-  {
-   "tick": 1500,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "callFire",
-   "x": 574.0997980800453,
-   "y": 531.2373949422931,
-   "x2": 523.2603128252936,
-   "y2": 445.1249873634088,
-   "ammo": "smoke",
-   "rounds": 4
-  },
-  {
-   "tick": 1500,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "callFire",
-   "x": 683.0927706197584,
-   "y": 410.40130598951947,
-   "ammo": "smoke",
-   "rounds": 3
-  },
-  {
-   "tick": 3600,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 393.22304326863167,
-   "y": 383.51915978303253,
-   "altM": 120
-  },
-  {
-   "tick": 3600,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 393.22304326863167,
-   "y": 383.51915978303253,
-   "altM": 120
-  },
-  {
-   "tick": 3600,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 393.22304326863167,
-   "y": 383.51915978303253,
-   "altM": 120
-  },
-  {
-   "tick": 7200,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 393.87950105115897,
-   "y": 381.7106295230523,
-   "altM": 120
-  },
-  {
-   "tick": 7200,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 393.87950105115897,
-   "y": 381.7106295230523,
-   "altM": 120
-  },
-  {
-   "tick": 7200,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 393.87950105115897,
-   "y": 381.7106295230523,
-   "altM": 120
-  },
-  {
-   "tick": 7200,
-   "issuer": "red",
-   "target": 26,
-   "kind": "drone",
-   "op": "fly",
-   "x": 407.9093686528012,
-   "y": 382.112380585972,
-   "altM": 120
-  },
-  {
-   "tick": 10800,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 394.11098909569785,
-   "y": 381.08440912347504,
-   "altM": 120
-  },
-  {
-   "tick": 10800,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 394.11098909569785,
-   "y": 381.08440912347504,
-   "altM": 120
-  },
-  {
-   "tick": 10800,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 394.11098909569785,
-   "y": 381.08440912347504,
-   "altM": 120
-  },
-  {
-   "tick": 12000,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 14400,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 393.6085192980587,
-   "y": 382.45121564192266,
-   "altM": 120
-  },
-  {
-   "tick": 14400,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 393.6085192980587,
-   "y": 382.45121564192266,
-   "altM": 120
-  },
-  {
-   "tick": 14400,
-   "issuer": "blue",
-   "target": 1,
-   "kind": "drone",
-   "op": "fly",
-   "x": 393.6085192980587,
-   "y": 382.45121564192266,
-   "altM": 120
-  },
-  {
-   "tick": 14400,
-   "issuer": "red",
-   "target": 26,
-   "kind": "drone",
-   "op": "fly",
-   "x": 479.8108525111494,
-   "y": 405.4813774337917,
-   "altM": 120
   }
  ],
  "checkpoints": {
-  "600": "f985590e724722b1",
-  "1200": "839c44490a28ad62",
-  "1800": "56cb782b1591e134",
-  "2400": "60dd58d3031cfbcf",
-  "3000": "b6e544006b18d33b",
-  "3600": "89205b244e4c7e59",
-  "4200": "a6ec0508ed1b4774",
-  "4800": "e6c5b28c2b114219",
-  "5400": "bad2f9962578762d",
-  "6000": "90c72fbbed12c4f7",
-  "6600": "3e53166b62812439",
-  "7200": "1d45913179149ade",
-  "7800": "16dc2bf2b0f3cf79",
-  "8400": "13f1fa6f8cf39d68",
-  "9000": "b148b9f3ac9c847a",
-  "9600": "028f7ee612c20eea",
-  "10200": "ad90c87ed7a77ba9",
-  "10800": "04c08fdbc857d78d",
-  "11400": "14fef327bd66d2f8",
-  "12000": "7466fa681d9aa26d",
-  "12600": "bfa3b11ffd8261d1",
-  "13200": "d3735ffc9ecfe0f3",
-  "13800": "958f03f365a757a5",
-  "14400": "ad5bb6bed886075a",
-  "15000": "85b0cf7f569685fd",
-  "15600": "3845b7d0cbe53a5a",
-  "16200": "712edaff3c613dab",
-  "16800": "009775436f0bdc5d",
-  "17400": "a375aa1011a5fd8b",
-  "18000": "6b05ef848701d64c"
+  "600": "bcbea330b399d195",
+  "1200": "7d6332b6cf0a10a5",
+  "1800": "92de596908d88afd",
+  "2400": "1333ac14a0ae2206",
+  "3000": "e0f7d178b9034667",
+  "3600": "dab2932f3e09a449",
+  "4200": "6b3e17dbaa13ad14",
+  "4800": "6aff1eb9e9fba2f9",
+  "5400": "d9691c9bc0fa046a",
+  "6000": "790924fae3a1c646",
+  "6600": "fa85f32ff9429e45",
+  "7200": "60100b76de069d19",
+  "7800": "10f7307549c6ac74",
+  "8400": "ef7f61531f45e0c6",
+  "9000": "4b774bda00b16335",
+  "9600": "204938326fbe8a97",
+  "10200": "943d841c069363fe",
+  "10800": "63922efbdb6affae",
+  "11400": "8b3459ab4f5fdfee",
+  "12000": "40f11abc4a0f48bb",
+  "12600": "fc54eac99940c2cb",
+  "13200": "9b713afa8d84c91b",
+  "13800": "227c54705db13772",
+  "14400": "f6cea1f0ae680751",
+  "15000": "6e9256d1f3b92568",
+  "15600": "47a3ca09ab4c52d6",
+  "16200": "17f78d26313cdfa2",
+  "16800": "d64542c1131633d3",
+  "17400": "ebb45051181e3498",
+  "18000": "63f6297aa6f9a035"
  },
- "catalogFingerprint": "eb4a90059789ed67"
+ "catalogFingerprint": "db3272754abfbf04"
 }

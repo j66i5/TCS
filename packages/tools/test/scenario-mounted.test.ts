@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { buildScenario, crewTemplateOf, lastDeadGround, withoutVehicles, buildForceWithVehicles, type ScenarioDef } from "@tcs/scenario";
 import { commanderController } from "@tcs/ai";
 import {
-  createSim, hashState, hypot2, isAble, step, submitOrder, type BattleInput, type Controller, type EntityId, type Sim, type SimEvent,
+  buildBallistics, buildMapIndex, createSim, hashState, heightAt, hypot2, isAble, sight, step, submitOrder, type BattleInput, type Controller, type EntityId, type Sim, type SimContext, type SimEvent,
 } from "@tcs/sim";
 import { loadData } from "../src/scenarios";
 
@@ -37,7 +37,10 @@ describe("platoons with vehicles (M7.2)", () => {
         const atk = input.forces.find((f) => f.side === attacker)!, dfn = input.forces.find((f) => f.side !== attacker)!;
         expect(dg.observers).toBe((dfn.vehiclePlacements?.length ?? 0) + 4);
         expect(dg.seen.length).toBe(atk.vehiclePlacements!.length);
-        expect(dg.seen.every((n) => n === 0), `${mapKind} seed ${seed}: ${JSON.stringify(dg)}`).toBe(true);
+        // (Balance pass 2: the Pumas' thermal sights count too: farmland seed 12 has two spots hidden from all of
+        // them, too few for six hulls; the least seen are taken, by at most 3 of the 8 observers.)
+        if (mapKind === "farmland" && seed === 12) expect(Math.max(...dg.seen), JSON.stringify(dg)).toBeLessThanOrEqual(3);
+        else expect(dg.seen.every((n) => n === 0), `${mapKind} seed ${seed}: ${JSON.stringify(dg)}`).toBe(true);
         for (const p of atk.vehiclePlacements!) for (const o of input.rules.objectives) expect(hypot2(p.x - o.x, p.y - o.y)).toBeGreaterThan(590);
         // Deterministic: the same definition, the same starts.
         expect(buildScenario(data, def(seed, { attacker, mapKind })).forces.find((f) => f.side === attacker)!.vehiclePlacements).toEqual(atk.vehiclePlacements);
@@ -46,6 +49,25 @@ describe("platoons with vehicles (M7.2)", () => {
       }
     }
   });
+
+  it("balance pass 2: the start search counts the defence's thermal sights: no Puma start sees a BMP-2 start through the heat channel either (farmland seeds 5-8; it did in 4 of 10 seeds)", () => {
+    for (const seed of [5, 6, 7, 8]) {
+      const input = buildScenario(data, def(seed, { attacker: "red", mapKind: "farmland" }));
+      expect(lastDeadGround!.seen.every((n) => n === 0), `seed ${seed}: ${JSON.stringify(lastDeadGround)}`).toBe(true);
+      const mapIndex = buildMapIndex(input.map);
+      const ctx = { catalog: input.catalog, map: input.map, mapIndex, ballistics: buildBallistics(input.map, input.catalog, mapIndex, 60) } as unknown as SimContext;
+      const blue = input.forces.find((f) => f.side === "blue")!, red = input.forces.find((f) => f.side === "red")!;
+      const pumas = (blue.vehiclePlacements ?? []).filter((p) => blue.vehicles!.find((v) => v.vehicleId === p.vehicleId)?.type === "de-puma");
+      const bmps = (red.vehiclePlacements ?? []).filter((p) => red.vehicles!.find((v) => v.vehicleId === p.vehicleId)?.type === "ru-bmp2");
+      expect(pumas.length).toBe(4);
+      expect(bmps.length).toBe(6);
+      const eye = Math.max(...input.catalog.vehicles["de-puma"]!.seats.flatMap((q) => (q.sensors ?? []).map((k) => k.pos?.[2] ?? 0)));
+      for (const o of pumas) for (const b of bmps) {
+        const r = sight(ctx, o.x, o.y, heightAt(input.map, o.x, o.y) + eye, b.x, b.y, heightAt(input.map, b.x, b.y) + 1.2);
+        expect(r.blockedBy !== null || (r.heatVisibility ?? 0) < 0.001, `seed ${seed}: heat ${r.heatVisibility}`).toBe(true);
+      }
+    }
+  }, 120_000);
 
   it("templates: four Pumas (the fourth carries the platoon leader and radio operator, Q1); three BMP-2s with the commander in the back of the first (Q2)", () => {
     const de = buildForceWithVehicles(data, { faction: "de", template: "pzgren-zug", seed: 3, keyPrefix: "b" });
@@ -141,7 +163,7 @@ describe("platoons with vehicles (M7.2)", () => {
   it("a hit on a hull gets its men out at once (polled lastHitTick), before the vehicles arrive", () => {
     const input = buildScenario(data, def(1));
     let hitTick = -1;
-    const { events } = play(input, 40, (sim) => {
+    const { events, sim: done } = play(input, 40, (sim) => {
       if (hitTick < 0 && sim.state.tick === 10 * 60) {
         // A round struck the first Puma (as the projectile system records it).
         const v = [...sim.state.vehicle.values()].find((x) => x.side === "blue")!;
@@ -151,7 +173,8 @@ describe("platoons with vehicles (M7.2)", () => {
     const out = events.find((e) => e.kind === "unit.dismounted");
     expect(out).toBeDefined();
     expect(out!.tick - hitTick).toBeLessThan(25 * 60);
-    expect(events.some((e) => e.kind === "unit.arrived" && e.tick < out!.tick)).toBe(false);
+    // (Balance pass 2: the defence's carriers drive to hull-down posts of their own: the attacker's arrivals only.)
+    expect(events.some((e) => e.kind === "unit.arrived" && e.tick < out!.tick && done.state.unit.get(e.unit)?.side === "blue")).toBe(false);
   });
 
   it("losses force a withdrawal: squads within 100 m of their vehicle get back in, and the vehicles drive back (Q24)", () => {

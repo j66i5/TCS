@@ -100,6 +100,27 @@ describe("fighting positions", () => {
     expect(hashState(copy.state)).toBe(hashState(sim.state));
   });
 
+  it("balance pass 2: a hasty window (`rules.prepared[].depthM`) digs holes at most that deep; the rim of a prone man is the same", () => {
+    const build = () => { const i = input(); i.rules.prepared = [{ side: "red", fromS: 1, untilS: 2, depthM: 0.6 }]; return i; };
+    const sim = createSim(build());
+    run(sim, 2.5);
+    const ps = sim.state.terrain.positions!;
+    expect(ps.length).toBeGreaterThan(0);
+    expect(ps.every((p) => p.depthM === 0.6)).toBe(true);
+    const m = redMen(sim)[0]!, s = sim.state.soldier.req(m);
+    s.posture = "crouching";
+    expect(rimHeight(sim.ctx, sim.state, m)).toBeCloseTo(0.6, 6); // (1.2 m deep: 0.9)
+    s.posture = "prone";
+    const prone = rimHeight(sim.ctx, sim.state, m);
+    expect(prone).toBeGreaterThan(0);
+    expect(prone).toBeLessThan(0.6);
+    // A hole dug by hand without a depth is the data's (1.2 m).
+    (sim.state.terrain.positions ??= []).splice(0, ps.length);
+    dig(sim, [m]);
+    s.posture = "crouching";
+    expect(rimHeight(sim.ctx, sim.state, m)).toBeCloseTo(0.9, 6);
+  });
+
   it("without positions nothing changes: no position, no rim, no digging", () => {
     const sim = createSim(input());
     run(sim, 3);

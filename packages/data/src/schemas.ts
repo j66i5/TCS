@@ -451,7 +451,7 @@ export const BehaviourFile = withProv({
     shareRangeM: Num(0, 500), keepSpare: Num(0, 20), passSeconds: Num(0, 60),
     /** Self-defence under rule "return" (sight realism step 2): see BehaviourDef.decisions.returnCloseM. */
     returnCloseM: Num(0, 1000).optional(),
-    /** Balance pass after M11 (built, off in the data): a unit's range rule (`rules.maxEngageM`) is lifted while the unit is fired on. */
+    /** Balance pass after M11 (on in the data since balance pass 2): a unit's range rule (`rules.maxEngageM`) is lifted while the unit is fired on. */
     rangeRuleLiftsUnderFire: z.boolean().optional(),
     ammoIntervalFactor: z.object({ conserve: Num(0.1, 10), normal: Num(0.1, 10), max: Num(0.1, 10) }).strict(),
     /** Night fire discipline (M9.6): below this light, a man not fired on lately opens fire on his own only out to these ranges. */

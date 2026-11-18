@@ -8,7 +8,7 @@
  * dug to), at least `spacingM` from any other; none are dug after that.
  *
  * Protection is geometric: the hole's rim stands `exposedM` (by posture: his head and weapon) below the top of the man
- * (at most `depthM` up): a round or fragment that would strike him lower and came in over the rim's far side lower than the rim
+ * (at most `depthM` up; a position dug in a hasty window, `rules.prepared[].depthM`, at most that deep): a round or fragment that would strike him lower and came in over the rim's far side lower than the rim
  * is stopped by the earth (ballistics.ts); a burst whose line to his middle passes under the rim does not reach him
  * with its blast (explosions.ts). A round from above (a burst over or in the hole, a steep fall) still strikes him,
  * and so does anything that hits him above the rim: his head and weapon stay out when he fires.
@@ -41,9 +41,11 @@ export function rimHeight(ctx: SimContext, state: SimState, id: EntityId): numbe
   if (!ps || ps.length === 0 || !fp) return 0;
   const s = state.soldier.get(id), t = state.transform.get(id);
   if (!s || !t || s.mount !== undefined || t.z !== 0) return 0;
-  if (positionAt(ctx, state, t.x, t.y) < 0) return 0;
+  const k = positionAt(ctx, state, t.x, t.y);
+  if (k < 0) return 0;
+  const pd = ps[k]!.depthM, depth = pd !== undefined && pd < fp.depthM ? pd : fp.depthM;
   const rim = ctx.catalog.body.postures[s.posture].heightM - fp.exposedM[s.posture];
-  return rim < 0 ? 0 : rim > fp.depthM ? fp.depthM : rim;
+  return rim < 0 ? 0 : rim > depth ? depth : rim;
 }
 
 /**
@@ -77,7 +79,7 @@ export function positionsSystem(ctx: SimContext, state: SimState, _events: Event
       const ps = (state.terrain.positions ??= []);
       const sp2 = fp.spacingM * fp.spacingM;
       if (ps.some((p) => (p.x - t.x) * (p.x - t.x) + (p.y - t.y) * (p.y - t.y) < sp2)) continue;
-      ps.push({ x: t.x, y: t.y, side: pr.side, tick: state.tick });
+      ps.push({ x: t.x, y: t.y, side: pr.side, tick: state.tick, ...(pr.depthM !== undefined ? { depthM: pr.depthM } : {}) });
     }
   }
 }

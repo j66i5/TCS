@@ -49,7 +49,15 @@ describe("the commander's tanks (M7.6b)", () => {
       const m = mem(rr.ctrls[0]!);
       return crews.every((c, i) => { const p = m.tk?.[String(c)]?.posts[m.tk[String(c)]!.post], t = rr.sim.state.transform.get(vids[i]!)!; return p !== undefined && hypot2(p[0] - t.x, p[1] - t.y) <= 20; });
     };
-    run(r, 180, (rr) => { if (onPost < 0 && onPosts(rr)) onPost = rr.sim.state.tick; return false; });
+    // (Balance pass 2: the carriers wait until every tank has reached its first post once (or is stuck); in seed 1
+    // a Leopard now fires its 3 rounds at the defence's BMP-2s, which drive to posts of their own, and moves on
+    // before both stand on their posts at once.)
+    let readyAt = Infinity;
+    run(r, 180, (rr) => {
+      if (onPost < 0 && onPosts(rr)) onPost = rr.sim.state.tick;
+      if (readyAt === Infinity && crews.every((c) => { const t = mem(rr.ctrls[0]!).tk?.[String(c)]; return t?.reached === true || t?.stuck === true; })) readyAt = rr.sim.state.tick;
+      return false;
+    });
     expect(onPost).toBeGreaterThan(0);
     expect(onPost).toBeLessThanOrEqual(180 * 60);
     const m = mem(r.ctrls[0]!);
@@ -58,7 +66,7 @@ describe("the commander's tanks (M7.6b)", () => {
     const tankCrews = new Set(crews);
     const first = r.orders.find((o) => o.kind === "move" && o.issuer === "blue" && r.sim.state.unit.get(o.target)?.vehicle !== undefined && !tankCrews.has(o.target));
     expect(first).toBeDefined();
-    expect(first!.tick).toBeGreaterThanOrEqual(Math.min(onPost, TANKS.carrierWaitSeconds * 60));
+    expect(first!.tick).toBeGreaterThanOrEqual(Math.min(onPost, readyAt - 1, TANKS.carrierWaitSeconds * 60)); // (readyAt: looked at after the step)
   });
 
   it("the attacker's tanks never lead into ground its men have not reached once the platoons move up, and never stand in a house or a wood", () => {
@@ -236,7 +244,9 @@ describe("the commander's tanks (M7.6b)", () => {
     const sc2 = getScenario("platoon-ru-vehicles-tanks");
     const r = start(sc2.build(data, 1, 600));
     const { crews, vids } = tanksOf(r.sim, "red");
-    run(r, 120, (rr) => (rr.sim.state.tick + 1) % 300 === 0 && (mem(rr.ctrls[1]!).tk?.[String(crews[0]!)]?.posts.length ?? 0) > 0 && rr.sim.state.tick > 60 * 60);
+    // (Balance pass 2: from 30 s, not 60 s, sound and not reversing out of a hit, which the commander leaves to the
+    // crew: the defence's Pumas now fire free to their own reach and knock it out by 70 s.)
+    run(r, 120, (rr) => (rr.sim.state.tick + 1) % 300 === 0 && (mem(rr.ctrls[1]!).tk?.[String(crews[0]!)]?.posts.length ?? 0) > 0 && rr.sim.state.tick > 30 * 60 && rr.sim.state.vehicle.get(vids[0]!)!.status === "ok" && rr.sim.state.vehicle.get(vids[0]!)!.crewReaction !== "reverseOut");
     step(r.sim);
     const def = r.sim.ctx.catalog.vehicles["ru-t72b3m"]!;
     const c = r.sim.state.container.req(vids[0]!);
@@ -270,6 +280,40 @@ describe("the commander's tanks (M7.6b)", () => {
     const rules = r.orders.filter((o) => o.issuer === "red" && (o.target === section || crews.includes(o.target)));
     expect(rules.some((o) => o.kind === "rules" && (o as unknown as { maxEngageM?: number }).maxEngageM === 300)).toBe(false);
     expect(r.orders.some((o) => o.target === section)).toBe(false);
+  });
+
+  it("balance pass 2: the defence's carriers, their squads out, are sited on hull-down posts behind the main objective like its tanks and drive to them", () => {
+    const def: ScenarioDef = { kind: "platoon-attack", seed: 2, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", vehicles: true, timeLimitSeconds: 600 };
+    const input = buildScenario(data, def);
+    const r = start(input);
+    const carriers = [...r.sim.state.unit.entries()].filter(([, u]) => u.side === "blue" && u.vehicle !== undefined && r.sim.state.vehicle.get(u.vehicle)?.offMap === undefined).map(([id]) => id).sort((a, b) => a - b);
+    expect(carriers.length).toBeGreaterThan(0);
+    const at0 = carriers.map((c) => { const t = r.sim.state.transform.req(r.sim.state.unit.get(c)!.vehicle!); return { x: t.x, y: t.y }; });
+    run(r, 90);
+    const main = input.rules.objectives[0]!;
+    const m = mem(r.ctrls[0]!);
+    // (Review fix: in pairs, each with posts of its own: no two carriers go for the same post.)
+    const keys = Object.keys(m.tkSited ?? {}).filter((k) => k.startsWith("carriers-")).sort();
+    expect(keys).toEqual(Array.from({ length: Math.ceil(carriers.length / TANKS.carrierPair) }, (_, k) => `carriers-${k}`));
+    for (const k of keys) expect(m.tkSited![k]).toBe("hold");
+    const cur = carriers.map((c) => { const tm = m.tk![String(c)]!; const p = tm.posts[tm.post]!; return `${Math.round(p[0])},${Math.round(p[1])}`; });
+    expect(new Set(cur).size).toBe(cur.length);
+    let moved = 0;
+    carriers.forEach((c, i) => {
+      const tm = m.tk![String(c)]!;
+      expect(tm.posts.length).toBeGreaterThan(0);
+      // The attack comes from the east (red): behind = west of the main objective (along the expected front).
+      for (const p of tm.posts) expect(main.x - p[0]).toBeGreaterThanOrEqual(TANKS.defenceBehindM * 0.8);
+      const t = r.sim.state.transform.req(r.sim.state.unit.get(c)!.vehicle!);
+      if (hypot2(t.x - at0[i]!.x, t.y - at0[i]!.y) > 5) moved++;
+    });
+    expect(moved).toBeGreaterThan(0);
+    // The attacker's carriers (squads aboard) are never sited.
+    for (const [id, u] of r.sim.state.unit.entries()) if (u.side === "red" && u.vehicle !== undefined) expect(m.tk?.[String(id)]).toBeUndefined();
+    expect(Object.keys(mem(r.ctrls[1]!).tkSited ?? {}).some((k) => k.startsWith("carriers"))).toBe(false);
+    // (The defence's carriers fire free to TANKS.defenceEngageM, like its tanks: fire discipline, DECISIONS "Balance pass 2".)
+    for (const c of carriers) expect(r.sim.state.unit.get(c)!.maxEngageM).toBe(TANKS.defenceEngageM);
+    for (const c of carriers) expect(r.sim.state.unit.get(c)!.fireRule).toBe("free");
   });
 
   it("saved at 200 s and loaded (the commander's memory with its tanks), the battle runs on to the same state as unbroken", () => {

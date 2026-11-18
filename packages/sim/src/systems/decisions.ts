@@ -121,8 +121,8 @@ function nearestSeen(ctx: SimContext, state: SimState, id: EntityId, s: SoldierS
 /**
  * His unit's range rule (`rules.maxEngageM`; 0 = none): fire discipline holds his fire to it until his own unit is
  * fired on (`Unit.ownFireTick` within `decisions.underFireMemorySeconds`), then it is lifted ("hold fire to 300 m
- * unless engaged"; balance pass after M11, `decisions.rangeRuleLiftsUnderFire`: built and tested, off in the data —
- * it took away the difference resupply makes in the hold battle, DECISIONS). An ambush keeps its own range.
+ * unless engaged"; balance pass after M11, `decisions.rangeRuleLiftsUnderFire`; on in the data since balance pass 2,
+ * owner 2026-11-17). An ambush keeps its own range.
  */
 export function rangeRule(unit: Unit, state?: SimState, ctx?: SimContext): number {
   if (unit.maxEngageM <= 0) return Infinity;

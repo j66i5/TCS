@@ -1,10 +1,21 @@
 # State — handover note
 
-_Last updated: 2026-11-17 (M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-18 (balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 2 (2026-11-18, branch `claude/mounted-balance`; owner decisions 2026-11-17).** The range rule
+  lifted under fire is on (`decisions.rangeRuleLiftsUnderFire`); the platoon battle's defence digs hasty holes
+  (`SCENARIO_HASTY_DEPTH_M` 0.6 m, `rules.prepared[].depthM`; the hold battle keeps 1.2 m); the dead-ground start
+  search counts thermal sights (heat >= 0.001); a defending side's carriers whose squads are out take hull-down posts
+  with the tank code (`TankArgs.carrierCrews`); platoon-ru-vehicles has the attack's two T-72B3M, platoon-vehicles a
+  defending section of two T-90M. Hold battle: defenders start with one loaded magazine or belt per stack
+  (`HOLD.defenderMagazineShare` 0.25, loose rounds full) and a half supply point (`HOLD.pointShare` 0.5). 20 seeds x
+  1,200 s, attacker wins: platoon 10, platoon-ru 7, platoon-vehicles 10 (was 16), platoon-ru-vehicles 12 (was 1); hold
+  (20 x 3,600 s, holds with / without resupply): German defence 11 / 3, Russian 12 / 4 (+40 points both). Numbers in
+  DECISIONS "Balance pass 2". Open: the hull-blocks-fire bug (`friendInLine`), the app's mounted battle has no tanks
+  unless `tanks=` is given.
 - **M11.9c (slice 55) built (2026-11-17, branch `claude/m11-mp`): MP/POW done, M11 complete.** A collection point is
   moved at once when rounds land within 30 m of it (at least 60 m from them; not one the player placed); prisoners kept
   over 60 s near a known enemy or under fire without being moved are a `law.exposure` (review only). Rare escapes (Q5

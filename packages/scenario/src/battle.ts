@@ -82,11 +82,18 @@ export interface ScenarioDef {
   /** Balance pass after M11: the defender's men dig in where they are sited in the first minutes (fighting positions,
    *  `rules.prepared` over `SCENARIO_PREPARED_S`), as in the hold battle. Default true; false: in the open (comparisons). */
   prepared?: boolean;
+  /** Balance pass 2: how deep the defender's holes are (default SCENARIO_HASTY_DEPTH_M; null: the data's
+   *  `fightingPosition.depthM`, as the hold battle). */
+  preparedDepthM?: number | null;
 }
 
 /** Balance pass after M11: the window (s) in which the platoon battle's defenders dig in where they halt (the hold
  *  battle's, after the commander's siting walk; game values). */
 export const SCENARIO_PREPARED_S = [60, 90] as const;
+
+/** Balance pass 2 (range rule on): the platoon battle's defence digs hasty holes at most this deep (game value; the
+ *  hold battle keeps the data's `fightingPosition.depthM`, 1.2 m). A prone man's rim (0.3 m) is the same in both. */
+export const SCENARIO_HASTY_DEPTH_M = 0.6;
 
 /** Artillery rounds each side may call with `artillery` (M8.4; game values). */
 export const SCENARIO_ARTILLERY = { he: 12, smoke: 4, illum: 4 } as const;
@@ -133,7 +140,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     { id: "second", nameKey: "objective.second", x: secondP.x, y: secondP.y, radiusM: 30, points: SCENARIO_POINTS.second, holder: defender },
   ];
   // The defender is built first: the attacker's start (dead ground) depends on where the defenders stand.
-  let observers: { x: number; y: number; z: number }[] = [];
+  let observers: { x: number; y: number; z: number; thermal?: boolean }[] = [];
   const buildSide = (side: "blue" | "red", s: number): ForceInput => {
     const faction = def.factions[s]!;
     const pack = data.factions[faction];
@@ -275,8 +282,10 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     if (!attacking) {
       // What the defence sees from (dead ground for the attacker's start): its vehicles' sights and its men.
       const eye = (type: string) => { const vd = catalog.vehicles[type]; let z = vd?.body.heightM ?? 2.5; for (const q of vd?.seats ?? []) for (const k of q.sensors ?? []) z = Math.max(z, k.pos?.[2] ?? 0); return z; };
+      // (Balance pass 2: a hull with a thermal sight sees heat through thin cover: `deadGroundStarts`.)
+      const hot = (type: string) => (catalog.vehicles[type]?.seats ?? []).some((q) => (q.sensors ?? []).some((k) => catalog.spotting.sensors[k.kind]?.thermal === true));
       observers = [
-        ...(force.vehiclePlacements ?? []).map((p) => ({ x: p.x, y: p.y, z: eye(force.vehicles?.find((r) => r.vehicleId === p.vehicleId)?.type ?? "") })),
+        ...(force.vehiclePlacements ?? []).map((p) => { const type = force.vehicles?.find((r) => r.vehicleId === p.vehicleId)?.type ?? ""; return { x: p.x, y: p.y, z: eye(type), ...(hot(type) ? { thermal: true } : {}) }; }),
         ...defenceSpots(mainP, secondP, dx).map((p) => ({ x: p.x, y: p.y, z: 1.7 })),
       ];
     }
@@ -293,7 +302,11 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true };
   // A prepared defence (balance pass after M11; SPEC M4: "a prepared defence"): the defenders dig in where their
   // commander sites them, as in the hold battle (owner 2026-11-16).
-  if (def.prepared !== false) rules.prepared = [{ side: defender, fromS: SCENARIO_PREPARED_S[0], untilS: SCENARIO_PREPARED_S[1] }];
+  // Balance pass 2: a hasty dig-in (`SCENARIO_HASTY_DEPTH_M`), shallower than the hold battle's prepared holes.
+  if (def.prepared !== false) {
+    const depthM = def.preparedDepthM === undefined ? SCENARIO_HASTY_DEPTH_M : def.preparedDepthM;
+    rules.prepared = [{ side: defender, fromS: SCENARIO_PREPARED_S[0], untilS: SCENARIO_PREPARED_S[1], ...(depthM !== null ? { depthM } : {}) }];
+  }
   // Vehicles (M7.4a, owner Q9): an IFV destroyed or abandoned costs 20 points, immobilised 10.
   if (forces.some((f) => (f.vehicles?.length ?? 0) > 0)) rules.victory.vehiclePoints = { lost: SCENARIO_POINTS.vehicleLost, immobilised: SCENARIO_POINTS.vehicleImmobilised };
   // Mortar rounds (owner, M6 review: support fire pulled forward): the attacker more, with smoke.
@@ -328,8 +341,10 @@ function defenceSpots(mainP: { x: number; y: number }, secondP: { x: number; y: 
 /** Dead ground (owner 2026-11-13): candidate starts this far apart, at least this far from every objective, and on
  *  the attacker's side of this share of the map. A spot is hidden from an observer when the line to a hull's middle
  *  and to its top is blocked (ground, walls, roofs) or seen through less than this share (woods, hedges); a group
- *  of hulls stays within groupRadiusM of its first spot. */
-const DEAD_GROUND = { stepM: 20, minFromObjectiveM: 600, ownShare: 0.4, edgeM: 30, seenAbove: 0.15, spacingM: 20, groupRadiusM: 200 } as const;
+ *  of hulls stays within groupRadiusM of its first spot. Balance pass 2: an observer with a thermal sight also sees
+ *  it when the heat channel comes through at `heatAbove` or more (vegetation hides heat far less than it hides a
+ *  hull from the eye: the defenders' Pumas saw "hidden" BMP-2s at their starts in 4 of 10 seeds). */
+const DEAD_GROUND = { stepM: 20, minFromObjectiveM: 600, ownShare: 0.4, edgeM: 30, seenAbove: 0.15, heatAbove: 0.001, spacingM: 20, groupRadiusM: 200 } as const;
 
 /**
  * The attacker's vehicle starts in dead ground (owner 2026-11-13): spots on its side of the map, at least 600 m
@@ -341,7 +356,7 @@ const DEAD_GROUND = { stepM: 20, minFromObjectiveM: 600, ownShare: 0.4, edgeM: 3
  */
 function deadGroundStarts(
   catalog: Catalog, map: MapDef, grid: NavGrid, region: number, n: number, side: string, hullHeightM: number,
-  observers: readonly { x: number; y: number; z: number }[], objectives: readonly { x: number; y: number }[], W: number, H: number,
+  observers: readonly { x: number; y: number; z: number; thermal?: boolean }[], objectives: readonly { x: number; y: number }[], W: number, H: number,
   home: { x: number; y: number } | null = null, avoid: readonly { x: number; y: number }[] = [], avoidM = 0, seenAbove: number = DEAD_GROUND.seenAbove,
 ): { x: number; y: number }[] | null {
   if (observers.length === 0 || n === 0) return null;
@@ -363,7 +378,7 @@ function deadGroundStarts(
         const oz = heightAt(map, o.x, o.y) + o.z;
         for (const h of [1.2, hullHeightM - 0.1]) {
           const r = sight(ctx, o.x, o.y, oz, x, y, g + h);
-          if (r.blockedBy === null && r.visibility >= seenAbove) { seen++; break; }
+          if (r.blockedBy === null && (r.visibility >= seenAbove || (o.thermal === true && (r.heatVisibility ?? 0) >= D.heatAbove))) { seen++; break; }
         }
       }
       cands.push({ x, y, seen, home: hypot2(x - homeX, y - homeY) });
@@ -398,7 +413,7 @@ const TEAM_SEEN_ABOVE = 0.001;
 /** Review fix (M9.3b): a dead-ground start for the attacker's missile team (men's height, one spot, nearest
  *  `home`, at least 30 m from the vehicles' starts); null if no spot is hidden from every observer. */
 function teamDeadGround(
-  catalog: Catalog, map: MapDef, side: string, observers: readonly { x: number; y: number; z: number }[], objectives: readonly { x: number; y: number }[],
+  catalog: Catalog, map: MapDef, side: string, observers: readonly { x: number; y: number; z: number; thermal?: boolean }[], objectives: readonly { x: number; y: number }[],
   W: number, H: number, home: { x: number; y: number }, hulls: readonly { x: number; y: number }[],
 ): { x: number; y: number } | null {
   const grid = buildNavGrid(map, catalog.terrain, "foot", 2, 0, [], { clearanceCells: 1 });
@@ -433,7 +448,7 @@ const VEHICLE_SPACING_M = 20;
  */
 function placeVehicles(
   catalog: Catalog, map: MapDef, vehicles: ForceVehicle[], attacking: boolean, side: string, mainP: { x: number; y: number }, dx: number, W: number, H: number,
-  dead: { observers: readonly { x: number; y: number; z: number }[]; objectives: readonly { x: number; y: number }[] } | null = null,
+  dead: { observers: readonly { x: number; y: number; z: number; thermal?: boolean }[]; objectives: readonly { x: number; y: number }[] } | null = null,
   tank: TankPlacing | null = null,
 ): { records: VehicleRecord[]; vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]>; placements: Placement[] } {
   const records: VehicleRecord[] = [], vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]> = [], placements: Placement[] = [];
@@ -511,6 +526,14 @@ export const HOLD = {
    *  loose rounds only this share is still loaded (the rest empty). 1 (off): measured at 0.5 over 20 seeds each way it
    *  lowered the holds with and without resupply alike (DECISIONS "M11.8"); kept for the owner's choice. */
   defenderLoadShare: 1,
+  /** Balance pass 2 (owner 2026-11-17: "resupply must matter more"): the defenders have been fighting since first light:
+   *  of each stack of two or more magazines or belts only this share is still loaded (at least one: the one in the
+   *  weapon; the rest empty), their loose rounds in full: without resupply (no refilling) the loose rounds cannot be
+   *  loaded. 0.25 leaves a rifleman one loaded magazine and his bandolier or packs, a gunner one belt. */
+  defenderMagazineShare: 0.25,
+  /** Balance pass 2: the supply point (and with it the off-map stock, `stockLoads` times it) holds this share of the
+   *  rounds of one can per squad and cartridge: full cans and one part-filled can per cartridge. */
+  pointShare: 0.5,
 } as const;
 
 export interface HoldDef {
@@ -526,6 +549,11 @@ export interface HoldDef {
   deliveries?: boolean;
   /** M11.8: the share of the defenders' spare rounds still loaded (default HOLD.defenderLoadShare; 1: a full load). */
   defenderLoadShare?: number;
+  /** Balance pass 2: the share of their spare magazines and belts still loaded (default HOLD.defenderMagazineShare;
+   *  the smaller of this and `defenderLoadShare` applies to magazines). */
+  defenderMagazineShare?: number;
+  /** Balance pass 2: the share of the supply point's full load it holds (default HOLD.pointShare). */
+  pointShare?: number;
 }
 
 /**
@@ -558,15 +586,17 @@ export function holdBattle(data: DataSet, def: HoldDef): BattleInput {
   // M11.8 balance: the defenders start with part of their spare rounds spent (`defenderLoadShare`): of each stack of
   // magazines or belts that share stays full (rounded down; the one in the weapon is the fullest) and the rest is empty;
   // loose rounds (packages) keep that share of their rounds.
+  // Balance pass 2: magazines and belts at `defenderMagazineShare` (the smaller of the two), loose rounds full.
   const share = def.defenderLoadShare ?? HOLD.defenderLoadShare;
-  if (share < 1) for (const u of df.units) for (const m of allMembers(u)) {
+  const magShare = Math.min(share, def.defenderMagazineShare ?? HOLD.defenderMagazineShare);
+  if (share < 1 || magShare < 1) for (const u of df.units) for (const m of allMembers(u)) {
     const out: typeof m.load = [];
     for (const l of m.load) {
       const d = input.catalog.items[l.type];
       if (d?.chargeItem === undefined || l.charge === undefined || l.charge <= 0) { out.push(l); continue; }
       if (d.category === "ammo-package") { out.push({ ...l, charge: Math.floor(l.charge * share) }); continue; }
       if (d.category !== "magazine" || l.count < 2) { out.push(l); continue; }
-      const full = Math.max(1, Math.floor(l.count * share));
+      const full = Math.max(1, Math.floor(l.count * magShare));
       out.push({ ...l, count: full });
       if (l.count - full > 0) out.push({ ...l, count: l.count - full, charge: 0 });
     }
@@ -592,7 +622,14 @@ export function holdBattle(data: DataSet, def: HoldDef): BattleInput {
   }
   const merged = new Map<string, { type: string; count: number; charge: number }>();
   for (const l of loads) { const m = merged.get(l.type); if (m) m.count += l.count; else merged.set(l.type, { ...l }); }
-  const pointLoad = [...merged.values()].sort((a, b) => (a.type < b.type ? -1 : 1));
+  // Balance pass 2: the point holds `pointShare` of the rounds of each package: full ones and one part-filled one.
+  const pShare = def.pointShare ?? HOLD.pointShare;
+  const pointLoad: { type: string; count: number; charge: number }[] = [];
+  for (const l of [...merged.values()].sort((a, b) => (a.type < b.type ? -1 : 1))) {
+    const total = Math.floor(l.count * l.charge * pShare), full = Math.floor(total / l.charge), rest = total - full * l.charge;
+    if (full > 0) pointLoad.push({ type: l.type, count: full, charge: l.charge });
+    if (rest > 0) pointLoad.push({ type: l.type, count: 1, charge: rest });
+  }
   df.caches = [{ x: sp.x, y: sp.y, load: pointLoad, point: true }];
   // M11.4b: the defender's stock at the rear (deliveries of `stockLoads` times the point's load, and the mortar
   // rounds of the top-up over the whole battle) and its supply vehicle off the map.

@@ -874,10 +874,15 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const ownVehicles = [...view.vehicle.entries()].filter(([vid, v]) => v.side === side && v.offMap === undefined && !tankVids.has(vid)).map(([, v]) => v);
       const tankCrews = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ground(), id)).flatMap(([, u]) => u.children).filter((c) => view.unit.get(c)?.vehicle !== undefined).sort((a, b) => a - b);
       /** M7.6b: the side's tank sections (tanks.ts); returns the tanks not yet on their first post. */
+      // Balance pass 2 (owner 2026-11-17): a defence's carriers whose squads are out take hull-down posts too (tanks.ts).
+      const carrierCrews = defending ? crews.filter((c) => {
+        const vid = view.unit.get(c)?.vehicle;
+        return vid !== undefined && !squads.some((sq) => view.unit.get(sq)?.carrier === vid && riders(view, sq).length > 0);
+      }) : [];
       const tanks = (ux: number, uy: number, backOf: (c: EntityId) => Record<string, unknown>): number => {
-        if (tankCrews.length === 0) return 0;
+        if (tankCrews.length === 0 && carrierCrews.length === 0) return 0;
         const ownFoot = all.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined; }).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
-        return tankSections({ view, tick, side, ctx: ground(), objectives, mem, order, defending, ux, uy, phase: mem.phase, phaseTick: mem.phaseTick, remounting: mem.remount?.length ?? 0, ownFoot, back: backOf, reverseHoldSeconds: COMMANDER.reverseOutHoldSeconds });
+        return tankSections({ view, tick, side, ctx: ground(), objectives, mem, order, defending, ux, uy, phase: mem.phase, phaseTick: mem.phaseTick, remounting: mem.remount?.length ?? 0, ownFoot, back: backOf, reverseHoldSeconds: COMMANDER.reverseOutHoldSeconds, carrierCrews });
       };
       // (M11.7a: an immobilised hull whose crew is at a repair with under 300 s of work left for two men is not lost.)
       const fixing = (v: (typeof ownVehicles)[number]) => v.repair?.working === true && (v.repair.needManS - v.repair.doneManS) / 2 < 300;

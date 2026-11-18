@@ -52,8 +52,10 @@ export interface BattleRules {
    *  whenever the data has core/prisoners.json `escape`. */
   prisonerEscapes?: boolean;
   /** M11 hold battle: a side whose positions were prepared before the battle: each of its men who halts on the
-   *  ground outdoors between `fromS` and `untilS` is in a dug fighting position there (`positions.ts`). */
-  prepared?: { side: SideId; fromS: number; untilS: number }[];
+   *  ground outdoors between `fromS` and `untilS` is in a dug fighting position there (`positions.ts`). `depthM`
+   *  (balance pass 2): the positions dug in this window are at most this deep (a hasty dig-in; absent: the data's
+   *  `fightingPosition.depthM`). */
+  prepared?: { side: SideId; fromS: number; untilS: number; depthM?: number }[];
 }
 
 /** An area worth holding (M6). */

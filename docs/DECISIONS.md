@@ -8610,3 +8610,96 @@ Independent review of slices 53-55 (behaviour probes with 5 men giving up at onc
   platoon-vehicles 10.7 -> 10.6).
 - **Checks:** typecheck, lint, lint:data clean; `npm test` 1,574 pass (6 skipped); `test:perf` alone 21 of 24
   (spotting with smoke 7.9x, bench-vehicles 7.6x, photo woods paint: the floors main misses in this container too).
+
+## 2026-11-18 — Balance pass 2 (owner decisions 2026-11-17: mounted scenarios, range rule on, smaller hold stock; goldens regenerated)
+Owner decisions (binding): (1) the mounted battles are lopsided: change the scenarios (attackers in cover, hull-down
+posts for the defender's carriers, tanks or a better carrier for the Russian side where data and the M7.6b tank code
+allow; sourced vehicle data unchanged); (2) the range rule lifted under fire is switched on and the battles
+re-balanced around it; (3) hold battle: resupply must matter more, through a smaller starting stock (target: holds
+with resupply minus without >= 10 points over 20 seeds each way, holds with resupply 30-70 %). Band for the four
+platoon battles: attacker wins 6-14 of 20 (20 seeds x 1,200 s).
+- **Range rule on** (`core/behaviour.json` `decisions.rangeRuleLiftsUnderFire: true`; code unchanged). Measured alone
+  on origin/main f324f67: platoon 10 -> 9, platoon-ru 9 -> **5** (below the band: the base of fire 330 m out is now
+  inside the dug-in defence's 400 m rifle reach). Other levers measured with it (20 seeds each): lift for MG and DMR
+  only 6 / 11; lift capped at 400 m 5 / 9; `supportM` 420 6 / 3 (rejected).
+- **Hasty holes for the platoon battle's defence** (`SCENARIO_HASTY_DEPTH_M` 0.6 m; `rules.prepared[].depthM`, kept on
+  each dug position as `depthM`, read by `rimHeight`): the platoon battle's defence digs in in 30 s (60-90 s), so its
+  holes are hasty, not the hold battle's 1.2 m prepared ones (`fightingPosition.depthM`, unchanged; the hold battle
+  sets its own window without a depth). A prone man's rim (0.3 m) is the same; a crouching man shows 0.3 m more.
+  `ScenarioDef.preparedDepthM` (null: the data's depth) for comparisons. Platoon 10, platoon-ru 7 with the rule on.
+  Measured 1.2 m against 0.6 m in platoon-vehicles: 14 against 15 (not the mounted lever).
+- **Mounted: what decided them** (diagnosis, 4 agents, `--events` runs): platoon-ru-vehicles: the dead-ground start
+  search tested only the eye (`visibility >= 0.15`); the Pumas' thermal channel sees heat through the farmland's thin
+  cover (seed 7: eye 0.065, heat 0.401 at 830 m), so in seeds 5-8 the BMP-2s were penetrated at or near their starts;
+  the BMP-2 (day and near-IR sights only, 3UBR8 through the Puma's side only) cannot answer. platoon-vehicles: 8 Pumas
+  against 3 BMP-2s on a 1,200 m map: the BMP-2s die in the first 90 s from wherever they stand (hull-down posts and
+  hiding with an ambush measured 7 / 8 and 6 / 8 of seeds 1-8), then the defence on foot to 30 mm HE.
+- **Changes kept (mounted):**
+  - *Start search counts thermal sights* (`deadGroundStarts`, scenario/battle.ts): an observer hull with a thermal
+    sensor (`spotting.sensors[kind].thermal`) also sees a spot when the heat channel comes through at >= 0.001
+    (`DEAD_GROUND.heatAbove`; the missile team's search already used 0.001). Same for the tanks' and the team's
+    searches. Farmland seed 12 now has 2 spots hidden from all observers, too few for six hulls: the least seen are
+    taken (2-3 of 8 observers), as on open ground before.
+  - *Hull-down posts for the defence's carriers* (ai: `TankArgs.carrierCrews`, commander.ts defending branch): the
+    defending side's carriers whose squads are out are sited, moved and relocated with the tank sections' code
+    (tanks.ts) as one more section, key "carriers": posts over the approach, staying 50 m behind the main objective
+    ("hold"), over its ring when it is lost ("counter"), the next post after a hit, the smoke drill or 3 rounds, fire
+    free out to 1,500 m (they were never given orders before and stood where they were placed). Alone this moved
+    nothing measurable (platoon-vehicles 15 with and without, all other changes in).
+  - *platoon-ru-vehicles: the attack gets its tank section* (two T-72B3M in overwatch, `tanks: "attacker"`; the same
+    battle as platoon-ru-vehicles-tanks now).
+  - *platoon-vehicles: the defence gets a tank section of two T-90M* (`tanks: "defender"`, `tankTemplates [null,
+    "tankovaya-gruppa-t90m"]`; sourced M7.6a data). With two T-72B3M it was 15 of 20 (their 3BM42 kills Pumas, but they
+    die to Puma 30 mm in the side and to Spike-LR); the T-90M's front and sights hold: 10 of 20.
+  - Not done: a bigger farmland map (measured by the diagnosis: alone it lengthened the ride under thermal sights,
+    1-5 BMP-2s lost per battle); a better Russian carrier (no BMP-3 / BMP-2M in the data; it would be search-extract
+    data at medium confidence); the hull-blocks-fire bug (`friendInLine` checks men on foot only: a Puma shot through
+    the Puma ahead in platoon-vehicles s2) — left for a fix of its own (owner question).
+- **Hold battle: a smaller starting stock** (scenario/battle.ts `HOLD`): `defenderMagazineShare` 0.25: of each stack of
+  two or more magazines or belts one stays loaded (the one in the weapon) and the rest are empty; the loose rounds
+  (bandolier, packs) stay full — without resupply (`rules.resupply: false`: no refilling) they cannot be loaded, so the
+  defence without resupply fights with one magazine or belt per man. `pointShare` 0.5: the supply point holds half its
+  rounds (full cans and one part-filled can per cartridge; DE 1,260 x 5.56 mm and 300 x 7.62 mm, RU 1,620 x 5.45 mm and
+  660 x 7.62R), the off-map stock (`stockLoads` 2 x the point) with it. Shrinking only the point opened no gap (the
+  defence fell to casualties, not ammunition: 141 / 429 rounds taken at the point per battle; diagnosis 8 seeds 0
+  points both ways). `HoldDef.defenderMagazineShare` / `pointShare` for comparisons; `defenderLoadShare` (M11.8)
+  unchanged. Nothing outside the hold battle uses these.
+- **Balance** (20 seeds x 1,200 s, seeds 1-20, attacker wins of 20; casualties attacker / defender; end reasons):
+
+  | scenario (attacker) | before (main f324f67, range rule off) | range rule on alone | **after** |
+  |---|---|---|---|
+  | platoon (DE on foot, village) | 10; 16.8 / 10.7 | 9; 17.1 / 10.2 | **10; 16.8 / 10.2; eliminated 8, time 12** |
+  | platoon-ru (RU on foot, farmland) | 9; 14.6 / 10.7 | 5; 21.6 / 8.4 | **7; 20.9 / 9.4; eliminated 11, broken 1, time 8** |
+  | platoon-vehicles (DE in Pumas) | 16; 9.2 / 25.2 | — | **10; 20.0 / 28.4; time 16, eliminated 4; vehicles lost 2.1 / 4.4** |
+  | platoon-ru-vehicles (RU in BMP-2s) | 1; 36.0 / 5.5 | — | **12; 25.7 / 17.9; broken 9, eliminated 3, time 8; vehicles lost 3.05 / 2.5** |
+
+  (Mounted "before" from "Balance pass after M11". platoon-vehicles steps, all with the range rule, hasty holes, the
+  thermal search and the carriers' posts: T-72B3M 15; without the carriers' posts 15; 1.2 m holes 14; T-90M 10.)
+- **Hold battle** (20 seeds x 3,600 s each way; holds of 20 with / without resupply, `--no-resupply`): before (main,
+  range rule off) German defence 12 / 11 (+5 points), Russian 11 / 12 (-5); range rule on alone 11 / 12 and 15 / 16.
+  **After: German defence 11 / 3 (55 % / 15 %, +40 points); Russian defence 12 / 4 (60 % / 20 %, +40 points).**
+  Casualties attacker / defender with resupply 35.4 / 13.2 and 38.5 / 11.4; without 23.6 / 15.0 and 22.3 / 13.1 (the
+  defence without resupply mostly eliminated: 14 of 20 both ways). Both targets met.
+- **Tests:** `sim/test/positions.test.ts` (a hasty window digs holes at most its depth; a hand-dug hole without one
+  is the data's); `tools/test/scenario-platoon.test.ts` (the platoon battle's window carries `SCENARIO_HASTY_DEPTH_M`,
+  no rim deeper); `tools/test/scenario-hold.test.ts` (one loaded magazine per stack, loose rounds full, attackers
+  unchanged, every defender loaded; point and stock at half); `tools/test/scenario-mounted.test.ts` (no Puma start sees
+  a BMP-2 start through the heat channel, farmland seeds 5-8; seed 12's farmland starts are the least seen, at most 3
+  of 8 observers); `tools/test/tanks-ai.test.ts` (the defence's carriers sited "hold" behind the main objective and
+  driven there, the attacker's never). Adjusted: the carriers wait for every tank to have reached its first post once
+  (the Leopard test looked for both on posts at once; one now fires and moves on first), a hit gets the men out
+  before any of the attacker's arrivals (the defence's carriers now arrive at posts), the AGS team test uses seed 8
+  (seed 6 no longer fires within 600 s), the hold battle's point marker is 0.75 full.
+- `npm run golden:update`: every golden changed (the data change moves the catalog fingerprint; the platoon and hold
+  scenarios also change in behaviour); `golden/no-interiors` untouched.
+- **Checks:** typecheck, lint, data lint (no errors), `npm test` 1,579 pass (6 skipped). `npm run test:perf` alone on
+  this container: 19 of 24 (bench-caches 5.4 % against 5 %: 20 of 24 with it re-run alone, passed; spotting 6.6x and
+  7.0x, bench-vehicles 7.3x, bench-tanks 7.7x against 8x); origin/main f324f67 run alone the same way right after: 20 of
+  24, the same four 8x floors missed (7.7x, 7.0x, 6.9x, 7.3x): the container's noise, no new per-tick work (the
+  carriers' siting runs in the AI's think, a rim depth read per struck man in a hole).
+- Screenshots `--scene tanks-battle` looked at (photo, flat, overview): unchanged in kind; the scene's tank filter now
+  leaves off-map assets and hulls without guns out (a recovery vehicle crashed it: `stations[0]` undefined).
+- **Open (owner):** the hull-blocks-fire bug (`friendInLine`); the app's mounted battle (`?scenario=platoon`) has no
+  tank sections unless `tanks=` is given, so it is not the batch's balanced scenario; platoon-vehicles and
+  platoon-vehicles-tanks / platoon-ru-vehicles and platoon-ru-vehicles-tanks overlap now (the latter pair identical);
+  without resupply the hold battle's riflemen fire 5-7 rounds each (one magazine).

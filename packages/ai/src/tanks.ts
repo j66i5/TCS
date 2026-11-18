@@ -160,6 +160,10 @@ export interface TankArgs {
   back: (crew: EntityId) => Record<string, unknown>;
   /** How long the commander leaves a crew reversing out of danger to it, s. */
   reverseHoldSeconds: number;
+  /** Balance pass 2 (owner 2026-11-17: "give the defender's carriers hull-down posts"): a defending side's carrier
+   *  crews whose squads are out: sited, moved and relocated as one more section (key "carriers") in its "hold" and
+   *  "counter" stages. */
+  carrierCrews?: readonly EntityId[];
 }
 
 /** The highest sight of a vehicle type (its turret's eyes) and its hull aim point's height, m. */
@@ -237,7 +241,9 @@ function stagePlan(a: TankArgs, stage: string, home: { x: number; y: number }, a
 export function tankSections(a: TankArgs): number {
   const { view, tick, side, ctx, mem, order } = a;
   const T = TANKS;
-  const sections = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ctx, id)).map(([id]) => id);
+  const sections: { key: string; crews: EntityId[] }[] = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ctx, id))
+    .map(([id]) => ({ key: String(id), crews: [...view.unit.get(id)!.children].sort((x, y) => x - y) }));
+  if (a.defending && (a.carrierCrews?.length ?? 0) > 0) sections.push({ key: "carriers", crews: [...a.carrierCrews!].sort((x, y) => x - y) });
   if (sections.length === 0) return 0;
   mem.tk ??= {}; mem.tkSited ??= {}; mem.tkHome ??= {}; mem.tkResite ??= {};
   const main = a.objectives[0];
@@ -246,8 +252,7 @@ export function tankSections(a: TankArgs): number {
   const menNow = enemies.filter((e) => tick - e.tick <= T.menSeenSeconds * 60);
   const front = a.ownFoot.reduce((m, f) => Math.max(m, f.x * a.ux + f.y * a.uy), -Infinity);
   let notReady = 0;
-  for (const sec of sections) {
-    const crews = [...view.unit.get(sec)!.children].sort((x, y) => x - y);
+  for (const { key, crews } of sections) {
     // The tanks that can still drive and fight, with their hulls.
     const live: { c: EntityId; vid: EntityId; v: VehicleState; def: VehicleDef; x: number; y: number; h: number }[] = [];
     for (const c of crews) {
@@ -259,7 +264,6 @@ export function tankSections(a: TankArgs): number {
       live.push({ c, vid, v, def, x: t.x, y: t.y, h: t.heading });
     }
     if (live.length === 0) continue;
-    const key = String(sec);
     if (!mem.tkHome[key]) mem.tkHome[key] = [live.reduce((s, q) => s + q.x, 0) / live.length, live.reduce((s, q) => s + q.y, 0) / live.length];
     const home = { x: mem.tkHome[key][0], y: mem.tkHome[key][1] };
     // First look: fire free (the defence out to its tanks' reach, not the infantry's 300 m).

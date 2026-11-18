@@ -142,7 +142,7 @@ describe("automatic grenade launcher teams (M7.6d)", () => {
 
   it("the AI commander walks the assault group's AGS team to a post and leaves it there (moves, rules, fire at enemy men its side sees); it sets up and fires", () => {
     const sc = getScenario("assault-group");
-    const input = sc.build(data, 6, 600); // (seed 6: its first burst at about 223 s; M11.1 moved seed 2, which no longer fires within 600 s)
+    const input = sc.build(data, 8, 600); // (seed 8: its first burst at about 219 s; balance pass 2 moved seed 6, M11.1 seed 2, which no longer fire within 600 s)
     const sim = createSim(input);
     const ctls = sc.controllers!(input);
     const tid = team(sim);

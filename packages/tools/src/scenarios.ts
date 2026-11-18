@@ -206,15 +206,15 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles": {
-    description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (M7.3: the vehicles fire their guns; rounds do not penetrate hulls until M7.4a). M9.3b: the Russian side also has its Metis-M team 300 m behind its position.",
+    description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (M7.3: the vehicles fire their guns; rounds do not penetrate hulls until M7.4a). M9.3b: the Russian side also has its Metis-M team 300 m behind its position. Balance pass 2: the defence also has a section of two T-90M (M7.6b), and its carriers and tanks take hull-down posts.",
     takesCarriers: true,
-    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }),
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: "defender", tankTemplates: [null, "tankovaya-gruppa-t90m"], ...(o?.carriers ? { carriers: o.carriers } : {}) }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-ru-vehicles": {
-    description: "M7.2: the same with the sides swapped on farmland: Russia attacks mounted in BMP-2s, Germany defends with its Pumas behind its position. M9.3b: the Russian side's Metis-M team starts 150 m behind its start on a flank and takes up an overwatch post.",
+    description: "M7.2: the same with the sides swapped on farmland: Russia attacks mounted in BMP-2s, Germany defends with its Pumas behind its position. M9.3b: the Russian side's Metis-M team starts 150 m behind its start on a flank and takes up an overwatch post. Balance pass 2: the attack has its two T-72B3M in overwatch (M7.6b; as platoon-ru-vehicles-tanks), the Pumas take hull-down posts.",
     takesCarriers: true,
-    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }),
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: "attacker", ...(o?.carriers ? { carriers: o.carriers } : {}) }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles-wheeled": {

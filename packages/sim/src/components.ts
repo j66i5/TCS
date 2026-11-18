@@ -831,7 +831,7 @@ export interface TerrainState {
   /** Vegetation thinned by fire: [cell index, fraction removed 0..1], sorted by cell. */
   vegetationLoss: [number, number][];
   /** M11 hold battle: dug fighting positions (`positions.ts`), in the order they were dug; anyone in one is in it. */
-  positions?: { x: number; y: number; side: string; tick: number }[];
+  positions?: { x: number; y: number; side: string; tick: number; /** Balance pass 2: dug only this deep (absent: `fightingPosition.depthM`). */ depthM?: number }[];
 }
 
 /** A soldier's personal weapon. The loaded magazine is here, not in his container, while it is in the weapon. */

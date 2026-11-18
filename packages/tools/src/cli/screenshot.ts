@@ -1052,7 +1052,7 @@ async function tankBattleScenes(page: Page, name: string, errors: string[], shot
     const p = `${outDir}/tanks-battle-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
   };
   const tanksJs = `const s = t.sim.state, cat = t.sim.ctx.catalog;
-    const tanks = [...s.vehicle.entries()].filter(([, v]) => v.side === "blue" && cat.vehicles[v.def].seats.every((q) => q.station !== "passenger") && v.status !== "destroyed").map(([id]) => id);`;
+    const tanks = [...s.vehicle.entries()].filter(([, v]) => v.side === "blue" && v.offMap === undefined && (cat.vehicles[v.def].stations?.length ?? 0) > 0 && cat.vehicles[v.def].seats.every((q) => q.station !== "passenger") && v.status !== "destroyed").map(([id]) => id);`;
   let info: object = {};
   for (const look of ["photo", "flat"] as const) {
     await page.goto(`http://localhost:${port}/?scenario=platoon&side=red&attacker=blue&tanks=1&seed=${seed}&look=${look}`);

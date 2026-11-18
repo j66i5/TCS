@@ -207,6 +207,7 @@
     },
     "underFireSuppression": 0.05,
     "underFireMemorySeconds": 30,
+    "rangeRuleLiftsUnderFire": true,
     "seenWithinSeconds": 2,
     "contactLostSeconds": 10,
     "seekCoverSuppression": 0.1,

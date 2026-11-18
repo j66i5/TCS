@@ -75,8 +75,8 @@ describe("hold-resupply (M11.1)", () => {
 describe("hold-resupply balance (M11.8)", () => {
   it("defenderLoadShare 0.5: the defenders start with half their spare magazines loaded (the rest empty) and half their loose rounds; the attackers in full; off by default", () => {
     expect(HOLD.defenderLoadShare).toBe(1);
-    const full = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderLoadShare: 1 });
-    const part = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderLoadShare: 0.5 });
+    const full = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderLoadShare: 1, defenderMagazineShare: 1 });
+    const part = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderLoadShare: 0.5, defenderMagazineShare: 1 });
     const cat = part.catalog;
     const rounds = (i: typeof part, side: string, cats: string[]) => {
       let n = 0, mags = 0;
@@ -94,5 +94,53 @@ describe("hold-resupply balance (M11.8)", () => {
     // Every defender still has a loaded magazine for his weapon.
     const sim = createSim(part);
     for (const [id, i] of sim.state.identity.entries()) if (i.side === "blue" && sim.state.weapon.get(id)?.magazine === null) throw new Error(`defender ${id} has no loaded magazine`);
+  });
+});
+
+describe("hold-resupply balance pass 2", () => {
+  const cat = holdBattle(data, { factions: ["de", "ru"], seed: 4 }).catalog;
+  const tally = (i: ReturnType<typeof holdBattle>, side: string) => {
+    let loaded = 0, empty = 0, loose = 0;
+    for (const u of i.forces.find((f) => f.side === side)!.units) {
+      const walk = (x: typeof u): void => {
+        for (const m of x.members) for (const l of m.load) {
+          const d = cat.items[l.type];
+          if (d?.chargeItem === undefined) continue;
+          if (d.category === "magazine") { if ((l.charge ?? 0) > 0) loaded += l.count; else empty += l.count; }
+          else if (d.category === "ammo-package") loose += (l.charge ?? 0) * l.count;
+        }
+        x.subunits.forEach(walk);
+      };
+      walk(u);
+    }
+    return { loaded, empty, loose };
+  };
+  const pointRounds = (i: ReturnType<typeof holdBattle>, side: string) => {
+    const f = i.forces.find((x) => x.side === side)!;
+    return (f.caches ?? []).flatMap((c) => c.load).reduce((n, l) => n + (l.charge ?? 0) * l.count, 0);
+  };
+  it("by default the defenders carry one loaded magazine or belt of each stack (the rest empty) and all their loose rounds; the attackers in full", () => {
+    expect(HOLD.defenderMagazineShare).toBe(0.25);
+    const now = holdBattle(data, { factions: ["de", "ru"], seed: 4 });
+    const before = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderMagazineShare: 1 });
+    const a = tally(now, "blue"), b = tally(before, "blue");
+    expect(a.loaded + a.empty).toBe(b.loaded + b.empty);
+    expect(a.loaded).toBeLessThan(b.loaded * 0.5);
+    expect(a.loose).toBe(b.loose);
+    expect(tally(now, "red")).toEqual(tally(before, "red"));
+    const sim = createSim(now);
+    for (const [id, i] of sim.state.identity.entries()) if (i.side === "blue" && sim.state.weapon.get(id)?.magazine === null) throw new Error(`defender ${id} has no loaded magazine`);
+  });
+  it("the supply point and the off-map stock hold HOLD.pointShare of a full point's rounds (full cans and one part-filled can per cartridge)", () => {
+    expect(HOLD.pointShare).toBe(0.5);
+    for (const defender of ["blue", "red"] as const) {
+      const now = holdBattle(data, { factions: ["de", "ru"], seed: 4, defender });
+      const full = holdBattle(data, { factions: ["de", "ru"], seed: 4, defender, pointShare: 1 });
+      const p = pointRounds(now, defender), q = pointRounds(full, defender);
+      expect(q).toBeGreaterThan(0);
+      expect(Math.abs(p - q * 0.5)).toBeLessThanOrEqual(4);
+      const stock = (i: typeof now) => (i.forces.find((x) => x.side === defender)!.stock?.load ?? []).filter((l) => l.charge !== undefined).reduce((n, l) => n + (l.charge ?? 0) * l.count, 0);
+      expect(stock(now)).toBe(p * HOLD.stockLoads);
+    }
   });
 });

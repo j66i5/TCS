@@ -95,6 +95,27 @@ export const SCENARIO_PREPARED_S = [60, 90] as const;
  *  hold battle keeps the data's `fightingPosition.depthM`, 1.2 m). A prone man's rim (0.3 m) is the same in both. */
 export const SCENARIO_HASTY_DEPTH_M = 0.6;
 
+/**
+ * Balance pass 3 (owner 2026-11-18): the tank sections of the balanced mounted platoon battle, by the attacking side
+ * (factions blue, red as in the batch: `platoon-vehicles` blue attacking, `platoon-ru-vehicles` red attacking). The
+ * tools scenarios and the app's mounted battle (`?scenario=platoon`, no `tanks=`) both take them from here, so the
+ * app plays the batch's battle. Balance pass 2's choices: blue attacking, the defence gets a section of two T-90M (a
+ * unit template id, data); red attacking, the attack gets its manifest's section (two T-72B3M).
+ */
+export const MOUNTED_TANKS: Readonly<Record<"blue" | "red", { readonly tanks: "attacker" | "defender"; readonly tankTemplates?: readonly [string | null, string | null] }>> = {
+  blue: { tanks: "defender", tankTemplates: [null, "tankovaya-gruppa-t90m"] },
+  red: { tanks: "attacker" },
+};
+
+/** `MOUNTED_TANKS[attacker]` as battle options; a named section template the side's faction does not have (other
+ *  factions) falls back to its manifest's. */
+export function mountedTanks(data: DataSet, factions: readonly [string, string], attacker: "blue" | "red"): { tanks: "attacker" | "defender"; tankTemplates?: [string | null, string | null] } {
+  const m = MOUNTED_TANKS[attacker];
+  if (!m.tankTemplates) return { tanks: m.tanks };
+  const tt = m.tankTemplates.map((t, s) => (t !== null && data.factions[factions[s]!]?.units[t] !== undefined ? t : null)) as [string | null, string | null];
+  return tt[0] === null && tt[1] === null ? { tanks: m.tanks } : { tanks: m.tanks, tankTemplates: tt };
+}
+
 /** Artillery rounds each side may call with `artillery` (M8.4; game values). */
 export const SCENARIO_ARTILLERY = { he: 12, smoke: 4, illum: 4 } as const;
 

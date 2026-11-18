@@ -17,3 +17,22 @@ export function carriersParam(v: string | null, warn: (msg: string) => void = ()
   warn(`vehicles=${v}: expected 0, 1, tracked, wheeled or <blue>,<red>; using tracked`);
   return { vehicles: true };
 }
+
+/**
+ * `?tanks=0|1|both|attacker|defender` (M7.6b): the sides' tank sections (1, both: both sides; 0: none);
+ * `&tankCrew=<blue section>,<red section>` (unit template ids, empty: the default's or the manifest's), e.g.
+ * `tankCrew=,tankovaya-gruppa-t90m`. Absent (balance pass 3): `mounted`, the balanced mounted battle's sections
+ * (`mountedTanks`, the batch's platoon-vehicles / platoon-ru-vehicles), or none (null: the battle on foot).
+ */
+export function tanksParam(v: string | null, crew: string | null, mounted: TankOpts | null = null): TankOpts {
+  const tanks = v === "1" || v === "both" ? true : v === "attacker" || v === "defender" ? v : undefined;
+  const parts = (crew ?? "").split(",");
+  const named: [string | null, string | null] | undefined = crew ? [parts[0] || null, parts[1] || null] : undefined;
+  if (tanks === undefined) {
+    if (v === "0" || mounted === null || mounted.tanks === undefined) return {};
+    return { tanks: mounted.tanks, ...(named ? { tankTemplates: named } : mounted.tankTemplates ? { tankTemplates: mounted.tankTemplates } : {}) };
+  }
+  return { tanks, ...(named ? { tankTemplates: named } : {}) };
+}
+
+export interface TankOpts { tanks?: true | "attacker" | "defender"; tankTemplates?: [string | null, string | null] }

@@ -8758,3 +8758,68 @@ platoon battles: attacker wins 6-14 of 20 (20 seeds x 1,200 s).
     annihilated attacks (s26, s29); the Pumas fired no Spike-LR at the tanks in s1.
   - Screenshots: `--scene tanks-battle` now also shows the app's mounted battle with the player attacking and the AI's
     defending BMP-2s at 120 s (`-4-defence-carriers`, `-5-defence-wide`, photo and flat).
+
+## 2026-11-18 — Balance pass 3 (owner decisions 2026-11-18: fratricide, self-refill split, Pumas move up, app tanks, duplicate scenarios)
+Owner decisions (binding, all the recommended options): (A) friendly hulls block the line of fire; (B) hold battle:
+`--no-resupply` keeps men refilling from their own loose rounds and redistributing, only the supply chain is off,
+then re-balance (resupply minus without >= 10 points, holds with resupply 30-70 %); (C) idle overwatch carriers in
+the mounted attack bound forward; (D) the app's mounted battle plays the batch's balanced battle (tanks by default),
+duplicate scenarios removed. Band for the four platoon battles: attacker wins 6-14 of 20 (20 seeds x 1,200 s).
+- **A. Hulls block the line of fire** (sim/systems/fire.ts `friendInLine` -> `hullInLine`): a hull of the shooter's
+  side (and so the men aboard it) in front of the muzzle, inside the safety cone, nearer than the point or within the
+  beaten zone past it (`beyondM`) blocks his fire, for every caller (riflemen, vehicle gunners in gunnery.ts, the AGL
+  team, drills, decisions, peek, the commander's siting). His own hull never counts; "destroyed" hulls (wrecks) do not
+  (no one aboard; `sight` already stops rounds on them). The hull rectangle comes from the vehicle grid
+  (`ctx.ballistics.vehicles`, rebuilt every tick by the drive system and by the AI's ground context), grown by
+  `HULL_GROW_M` 0.5 m plus the cone's width at its distance (`safetyConeDeg` 4: about 0.07 m a metre), slab-clipped
+  against the line; heights only for a man well above its roof (`z` above the hull or turret top + 1 m: an upper
+  floor fires over it). A man standing within the grown box (beside it) is tested against the bare hull from his
+  muzzle on, so he can fire away from it. Cost: a few multiplications per hull of his side, after the men loop.
+  The old rule "men aboard never block a comrade's fire" (M7) is reversed: they are behind the hull, which now blocks.
+  - Why gunnery's own line check did not catch it: `sight` does treat hulls as obstacles, but the line is checked once
+    a second from the muzzle to a point 0.6 m above the ground; a burst then runs without re-checking, a hull that
+    drives into the line meanwhile is not seen, and a block within `LINE_ALLOWANCE_M` of the point is allowed.
+  - Measured (10 seeds x 600 s each; hits on a hull by its own side, from `vehicle.hit` events): platoon-vehicles
+    origin/main 10 hits, 9 penetrations (seeds 3, 4, 6, 7, 8) -> **0**; platoon-ru-vehicles 10 hits, 1 penetration
+    -> **0**. (Men hit by their own side: 25 -> 11 and 169 -> 117; mostly fragments and blast, not this rule; not
+    changed here.)
+  - Tests: `tools/test/mounted-invariants.test.ts` (the M7 "a man aboard never blocks" test is replaced: a rifleman
+    of the defence firing through a crewed BMP-2 / T-90M is blocked, 40 m plus the cone wide of it he is not; a Puma's
+    gunner does not fire through another Puma, his own hull and an enemy hull do not block, a destroyed own hull does
+    not); `sim/test/vehicles.test.ts` (the gate test: a rifleman's order through a crewed own hull fires nothing, wide
+    of it he fires).
+- **D. The app plays the balanced mounted battle; duplicates removed.**
+  - `MOUNTED_TANKS` / `mountedTanks(data, factions, attacker)` (scenario/battle.ts): the tank sections of the balanced
+    mounted battle by attacking side (blue attacking: two T-90M with the defence, `tankovaya-gruppa-t90m`; red
+    attacking: the attack's manifest section, two T-72B3M). The tools scenarios platoon-vehicles and
+    platoon-ru-vehicles and the app take them from here, so they cannot drift apart. A named template a faction does
+    not have falls back to its manifest's (other `factions=`).
+  - App (`?scenario=platoon`, mounted, `params.ts tanksParam`): no `tanks=` gives those sections; `tanks=0` none;
+    `tanks=1|both|attacker|defender` and `tankCrew=` as before (`tankCrew` alone also applies to the default
+    sections). On foot (`vehicles=0`) no tanks, as the batch's platoon / platoon-ru. Still different from the batch:
+    the app's time limit (2,400 s) and its map (village unless `map=`; the batch's platoon-ru-vehicles is farmland).
+  - Duplicates: every batch/headless scenario built for seeds 1 and 2 and compared (battle input and controllers):
+    only `platoon-ru-vehicles-tanks` == `platoon-ru-vehicles` (since balance pass 2); removed (scenarios.ts, CLAUDE.md,
+    DATA_GUIDE; the tanks-ai tests that used it now use platoon-ru-vehicles, the same battle). It had no golden.
+    platoon-vehicles-tanks (Leopards with the attack) and platoon-vehicles-tanks-both differ and stay.
+  - Test: `app/test/params.test.ts` (default sections when mounted, none on foot or with 0, the old values).
+  - The screenshot scenes that open `?scenario=platoon` mounted without `tanks=` (tanks-battle's defence carriers,
+    wheeled) now have the default tank sections on the map.
+- `npm run golden:update` after A: platoon-vehicles-tanks-s1 (from tick 5,400) and platoon-vehicles-wheeled-s1 (from
+  tick 4,800) changed; the rest unchanged; `golden/no-interiors` untouched.
+- **Balance after A and D** (20 seeds x 1,200 s, attacker wins of 20; casualties attacker / defender; end reasons):
+
+  | scenario | balance pass 2 (after review fixes) | **after A** |
+  |---|---|---|
+  | platoon | 10; 16.8 / 10.2 | **10; 16.8 / 10.3; eliminated 8, time 12** (unchanged: no hulls on the map) |
+  | platoon-ru | 7; 20.9 / 9.4 | **7; 21.0 / 9.4; eliminated 11, broken 1, time 8** (unchanged) |
+  | platoon-vehicles | 12 (seeds 21-40: 12; 24 / 40) | **15; 20.3 / 29.5; time 14, eliminated 6; vehicles lost 1.75 / 4.4** (seeds 21-40: 10; **25 / 40**, 62.5 %) |
+  | platoon-ru-vehicles | 10 | **11; 26.8 / 17.1; time 11, broken 5, eliminated 4; vehicles lost 2.75 / 2.6** |
+
+  platoon-vehicles seeds 1-20 is out of the band (15) but seeds 21-40 give 10: over 40 seeds 25 against 24 before,
+  within noise; the attack's Pumas no longer knock each other out (9 penetrations in 10 seeds before). D changes no
+  batch scenario (the same sections, now from `mountedTanks`). Parts B and C will move these again.
+- **Checks (A+D):** typecheck, lint, data lint (no errors); `npm test` 1,581 pass, 6 skipped (after the vehicles.test
+  gate test was rewritten); `npm run test:perf` alone 21 of 24 (spotting 7.5x / 7.3x and bench-tanks 7.2x against 8x;
+  bench-vehicles passed); origin/main 480f582 run alone right after on the same container: 19 of 24 (the same three
+  plus bench-vehicles 7.5x and bench-caches): container noise, no measurable cost.

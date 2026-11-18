@@ -363,7 +363,7 @@ A tank section is **a unit template with no men of its own** (`"echelon": "secti
 passenger seats** (tanks), e.g. DE `panzer-halbzug` (two `leopard2a7v-besatzung`), RU `tankovaya-gruppa` (two
 `t72b3m-ekipazh`; `tankovaya-gruppa-t90m` for the T-90M), the fixture's `tortoise-pair`. Name it in `manifest.json`
 as `"tankSectionTemplate": "<section id>"`: generated battles with `tanks: true | "attacker" | "defender"` (tools
-scenarios `platoon-vehicles-tanks`, `platoon-ru-vehicles-tanks`, `platoon-vehicles-tanks-both`; app `?tanks=1`,
+scenarios `platoon-vehicles-tanks`, `platoon-ru-vehicles` (its attack's T-72B3M; balance pass 3 removed the identical `platoon-ru-vehicles-tanks`), `platoon-vehicles-tanks-both`; app `?tanks=1`,
 `?tanks=attacker`, `&tankCrew=<blue section>,<red section>`) add it as a unit of its own; the AI commander recognises
 it from the data alone (crews of vehicles that carry no one) and runs it in overwatch (`ai/src/tanks.ts`).
 

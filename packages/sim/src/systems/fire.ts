@@ -84,6 +84,8 @@ const LINE_OF_FIRE_ALLOWANCE_M = 5;
 /** Geometry of the friend-in-line check (not behaviour): the muzzle sits this far out in front of him, a man's body
  * this far from where he stands (more lying down), and a man more than this far above or below is on another floor. */
 const MUZZLE_OUT_M = 0.4, BODY_REACH_M = 0.7, FLOOR_APART_M = 1;
+/** Margin round a friendly hull in the line of fire (balance pass 3), as a man's body reach. */
+const HULL_GROW_M = 0.5;
 
 /**
  * The line from his muzzle (in posture `p`) to a point: 2 clear of ground, walls and roofs (except within the last
@@ -229,6 +231,67 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
     if (os !== undefined && os.casualty !== "none" && (along <= 0.5 || along >= range + LINE_OF_FIRE_ALLOWANCE_M)) continue;
     const across = Math.abs((o.x - me.x) * -uy + (o.y - me.y) * ux);
     if (across < reach + Math.max(0, along) * sinCone) return true;
+  }
+  return hullInLine(ctx, state, side, id, self.z, me.x, me.y, ux, uy, range + beyondM, sinCone);
+}
+
+/**
+ * Balance pass 3 (owner 2026-11-18): a hull of his side (and so the men aboard it) in front of the muzzle, inside
+ * the safety cone, nearer than the point (or within `reachM` of the line's end) blocks his fire, whoever he is: a
+ * man on foot or a gunner aboard (his own hull never counts). The hull's rectangle from the vehicle grid (rebuilt
+ * every tick by the drive system) is grown by the cone's width at its distance; heights are not looked at, except
+ * that a man well above its roof (an upper floor) fires over it. Wrecks ("destroyed") do not count: no one aboard,
+ * and they stop rounds as obstacles in `sight` already. A few multiplications per hull of his side.
+ */
+function hullInLine(ctx: SimContext, state: SimState, side: string, id: EntityId, z: number, mx: number, my: number, ux: number, uy: number, reachM: number, sinCone: number): boolean {
+  const G = ctx.ballistics.vehicles, n = G.n;
+  if (n === 0) return false;
+  const own = state.soldier.get(id)?.mount?.vehicle ?? -1;
+  const ex = ux * reachM, ey = uy * reachM;
+  for (let k = 0; k < n; k++) {
+    const vid = G.id[k]!;
+    if (vid === own) continue;
+    const v = state.vehicle.get(vid);
+    if (v === undefined || v.side !== side || v.status === "destroyed") continue;
+    const c = G.ch[k]!, s = G.sh[k]!;
+    const f0 = G.f0[k]!, f1 = G.f1[k]!, r0 = G.r0[k]!, r1 = G.r1[k]!;
+    const fc = (f0 + f1) / 2, rc = (r0 + r1) / 2;
+    const ox = G.x[k]! + c * fc - s * rc, oy = G.y[k]! + s * fc + c * rc;
+    const rx = mx - ox, ry = my - oy;
+    // Behind him (the box's far corner short of his muzzle) or beyond the line's end: not in it.
+    const hl0 = (f1 - f0) / 2, hw0 = (r1 - r0) / 2;
+    const along = -(rx * ux + ry * uy), radius = hl0 + hw0;
+    if (along + radius <= MUZZLE_OUT_M || along - radius >= reachM) continue;
+    // (`z` is his height above the ground: a man on an upper floor fires over it; a gunner aboard sits below its roof.)
+    if (z > Math.max(G.u1[k]!, G.tu1[k]!) + FLOOR_APART_M) continue;
+    // In the box's frame: the segment from him to the line's end against the grown rectangle (slab clipping).
+    let pf = rx * c + ry * s, pr = -rx * s + ry * c;
+    const df = ex * c + ey * s, dr = -ex * s + ey * c;
+    const grow = HULL_GROW_M + Math.max(0, along) * sinCone;
+    let hl = hl0 + grow, hw = hw0 + grow;
+    if (pf >= -hl && pf <= hl && pr >= -hw && pr <= hw) {
+      // He stands at the hull (within the margin): only the hull itself, from his muzzle on, counts.
+      hl = hl0; hw = hw0;
+      pf += (ux * c + uy * s) * MUZZLE_OUT_M; pr += (-ux * s + uy * c) * MUZZLE_OUT_M;
+    }
+    let t0 = 0, t1 = 1;
+    if (Math.abs(df) < 1e-12) { if (pf < -hl || pf > hl) continue; }
+    else {
+      let a = (-hl - pf) / df, b = (hl - pf) / df;
+      if (a > b) { const q = a; a = b; b = q; }
+      if (a > t0) t0 = a;
+      if (b < t1) t1 = b;
+      if (t0 > t1) continue;
+    }
+    if (Math.abs(dr) < 1e-12) { if (pr < -hw || pr > hw) continue; }
+    else {
+      let a = (-hw - pr) / dr, b = (hw - pr) / dr;
+      if (a > b) { const q = a; a = b; b = q; }
+      if (a > t0) t0 = a;
+      if (b < t1) t1 = b;
+      if (t0 > t1) continue;
+    }
+    return true;
   }
   return false;
 }

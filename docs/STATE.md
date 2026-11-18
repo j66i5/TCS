@@ -1,10 +1,17 @@
 # State — handover note
 
-_Last updated: 2026-11-18 (balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-18 (balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 3 (2026-11-18, branch `claude/balance-3`; owner decisions 2026-11-18), parts A and D.** A: a hull of
+  the shooter's side (and the men aboard) in the line of fire blocks it for every `friendInLine` caller
+  (`hullInLine`, fire.ts; own hull and wrecks excluded): own-side hull hits in 10 seeds x 600 s platoon-vehicles 10
+  (9 penetrations) -> 0, platoon-ru-vehicles 10 -> 0. D: `mountedTanks` (scenario/battle.ts) gives the batch's tank
+  sections to platoon-vehicles / platoon-ru-vehicles and to the app's mounted battle without `tanks=` (`tanks=0`:
+  none); `platoon-ru-vehicles-tanks` (identical to platoon-ru-vehicles) removed. Numbers in DECISIONS "Balance pass 3".
+  Parts B (hold battle self-refill split) and C (overwatch carriers move up) follow on the same branch.
 - **Balance pass 2 (2026-11-18, branch `claude/mounted-balance`; owner decisions 2026-11-17).** The range rule
   lifted under fire is on (`decisions.rangeRuleLiftsUnderFire`); the platoon battle's defence digs hasty holes
   (`SCENARIO_HASTY_DEPTH_M` 0.6 m, `rules.prepared[].depthM`; the hold battle keeps 1.2 m); the dead-ground start
@@ -18,7 +25,7 @@ DECISIONS.md under its date._
   post (`TANKS.carrierPair`, `samePostM`, `HullDownOpts.avoid`); platoon-vehicles 24 / 40, platoon-ru-vehicles 20 / 40
   (seeds 1-40). The hold battle's gap is the men refilling from their own pockets (`--no-resupply` switches that off),
   not the supply chain: own pockets only (`--no-point --no-deliveries`, new) holds 10 and 12 of 20 (owner question).
-  Open: the hull-blocks-fire bug (`friendInLine`), the app's mounted battle has no tanks unless `tanks=` is given,
+  Open (balance pass 3 fixed the first two): the hull-blocks-fire bug (`friendInLine`), the app's mounted battle has no tanks unless `tanks=` is given,
   the German overwatch Pumas that never move up (platoon-vehicles stalls on points).
 - **M11.9c (slice 55) built (2026-11-17, branch `claude/m11-mp`): MP/POW done, M11 complete.** A collection point is
   moved at once when rounds land within 30 m of it (at least 60 m from them; not one the player placed); prisoners kept

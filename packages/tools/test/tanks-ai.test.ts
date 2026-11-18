@@ -150,8 +150,8 @@ describe("the commander's tanks (M7.6b)", () => {
     expect(carriers).toBeLessThan(TANKS.carrierWaitSeconds * 60);
   });
 
-  it("platoon-ru-vehicles-tanks seed 2: the T-72B3M held behind its own BMP-2 tries its other posts; the carriers move off well before the 180 s cap", () => {
-    const sc2 = getScenario("platoon-ru-vehicles-tanks");
+  it("platoon-ru-vehicles seed 2: the T-72B3M held behind its own BMP-2 tries its other posts; the carriers move off well before the 180 s cap", () => {
+    const sc2 = getScenario("platoon-ru-vehicles");
     const r = start(sc2.build(data, 2, 600));
     const { crews } = tanksOf(r.sim, "red");
     const tankCrews = new Set(crews);
@@ -241,7 +241,7 @@ describe("the commander's tanks (M7.6b)", () => {
   });
 
   it("a T-72B3M with its front tiles used up and an enemy man known 400 m off pulls back at least 150 m", () => {
-    const sc2 = getScenario("platoon-ru-vehicles-tanks");
+    const sc2 = getScenario("platoon-ru-vehicles");
     const r = start(sc2.build(data, 1, 600));
     const { crews, vids } = tanksOf(r.sim, "red");
     // (Balance pass 2: from 30 s, not 60 s, sound and not reversing out of a hit, which the commander leaves to the

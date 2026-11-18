@@ -244,7 +244,9 @@ describe("the commander's tanks (M7.6b)", () => {
     const sc2 = getScenario("platoon-ru-vehicles-tanks");
     const r = start(sc2.build(data, 1, 600));
     const { crews, vids } = tanksOf(r.sim, "red");
-    run(r, 120, (rr) => (rr.sim.state.tick + 1) % 300 === 0 && (mem(rr.ctrls[1]!).tk?.[String(crews[0]!)]?.posts.length ?? 0) > 0 && rr.sim.state.tick > 60 * 60);
+    // (Balance pass 2: from 30 s, not 60 s, sound and not reversing out of a hit, which the commander leaves to the
+    // crew: the defence's Pumas now fire free to their own reach and knock it out by 70 s.)
+    run(r, 120, (rr) => (rr.sim.state.tick + 1) % 300 === 0 && (mem(rr.ctrls[1]!).tk?.[String(crews[0]!)]?.posts.length ?? 0) > 0 && rr.sim.state.tick > 30 * 60 && rr.sim.state.vehicle.get(vids[0]!)!.status === "ok" && rr.sim.state.vehicle.get(vids[0]!)!.crewReaction !== "reverseOut");
     step(r.sim);
     const def = r.sim.ctx.catalog.vehicles["ru-t72b3m"]!;
     const c = r.sim.state.container.req(vids[0]!);
@@ -290,7 +292,12 @@ describe("the commander's tanks (M7.6b)", () => {
     run(r, 90);
     const main = input.rules.objectives[0]!;
     const m = mem(r.ctrls[0]!);
-    expect(m.tkSited?.["carriers"]).toBe("hold");
+    // (Review fix: in pairs, each with posts of its own: no two carriers go for the same post.)
+    const keys = Object.keys(m.tkSited ?? {}).filter((k) => k.startsWith("carriers-")).sort();
+    expect(keys).toEqual(Array.from({ length: Math.ceil(carriers.length / TANKS.carrierPair) }, (_, k) => `carriers-${k}`));
+    for (const k of keys) expect(m.tkSited![k]).toBe("hold");
+    const cur = carriers.map((c) => { const tm = m.tk![String(c)]!; const p = tm.posts[tm.post]!; return `${Math.round(p[0])},${Math.round(p[1])}`; });
+    expect(new Set(cur).size).toBe(cur.length);
     let moved = 0;
     carriers.forEach((c, i) => {
       const tm = m.tk![String(c)]!;
@@ -303,7 +310,10 @@ describe("the commander's tanks (M7.6b)", () => {
     expect(moved).toBeGreaterThan(0);
     // The attacker's carriers (squads aboard) are never sited.
     for (const [id, u] of r.sim.state.unit.entries()) if (u.side === "red" && u.vehicle !== undefined) expect(m.tk?.[String(id)]).toBeUndefined();
-    expect(mem(r.ctrls[1]!).tkSited?.["carriers"]).toBeUndefined();
+    expect(Object.keys(mem(r.ctrls[1]!).tkSited ?? {}).some((k) => k.startsWith("carriers"))).toBe(false);
+    // (The defence's carriers fire free to TANKS.defenceEngageM, like its tanks: fire discipline, DECISIONS "Balance pass 2".)
+    for (const c of carriers) expect(r.sim.state.unit.get(c)!.maxEngageM).toBe(TANKS.defenceEngageM);
+    for (const c of carriers) expect(r.sim.state.unit.get(c)!.fireRule).toBe("free");
   });
 
   it("saved at 200 s and loaded (the commander's memory with its tanks), the battle runs on to the same state as unbroken", () => {

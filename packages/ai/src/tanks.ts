@@ -35,7 +35,7 @@ import { approachPoints, siteHullDown } from "./siting";
 export const TANKS = {
   sbfFarM: 550, sbfNearM: 350, holdBehindM: 120, secondShortM: 480, coverStandoffM: 200, atStandoffM: 300, clearedM: 50,
   enemyCoverSeconds: 60, enemyNearCoverM: 100, enemyClearSeconds: 60, enemyClearM: 60, frontSlackM: 30, coverMinHeightM: 1.8,
-  shotsPerPost: 3, arrivedM: 15, resendSeconds: 30, carrierWaitSeconds: 180, defenceEngageM: 1500, pullBackM: 250,
+  shotsPerPost: 3, carrierPair: 2, samePostM: 30, arrivedM: 15, resendSeconds: 30, carrierWaitSeconds: 180, defenceEngageM: 1500, pullBackM: 250,
   pullRangeM: 600, eraLowShare: 0.25, atKnownM: 500, coverCellM: 10, rangeM: [150, 2500], beyondM: 150, defenceBehindM: 50,
   pullRingsM: [0, 40, 80], stuckSeconds: 5, blockedSeconds: 20, progressM: 20, turnDeg: 40, resiteSeconds: 60, withdrawHoldSeconds: 60, reverseMaxM: 150, launchSeenSeconds: 60, menSeenSeconds: 60,
 } as const;
@@ -56,6 +56,8 @@ export interface TanksMemory {
   tk?: Record<string, TankMem>;
   /** Per section: the stage its posts were sited for, its start, when it was last re-sited for cover. */
   tkSited?: Record<string, string>; tkHome?: Record<string, [number, number]>; tkResite?: Record<string, number>;
+  /** Review fix (balance pass 2): a defence's carrier crew -> its pair (fixed the first time it is seen). */
+  tkPair?: Record<string, number>;
 }
 
 /** The vehicle a crew unit has (or had, if it bailed out). */
@@ -161,8 +163,8 @@ export interface TankArgs {
   /** How long the commander leaves a crew reversing out of danger to it, s. */
   reverseHoldSeconds: number;
   /** Balance pass 2 (owner 2026-11-17: "give the defender's carriers hull-down posts"): a defending side's carrier
-   *  crews whose squads are out: sited, moved and relocated as one more section (key "carriers") in its "hold" and
-   *  "counter" stages. */
+   *  crews whose squads are out: sited, moved and relocated as more sections (in pairs, keys "carriers-<k>") in its "hold"
+   *  and "counter" stages, fire free to `defenceEngageM`. */
   carrierCrews?: readonly EntityId[];
 }
 
@@ -241,9 +243,20 @@ function stagePlan(a: TankArgs, stage: string, home: { x: number; y: number }, a
 export function tankSections(a: TankArgs): number {
   const { view, tick, side, ctx, mem, order } = a;
   const T = TANKS;
-  const sections: { key: string; crews: EntityId[] }[] = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ctx, id))
+  const sections: { key: string; crews: EntityId[]; carriers?: true }[] = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ctx, id))
     .map(([id]) => ({ key: String(id), crews: [...view.unit.get(id)!.children].sort((x, y) => x - y) }));
-  if (a.defending && (a.carrierCrews?.length ?? 0) > 0) sections.push({ key: "carriers", crews: [...a.carrierCrews!].sort((x, y) => x - y) });
+  // (Review fix: the carriers in pairs, each pair a section of its own with its own home: `siteHullDown` gives at most
+  // three posts, so four carriers in one section shared posts and one stuck short of all of them.)
+  if (a.defending && (a.carrierCrews?.length ?? 0) > 0) {
+    const pair = (mem.tkPair ??= {});
+    const cc = [...a.carrierCrews!].sort((x, y) => x - y);
+    for (const c of cc) if (pair[String(c)] === undefined) pair[String(c)] = Math.floor(Object.keys(pair).length / T.carrierPair);
+    const n = cc.reduce((m, c) => Math.max(m, pair[String(c)]! + 1), 0);
+    for (let i = 0; i < n; i++) {
+      const crewsI = cc.filter((c) => pair[String(c)] === i);
+      if (crewsI.length > 0) sections.push({ key: `carriers-${i}`, crews: crewsI, carriers: true });
+    }
+  }
   if (sections.length === 0) return 0;
   mem.tk ??= {}; mem.tkSited ??= {}; mem.tkHome ??= {}; mem.tkResite ??= {};
   const main = a.objectives[0];
@@ -252,7 +265,7 @@ export function tankSections(a: TankArgs): number {
   const menNow = enemies.filter((e) => tick - e.tick <= T.menSeenSeconds * 60);
   const front = a.ownFoot.reduce((m, f) => Math.max(m, f.x * a.ux + f.y * a.uy), -Infinity);
   let notReady = 0;
-  for (const { key, crews } of sections) {
+  for (const { key, crews, carriers } of sections) {
     // The tanks that can still drive and fight, with their hulls.
     const live: { c: EntityId; vid: EntityId; v: VehicleState; def: VehicleDef; x: number; y: number; h: number }[] = [];
     for (const c of crews) {
@@ -264,9 +277,14 @@ export function tankSections(a: TankArgs): number {
       live.push({ c, vid, v, def, x: t.x, y: t.y, h: t.heading });
     }
     if (live.length === 0) continue;
-    if (!mem.tkHome[key]) mem.tkHome[key] = [live.reduce((s, q) => s + q.x, 0) / live.length, live.reduce((s, q) => s + q.y, 0) / live.length];
-    const home = { x: mem.tkHome[key][0], y: mem.tkHome[key][1] };
-    // First look: fire free (the defence out to its tanks' reach, not the infantry's 300 m).
+    // (The carrier pairs share one home: the middle of all the carriers, as when they were one section.)
+    const homeOf = carriers === true ? sections.filter((x) => x.carriers === true).flatMap((x) => x.crews).map((c) => { const vid = view.unit.get(c)?.vehicle; return vid === undefined ? undefined : view.transform.get(vid); }).filter((t) => t !== undefined) : live;
+    const hk = (mem.tkHome[key] ??= [homeOf.reduce((s, q) => s + q.x, 0) / homeOf.length, homeOf.reduce((s, q) => s + q.y, 0) / homeOf.length]);
+    const home = { x: hk[0], y: hk[1] };
+    // First look: fire free (the defence out to its tanks' reach, not the infantry's 300 m). Balance pass 2: a
+    // defence's carriers too: fire discipline, not their weapons' reach (a BMP-2's Konkurs and a Puma's MELLS reach
+    // 4,000 m): opening fire beyond 1,500 m only gives their posts away (measured: without it platoon-vehicles 16 of
+    // 20, with it see DECISIONS "Balance pass 2").
     for (const q of live) {
       if (mem.tk[String(q.c)]) continue;
       order(q.c, { kind: "rules", fire: "free", ...(a.defending ? { maxEngageM: T.defenceEngageM } : {}) });
@@ -302,7 +320,10 @@ export function tankSections(a: TankArgs): number {
       if (plan) {
         const lead = live[0]!;
         const { turretZ, hullZ } = heights(lead.def);
-        const posts = siteHullDown(ctx, plan.anchor, plan.targets, { cls: lead.def.class, turretZ, hullZ, rangeM: T.rangeM, threats, standoffM: T.coverStandoffM, ...(plan.behind ? { behind: plan.behind } : {}), from: { x: lead.x, y: lead.y }, vegMaxM: T.coverMinHeightM });
+        // (Review fix: a carrier pair keeps off the posts the other sections hold or go to.)
+        const own = new Set(crews.map(String));
+        const avoid = carriers === true ? Object.entries(mem.tk).filter(([c]) => !own.has(c)).flatMap(([, m]) => m.posts.slice(m.post, m.post + 1).map((p) => ({ x: p[0], y: p[1] }))) : [];
+        const posts = siteHullDown(ctx, plan.anchor, plan.targets, { cls: lead.def.class, turretZ, hullZ, rangeM: T.rangeM, threats, standoffM: T.coverStandoffM, ...(plan.behind ? { behind: plan.behind } : {}), from: { x: lead.x, y: lead.y }, vegMaxM: T.coverMinHeightM, ...(avoid.length > 0 ? { avoid } : {}) });
         if (posts.length > 0) {
           let k = 0;
           for (const q of live) {
@@ -319,6 +340,16 @@ export function tankSections(a: TankArgs): number {
       if (mem.tkSited[key] === stage) mem.tkResite[key] = tick;
       mem.tkSited[key] = stage;
     }
+    // The next post in its list that no other hull of the section holds or goes to (review fix: two hulls rotating
+    // through offset lists met on one post); none free: simply the next.
+    const nextPost = (c: EntityId, m: TankMem): number => {
+      const others = live.filter((o) => o.c !== c).map((o) => mem.tk![String(o.c)]!).filter((o) => o.posts.length > 0).map((o) => o.posts[o.post]!);
+      for (let j = 1; j < m.posts.length; j++) {
+        const i = (m.post + j) % m.posts.length, p = m.posts[i]!;
+        if (!others.some((o) => hypot2(o[0] - p[0], o[1] - p[1]) < T.samePostM)) return i;
+      }
+      return (m.post + 1) % m.posts.length;
+    };
     for (const q of live) {
       const m = mem.tk[String(q.c)]!;
       // Reversing out of danger (the sim's crew reaction): left to it for a while.
@@ -367,7 +398,7 @@ export function tankSections(a: TankArgs): number {
         m.sent = -1e9; m.shots = 0;
         relocate = false;
       }
-      if (relocate && m.posts.length > 1) { m.post = (m.post + 1) % m.posts.length; m.sent = -1e9; m.shots = 0; }
+      if (relocate && m.posts.length > 1) { m.post = nextPost(q.c, m); m.sent = -1e9; m.shots = 0; }
       else if (relocate) m.shots = 0;
       const moving = !q.v.drive.arrived && q.v.drive.routeIdx < q.v.drive.route.length;
       // Review fix: standing short of its post after an order (no route), or its route no `progressM` shorter in
@@ -382,7 +413,7 @@ export function tankSections(a: TankArgs): number {
         if ((!moving || blocked) && tick - m.sent >= T.stuckSeconds * 60 && dc > T.arrivedM) {
           m.failed = (m.failed ?? 0) + 1;
           if (m.failed >= m.posts.length) m.stuck = true;
-          if (m.posts.length > 1) { m.post = (m.post + 1) % m.posts.length; m.shots = 0; }
+          if (m.posts.length > 1) { m.post = nextPost(q.c, m); m.shots = 0; }
           m.sent = -1e9;
         }
       }

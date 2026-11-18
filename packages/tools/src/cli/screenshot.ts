@@ -1043,7 +1043,8 @@ async function assaultScenes(page: Page, name: string, errors: string[], shots: 
  * M7.6b tanks in battle (`--scene tanks-battle`): the platoon battle with a tank section on each side, the player
  * defending (red) so the AI commander plays the attacker's Leopards: the start (tanks in dead ground behind the
  * carriers), the Leopards on their posts at about 200 s close up (zoom 30), a firing frame, and the debug overview
- * with everything revealed. Photo and flat looks.
+ * with everything revealed. Photo and flat looks. Balance pass 2: the player attacking without tanks, the AI's defending
+ * carriers on their hull-down posts at 120 s (close and wide).
  */
 async function tankBattleScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const shot = async (label: string) => {
@@ -1073,7 +1074,24 @@ async function tankBattleScenes(page: Page, name: string, errors: string[], shot
   }
   await page.evaluate(new Function(`const t = globalThis.__tcs; t.setDebug(true); t.reveal(true); const m = t.sim.ctx.map; t.focus(m.widthM / 2, m.heightM / 2, m.widthM); t.stepTicks(1);`) as () => void);
   await shot("3-debug-overview");
-  console.log(`${name}: tanks-battle scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+  // Balance pass 2: the player attacking (blue), the AI's defending BMP-2s on their hull-down posts behind the
+  // objective at 120 s (revealed; close and wider).
+  const carriers: string[] = [];
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=platoon&side=blue&attacker=blue&seed=${seed}&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    const where = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.reveal(true); t.stepTicks(60 * 120); const s = t.sim.state, cat = t.sim.ctx.catalog;
+      const red = [...s.vehicle.entries()].filter(([, v]) => v.side === "red" && v.offMap === undefined && cat.vehicles[v.def].seats.some((q) => q.station === "passenger"));
+      let x = 0, y = 0; for (const [id] of red) { const p = s.transform.get(id); x += p.x; y += p.y; }
+      x /= Math.max(1, red.length); y /= Math.max(1, red.length);
+      t.focus(x, y, 300); t.stepTicks(1); globalThis.__tcsCarriers = [x, y];
+      return red.map(([id, v]) => v.def + ':' + v.status + '@' + s.transform.get(id).x.toFixed(0) + ',' + s.transform.get(id).y.toFixed(0));`) as () => string[]);
+    carriers.push(`${look}: ${where.join(" ")}`);
+    await shot(`${look}-4-defence-carriers`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs; const [x, y] = globalThis.__tcsCarriers; t.focus(x - 150, y, 700); t.stepTicks(1);`) as () => void);
+    await shot(`${look}-5-defence-wide`);
+  }
+  console.log(`${name}: tanks-battle scene ${JSON.stringify(info)}; defence carriers at 120 s ${JSON.stringify(carriers)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**

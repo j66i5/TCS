@@ -875,9 +875,11 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const tankCrews = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ground(), id)).flatMap(([, u]) => u.children).filter((c) => view.unit.get(c)?.vehicle !== undefined).sort((a, b) => a - b);
       /** M7.6b: the side's tank sections (tanks.ts); returns the tanks not yet on their first post. */
       // Balance pass 2 (owner 2026-11-17): a defence's carriers whose squads are out take hull-down posts too (tanks.ts).
+      // (Review: not one with a squad or the headquarters' men aboard. A squad whose able men are all out counts as
+      // out, so a carrier with only wounded aboard goes to its post too: a defence never remounts.)
       const carrierCrews = defending ? crews.filter((c) => {
         const vid = view.unit.get(c)?.vehicle;
-        return vid !== undefined && !squads.some((sq) => view.unit.get(sq)?.carrier === vid && riders(view, sq).length > 0);
+        return vid !== undefined && ![...squads, ...topIds].some((sq) => view.unit.get(sq)?.carrier === vid && riders(view, sq).length > 0);
       }) : [];
       const tanks = (ux: number, uy: number, backOf: (c: EntityId) => Record<string, unknown>): number => {
         if (tankCrews.length === 0 && carrierCrews.length === 0) return 0;

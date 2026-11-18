@@ -456,6 +456,8 @@ export interface HullDownOpts {
   vegMaxM?: number;
   /** Rings searched instead of `ringsM` (e.g. a short pull back). */
   ringsM?: readonly number[];
+  /** Posts other hulls already hold or go to: no candidate within `altM[0]` of one (balance pass 2 review). */
+  avoid?: readonly { x: number; y: number }[];
 }
 
 export interface HullDownPost extends OverwatchPost { exposed?: true; score: number }
@@ -501,6 +503,7 @@ export function siteHullDown(ctx: SimContext, anchor: { x: number; y: number }, 
     const c = cands[i]!;
     if (navCostAt(grid, c.x, c.y) <= 0 || indoorAt(ctx, c.x, c.y) >= 0) continue;
     if (o.vegMaxM !== undefined && vegH(c.x, c.y) >= o.vegMaxM) continue;
+    if (o.avoid !== undefined && o.avoid.some((p) => hypot2(p.x - c.x, p.y - c.y) < D.altM[0])) continue;
     if (region > 0 && regionAt(c.x, c.y) !== region) continue;
     if (o.behind && (c.x - o.behind.x) * o.behind.ux + (c.y - o.behind.y) * o.behind.uy < o.behind.minM) continue;
     let minD2 = Infinity;

@@ -305,6 +305,9 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   // Balance pass 2: a hasty dig-in (`SCENARIO_HASTY_DEPTH_M`), shallower than the hold battle's prepared holes.
   if (def.prepared !== false) {
     const depthM = def.preparedDepthM === undefined ? SCENARIO_HASTY_DEPTH_M : def.preparedDepthM;
+    // (Review fix: a hole is deeper than nothing and no deeper than the data's.)
+    const dataDepth = catalog.ballistics.fightingPosition?.depthM;
+    if (depthM !== null && (!(depthM > 0) || (dataDepth !== undefined && depthM > dataDepth))) throw new Error(`preparedDepthM ${depthM} is outside (0, ${dataDepth ?? "∞"}] m`);
     rules.prepared = [{ side: defender, fromS: SCENARIO_PREPARED_S[0], untilS: SCENARIO_PREPARED_S[1], ...(depthM !== null ? { depthM } : {}) }];
   }
   // Vehicles (M7.4a, owner Q9): an IFV destroyed or abandoned costs 20 points, immobilised 10.
@@ -529,10 +532,15 @@ export const HOLD = {
   /** Balance pass 2 (owner 2026-11-17: "resupply must matter more"): the defenders have been fighting since first light:
    *  of each stack of two or more magazines or belts only this share is still loaded (at least one: the one in the
    *  weapon; the rest empty), their loose rounds in full: without resupply (no refilling) the loose rounds cannot be
-   *  loaded. 0.25 leaves a rifleman one loaded magazine and his bandolier or packs, a gunner one belt. */
+   *  loaded. 0.25 leaves a rifleman only the magazine in his weapon (no loaded spare: he holds it for close defence,
+   *  `reserveTargetOk`, until he refills; about half carry no loose rounds) and a gunner one belt. Review: with a
+   *  loaded spare kept (and fewer loose rounds) the gap closed (8 seeds, German defence: 3 / 4 holds with / without
+   *  resupply; with no loose rounds at all 1 of 8 held with resupply): ammunition decides this battle only when the
+   *  men are short enough to hold their fire (DECISIONS "Balance pass 2", review fixes). */
   defenderMagazineShare: 0.25,
   /** Balance pass 2: the supply point (and with it the off-map stock, `stockLoads` times it) holds this share of the
-   *  rounds of one can per squad and cartridge: full cans and one part-filled can per cartridge. */
+   *  rounds of one can per squad and cartridge: full cans and one part-filled can per cartridge (so a fresh point's
+   *  marker reads 0.75 full). */
   pointShare: 0.5,
 } as const;
 

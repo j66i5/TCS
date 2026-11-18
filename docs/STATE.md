@@ -12,10 +12,14 @@ DECISIONS.md under its date._
   with the tank code (`TankArgs.carrierCrews`); platoon-ru-vehicles has the attack's two T-72B3M, platoon-vehicles a
   defending section of two T-90M. Hold battle: defenders start with one loaded magazine or belt per stack
   (`HOLD.defenderMagazineShare` 0.25, loose rounds full) and a half supply point (`HOLD.pointShare` 0.5). 20 seeds x
-  1,200 s, attacker wins: platoon 10, platoon-ru 7, platoon-vehicles 10 (was 16), platoon-ru-vehicles 12 (was 1); hold
+  1,200 s, attacker wins: platoon 10, platoon-ru 7, platoon-vehicles 10 (was 16; 12 after the review fixes), platoon-ru-vehicles 12 (was 1; 10 after); hold
   (20 x 3,600 s, holds with / without resupply): German defence 11 / 3, Russian 12 / 4 (+40 points both). Numbers in
-  DECISIONS "Balance pass 2". Open: the hull-blocks-fire bug (`friendInLine`), the app's mounted battle has no tanks
-  unless `tanks=` is given.
+  DECISIONS "Balance pass 2". Review fixes: the defence's carriers are sited in pairs on one home and never share a
+  post (`TANKS.carrierPair`, `samePostM`, `HullDownOpts.avoid`); platoon-vehicles 24 / 40, platoon-ru-vehicles 20 / 40
+  (seeds 1-40). The hold battle's gap is the men refilling from their own pockets (`--no-resupply` switches that off),
+  not the supply chain: own pockets only (`--no-point --no-deliveries`, new) holds 10 and 12 of 20 (owner question).
+  Open: the hull-blocks-fire bug (`friendInLine`), the app's mounted battle has no tanks unless `tanks=` is given,
+  the German overwatch Pumas that never move up (platoon-vehicles stalls on points).
 - **M11.9c (slice 55) built (2026-11-17, branch `claude/m11-mp`): MP/POW done, M11 complete.** A collection point is
   moved at once when rounds land within 30 m of it (at least 60 m from them; not one the player placed); prisoners kept
   over 60 s near a known enemy or under fire without being moved are a `law.exposure` (review only). Rare escapes (Q5

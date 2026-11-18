@@ -33,6 +33,9 @@ const noMp = args["no-mp"] !== undefined;
 const noResupply = args["no-resupply"] !== undefined;
 /** `--no-deliveries` (M11.4b): resupply on foot only (no deliveries from off the map, no vehicle supply runs, no top-up). */
 const noDeliveries = args["no-deliveries"] !== undefined;
+/** `--no-point` (balance pass 2 review): the hold battle's supply point starts empty (with `--no-deliveries`: the
+ *  defenders refill only from what they carry). */
+const noPoint = args["no-point"] !== undefined;
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
@@ -126,6 +129,7 @@ for (let i = 0; i < runs; i++) {
   if (noMp) withoutMp(input);
   if (noResupply) input.rules.resupply = false;
   if (noDeliveries) input.rules.deliveries = false;
+  if (noPoint) for (const f of input.forces) for (const c of f.caches ?? []) if (c.point === true) c.load = [];
   const s0 = performance.now();
   // D2: the battle record (`@tcs/sim` record.ts) folds the event stream exactly as the app's review does; the counts
   // below come from it. What it cannot see from events (needs looked at once a second) is kept here.
@@ -301,7 +305,7 @@ const md = [
   `- Field repair: ${noRepair ? "off (--no-repair)" : "on"}`,
   `- Recovery: ${noRecovery ? "off (--no-recovery)" : "on"}`,
   `- Military police: ${noMp ? "off (--no-mp)" : "on"}`,
-  `- Resupply: ${noResupply ? "off (--no-resupply)" : noDeliveries ? "on foot only (--no-deliveries)" : "on"}`,
+  `- Resupply: ${noResupply ? "off (--no-resupply)" : noDeliveries ? "on foot only (--no-deliveries)" : "on"}${noPoint ? ", supply point empty (--no-point)" : ""}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   ...(timeOfDay !== null ? [`- Local time at the start: ${args["time"]} (moon ${args["moon"] ?? 0.5}; M9.1, light from the clock)`] : []),
   `- Wall time: ${(totalMs / 1000).toFixed(1)} s total, mean ${mean(rows.map((r) => r.wallMs)).toFixed(1)} ms per battle`,
@@ -467,7 +471,7 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noMp ? "-no-mp" : ""}${noResupply ? "-no-resupply" : ""}${noDeliveries ? "-no-deliveries" : ""}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noMp ? "-no-mp" : ""}${noResupply ? "-no-resupply" : ""}${noDeliveries ? "-no-deliveries" : ""}${noPoint ? "-no-point" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
 console.log(md.split("\n").slice(0, 21).join("\n"));

@@ -15,6 +15,8 @@ describe("platoon battle generator (M6.2)", () => {
       expect(buildScenario(data, def(2, { attacker })).rules.prepared).toEqual([{ side: defender, fromS: SCENARIO_PREPARED_S[0], untilS: SCENARIO_PREPARED_S[1], depthM: SCENARIO_HASTY_DEPTH_M }]);
       expect(buildScenario(data, def(2, { attacker, prepared: false })).rules.prepared).toBeUndefined();
     }
+    // (Review fix: a depth outside (0, the data's] is refused.)
+    for (const d of [0, -1, 99]) expect(() => buildScenario(data, def(2, { preparedDepthM: d }))).toThrow(/preparedDepthM/);
     const input = buildScenario(data, def(1, { timeLimitSeconds: 120 }));
     const sim = createSim(input);
     const ctls = [commanderController("red", input), commanderController("blue", input)];

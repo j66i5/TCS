@@ -8657,8 +8657,10 @@ platoon battles: attacker wins 6-14 of 20 (20 seeds x 1,200 s).
     the Puma ahead in platoon-vehicles s2) — left for a fix of its own (owner question).
 - **Hold battle: a smaller starting stock** (scenario/battle.ts `HOLD`): `defenderMagazineShare` 0.25: of each stack of
   two or more magazines or belts one stays loaded (the one in the weapon) and the rest are empty; the loose rounds
-  (bandolier, packs) stay full — without resupply (`rules.resupply: false`: no refilling) they cannot be loaded, so the
-  defence without resupply fights with one magazine or belt per man. `pointShare` 0.5: the supply point holds half its
+  (bandolier, packs) stay full — without resupply (`rules.resupply: false`: no refilling) they cannot be loaded. (Review
+  correction: a rifleman with no loaded spare is in the close-defence reserve from the first second and fires only at
+  enemies within 100 m, or 200 m when they assault, `reserveTargetOk`; about half the defenders carry no loose rounds
+  at all. See "Review fixes" below.) `pointShare` 0.5: the supply point holds half its
   rounds (full cans and one part-filled can per cartridge; DE 1,260 x 5.56 mm and 300 x 7.62 mm, RU 1,620 x 5.45 mm and
   660 x 7.62R), the off-map stock (`stockLoads` 2 x the point) with it. Shrinking only the point opened no gap (the
   defence fell to casualties, not ammunition: 141 / 429 rounds taken at the point per battle; diagnosis 8 seeds 0
@@ -8702,4 +8704,57 @@ platoon battles: attacker wins 6-14 of 20 (20 seeds x 1,200 s).
 - **Open (owner):** the hull-blocks-fire bug (`friendInLine`); the app's mounted battle (`?scenario=platoon`) has no
   tank sections unless `tanks=` is given, so it is not the batch's balanced scenario; platoon-vehicles and
   platoon-vehicles-tanks / platoon-ru-vehicles and platoon-ru-vehicles-tanks overlap now (the latter pair identical);
-  without resupply the hold battle's riflemen fire 5-7 rounds each (one magazine).
+  without resupply the hold battle's riflemen fire 5-7 rounds each (review correction: they hold the magazine in the
+  weapon for close defence, see "Review fixes").
+- **Review fixes (2026-11-18, three reviews: rules, behaviour, code).**
+  - *Defending carriers in pairs* (ai/tanks.ts): one "carriers" section of 4 hulls shared `siteHullDown`'s at most 3
+    posts (platoon-ru-vehicles s1: two Pumas on one post list, one `stuck` 60 m from all). Now pairs (`TANKS.carrierPair`
+    2, keys `carriers-<k>`, a crew's pair fixed when first seen, `TanksMemory.tkPair`), all pairs anchored on the one
+    home (the middle of all the carriers, as before), each pair's siting keeps `HULL_DOWN.altM[0]` (30 m) off the posts
+    the other hulls hold or go to (`HullDownOpts.avoid`), and a hull moving on to its next post skips one another hull
+    of its section holds or goes to (`TANKS.samePostM` 30 m; it applies to tank sections too: two tanks rotating
+    through offset lists met on one post). Test: no two carriers on one current post (tanks-ai).
+  - *Carriers' fire limit kept and disclosed:* the defence's carriers fire free to `TANKS.defenceEngageM` (1,500 m),
+    like its tanks: fire discipline, not a vehicle number (their weapons reach up to 4,000 m). Measured without the
+    limit: platoon-vehicles and platoon-ru-vehicles gave identical results to the state hash (1,200 x 900 m maps: no
+    shot beyond 1,500 m), so it changes nothing here. Gunnery's limit is not lifted under fire (the range rule is the
+    men's); left as it is (pre-existing for tanks).
+  - *HQ carrier:* a carrier with the headquarters' men aboard is not sent to a post either (only defences that start
+    mounted would have one); a carrier with only wounded aboard goes (a defence never remounts; commented).
+  - *`preparedDepthM`* outside (0, the data's 1.2 m] is refused (test).
+  - *Measured with the fixes* (20 seeds x 1,200 s; seeds 21-40 added for the two mounted battles; foot battles and
+    goldens unchanged by the fixes):
+
+    | scenario | seeds 1-20 | seeds 21-40 | all 40 |
+    |---|---|---|---|
+    | platoon-vehicles | **12**; 21.8 / 27.6; time 17, eliminated 3; vehicles lost 1.9 / 4.3 | 12 | 24 / 40, 60 % |
+    | platoon-ru-vehicles | **10**; 26.8 / 16.6; broken 6, time 10, eliminated 4; vehicles lost 2.7 / 2.65 | 10 | 20 / 40, 50 % |
+
+    Steps on platoon-vehicles seeds 1-20 (all with the T-90M): pairs each anchored on its own start 14; plus the post
+    avoidance and next-post skipping 16 (seeds 21-40: 14; 30 of 40, 75 %: out of band); with that, carriers holding
+    fire ("return") 16, 1.2 m holes 16; one shared home (kept) 12. Why the mounted battles are won on points: in platoon-vehicles the defence loses most of
+    its 5 hulls (20 points each) — s3: the BMP-2s are penetrated by Puma 30 mm APFSDS at 47-81 s, on the way to their
+    posts; 16 of 20 battles end at the time limit (reviewer's seeds 21-30: 22 of 30). The Pumas in German overwatch
+    stay where they dropped their squads (M7.3): in s26 they stand 500-700 m from the T-90Ms with the village between
+    and fire nothing after 217 s while the infantry fights it out — not changed here (owner question).
+  - *Hold battle: the gap is the men's own pockets, not the supply chain* (review findings, confirmed). New batch flag
+    `--no-point` (the supply point starts empty); "own pockets only" = `--no-point --no-deliveries` (refilling from
+    one's own loose rounds and redistribution in the squad on, nothing from the point or off the map). 20 seeds x 3,600
+    s, holds of 20: German defence with resupply 11, own pockets only **10**, without resupply 3; Russian 12, **12**, 4.
+    So of the +40 points, the supply chain (point, bearers, deliveries, mortar top-up) is 5 and 0 points; the rest is
+    `--no-resupply` also switching off a man loading his own loose rounds. Tried to make the point itself matter (8
+    seeds each, German defence unless said): a loaded spare kept for every rifleman, one belt per machine gun, a quarter
+    of the loose rounds: 3 / 4 holds with / without resupply (no gap: once the men fire normally the battle is decided by
+    casualties, not ammunition); no loose rounds at all (refills only from the chain): 1 of 8 with resupply (Russian
+    defence 3 of 8), with a full point 2 of 8 — the chain cannot refill a defence that holds its fire while wave 1 is
+    already in. Kept the implementer's setting (hold goldens and numbers unchanged); owner question.
+  - Point marker: a fresh hold-battle point reads 0.75 full (full cans and one part-filled can per cartridge; the
+    delivery trigger uses what the point first holds, `cache.fill`): documented, not changed.
+  - AGS team test (seed 6 -> 8): with the range rule off, seed 6's AGS team fires its first burst at 598 s (inside 600
+    s by 1.5 s); with it on, not within 600 s: the range rule, not the hasty holes (1.2 m holes: no burst either).
+  - Not changed: the attacker's dead-ground start is checked against where the defence starts, not where its hulls end
+    up on their posts (they may see a "hidden" start from there); platoon-ru-vehicles still mixes quick collapses
+    (s1: T-72B3Ms penetrate two Pumas from their start in 85 s, the defence broken at 269 s with 33 of 45 men fit) with
+    annihilated attacks (s26, s29); the Pumas fired no Spike-LR at the tanks in s1.
+  - Screenshots: `--scene tanks-battle` now also shows the app's mounted battle with the player attacking and the AI's
+    defending BMP-2s at 120 s (`-4-defence-carriers`, `-5-defence-wide`, photo and flat).

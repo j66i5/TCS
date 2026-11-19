@@ -1,10 +1,13 @@
 /** Named scenarios for the headless tools, tests and benchmarks. */
 import { type DataSet, formatErrors, loadDataSet } from "@tcs/data";
-import { allMembers, buildForce, buildScenario, demoBattle, freeSpot, holdBattle, mountedTanks, vehicleBattle, type CarrierClass } from "@tcs/scenario";
-import { commanderController, shootoutController, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
+import { allMembers, buildForce, buildScenario, demoBattle, freeSpot, holdBattle, mountedTanks, vehicleBattle, type CarrierClass, type ScenarioHooks } from "@tcs/scenario";
+import { commanderController, defenceStartPosts, shootoutController, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
 import { healthyPhysiology, hypot2, PI, type BattleInput, type Controller, type Order, type UnitInput } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
 import { aglSetup } from "./labs/agl";
+
+/** Balance pass 4 (owner 2026-11-19): the mounted battles' defence starts with its sited hulls on their posts. */
+export const ON_POSTS: ScenarioHooks = { defenceStartPosts };
 
 export function loadData(includeFixtures = false): DataSet {
   const files = readDataFiles(includeFixtures ? ["core", "factions", "fixtures"] : ["core", "factions"]);
@@ -176,7 +179,7 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "hold-resupply": {
-    description: "M11.1: a German platoon on foot holds the village centre against three Russian platoons coming in waves from the east at 10, 25 and 40 minutes (balance pass 3; until then 0, 15 and 30) (a sixth of the attacker's usual mortar allotment); the defenders dig in where they are sited in the first 90 s (fighting positions); a supply point of cans 150 m behind the village (balance pass 3: the defenders start with one loaded magazine or belt per stack and no loose rounds, so only the supply chain refills them); M11.4b: the defender's stock at the rear (twice the point's load), its supply truck off the map (called when the point falls below 30 %) and 6 mortar rounds topped up every 10 minutes; 60 minutes. The battle where ammunition runs short (`--no-resupply`, `--no-deliveries` for comparisons).",
+    description: "M11.1: a German platoon on foot holds the village centre against three Russian platoons coming in waves from the east at 10, 25 and 40 minutes (balance pass 3; until then 0, 15 and 30) (a sixth of the attacker's usual mortar allotment); the defenders dig in where they are sited in the first 90 s (fighting positions); a supply point of cans 150 m behind the village (balance pass 3: the defenders start with one loaded magazine or belt per stack and no loose rounds, so only the supply chain refills them; balance pass 4: a quarter of their loose rounds); M11.4b: the defender's stock at the rear (twice the point's load), its supply truck off the map (called when the point falls below 30 %) and 6 mortar rounds topped up every 10 minutes; 60 minutes. The battle where ammunition runs short (`--no-resupply`, `--no-deliveries` for comparisons).",
     build: (data, seed, seconds) => holdBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds }),
     controllers: (input) => [commanderController("blue", input), waveCommanders("red", input)],
   },
@@ -208,31 +211,31 @@ export const SCENARIOS: Record<string, NamedScenario> = {
   "platoon-vehicles": {
     description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (M7.3: the vehicles fire their guns; rounds do not penetrate hulls until M7.4a). M9.3b: the Russian side also has its Metis-M team 300 m behind its position. Balance pass 2: the defence also has a section of two T-90M (M7.6b), and its carriers and tanks take hull-down posts.",
     takesCarriers: true,
-    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, ...mountedTanks(data, ["de", "ru"], "blue"), ...(o?.carriers ? { carriers: o.carriers } : {}) }),
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, ...mountedTanks(data, ["de", "ru"], "blue"), ...(o?.carriers ? { carriers: o.carriers } : {}) }, ON_POSTS),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-ru-vehicles": {
     description: "M7.2: the same with the sides swapped on farmland: Russia attacks mounted in BMP-2s, Germany defends with its Pumas behind its position. M9.3b: the Russian side's Metis-M team starts 150 m behind its start on a flank and takes up an overwatch post. Balance pass 2: the attack has its two T-72B3M in overwatch (M7.6b; balance pass 3: platoon-ru-vehicles-tanks, the same battle, removed), the Pumas take hull-down posts.",
     takesCarriers: true,
-    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, ...mountedTanks(data, ["de", "ru"], "red"), ...(o?.carriers ? { carriers: o.carriers } : {}) }),
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, ...mountedTanks(data, ["de", "ru"], "red"), ...(o?.carriers ? { carriers: o.carriers } : {}) }, ON_POSTS),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles-wheeled": {
     description: "M7.6c: the mounted platoon battle in wheeled carriers (village; Germany attacks): a Jaegerzug in four GTK Boxers (12.7 mm on the FLW 200) against a motor-rifle platoon in three BTR-82A (2A72 30 mm) with its Metis-M team.",
     takesCarriers: true,
-    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? "wheeled" }),
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? "wheeled" }, ON_POSTS),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-ru-vehicles-wheeled": {
     description: "M7.6c: the same with the sides swapped on farmland: Russia attacks mounted in BTR-82A, the Jaegerzug defends with its GTK Boxers behind its position.",
     takesCarriers: true,
-    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? "wheeled" }),
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? "wheeled" }, ON_POSTS),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles-mixed": {
     description: "M7.6c: wheeled against tracked (village; Germany attacks): the Jaegerzug in GTK Boxers against the motor-rifle platoon in BMP-2s with its Metis-M team.",
     takesCarriers: true,
-    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? ["wheeled", "tracked"] }),
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? ["wheeled", "tracked"] }, ON_POSTS),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "assault-group": {
@@ -259,13 +262,13 @@ export const SCENARIOS: Record<string, NamedScenario> = {
   "platoon-vehicles-tanks": {
     description: "M7.6b: platoon-vehicles (village; Germany attacks mounted in Pumas, the BMP-2s and a Metis-M team defend) with two Leopard 2A7V (Panzer-Halbzug) on the attacker's side: they start in dead ground behind the Pumas, take hull-down posts in overwatch and bound with the attack.",
     takesCarriers: true,
-    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: "attacker", ...(o?.carriers ? { carriers: o.carriers } : {}) }),
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: "attacker", ...(o?.carriers ? { carriers: o.carriers } : {}) }, ON_POSTS),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles-tanks-both": {
     description: "M7.6b: platoon-vehicles-tanks with tanks on both sides: two Leopard 2A7V with the attack, two T-72B3M behind the defence (tank against tank).",
     takesCarriers: true,
-    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }),
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }, ON_POSTS),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "bench-tanks": {

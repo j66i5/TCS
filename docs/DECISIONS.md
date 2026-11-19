@@ -8959,3 +8959,267 @@ duplicate scenarios removed. Band for the four platoon battles: attacker wins 6-
     in, never fire, and break under fire from 350-460 m): over 40 seeds a defence lost while the attacker lost 5 men
     or fewer in 6 of 80 battles with the chain and 4 of 80 without (balance pass 2's settings: 0 of 11). A spotting /
     range-rule question for a later pass, not changed here.
+
+## 2026-11-19 — Balance pass 4 (owner decisions 2026-11-19: E defence starts on its posts, F hold loose rounds, G hold defences that break without firing, H cannon HE danger close)
+Owner decisions (binding, all the recommended options). Band for the four platoon battles: attacker wins 6-14 of 20
+(20 seeds x 1,200 s). Parts H and E below; F and G are recorded by their own blocks.
+- **H. Danger close for bursting rounds.**
+  - *The bug behind most of it* (sim/systems/fire.ts `friendInLine`): a man on another floor is not in the line
+    (`FLOOR_APART_M` 1 m), and a vehicle gunner's `z` is his seat height (1.2-1.6 m above the ground): every vehicle
+    gunner's line check skipped every own man on foot. Measured before (scratch analysis of `hit` events by the
+    target's own side, platoon-ru-vehicles s4): BMP-2 30 mm HE striking own men squarely in the line, 0-4 m across it,
+    84-217 m out, firing at enemies 500-570 m away. A gunner aboard (not out on the roof) now counts as at ground level.
+  - *Danger radius* (`dangerRadiusM`, fire.ts; data `ballistics.json fragments.danger` {presentedAreaM2 0.5,
+    hitChance 0.05}, game values, low): where a round's fragments, spread evenly over a sphere, strike a 0.5 m2 body
+    with a 5 % chance, sqrt(count x 0.5 / (4 pi x 0.05)), at least the blast's injury radius: 30 mm HE (80
+    fragments) 8.0 m, 40 mm HE (300) 15.5 m (published casualty radius about 15 m), VOG-17 (400) 17.8 m, 120/125 mm tank
+    HE 31-40 m; 0 for rounds that do not burst.
+  - *Stations* (gunnery.ts `stationDangerM`: the danger radius plus one standard deviation of the range error, the
+    laser rangefinder's or the eye's, plus two of the station's and weapon's angular error at the range; the gunner's
+    skill not counted): before each burst no own man (alive, not a prisoner, on foot or out on a hull) within it of
+    the point on any side (`ownMenWithin`, fire.ts), and the line check looks past the point by the larger of it and
+    `gunnery.friendBeyondM` (60 m, new, as `soldier.friendBeyondM` for men on foot: rounds that miss go on). The
+    crew's target choice keeps its 60 m `friendlyClearM` for high explosive or the round's danger, whichever is
+    larger; a bursting round substituted for the machine gun or the armour-piercing round (none left) is held near own
+    men ("why.hold.dangerClose", new string).
+  - *Grenade launcher teams* (agl-team.ts): `aglDangerM(ctx, range, round)` takes the round's danger radius (at
+    least the old 8 m) and the team holds its burst with an own man within it of the point on any side, not only in
+    the line; the AI commander's AGL target filter uses the same.
+  - *Measured* (10 seeds x 1,200 s each; men of a side hit by their own side, first hit; hits by vehicle gunners):
+
+    | scenario | before (origin/main 21eb8a4) | **after H and E** |
+    |---|---|---|
+    | platoon-vehicles | 13 men (11 by gunners: 30 mm HE and fragments, 7.62 coax), 54 gunner hits | **2 men (hand grenades), 0 by gunners** |
+    | platoon-ru-vehicles | 23 men (22 by gunners), 108 gunner hits | **0** |
+
+    (H alone, before E, same seeds: 3 and 6 men by gunners; seed 6 of platoon-ru-vehicles had a Puma's HE land among
+    its own men twice; with E that battle changed and none were hit.)
+  - Side effect: gunners now hold fire through their own infantry. In `gtk-seatswap.test` (seed 1, wheeled) the
+    GTK's platoon stands 60-130 m ahead in its FLW 200's line all battle long: the station takes targets but never
+    fires (the test now asks for a target taken).
+  - Tests: `tools/test/danger-close.test.ts` (danger radii; a BMP-2 gunner sees an own man 60 m ahead in his line and
+    not 80 m wide of it, failed before; a station holds high explosive with an own man 6 m beside the point, across
+    the line, and fires with him 400 m off; both fail on the old code).
+- **E. The defence's hulls start on their hull-down posts.**
+  - `defenceStartPosts(input, side)` (ai/start-posts.ts): runs the defending side's own commander on a throw-away
+    simulation of the defence alone until it has sited every hull it sites (tank sections, carriers whose squads are
+    out; tanks.ts `tankSections`, unchanged siting), and writes each hull's first post (place, facing) into the
+    force's `vehiclePlacements` with `onPost: true` (new optional field; the simulation does not read it).
+  - The scenario cannot use the AI (dependency direction), so `buildScenario(data, def, hooks)` takes
+    `ScenarioHooks.defenceStartPosts`, called after the defence is built and before the attacker: the attacker's
+    dead-ground start is looked for from the posts. `ScenarioDef.defenceOnPosts: false` switches it off. The tools'
+    mounted scenarios (`ON_POSTS`, scenarios.ts) and the app's platoon battle pass the hook; direct `buildScenario`
+    calls without it (most tests) build as before.
+  - In the battle the commander's first siting (defending, stage "hold") keeps a hull flagged `onPost` on its spot as
+    its first post (scored with `siteHullDown`'s new `at` option; dropped only if the spot is now exposed); the other
+    hulls' posts keep off the kept spots. Without the flag the defence would re-site from a new home and drive off
+    (seen at 6-11 s in 3 of 4 seeds in the first try, which kept a hull only when its spot scored within 0.1 of the best).
+  - Seen (platoon-vehicles seeds 1, 3, 5, 120 s): no defending hull moves at the start; one BMP-2 relocates at 95 s.
+  - Review-style fix found by the tests: the overwatch bounds now leave out every post a hull was sent to and missed
+    from the spot it stands on (`obBound.missed`), not only the last one (platoon-vehicles s2: a stuck Puma
+    alternated between two such posts).
+  - Tests: `tools/test/defence-posts.test.ts` (5 hulls flagged and moved, the defence's men unchanged, deterministic,
+    off with `defenceOnPosts: false`; in the battle no defending hull moves 5 m in 45 s; the fixture faction sited);
+    `mounted-invariants` (the hull-blocks-fire pairs now over seeds 1 and 2: the hulls are spread over their posts) and
+    `tanks-ai` (with the BMP-2s on posts from the start, seed 1's Leopards fire and move on before both stand on
+    their posts at once: each has reached its post by 180 s).
+- **Balance after H and E** (20 seeds x 1,200 s, attacker wins; casualties attacker / defender; end reasons; hulls
+  lost attacker / defender):
+
+  | scenario | balance pass 3 (after review fixes) | **after H and E** |
+  |---|---|---|
+  | platoon | 10; 16.75 / 10.25 | **10; 16.75 / 10.25; eliminated 8, time 12** (unchanged: no hulls) |
+  | platoon-ru | 7; 20.95 / 9.40 | **7; 20.95 / 9.40; eliminated 11, broken 1, time 8** (unchanged) |
+  | platoon-vehicles | 16 (seeds 21-40: 12; 28 / 40) | **15; 16.6 / 29.3; time 16, eliminated 4; hulls 1.6 / 4.5** (seeds 21-40: 13; 17.5 / 26.9; hulls 1.05 / 4.15; **28 / 40**) |
+  | platoon-ru-vehicles | 11; 26.80 / 17.05 | **11; 23.4 / 16.85; time 11, broken 6, eliminated 3; hulls 2.6 / 2.25** |
+
+  **platoon-vehicles stays above the band** (15 of 20; 28 of 40 as before). Why (seeds 1-4, every penetration of a
+  defending hull, 600 s): the hulls now stand still on their posts (moved 0 m, speed 0) and are penetrated there at
+  44-102 s by Puma 30 mm APFSDS (PMC287) from 490-640 m: BMP-2s through the front hull and turret, T-90Ms through the
+  hull side (the hull turned 30 degrees toward one Puma, the others 47-64 degrees off its front). The posts are
+  hull-down against the defence's approach points (out to 325 m from the objective), not against the Pumas'
+  overwatch line 500-650 m out. Variants measured within the lever and not kept: (1) a hull on its post faces the
+  middle of the enemy vehicles it knows, not the newest: 15 of 20, the same battles' outcomes; (2) the defence's
+  hulls sited against approach points out to 725 m (rings 125-725 m): 14 of 20, seeds 21-40 15 (29 / 40),
+  platoon-ru-vehicles 10 of 20, losses 4.45 hulls instead of 4.5: within noise. Remaining levers are outside E
+  (owner question): the Puma's 30 mm APFSDS against a T-90M's side and a BMP-2's front at 500-650 m, the T-90M's front
+  kept toward the Pumas, or the attack's Pumas held farther back.
+- `npm run golden:update` after H+E: every golden changed from tick 600 (the catalog fingerprint); the bounds fix
+  changed none; `golden/no-interiors` untouched.
+- **Checks (H+E):** typecheck, lint, data lint (no errors); `npm test` 1,594 pass, 6 skipped, 2 failed and fixed
+  (`gtk-seatswap`: the gunner now holds fire through his own platoon, see H; `overwatch-bound`: the repeated bound,
+  fixed in tanks.ts), both re-run pass. Timing tests not run (other measurements on the machine).
+- **F. Hold battle: a small loose-round share for the defenders** (scenario/battle.ts `HOLD.defenderLooseShare` 0.25,
+  was 0; waves kept at 600 / 1,500 / 2,400 s; magazines `defenderMagazineShare` 0.25 and the full point unchanged):
+  each defender keeps a quarter of each package's rounds (rounded down), so `--no-resupply` is no longer "the chain
+  against empty pockets" (balance pass 3's disclosed question 1). Test: `scenario-hold.test` (loose rounds > 0 and at
+  most a quarter of the full load; `defenderLooseShare: 0` still gives none).
+- **G. Hold defences that break without firing.**
+  - *Diagnosis* (German seed 16 with balance pass 3's settings, reproduced with `defenderLooseShare: 0`; scratch probes
+    of spotting rates, sight lines and the fire system's gates): (1) the wave's mortar smoke lay between the two
+    sides (smoke transmission 0.000 on every line): the defenders' spotting rate for the prone attackers firing from
+    357-370 m on open ground was 0.05-0.16 a second before smoke and the view then 0, so nobody saw a shooter; the
+    attackers fired through the smoke at the defenders' places known from before (an order's base of fire at
+    contacts 100+ s old) and hit them (123 hits against 0 by 1,020 s). The defenders knew the shooters' places within
+    10-14 m from reports, but a man fires on his own only at an enemy he sees (`pickTarget`), and the suppressive
+    fire at known places (`soldier.suppressKnown`, M11.1) is off. (2) The range rule lifted under fire works (it was
+    lifted at 840 s); the contacts are kept (reported every ~10 s); positions' fields of view were not the cause;
+    muzzle flash by day is already a 6x factor at 360 m. (3) hold-resupply-ru seed 4 (balance pass 4 F): a Russian
+    squad upstairs with seen enemies and clear lines fired 9 rounds in 4 minutes: four men stood on the very same spot
+    (two floors, one window place), and `friendInLine` counted a comrade 0 m away as in the line, so every shot was
+    held (`friend` on every due shot). (4) Remaining cases (German seed 19 of the Russian defence) are a squad killed
+    by fire within a minute, not a defence that cannot find the shooters.
+  - *Return fire* (decisions.ts `returnFire`, data `behaviour.json soldier.returnFire` {firedOnS 10, withinS 20,
+    maxErrM 30, bearingDeg 30, intervalS 3, mgIntervalS 4}, game values, low; schema; every side): a halted man, not
+    pinned or panicked, not down to his last magazine, with no enemy in sight to fire at, at whom rounds cracked past
+    within 10 s (`fireFrom`) fires at the known place (seen, reported or heard within 20 s, known to within 30 m now)
+    of the nearest enemy firing within 10 s (he hears him) within 30 degrees of where the rounds came from and within
+    his engage range (the unit's range rule is lifted under fire) and defend arc, not through a comrade. The task is
+    fire at a place (`FireTask.suppress` "return": one shot per 3 s, a machine-gun burst per 4 s, the line may end in
+    cover near the point); it ends 10 s after the last round past him, when the place is older than 20 s, or when he
+    sees an enemy (aimed fire). Unlike `suppressKnown` (fire at any known place, defenders only, measured useless in
+    M11.1) it answers only shooters who are firing at him.
+  - *Same spot* (fire.ts `SAME_SPOT_M` 0.15): a comrade within 0.15 m of the shooter (two men given one place) is not
+    in his line; a comrade at his elbow (0.3 m) still is. Open: why two men get the same window place (not changed).
+  - Tests: `sim/test/return-fire.test.ts` (fires at the place, at most one shot per 3 s per man, on either side; the
+    task is "return"; nothing without the data, not fired on, rounds from 60 degrees off, a silent enemy, a place
+    known to 60 m, beyond his reach; the fire ends 10 s after the last round); `fire-discipline.test` (the same spot
+    does not block, the elbow does; the floor test now puts the comrade at the elbow).
+  - Seen (German seed 16, `defenderLooseShare: 0`): the defence now fires 11 rounds by 870 s (1 before) and stops the
+    first wave (the attack lost 7 men; before 0), though it still falls at 2,211 s.
+- **Hold battle, F and G** (holds of the defence; with the chain 40 seeds, without it `--no-resupply` 20 seeds; 3,600 s;
+  casualties attacker / defender; G cases = the defence lost while the attack lost 5 men or fewer):
+
+  | defence | balance pass 3 (40 / 40 seeds) | **F alone** (c6088ce) | **F and G** (cb78c8f) |
+  |---|---|---|---|
+  | German, with chain | 28 / 40 (70 %) | 28 / 40 (70 %; seeds 1-20 14); 36.8 / 12.3; G cases 1 (s40) | **27 / 40 (67.5 %; seeds 1-20 14, 70 %)**; 36.4 / 11.2; G cases 1 (s40) |
+  | German, without | 13 / 40 (32 %) | 12 / 20 (60 %); G cases 0 | **10 / 20 (50 %)**; G cases 1 (s4) |
+  | gap (seeds 1-20) | +38 points | **+10** | **+20** |
+  | Russian, with chain | 20 / 40 (50 %) | 22 / 40 (55 %; seeds 1-20 10); 32.6 / 12.9; G cases 4 (s4, 6, 19, 39) | **21 / 40 (52.5 %; seeds 1-20 12, 60 %)**; 34.1 / 12.2; G cases 1 (s19) |
+  | Russian, without | 9 / 40 (22 %) | 9 / 20 (45 %); G cases 1 (s14) | **6 / 20 (30 %)**; G cases 1 (s5) |
+  | gap (seeds 1-20) | +28 points | **+5 (below the 10-point target)** | **+30** |
+
+  F alone closed the gap (German +10, Russian +5: the defenders now refill from their pockets without the chain); G
+  restored it (+20, +30) because a defence that returns fire spends rounds and needs the chain. Both targets met with
+  F and G (with-chain holds 70 % / 60 % on seeds 1-20, 30-70 %; gap >= 10 points); no compensating lever used.
+  **G rate** (defence lost, attack lost <= 5): with the chain 5 of 80 (F alone) -> **2 of 80**; without it 1 of 40 ->
+  2 of 40; together 6 of 120 -> 4 of 120 (balance pass 3: 6 of 80 and 4 of 80). Defenders' small-arms rounds per
+  battle with the chain: German 1,043 -> 1,088, Russian 904 -> 1,061.
+- **Platoon battles after F and G** (20 seeds x 1,200 s, attacker wins; casualties attacker / defender; G changes every
+  battle: every side returns fire):
+
+  | scenario | after H and E | **after F and G** |
+  |---|---|---|
+  | platoon | 10; 16.75 / 10.25 | **6; 20.9 / 10.1; time 13, eliminated 6, broken 1** (at the band's lower edge; 9 with return fire before the same-spot fix) |
+  | platoon-ru | 7; 20.95 / 9.40 | **7; 19.2 / 8.85; eliminated 12, time 8** |
+  | platoon-vehicles | 15 (seeds 21-40: 13) | **16; 17.5 / 30.0; time 13, eliminated 7; hulls 1.35 / 4.85** (out of band, as before; seeds 21-40: 12; **28 / 40** as before; 6 of 40 battles G cases, the mounted defence losing its hulls) |
+  | platoon-ru-vehicles | 11; 23.4 / 16.85 | **11; 22.1 / 17.05; time 9, broken 8, eliminated 3; hulls 2.35 / 2.5** |
+- `npm run golden:update` after F and G: every golden changed from tick 600 (catalog fingerprint; return fire changes
+  every battle with fire); `golden/no-interiors` untouched.
+- `npm run lab -- consumption --conservation`: 182 runs, every one exact.
+- **Open (owner):** platoon is at the band's lower edge (6 of 20) with return fire on both sides; platoon-vehicles stays
+  above the band (16 of 20, 28 / 40; levers outside E, see above); why two men are given one window place (the
+  same-spot rule only removes its effect on fire); `suppressKnown` stays off (return fire answers only shooters).
+- **Checks (F+G):** typecheck, lint, data lint (no errors); `npm run check` alone: 1,600 passed, 6 skipped, 1 failed
+  and fixed (`tools logistics.test`: the man put beside the threatened point, the squad's third, is now one of its
+  ammunition bearers on his errand, so the commander rightly leaves him out; the test takes a man with no errand), re-run
+  pass.
+- **Timing (F+G and H+E together):** `npm run test:perf` alone: 23 of 24 (bench-vehicles 7.64x against 8x). Then
+  bench-vehicles alone, branch and origin/main 21eb8a4 alternated three times each: passed (>= 8x) every time on both:
+  container noise, no measurable cost (return fire runs only for a man fired on in the last 10 s with no target; the
+  same-spot test is two multiplications per comrade).
+- **Review fixes (three reviews of 305bad1: rules, behaviour, code).**
+  - *H1, stations fire over own men's heads* (behaviour review, high). `friendInLine` takes an optional `over`
+    (the muzzle's and the point's world heights); a station passes it (`stationHeld`, gunnery.ts). An own man on foot
+    farther than `gunnery.overNearM` 20 m from the muzzle and short of the point is not in the line when the straight
+    line passes `overClearM` 1 m + `overPerM` 0.003 x his distance along it above the top of his body (posture
+    height); men near the muzzle and past the point (the beaten zone) always count. Game values, low (3 mrad: about
+    two standard deviations of a stabilised gun's vertical spread). Before, a gunner aboard (seat height treated as
+    ground level since H) was blocked by every own man in the 4 degree cone out to 60 m past the point: the defence's
+    hulls that E puts behind their infantry held their fire for minutes (behaviour review: 17 of 40 defending hulls
+    lost by 180 s without firing a round, seeds 41-48).
+  - *H2 / M1, a held station keeps its target* (behaviour medium, code medium). One gate, `stationHeld` (danger
+    close: an own man within `stationDangerM` of the point; friends: `friendInLine` with the beaten zone
+    max(`friendBeyondM`, danger) and `over`), now used by `chooseTarget` (each of the four best visible candidates,
+    with the feed it would fire, a substitute included), and by each burst. A candidate held is passed over; all held:
+    no target, with "why.hold.friends" or "why.hold.dangerClose" (emitted once per change). A crew's own task held at
+    the burst is dropped with its reason, so the next decision (<= 1 s) re-picks. The separate substitute-round check
+    in the decision step is gone (L3: one gate).
+  - *L1, ordered fire held silently*: an ordered task held emits a `vehicle.decision` with the reason once (the card
+    shows why); the task waits as before.
+  - *L2 and the rules review's test gaps*: `danger-close.test` now has (a) a man half-way between the safety cone's
+    edge and the danger radius beside the point (`friendInLine` false, no burst: only the danger-close check can hold
+    it; the decision carries "why.hold.dangerClose" once), (b) an AGS-30 team's ordered series held for an own man
+    12 m beside the point 100 m out, fired with him 400 m off or away, (c) overhead fire: a man lying 60 m out under a
+    line 8 m up does not block, one 10 m from the muzzle or 30 m past the point does, a line 1 m over him does.
+  - *Low 3, tanks.ts*: a hull not kept on its start post never gets a post another hull keeps (no fallback to the
+    full list), and one left with no post goes to the plan's anchor facing its targets (as a relocation does) instead
+    of idling until the next re-site.
+  - *Low 4 and owner question 3, two men on one place*: traced in hold-resupply-ru seed 4 (a script sampling same-side
+    men within 0.15 m on one floor every 10 s): three causes, all now fixed. (1) An ammunition bearer back from the
+    supply point (`bearersBack`, carry.ts) walked to his leader's very spot when there was no free fighting position:
+    at a window, for good. Now, the leader in a house, the bearer takes the nearest free place there (`freePlaceNear`,
+    occupy.ts: a window place or a spot inside on that floor, none another able man of the side stands on or is going
+    to). (2) An occupy order (the AI re-siting one man with `windowIndex`) sent him to a window another man held: now
+    places others hold or go to are left out, a named window included, and men beyond the places left stay where they
+    are (before: `k % places.length`, doubling up). (3) A man back from an errand (`stepBack`, consolidate.ts) went to
+    where he had stood though another man had taken it: now a free place near it. After: no indoor pair lasting more
+    than 10 s in hold-resupply-ru s4 (before: three pairs for 390-790 s), hold-resupply s16 and platoon s1 (only men
+    side by side at a supply point or walking together). Test: `floors.test` (a second man ordered to the window the
+    first holds goes to another place; fails on the old code). `SAME_SPOT_M` stays (any remaining case), and now
+    applies only to a man's own spot, not to a spot he tests (`from`; review).
+  - *G nit*: `returnFire` skips a contact whose man is down (no task churn after the shooter falls).
+  - *Provenance and naming (low 7)*: the ballistics.json note marks the 40 mm casualty radius as general knowledge and
+    search extracts; behaviour.json's note describes `gunnery.friendBeyondM` and the new `over*` values;
+    `stripForce` is `copyForce`.
+  - *Reporting (low 5)*: in the hold tables "holds" are battles the attacker did not win, draws included (one draw in
+    the Russian no-chain set at 305bad1).
+  - *Cost (low 6)*: `defenceStartPosts` adds about 0.5 s to building a mounted battle in Node (386 -> 882 ms,
+    platoon-vehicles s1, rules review); on a phone it will be more. Not measured on the phone proxy (software GL in the
+    container makes `phoneperf` load times meaningless here); caching the posts per seed and map is the lever if the
+    owner finds the start slow.
+  - *H3 (info)*: without a laser rangefinder the BMP-2's 30 mm HE danger zone is 68-97 m at 490-730 m; its HE support
+    stops once its own dismounts are that close to the enemy. Defensible (the eye's range error), but a balance
+    lever between the sides.
+  - *Night*: return fire has no darkness gate (unlike `suppressKnown`): the muzzle flash gives the shooter away.
+    Intended.
+  - `mounted-invariants`: platoon-ru-vehicles s2 runs 240 s (the defending Pumas, firing over their infantry now,
+    kill the leading T-90M at 97 s and the BMP-2s dismount from 180 s).
+- **Measured after the review fixes** (12ef431's code; batches sharded 5 seeds each, four at a time, no timing test
+  running; scripts and outputs in the session scratchpad `bp4/r3`). Platoon battles, 20 seeds x 1,200 s, attacker wins;
+  casualties attacker / defender:
+
+  | scenario | after F and G (305bad1) | **after the review fixes** |
+  |---|---|---|
+  | platoon | 6; 20.9 / 10.1 | **7; 18.6 / 11.1** (time 13, eliminated 7) |
+  | platoon-ru | 7; 19.2 / 8.85 | **7; 20.55 / 7.95** (eliminated 13, time 7) |
+  | platoon-vehicles | 16 (seeds 21-40: 12; 28 / 40) | **13 (seeds 21-40: 13; 26 / 40); 20.2 / 27.35; hulls 1.85 / 4.10** |
+  | platoon-ru-vehicles | 11; 22.1 / 17.05 | **8; 25.7 / 15.85; hulls 2.80 / 2.15** |
+
+  All four in the band (6-14 of 20). platoon-vehicles came into it with H1/H2: the defence's T-90M and BMP-2 on their
+  posts behind their infantry now fire over it (before they held, and 17 of 40 were lost without firing).
+  Own men first hit by their own vehicle gunners (10 seeds x 1,200 s, `ownhits.ts`): platoon-vehicles 1 (a 30 mm
+  fragment; before H 11, at 305bad1 0), platoon-ru-vehicles 1 by a Puma's coax (7.62 mm DM111, over-head line) plus 3
+  by 120 mm mortar fragments whose firer the script counts as "aboard" (not a station gun; before H 22, at 305bad1 0).
+  The over-head rule costs about one man in 20 battles for the defence's fire it gives back.
+- **Hold battle after the review fixes** (40 seeds each way, 3,600 s; holds = battles the attacker did not win; no
+  draws in these sets; G = defence lost while the attack lost <= 5):
+
+  | defence | with chain | without (`--no-resupply`) | gap | G cases with / without |
+  |---|---|---|---|---|
+  | German | **26 / 40 (65 %)**; seeds 1-20 11, 21-40 15; 36.25 / 12.0 | **18 / 40 (45 %)**; 7 + 11 | **+20** | 1 (s16) / 2 (s4, s40) |
+  | Russian | **19 / 40 (47.5 %)**; 12 + 7; 32.35 / 12.7 | **17 / 40 (42.5 %)**; 10 + 7 | **+5** | 1 (s19) / 1 (s5) |
+
+  - The German gap (behaviour review: fragile at 18/26 against 15/26) holds at +20 over 40 seeds each way.
+  - **The Russian gap is +5, below the 10-point target** (seeds 1-20 +10, 21-40 0). At 305bad1 it read +30 on seeds
+    1-20 only (12 / 20 against 6 / 20); the no-chain set had never been run on seeds 21-40. With 40 seeds the standard
+    error of a gap is about 11 points, so +5 and +10 are not told apart; no lever was tuned on that noise. Reported to
+    the owner as the task asks (F not undone). Levers if he wants it: `pointShare` above 1 (a bigger point helps
+    only with the chain; the German with-chain holds, 65 %, would rise toward the 70 % ceiling) or a lower
+    `defenderLooseShare` for the Russian defence only.
+  - G rate: 5 of 160 (3.1 %), against 4 of 120 (3.3 %) at 305bad1 and 6 of 120 before G.
+- **Checks (review fixes):** typecheck, lint, data lint (no errors); `npm run golden:update` (all goldens changed from
+  tick 600 for the catalog fingerprint, then hold-resupply-s1 again for the placement fix; `golden/no-interiors`
+  untouched); `npm run check` alone: `npm test` 1,603 passed, 6 skipped; `test:perf` 23 of 24 (bench-vehicles passed;
+  bench-caches 16.8 against 17.8). bench-caches alone, branch and 21eb8a4 alternated three times: each failed once by
+  a few per cent and passed twice (container noise, the base included).

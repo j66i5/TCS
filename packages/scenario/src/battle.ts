@@ -10,7 +10,7 @@
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
   atan2, buildBallistics, buildMapIndex, buildNavGrid, heightAt, hypot2, nearestPassable, newVehicleRecord, PI, sight, TICK_HZ,
-  type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type ObjectiveDef, type Placement, type SimContext, type UnitInput, type VehicleRecord,
+  type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type ObjectiveDef, type Placement, type SideId, type SimContext, type UnitInput, type VehicleRecord,
 } from "@tcs/sim";
 import { defaultRules, freeSpot, SIDES } from "./demo";
 import { allMembers, buildForceWithVehicles, withoutVehicles, type ForceVehicle } from "./forces";
@@ -43,6 +43,10 @@ export interface ScenarioDef {
   /** With vehicles: the attacker's hulls start in dead ground, out of the defenders' sight (owner 2026-11-13;
    *  default true). False: the old line across the attacker's map edge (for comparisons). */
   deadGroundStart?: boolean;
+  /** Balance pass 4 (owner 2026-11-19): with vehicles, the defence's sited hulls (tank sections, carriers whose
+   *  squads are out) start on their hull-down posts when the caller passes the hook (`ScenarioHooks`); false: where
+   *  they are placed (for comparisons). Default true. */
+  defenceOnPosts?: boolean;
   /** On-map mortars (M8.3a): each side gets its faction's mortar section (manifest `mortarTemplate`) behind its own
    *  line instead of the off-map allotment (a side whose faction has none keeps the allotment). */
   mortars?: boolean;
@@ -144,7 +148,14 @@ function nearBuilding(map: MapDef, x: number, y: number, maxM: number, not: { x:
   return best ?? { x, y };
 }
 
-export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
+/** Balance pass 4: what the caller adds to a scenario's build (the scenario package cannot use the AI's). */
+export interface ScenarioHooks {
+  /** Places the defending side's hulls on the posts its commander would site (ai `defenceStartPosts`), in place, on
+   *  an input holding that force alone; run before the attacker is built, so its dead-ground start sees them there. */
+  defenceStartPosts?: (input: BattleInput, side: SideId) => unknown;
+}
+
+export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHooks = {}): BattleInput {
   const catalog = buildCatalog(data, [...def.factions]);
   const W = def.mapWidthM ?? 1200, H = def.mapHeightM ?? 900;
   const map = generateMap(catalog.terrain, { kind: def.mapKind, seed: def.seed, widthM: W, heightM: H });
@@ -300,26 +311,33 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     if (def.recovery !== false && (fv !== null || tv !== null)) addRecoveryAssets(data, catalog, force, def.seed * 47 + s * 19);
     // The military police off the map (M11.9b): every side (built last of all in the battle: setup.ts).
     if (def.mp !== false) addMpAssets(data, catalog, force, def.seed * 59 + s * 23);
-    if (!attacking) {
-      // What the defence sees from (dead ground for the attacker's start): its vehicles' sights and its men.
-      const eye = (type: string) => { const vd = catalog.vehicles[type]; let z = vd?.body.heightM ?? 2.5; for (const q of vd?.seats ?? []) for (const k of q.sensors ?? []) z = Math.max(z, k.pos?.[2] ?? 0); return z; };
-      // (Balance pass 2: a hull with a thermal sight sees heat through thin cover: `deadGroundStarts`.)
-      const hot = (type: string) => (catalog.vehicles[type]?.seats ?? []).some((q) => (q.sensors ?? []).some((k) => catalog.spotting.sensors[k.kind]?.thermal === true));
-      observers = [
-        ...(force.vehiclePlacements ?? []).map((p) => { const type = force.vehicles?.find((r) => r.vehicleId === p.vehicleId)?.type ?? ""; return { x: p.x, y: p.y, z: eye(type), ...(hot(type) ? { thermal: true } : {}) }; }),
-        ...defenceSpots(mainP, secondP, dx).map((p) => ({ x: p.x, y: p.y, z: 1.7 })),
-      ];
-    }
+    if (!attacking) observers = observersOf(force);
     return force;
+  };
+  /** What the defence sees from (dead ground for the attacker's start): its vehicles' sights and its men. */
+  const observersOf = (force: ForceInput): { x: number; y: number; z: number; thermal?: boolean }[] => {
+    const eye = (type: string) => { const vd = catalog.vehicles[type]; let z = vd?.body.heightM ?? 2.5; for (const q of vd?.seats ?? []) for (const k of q.sensors ?? []) z = Math.max(z, k.pos?.[2] ?? 0); return z; };
+    // (Balance pass 2: a hull with a thermal sight sees heat through thin cover: `deadGroundStarts`.)
+    const hot = (type: string) => (catalog.vehicles[type]?.seats ?? []).some((q) => (q.sensors ?? []).some((k) => catalog.spotting.sensors[k.kind]?.thermal === true));
+    return [
+      ...(force.vehiclePlacements ?? []).map((p) => { const type = force.vehicles?.find((r) => r.vehicleId === p.vehicleId)?.type ?? ""; return { x: p.x, y: p.y, z: eye(type), ...(hot(type) ? { thermal: true } : {}) }; }),
+      ...defenceSpots(mainP, secondP, dx).map((p) => ({ x: p.x, y: p.y, z: 1.7 })),
+    ];
   };
   const forces: ForceInput[] = [];
   const clampX = (x: number) => Math.min(Math.max(x, 10), W - 10);
   const mortarSides = new Set<string>();
   const dIdx = SIDES.indexOf(defender), aIdx = SIDES.indexOf(def.attacker);
   forces[dIdx] = buildSide(defender, dIdx);
-  forces[aIdx] = buildSide(def.attacker, aIdx);
   const rules = defaultRules(def.timeLimitSeconds ?? 2400);
   rules.objectives = objectives;
+  // Balance pass 4 (owner 2026-11-19): the defence's hulls start on their hull-down posts (the caller's hook, the
+  // defending commander's own siting); the attacker's dead ground is then looked for from there.
+  if (hooks.defenceStartPosts && def.defenceOnPosts !== false && (forces[dIdx]!.vehiclePlacements?.length ?? 0) > 0) {
+    hooks.defenceStartPosts({ map, catalog, forces: [forces[dIdx]!], rules, seed: def.seed, orders: [] }, defender);
+    observers = observersOf(forces[dIdx]!);
+  }
+  forces[aIdx] = buildSide(def.attacker, aIdx);
   rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true };
   // A prepared defence (balance pass after M11; SPEC M4: "a prepared defence"): the defenders dig in where their
   // commander sites them, as in the hold battle (owner 2026-11-16).
@@ -563,8 +581,10 @@ export const HOLD = {
    *  leaves the men refilling from their own pockets): the share of the defenders' loose rounds (packages) still on
    *  them (the smaller of this and `defenderLoadShare` applies). 0: they have none; what they refill from is at the
    *  supply point (`pointShare` 1) and in the deliveries, so only the chain can load their empty magazines. With the
-   *  first wave at 600 s (`waveS`) the bearers have time to bring the point's rounds forward before contact. */
-  defenderLooseShare: 0,
+   *  first wave at 600 s (`waveS`) the bearers have time to bring the point's rounds forward before contact.
+   *  Balance pass 4 (owner 2026-11-19, F): 0.25, a small share (a quarter of each package's rounds, rounded down), so
+   *  `--no-resupply` is not "the chain against empty pockets": the men can refill a little on their own. */
+  defenderLooseShare: 0.25,
   /** Balance pass 2: the supply point (and with it the off-map stock, `stockLoads` times it) holds this share of the
    *  rounds of one can per squad and cartridge: full cans and one part-filled can per cartridge (so a fresh point's
    *  marker reads 0.75 full). Balance pass 3: 1 (full cans), with the men's loose rounds gone. */

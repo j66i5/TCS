@@ -45,7 +45,8 @@ describe("the commander's logistics (M11.8)", () => {
     const t = sim.state.transform.req(cache);
     // A man of the side beside the crate, short of rounds.
     const sq = squads(sim)[0]!;
-    const near = sim.state.unit.req(sq).members[2]!;
+    // (Not one of the squad's ammunition bearers, out on their errand: with balance pass 4 F the third man is one.)
+    const near = sim.state.unit.req(sq).members.find((m, i) => i >= 2 && sim.state.soldier.req(m).intent === null)!;
     const nt = sim.state.transform.req(near);
     nt.x = t.x + 10; nt.y = t.y;
     drain(sim, sq);

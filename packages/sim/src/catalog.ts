@@ -264,7 +264,9 @@ export interface BallisticsDef {
     /** A wall thinner than this (steel-equivalent mm) does not shield a man from blast. */
     shieldSteelMm: number;
   };
-  fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number; clutterHeightM: number; clutterStopPerM: number };
+  fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number; clutterHeightM: number; clutterStopPerM: number;
+    /** Balance pass 4: the danger radius of a bursting round (`dangerRadiusM`, fire.ts). */
+    danger?: { presentedAreaM2: number; hitChance: number } };
   /** M11 hold battle: dug fighting positions (`sim/positions.ts`). */
   fightingPosition?: { halfWidthM: number; depthM: number; exposedM: { standing: number; crouching: number; prone: number }; spacingM: number };
   bounce: { restitution: number; tangentKeep: number; softFactor: number; vegetationFactor: number; softBelowDensityKgM3: number; stopSpeedMps: number };
@@ -544,6 +546,12 @@ export interface BehaviourDef {
     groupRadiusM: number; coaxSingleWithinM: number; vehicleScore: number; firingScore: number;
     lrfRangeErrorFraction: number; refillBelowFraction: number;
     friendlyClearM: number; scanReturnSeconds: number; dischargeAheadM: number;
+    /** Balance pass 4: the beaten zone past the point that own men block a station's fire in (m; absent 0). */
+    friendBeyondM?: number;
+    /** Balance pass 4 review (H1): a station's line passing this far over an own man's head (m, plus `overPerM` per
+     *  metre along the line: its spread) does not count him as in the line, beyond `overNearM` of the muzzle (see the
+     *  schema). Absent: no overhead fire (every man in the cone blocks). */
+    overClearM?: number; overPerM?: number; overNearM?: number;
     /** Guided missiles (owner 2026-11-13; see the schema). */
     missileBeyondM?: number; missileHaltedMps?: number; missileSightSeconds?: number; missileSeenFloor?: number; missileHitLoseChance?: number;
   };
@@ -633,6 +641,15 @@ export interface BehaviourDef {
      *  off, its place known to within `maxErrM`, within his engage range, no faster than one shot per `intervalS` (a machine gun one burst per
      *  `mgIntervalS`). Absent: off. */
     suppressKnown?: { withinS: number; intervalS: number; mgIntervalS: number; minM: number; maxErrM: number };
+    /** Balance pass 4 (owner G, 2026-11-19: men under effective fire locate and return fire at shooters within weapon
+     *  range): a halted man, not pinned or panicked, whose last magazine is not his only one, with no enemy in sight to
+     *  fire at, at whom rounds cracked past within `firedOnS` fires at the known place of an enemy firing within
+     *  `firedOnS` (he hears him), known within `withinS` (seen, reported or heard) to within `maxErrM`, within
+     *  `bearingDeg` of the direction the rounds came from, within his engage range (the unit's range rule is lifted
+     *  under fire); no faster than one shot per `intervalS` (a machine gun one burst per `mgIntervalS`); it ends
+     *  `firedOnS` after the last round past him, when that place grows older than `withinS`, or when he sees an enemy
+     *  (aimed fire then). Every side. Absent: off. */
+    returnFire?: { firedOnS: number; withinS: number; maxErrM: number; bearingDeg: number; intervalS: number; mgIntervalS: number };
     friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
     /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
     stepAsideM: number[];

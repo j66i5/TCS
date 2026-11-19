@@ -1330,8 +1330,10 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const beyond = c !== undefined && ((hypot2(c.x - me.x, c.y - me.y) > rangeRule(unit, state, ctx)) || (unit.ambush !== undefined && hypot2(c.x - me.x, c.y - me.y) > unit.ambush.rangeM)
         || (c !== undefined && unit.arc !== undefined && !inArc(state, id, me, c.x, c.y)));
       // (Fire at a known place, M11.1 point 7b: it lasts while the place is fresh, `suppressKnown.withinS`.)
-      const lostS = task.suppress === "known" ? S.suppressKnown?.withinS ?? D.contactLostSeconds : D.contactLostSeconds;
-      if (!c || (spared(c) && !breachActive(s, c.target, state.tick)) || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(lostS) || reach <= 0 || hypot2(c.x - me.x, c.y - me.y) > reach) {
+      const lostS = task.suppress === "known" ? S.suppressKnown?.withinS ?? D.contactLostSeconds : task.suppress === "return" ? S.returnFire?.withinS ?? D.contactLostSeconds : D.contactLostSeconds;
+      // (Return fire, balance pass 4: it ends `returnFire.firedOnS` after the last round past him.)
+      const quiet = task.suppress === "return" && (s.fireFrom === undefined || state.tick - s.fireFrom.tick > secondsToTicks(S.returnFire?.firedOnS ?? 0));
+      if (!c || (spared(c) && !breachActive(s, c.target, state.tick)) || !es || es.casualty !== "none" || beyond || quiet || state.tick - c.tick > secondsToTicks(lostS) || reach <= 0 || hypot2(c.x - me.x, c.y - me.y) > reach) {
         state.fire.delete(id);
         if (s.intent?.kind === "engage") s.intent = null;
         // (Lost sight of him: his look for him is due at once, sight realism step 4.)
@@ -1339,7 +1341,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       } else if (c.kind === "seen" && state.tick - c.tick <= secondsToTicks(D.seenWithinSeconds)) {
         task.reasonTick = state.tick;
         // (Seen again: aimed fire at him, no longer fire at a place.)
-        if (task.suppress === "known") delete task.suppress;
+        if (task.suppress === "known" || task.suppress === "return") delete task.suppress;
       }
     }
     // Stale intents (debug overlay): cover reached, or his own fire replaced by an order.
@@ -1434,8 +1436,10 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
           s.intent = { kind: "engage", tick: state.tick, target: pick.target } satisfies Intent;
         }
       } else if (onMove && current && current.self && pick && current.contact === pick.target) current.onTheMove = true;
+      // ---- no enemy in sight, rounds cracking past him: he returns fire at the known place of the shooter (balance pass 4)
+      if (halted && !pick && !reserve && !current && unit.ambush === undefined && S.returnFire !== undefined) returnFire(ctx, state, id, s, range, S.returnFire);
       // ---- no enemy in sight: a defender fires at the known place of one (M11.1 point 7b, suppressive fire)
-      if (halted && !pick && !reserve && !current && unit.ambush === undefined && S.suppressKnown !== undefined && !inDark
+      if (halted && !pick && !reserve && !current && !state.fire.has(id) && unit.ambush === undefined && S.suppressKnown !== undefined && !inDark
         && state.sides.find((x) => x.id === ident.side)?.posture === "defend") suppressKnown(ctx, state, id, s, range, S.suppressKnown);
       // No enemy on the ground to fire at: an enemy drone he sees close overhead (M9.4b).
       // (Not in self-defence under rule "return": a drone overhead is no enemy close in front of him.)
@@ -1464,6 +1468,37 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     const ovEvery = Math.max(1, secondsToTicks(S.overlapCheckSeconds));
     for (let id = staggerFirst(state.tick, ovEvery); id < state.nextEntityId; id += ovEvery) stepAside(ctx, state, id);
   }
+}
+
+/**
+ * Balance pass 4 (owner G, 2026-11-19: "men under effective fire should locate and return fire at shooters within
+ * weapon range"): rounds cracked past him within `firedOnS` (`fireFrom`, the direction they came from) and he sees no
+ * enemy to fire at: he fires at the known place (seen, reported or heard within `withinS`, known to within `maxErrM`
+ * now) of the nearest enemy firing within `firedOnS` (he hears him) within `bearingDeg` of that direction, within his
+ * engage range `range` and his unit's defend arc; not through a comrade (`friendInLine`). Fire at a place
+ * (`suppress` "return", fire.ts: one shot per `intervalS`, a burst per `mgIntervalS`; the line may end in cover near
+ * the point). Aimed fire takes over once he sees an enemy.
+ */
+function returnFire(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, range: number, RF: NonNullable<SimContext["catalog"]["behaviour"]["soldier"]["returnFire"]>): void {
+  const ff = s.fireFrom, tick = state.tick;
+  const firedOn = secondsToTicks(RF.firedOnS);
+  if (ff === undefined || tick - ff.tick > firedOn) return;
+  const me = state.transform.req(id);
+  const cosMax = cos((RF.bearingDeg * PI) / 180), within = secondsToTicks(RF.withinS);
+  let best: Contact | null = null, bd = Infinity;
+  for (const c of s.contacts) {
+    if (spared(c) || c.cls === "vehicle" || tick - c.tick > within || (state.soldier.get(c.target)?.casualty ?? "none") !== "none") continue;
+    const ew = state.weapon.get(c.target);
+    if (ew === undefined || tick - ew.lastShotTick > firedOn) continue;
+    const dx = c.x - me.x, dy = c.y - me.y, d = hypot2(dx, dy);
+    if (d < 1 || d > range || d >= bd || (dx * ff.dx + dy * ff.dy) < cosMax * d) continue;
+    if (contactErrorM(ctx, c, tick) > RF.maxErrM || !inArc(state, id, me, c.x, c.y)) continue;
+    best = c; bd = d;
+  }
+  if (!best || friendInLine(ctx, state, id, best.x, best.y)) return;
+  if (!assignFireTask(ctx, state, id, best.x, best.y, aimHeightAt(ctx, best))) return;
+  const ft = state.fire.get(id)!;
+  ft.contact = best.target; ft.self = true; ft.aimAuto = true; ft.suppress = "return";
 }
 
 /**

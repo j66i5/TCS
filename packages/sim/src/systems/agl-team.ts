@@ -38,7 +38,7 @@ import { protectedTargets } from "../protection";
 import { nextNormal, Streams } from "../rng";
 import type { SimState, SimView } from "../state";
 import { heightAt, standZ } from "../terrain";
-import { friendInLine, skillFactor } from "./fire";
+import { dangerRadiusM, friendInLine, ownMenWithin, skillFactor } from "./fire";
 import { aglOf, busyWithCasualty, crewAt, type AglPost } from "./mortars";
 import { burstCadence, launchShot } from "./shot";
 
@@ -68,9 +68,12 @@ export const AGL_BURST_M = 8;
 /**
  * How far past the point aimed at (and round it) own men are in danger from a burst at `rangeM` (m): the round's burst
  * plus one standard deviation of a series' range error (the gunner's skill not counted: the worst case near enough).
+ * Balance pass 4: the burst is the round's danger radius (`dangerRadiusM`, from its fragments) when `round` (an
+ * ammunition id) is given, else `AGL_BURST_M`.
  */
-export function aglDangerM(ctx: SimContext, rangeM: number): number {
-  return AGL_BURST_M + ctx.catalog.shooting.aim.rangeErrorFraction * rangeM;
+export function aglDangerM(ctx: SimContext, rangeM: number, round?: string): number {
+  const burst = round !== undefined ? Math.max(AGL_BURST_M, dangerRadiusM(ctx, round)) : AGL_BURST_M;
+  return burst + ctx.catalog.shooting.aim.rangeErrorFraction * rangeM;
 }
 
 /** Is this unit an automatic grenade launcher team that has rounds (on the gun or in its loads) and its post? */
@@ -206,8 +209,10 @@ export function aglTeamSystem(ctx: SimContext, state: SimState, events: EventSin
       mt.relayTick = state.tick + secondsToTicks(l.def.relaySeconds);
       continue;
     }
-    // (Own men in the line, or past the point within the burst and the range error: no burst.)
-    if (friendInLine(ctx, state, l.carrier, pick.x, pick.y, aglDangerM(ctx, hypot2(pick.x - l.x, pick.y - l.y)), { x: l.x, y: l.y })) continue;
+    // (Own men in the line, or past the point within the burst and the range error: no burst. Balance pass 4: nor
+    // with one within that of the point on any side, danger close.)
+    const dz = aglDangerM(ctx, hypot2(pick.x - l.x, pick.y - l.y), ctx.catalog.items[l.def.round]?.chargeItem);
+    if (friendInLine(ctx, state, l.carrier, pick.x, pick.y, dz, { x: l.x, y: l.y }) || ownMenWithin(state, state.identity.get(l.carrier)?.side ?? "", pick.x, pick.y, dz)) continue;
     if (mt.queued) {
       // An ordered series: one burst now, the rest stay queued.
       const left = (mt.queued.bursts ?? ORDER_BURSTS) - 1;

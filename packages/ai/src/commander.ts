@@ -303,6 +303,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
   const sx = starts.reduce((a, p) => a + p.x, 0) / Math.max(1, starts.length);
   const sy = starts.reduce((a, p) => a + p.y, 0) / Math.max(1, starts.length);
   const defending = objectives.length > 0 && objectives[0]!.holder === side;
+  // Balance pass 4: the side's hulls that start on their posts (`defenceStartPosts`), by vehicle id.
+  const startPosts = new Set((force.vehiclePlacements ?? []).filter((p) => p.onPost === true).map((p) => p.vehicleId));
   let mem: Memory = { phase: "start", phaseTick: 0, target: 0, lastFire: -1e9, lastAssault: {}, pulledBack: [], counterTick: -1e9 };
   const every = COMMANDER.stepSeconds * 60;
   // Where the attacker gets out (M7.2, owner Q22): this far short of the objective, from its faction's doctrine;
@@ -584,7 +586,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const z0 = heightAt(ground().map, lt.x, lt.y) + l.def.sightHeightM; // ground: ok (the gun on the ground)
       const own = men.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return s !== undefined && !isOut(s) && s.mount === undefined; }).map((m) => view.transform.get(m)).filter((t) => t !== undefined);
       const safe = cands.filter((c) => {
-        const r = aglDangerM(ground(), c.d);
+        const r = aglDangerM(ground(), c.d, ground().catalog.items[l.def.round]?.chargeItem);
         return !prot.some((p) => hypot2(p.x - c.x, p.y - c.y) <= AGL_BURST_M) && !own.some((t) => hypot2(t.x - c.x, t.y - c.y) <= r);
       });
       for (const c of safe.slice(0, 4)) {
@@ -884,7 +886,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       const tanks = (ux: number, uy: number, backOf: (c: EntityId) => Record<string, unknown>): number => {
         if (tankCrews.length === 0 && carrierCrews.length === 0) return 0;
         const ownFoot = all.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined; }).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
-        return tankSections({ view, tick, side, ctx: ground(), objectives, mem, order, defending, ux, uy, phase: mem.phase, phaseTick: mem.phaseTick, remounting: mem.remount?.length ?? 0, ownFoot, back: backOf, reverseHoldSeconds: COMMANDER.reverseOutHoldSeconds, carrierCrews });
+        return tankSections({ view, tick, side, ctx: ground(), objectives, mem, order, defending, ux, uy, phase: mem.phase, phaseTick: mem.phaseTick, remounting: mem.remount?.length ?? 0, ownFoot, back: backOf, reverseHoldSeconds: COMMANDER.reverseOutHoldSeconds, carrierCrews, ...(startPosts.size > 0 ? { startPosts } : {}) });
       };
       // (M11.7a: an immobilised hull whose crew is at a repair with under 300 s of work left for two men is not lost.)
       const fixing = (v: (typeof ownVehicles)[number]) => v.repair?.working === true && (v.repair.needManS - v.repair.doneManS) / 2 < 300;

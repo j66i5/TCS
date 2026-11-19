@@ -131,7 +131,13 @@ export const BallisticsFile = withProv({
     airburstAboveM: Num(0, 10),
     /** Small folds and grass: a fragment flying lower than clutterHeightM above the ground is stopped with
      *  this chance per metre at ground level, falling to zero at that height. */
-    clutterHeightM: Num(0, 2), clutterStopPerM: Num(0, 1) }).strict(),
+    clutterHeightM: Num(0, 2), clutterStopPerM: Num(0, 1),
+    /** Balance pass 4 (danger close for bursting rounds): a man within `dangerRadius` of a burst is in danger, where
+     *  the fragments a round throws (`explosive.fragmentCount`, spread evenly over a sphere) strike a body showing
+     *  `presentedAreaM2` with a chance of `hitChance`: r = sqrt(count x area / (4 pi x chance)), at least the blast's
+     *  injury radius. Vehicle cannon and grenade launchers hold fire when an own man is that close to the point
+     *  aimed at (plus the round's spread). Absent: the blast's injury radius only. */
+    danger: z.object({ presentedAreaM2: Num(0.01, 5), hitChance: Num(0.001, 1) }).strict().optional() }).strict(),
   /** Fighting positions (M11 hold battle): a dug hole `halfWidthM` round its middle, at most `depthM` deep; its rim
    *  stops what comes in below it: only the top `exposedM` of a man (by posture) shows; prepared positions at least `spacingM` apart. */
   fightingPosition: z.object({ halfWidthM: Num(0.1, 3), depthM: Num(0, 3), exposedM: z.object({ standing: Num(0, 2), crouching: Num(0, 2), prone: Num(0, 1) }).strict(), spacingM: Num(0.5, 20) }).strict().optional(),
@@ -493,6 +499,14 @@ export const BehaviourFile = withProv({
     groupRadiusM: Num(0, 100), coaxSingleWithinM: Num(0, 3000), vehicleScore: Num(0.01, 10), firingScore: Num(0.01, 10),
     lrfRangeErrorFraction: Num(0, 1), refillBelowFraction: Num(0, 1),
     friendlyClearM: Num(0, 500), scanReturnSeconds: Num(0, 600), dischargeAheadM: Num(0, 200),
+    /** Balance pass 4: own men this far past the point aimed at (the beaten zone of rounds that miss) block a
+     *  station's fire, as `soldier.friendBeyondM` for men on foot; a bursting round adds its danger radius and spread.
+     *  Absent: 0 (none). */
+    friendBeyondM: Num(0, 500).optional(),
+    /** Balance pass 4 review (H1): overhead fire. An own man on foot farther than `overNearM` from the muzzle and short
+     *  of the point does not block a station when the straight line from its muzzle to the point passes at least
+     *  `overClearM` + `overPerM` x his distance along it above the top of his body. All three or none. */
+    overClearM: Num(0, 10).optional(), overPerM: Num(0, 0.1).optional(), overNearM: Num(0, 500).optional(),
     /** Guided missiles from a station (owner 2026-11-13): a crew prefers the missile against an enemy vehicle beyond
      *  `missileBeyondM`, or nearer when its armour-piercing round cannot get through the face it shows; it fires
      *  halted only (below `missileHaltedMps`); the gunner checks his sight line every `missileSightSeconds` and
@@ -524,6 +538,7 @@ export const BehaviourFile = withProv({
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
     /** M11.1 (point 7b): defenders fire at the known place of an enemy they cannot see. See BehaviourDef. */
     suppressKnown: z.object({ withinS: Num(0, 600), intervalS: Num(0.5, 60), mgIntervalS: Num(0.5, 60), minM: Num(0, 1000), maxErrM: Num(0, 1000) }).strict().optional(),
+    returnFire: z.object({ firedOnS: Num(0, 600), withinS: Num(0, 600), maxErrM: Num(0, 1000), bearingDeg: Num(0, 180), intervalS: Num(0.5, 60), mgIntervalS: Num(0.5, 60) }).strict().optional(),
     moveEngageM: Num(0, 500).optional(), pinnedSelfDefenceM: Num(0, 500).optional(), closeThreatM: Num(0, 500).optional(), closeThreatTaskFactor: Num(1, 100).optional(),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), stepAsideM: z.array(Num(0.5, 20)).min(1).max(4), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
     hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),

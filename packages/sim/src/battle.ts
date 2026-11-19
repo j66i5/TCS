@@ -130,7 +130,9 @@ export interface ForceInput {
   placements: Placement[];
   /** The force's vehicles (M7), and where each starts. */
   vehicles?: VehicleRecord[];
-  vehiclePlacements?: { vehicleId: string; x: number; y: number; heading: number }[];
+  /** `onPost` (balance pass 4): the hull starts on the hull-down post its commander sited for it (ai
+   *  `defenceStartPosts`); the commander keeps it there. The simulation does not read it. */
+  vehiclePlacements?: { vehicleId: string; x: number; y: number; heading: number; onPost?: true }[];
   /** Off-map assets (M10.6a): vehicles of `vehicles` (with their crews) that start off the map and come on only when
    *  called (an ambulance). They need no placement. */
   offMap?: { vehicleId: string; kind: OffMapKind }[];

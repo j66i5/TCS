@@ -37,7 +37,8 @@ import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type DefId, type EntityId } from "../ids";
 import { isAble, isConscious } from "../impair";
 import { isCowering } from "./morale";
-import { routeBetween, routeWaypoints } from "../interior-nav";
+import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
+import { freePlaceNear, isTaken, placesTaken } from "./occupy";
 import { addItems, transferItems, type Container } from "../items";
 import { atan2, hypot2 } from "../math";
 import { careNeed } from "../medical";
@@ -106,10 +107,14 @@ export function stepBack(ctx: SimContext, state: SimState, id: EntityId): boolea
   }
   if (it.x === undefined || it.y === undefined || !isAble(s) || isMounted(s) || !m) { s.intent = null; return true; }
   if (hypot2(t.x - it.x, t.y - it.y) < 1.5) { done(); return true; }
-  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, it.x, it.y, { maxExpansions: 6000, snapCells: 2 }, { sz: t.z, gz: it.z ?? 0 });
+  // (Balance pass 4 review: his place in a house taken meanwhile by another man of his side: a free one near it.)
+  let to: { x: number; y: number; z: number; heading?: number; posture?: Posture | null } = { x: it.x, y: it.y, z: it.z ?? 0 };
+  const bi = indoorAt(ctx, it.x, it.y);
+  if (bi >= 0 && isTaken(placesTaken(state, id), to)) { const f = freePlaceNear(ctx, state, id, bi, it.x, it.y, to.z); if (f) to = f; }
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, to.x, to.y, { maxExpansions: 6000, snapCells: 2 }, { sz: t.z, gz: to.z });
   if (!leg) { s.intent = null; return true; }
   m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: it.kind === "bringAmmo" ? "walk" : "run" });
-  m.formation = null; m.endPosture = it.posture ?? s.homePosture ?? "crouching"; m.endHeading = it.heading ?? null;
+  m.formation = null; m.endPosture = to.posture ?? it.posture ?? s.homePosture ?? "crouching"; m.endHeading = to.heading ?? it.heading ?? null;
   s.intent = { ...it, returning: true, tick: state.tick };
   return true;
 }

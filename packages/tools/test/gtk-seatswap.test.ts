@@ -32,7 +32,11 @@ describe("M7.6c review fixes", () => {
     expect(t).toBe("Einsatzersthelfer B (first responder)");
   });
 
-  it("a GTK Boxer whose commander falls: a passenger takes his seat and the FLW 200 fires again", () => {
+  // (Balance pass 4: the gunner now sees his own men on foot in his line; in seed 1 the GTK's platoon stands 60-130 m
+  // ahead in it all battle long, so the FLW 200 holds its fire: the test asks for the station working again, a target
+  // taken or the crew saying why it holds for its own men (review fix: chooseTarget skips targets it cannot fire at),
+  // not for a shot.)
+  it("a GTK Boxer whose commander falls: a passenger takes his seat and the FLW 200 takes targets again", () => {
     const input = buildScenario(data, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["de", "ru"], attacker: "blue", vehicles: true, carriers: "wheeled", missileTeams: false });
     const sim = createSim(input);
     const st = sim.state, cat = input.catalog;
@@ -47,12 +51,12 @@ describe("M7.6c review fixes", () => {
     cs.physiology.alive = false; cs.physiology.consciousness = 0; cs.casualty = "killed";
     expect(stationOperator(st, v, def, 0)).toBeNull();
     const ctrls = [commanderController("blue", input), commanderController("red", input)];
-    let swap: Extract<SimEvent, { kind: "vehicle.seatSwap" }> | undefined, firedAfter = false;
-    for (let i = 0; i < 400 * 60 && !firedAfter; i++) {
+    let swap: Extract<SimEvent, { kind: "vehicle.seatSwap" }> | undefined, tookTarget = false;
+    for (let i = 0; i < 400 * 60 && !tookTarget; i++) {
       for (const c of ctrls) for (const o of c.think(st, st.tick)) submitOrder(sim, o);
       for (const e of step(sim)) {
         if (e.kind === "vehicle.seatSwap" && e.vehicle === vid && swap === undefined) swap = e;
-        if (e.kind === "shot.fired" && e.vehicle === vid && swap !== undefined) firedAfter = true;
+        if (e.kind === "vehicle.decision" && e.vehicle === vid && swap !== undefined && (e.target !== null || e.keys[0] === "why.hold.friends" || e.keys[0] === "why.hold.dangerClose")) tookTarget = true;
       }
     }
     expect(swap).toBeDefined();
@@ -61,6 +65,7 @@ describe("M7.6c review fixes", () => {
     const man: EntityId = swap!.soldier;
     expect(crew).not.toContain(man);
     expect(def.seats[st.soldier.req(commander).mount!.seat]!.station).toBe("passenger");
-    expect(firedAfter).toBe(true);
+    expect(tookTarget).toBe(true);
+    expect(stationOperator(st, v, def, 0)).toBe(man);
   }, 120_000);
 });

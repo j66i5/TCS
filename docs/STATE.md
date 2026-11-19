@@ -1,10 +1,27 @@
 # State — handover note
 
-_Last updated: 2026-11-19 (balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-19 (balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 4 (2026-11-19, branch `claude/balance-4`; owner decisions 2026-11-19 E-H).** H: danger close for
+  bursting rounds (`dangerRadiusM` from the fragment data, `stationDangerM`, AGL teams; the gunner-seat floor bug in
+  `friendInLine` fixed): own men hit by own vehicle gunners in 10 seeds 11 -> 0 (platoon-vehicles), 22 -> 0
+  (platoon-ru-vehicles). E: the defence's hulls start on their hull-down posts (`ai/start-posts.ts`, scenario hook
+  `defenceStartPosts`, `onPost`); platoon-vehicles stays above the band (Puma APFSDS penetrates the hulls on their posts
+  from 490-640 m; owner question). F: hold defenders keep a quarter of their loose rounds (`HOLD.defenderLooseShare`
+  0.25). G: men under effective fire return fire at the shooter's known place (`soldier.returnFire`, `suppress`
+  "return"; diagnosis: mortar smoke hid the shooters, men only fired at enemies they saw) and a comrade on the very
+  same spot no longer blocks a man's fire (`SAME_SPOT_M`). Hold, seeds 1-20, holds with / without the chain: German
+  14 / 10 (+20), Russian 12 / 6 (+30) (F alone: +10 / +5); defences lost with the attack losing <= 5 men: 6 -> 4 of
+  120. Review fixes: a station fires over own men's heads (`friendInLine` `over`, `gunnery.overClearM` etc.) and one gate
+  (`stationHeld`) chooses targets and holds bursts, the crew passing over targets it cannot fire at and saying why; no
+  two men on one place in a house (occupy, bearers back, return from an errand: `freePlaceNear`, `placesTaken`).
+  After them: platoon battles (20 x 1,200 s, attacker wins) platoon 7, platoon-ru 7, platoon-ru-vehicles 8,
+  platoon-vehicles 13 (26 / 40): all in the band. Hold, 40 seeds each way: German 26 / 18 holds (+20), Russian 19 / 17
+  (+5, below the 10-point target: owner question; noise is about 11 points). Own men hit by own gunners in 10 seeds:
+  1 and 1. Numbers in DECISIONS "Balance pass 4".
 - **Balance pass 3 (2026-11-18, branch `claude/balance-3`; owner decisions 2026-11-18), parts A and D.** A: a hull of
   the shooter's side (and the men aboard) in the line of fire blocks it for every `friendInLine` caller
   (`hullInLine`, fire.ts; own hull and wrecks excluded): own-side hull hits in 10 seeds x 600 s platoon-vehicles 10

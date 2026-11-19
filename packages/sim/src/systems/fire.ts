@@ -25,7 +25,7 @@ import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import type { Container } from "../items";
-import { atan2, cos, exp, hypot2, PI, sin, sqrt } from "../math";
+import { atan2, cos, exp, hypot2, PI, pow, sin, sqrt } from "../math";
 import { restWithinReach } from "../nav";
 import { navFor } from "../navctx";
 import { indoorAt } from "../interior-nav";
@@ -84,6 +84,8 @@ const LINE_OF_FIRE_ALLOWANCE_M = 5;
 /** Geometry of the friend-in-line check (not behaviour): the muzzle sits this far out in front of him, a man's body
  * this far from where he stands (more lying down), and a man more than this far above or below is on another floor. */
 const MUZZLE_OUT_M = 0.4, BODY_REACH_M = 0.7, FLOOR_APART_M = 1;
+/** Balance pass 4 (G): a comrade nearer than this to the shooter shares his spot (a placement artefact), not his line (m). */
+const SAME_SPOT_M = 0.15;
 /** Margin round a friendly hull in the line of fire (balance pass 3), as a man's body reach. */
 const HULL_GROW_M = 0.5;
 
@@ -204,7 +206,7 @@ function topUnit(state: SimState, soldier: EntityId): EntityId | null {
  * his elbow was shot), and the caller may look `beyondM` past the point fired at (a burst's beaten zone: rounds
  * that miss go on). `from`: as if he were there (a covering man looking for a spot with a clear line).
  */
-export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0, from?: { x: number; y: number }): boolean {
+export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0, from?: { x: number; y: number }, over?: { mz: number; tz: number }): boolean {
   const side = state.identity.get(id)?.side;
   if (side === undefined) return false;
   const self = state.transform.req(id);
@@ -214,6 +216,13 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
   if (range < 1e-6) return false;
   const ux = dx / range, uy = dy / range;
   const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
+  // (Balance pass 4: a gunner aboard sits 1.2-1.6 m above the ground (his seat), which the floor test below took for
+  // another floor: a vehicle gunner never saw his own men on foot in his line. Aboard, he fires from ground level.)
+  const selfZ = isMounted(state.soldier.get(id)) && !onRoof(state, id) ? 0 : self.z;
+  // (Balance pass 4 review, H1: a station's gun fires over own men on foot whose heads its line clears well, `over`:
+  // the muzzle's and the point's world heights; `gunnery.overClearM` etc. Without, every man in the cone blocks.)
+  const GN = ctx.catalog.behaviour.gunnery;
+  const ovC = over !== undefined && GN.overClearM !== undefined ? GN.overClearM : -1, ovP = GN.overPerM ?? 0, ovN = GN.overNearM ?? 0;
   // (Men aboard a vehicle are behind armour, M7: their hull blocks, `hullInLine`. A man aboard but working outside
   // it (repairing, hooking up, reloading on the roof) is a body like a man on foot: he blocks, balance pass 3 review.)
   for (const [other, ident] of state.identity.entries()) {
@@ -224,16 +233,57 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
     if (os !== undefined && (!os.physiology.alive || os.captive !== null)) continue;
     const o = state.transform.req(other);
     // (A man on another floor is not in the line: the window places of two floors share x, y. Review fixes.)
-    if (Math.abs(o.z - self.z) > FLOOR_APART_M) continue;
+    if (Math.abs(o.z - selfZ) > FLOOR_APART_M) continue;
     // (A man lying down is long: his body reaches about a metre from where he is.)
     const reach = os?.posture === "prone" ? Math.max(BODY_REACH_M, ctx.ballistics.bodyReachM) : BODY_REACH_M;
     const along = (o.x - me.x) * ux + (o.y - me.y) * uy;
     if (along <= MUZZLE_OUT_M - reach || along >= range + beyondM) continue;
     if (os !== undefined && os.casualty !== "none" && (along <= 0.5 || along >= range + LINE_OF_FIRE_ALLOWANCE_M)) continue;
     const across = Math.abs((o.x - me.x) * -uy + (o.y - me.y) * ux);
-    if (across < reach + Math.max(0, along) * sinCone) return true;
+    // (Balance pass 4, G: a comrade on the very spot he stands on — within SAME_SPOT_M, two men given one window place
+    // or one place in a house — is no body in front of his muzzle; before, such men held each other's fire for good:
+    // hold-resupply-ru seed 4, a squad upstairs fired 9 rounds in 4 minutes against 760. A comrade at his elbow, 0.3 m
+    // or more off, still counts.)
+    // (Only for his own spot: a covering man testing another spot, `from`, is blocked by a comrade standing on it.)
+    if (from === undefined && along * along + across * across < SAME_SPOT_M * SAME_SPOT_M) continue;
+    if (across >= reach + Math.max(0, along) * sinCone) continue;
+    if (ovC >= 0 && along > ovN && along < range) {
+      const lineZ = over!.mz + ((over!.tz - over!.mz) * along) / range;
+      const top = standZ(ctx.map, o) + ctx.catalog.body.postures[os?.posture ?? "standing"].heightM;
+      if (lineZ - top >= ovC + ovP * along) continue;
+    }
+    return true;
   }
   return hullInLine(ctx, state, side, id, self.z, me.x, me.y, ux, uy, range + beyondM, sinCone);
+}
+
+/**
+ * Balance pass 4 (owner 2026-11-19, danger close for bursting rounds): how near the burst of this round a man is in
+ * danger (m): where its fragments, spread evenly over a sphere, strike a body of `danger.presentedAreaM2` with a
+ * chance of `danger.hitChance` (ballistics.json `fragments.danger`), at least the blast's injury radius. 0 for a round
+ * that does not burst.
+ */
+export function dangerRadiusM(ctx: SimContext, ammoId: string): number {
+  const ex = ctx.catalog.ammo[ammoId]?.explosive;
+  if (!ex) return 0;
+  const bal = ctx.catalog.ballistics, dg = bal.fragments.danger;
+  const blast = bal.blast.injuryScaledM * pow(ex.fillingKg, 1 / 3);
+  const frag = dg ? sqrt((ex.fragmentCount * dg.presentedAreaM2) / (4 * PI * dg.hitChance)) : 0;
+  return Math.max(blast, frag);
+}
+
+/** Balance pass 4: an own man of `side` on foot (or out on a hull), alive and not a prisoner, within `r` of the
+ *  point (no bursting round there). */
+export function ownMenWithin(state: SimState, side: string, x: number, y: number, r: number): boolean {
+  const r2 = r * r;
+  for (const [id, ident] of state.identity.entries()) {
+    if (ident.side !== side) continue;
+    const s = state.soldier.get(id);
+    if (s === undefined || !s.physiology.alive || s.captive !== null || (isMounted(s) && !onRoof(state, id))) continue;
+    const t = state.transform.get(id);
+    if (t && (t.x - x) * (t.x - x) + (t.y - y) * (t.y - y) <= r2) return true;
+  }
+  return false;
 }
 
 /**
@@ -550,7 +600,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       // (A drill's covering fire at a point, no enemy named, likewise: before, riflemen ran dry in a long attack.)
       const sustained = task.intoCover === true || (task.suppress === "drill" && task.contact === undefined);
       // (Fire at a known place, M11.1 point 7b: one shot per suppressKnown.intervalS, a burst per mgIntervalS.)
-      const SK = task.suppress === "known" ? ctx.catalog.behaviour.soldier.suppressKnown : undefined;
+      // (Return fire at a shooter's known place, balance pass 4: returnFire.intervalS / mgIntervalS.)
+      const SK = task.suppress === "known" ? ctx.catalog.behaviour.soldier.suppressKnown : task.suppress === "return" ? ctx.catalog.behaviour.soldier.returnFire : undefined;
       const interval = SK ? Math.max(interval0, su ? SK.mgIntervalS : SK.intervalS) : sustained ? Math.max(interval0, ctx.catalog.behaviour.drills.suppressIntervalS) : interval0;
       // +-15 % so men do not fire in step.
       // Ammunition discipline of his unit (M5): conserve stretches the pause, maximum shortens it.

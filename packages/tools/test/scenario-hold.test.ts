@@ -119,16 +119,19 @@ describe("hold-resupply balance pass 2", () => {
     const f = i.forces.find((x) => x.side === side)!;
     return (f.caches ?? []).flatMap((c) => c.load).reduce((n, l) => n + (l.charge ?? 0) * l.count, 0);
   };
-  it("by default the defenders carry one loaded magazine or belt of each stack (the rest empty) and no loose rounds (balance pass 3); the attackers in full", () => {
+  it("by default the defenders carry one loaded magazine or belt of each stack (the rest empty) and a quarter of their loose rounds (balance pass 4); the attackers in full", () => {
     expect(HOLD.defenderMagazineShare).toBe(0.25);
-    expect(HOLD.defenderLooseShare).toBe(0);
+    expect(HOLD.defenderLooseShare).toBe(0.25);
     const now = holdBattle(data, { factions: ["de", "ru"], seed: 4 });
     const before = holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderMagazineShare: 1, defenderLooseShare: 1 });
     const a = tally(now, "blue"), b = tally(before, "blue");
     expect(a.loaded + a.empty).toBe(b.loaded + b.empty);
     expect(a.loaded).toBeLessThan(b.loaded * 0.5);
     expect(b.loose).toBeGreaterThan(0);
-    expect(a.loose).toBe(0);
+    expect(a.loose).toBeGreaterThan(0);
+    expect(a.loose).toBeLessThanOrEqual(b.loose * 0.25);
+    expect(a.loose).toBeGreaterThan(b.loose * 0.2);
+    expect(tally(holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderLooseShare: 0 }), "blue").loose).toBe(0);
     // (Balance pass 2's setting, loose rounds in full, is still there for comparisons.)
     expect(tally(holdBattle(data, { factions: ["de", "ru"], seed: 4, defenderLooseShare: 1 }), "blue").loose).toBe(b.loose);
     expect(tally(now, "red")).toEqual(tally(before, "red"));

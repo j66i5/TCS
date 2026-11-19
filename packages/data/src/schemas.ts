@@ -1321,7 +1321,7 @@ export const InsigniaElementSchema = z.discriminatedUnion("kind", [
   /** A star (pip) of `points` points, `diameterMm` across its points, one point towards the collar. */
   z.object({ kind: z.literal("star"), x: Mm, y: Mm, diameterMm: PosMm, points: z.union([z.literal(4), z.literal(5)]) }).strict(),
   /** M12.1a: an open wreath (Eichenlaubkranz) centred on (0, y): a ring of a `widthMm` band, `diameterMm` across its
-   *  outer edge, open towards the collar (its upper third left out). */
+   *  outer edge, open towards the collar (its upper quarter left out). */
   z.object({ kind: z.literal("wreath"), y: Mm, diameterMm: PosMm, widthMm: PosMm }).strict(),
 ]);
 /** One rank: the devices on its board; `bare`: the rank wears no board at all (only the strap, if any, shows). */

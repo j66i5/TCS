@@ -220,15 +220,15 @@
             "kind": "band",
             "y0": 0,
             "y1": 120,
-            "x0": -9,
-            "x1": -6
+            "x0": -5.5,
+            "x1": -3
           },
           {
             "kind": "band",
             "y0": 0,
             "y1": 120,
-            "x0": 6,
-            "x1": 9
+            "x0": 3,
+            "x1": 5.5
           },
           {
             "kind": "star",
@@ -238,7 +238,7 @@
             "points": 5
           }
         ],
-        "note": "field officers: two long stripes in place of the lumens, one 20 mm star between them; stripe width and places low"
+        "note": "field officers: two long stripes (in place of the lumens) near the centre line, one 20 mm star over them; stripe width and places low"
       },
       "podpolkovnik": {
         "elements": [
@@ -246,32 +246,32 @@
             "kind": "band",
             "y0": 0,
             "y1": 120,
-            "x0": -9,
-            "x1": -6
+            "x0": -5.5,
+            "x1": -3
           },
           {
             "kind": "band",
             "y0": 0,
             "y1": 120,
-            "x0": 6,
-            "x1": 9
+            "x0": 3,
+            "x1": 5.5
           },
           {
             "kind": "star",
-            "x": -14,
+            "x": -15,
             "y": 40,
             "diameterMm": 20,
             "points": 5
           },
           {
             "kind": "star",
-            "x": 14,
+            "x": 15,
             "y": 40,
             "diameterMm": 20,
             "points": 5
           }
         ],
-        "note": "as mayor, a pair of 20 mm stars outside the stripes (low)"
+        "note": "as mayor, a pair of 20 mm stars either side of the stripes (low)"
       }
     },
     "sources": [

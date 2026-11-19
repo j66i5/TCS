@@ -90,9 +90,9 @@ function element(e: InsigniaElement, fr: Frame): string {
       return line([[-s, e.y - r], [0, e.y], [s * k, e.y + h], [0, e.y + 2 * h], [-s * k, e.y + h], [0, e.y], [s, e.y - r]], e.widthMm, false);
     }
     case "wreath": {
-      // M12.1a: an open ring (the oak-leaf wreath), its centre line r = (diameter - width) / 2, open over the top third.
+      // M12.1a: an open ring (the oak-leaf wreath), its centre line r = (diameter - width) / 2, open over its top quarter.
       const r = (e.diameterMm - e.widthMm) / 2, pts: P[] = [];
-      for (let k = 0; k <= 24; k++) { const a = ((120 + (300 * k) / 24) * Math.PI) / 180; pts.push([r * Math.cos(a), e.y + r * Math.sin(a)]); }
+      for (let k = 0; k <= 24; k++) { const a = ((135 + (270 * k) / 24) * Math.PI) / 180; pts.push([r * Math.cos(a), e.y + r * Math.sin(a)]); }
       return line(pts, e.widthMm, false);
     }
     case "star": {

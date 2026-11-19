@@ -469,7 +469,13 @@ for the owner's numbers answer after playing, not for more building).
     man outside, tows the hull off the map at 8 km/h; at the end the hulls left are recovered or captured by the side
     holding the ground (roster `VehicleRecord.recovery`, `capturedBy`); `lab -- repair` part B.
 
-- **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) ⬜
+- **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) 🟡 — owner 2026-11-19: a battalion, operations
+  of 3-5 linked battles plus an endless mode, free saving (plan `docs/plans/m12-roster.md`, seven slices).
+  - 12.0a contract gaps ✅ (2026-11-19): `BattleInput.damage` / `wrecksIn`, `BattleResult.damageOut` / `service`
+    (only with `rules.campaignOut`), `ScenarioDef.forces` / `terrain`, campaign package rules (lint, `BattleRunner`),
+    `npm run campaign -- chain`.
+  - 12.0b scenario kinds and company-size battles ⬜ · 12.1a battalion data and rules between battles ⬜ · 12.1b
+    saves ⬜ · 12.2 operations and endless mode ⬜ · 12.3 phone roster interface ⬜ · 12.4 review ⬜
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 
 ## Stage D — breadth

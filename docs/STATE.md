@@ -1,10 +1,18 @@
 # State — handover note
 
-_Last updated: 2026-11-19 (balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-19 (M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M12.0a built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.1).** `BattleInput.damage`
+  (holes, craters, vegetation loss, dug positions of earlier battles on the map) and `wrecksIn` (crewless hulls of
+  side `WRECK_SIDE`, old side in `wreckIn`); `BattleResult.damageOut` and `service` (per man: seconds under effective
+  fire and in contact, rounds, wounds, peak shock and strain) only with `rules.campaignOut` (goldens unchanged);
+  craters carried in are rough ground (`CRATER_NAV`); `ScenarioDef.forces` (roster units and hulls placed and mounted
+  by the generator) and `terrain`; campaign package under the sim lint, `BattleRunner` injected (tools `aiRunner`),
+  `fieldForce` / `sectorTerrain` / `runChain`; `npm run campaign -- chain --faction de|ru|xf`. Next: 12.0b scenario
+  kinds and company-size battles. Open owner question: should a battle's own craters slow movement too (goldens move)?
 - **Balance pass 4 (2026-11-19, branch `claude/balance-4`; owner decisions 2026-11-19 E-H).** H: danger close for
   bursting rounds (`dangerRadiusM` from the fragment data, `stationDangerM`, AGL teams; the gunner-seat floor bug in
   `friendInLine` fixed): own men hit by own vehicle gunners in 10 seeds 11 -> 0 (platoon-vehicles), 22 -> 0

@@ -9228,3 +9228,34 @@ Owner decisions (binding, all the recommended options). Band for the four platoo
   rangefinder, HE stops once its dismounts are within ~70-100 m of the enemy) is accepted as a difference between the
   sides; overhead fire by vehicle guns over own infantry (~1 own man hit per 20 mounted battles) is accepted with the
   current clearance values.
+
+## 2026-11-19 — M12.0a: the battle contract a campaign needs (slice 12.0a, plan docs/plans/m12-roster.md 4.1)
+Built: `BattleInput.damage` (an earlier battle's `state.terrain` on the same map: holes, craters, vegetation loss,
+dug positions; copied into the state at setup, the holes stamped into the wall tables, navigation grids and building
+interiors by the existing `syncTerrainDamage`, exactly as a hole blown in the battle; a hole naming an obstacle or
+building the map lacks is refused) and `BattleInput.wrecksIn` (crewless, empty, destroyed hulls placed after every
+other entity, so the battle's own ids do not move; side `WRECK_SIDE` "-", neither force's, so no side counts, scores,
+settles, re-arms from or recovers them; their old side and status kept in `VehicleState.wreckIn` and given back in
+`BattleResult.wrecks`; nav stamp as `isWreck`, they stop rounds as any hull). `BattleResult.damageOut` (the state's
+terrain at the end, the input's included) and `BattleResult.service` (per `personId`: seconds under effective fire,
+seconds in contact, rounds fired, wounds taken, peak shock and strain) only with `rules.campaignOut: true`: the tally
+(`service.ts`, `SoldierState.service`) is write-only, so a battle with it has the same events, orders and roster out
+as without (tested; only the state hash differs); without it every golden and batch result is byte-identical (golden
+tests pass unchanged, no `golden:update`). **Craters:** in-battle craters never touched the navigation grids, and
+still do not (that would change every golden with a burst); craters carried in are rough ground in every grid,
+`CRATER_NAV` foot x1.3, tracked x1.5, wheeled x2 (game values, low; `ctx.navCraters`, in full builds and patches).
+Owner question for later: should this battle's own craters slow movement too (behaviour change, goldens move)?
+**Vegetation loss** is carried in and out but nothing makes or reads it yet (as before). **Effective fire** for the
+tally: suppression >= 0.1 (`SERVICE_FIRE_SUPPRESSION`, the care rules' level; low). `ScenarioDef.forces` (per side
+roster units and hulls instead of the template build; the tank section, mortars and teams of the template build are
+not added; off-map assets still per battle from the manifest; hulls placed as the side's vehicles, a crewman seated
+by his role's slot in the faction's crew template for that hull type, attacking squads aboard their carriers when
+the seats suffice, other men at the side's start) and `ScenarioDef.terrain` (damage, wrecks; the placement grids keep
+clear of the wrecks) and `campaignOut`. Campaign package: under the sim's determinism lint (eslint `files`) and an
+architecture purity test; app may import campaign (eslint and `ALLOWED_DEPS`); `runner.ts` (`BattleRunner`, tools
+inject the AI: `tools/src/campaign.ts aiRunner`), `carry.ts` (`fieldForce`: the men "fit" or "wounded", hulls in
+service — ok or disarmed, not captured, towed or lost; the settlement's mark cleared on a hull that came through — a
+crew whose hull is gone on foot, off-map assets dropped, a unit whose leader is gone has none until 12.1a appoints one;
+`sectorTerrain`), `chain.ts` (`runChain`), `npm run campaign -- chain --faction de|ru|xf [--battles n]`. Rejected:
+wrecks with their old side (every vehicle count, score and settlement would have needed an exception); the tally from
+events in `runBattle` (lost on a mid-battle save); craters into the grids for this battle's own bursts (goldens).

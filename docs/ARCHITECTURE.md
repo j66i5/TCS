@@ -26,10 +26,10 @@ arrives in a later milestone · ⬜ not yet started (reserved).
 | `data` | sim | JSON data + zod schemas, validating loader, linter, string tables, catalog builder. |
 | `ai` | sim | Controllers that read state and issue **orders** (M0: a trivial wander controller). |
 | `scenario` | sim, data | Force builder (roster from unit templates), demo/test battles; generator in M6. |
-| `campaign` | sim, data, scenario | Empty until M12. |
+| `campaign` | sim, data, scenario | Persistent roster and linked battles (M12): builds battle inputs, reads results; never the AI (battles run through an injected `BattleRunner`, `campaign/src/runner.ts`). Under the sim's determinism lint. |
 | `render` | sim, data | PixiJS renderer. Reads state + events, never writes state. |
 | `ui` | sim, data, render | Touch/mouse input, HUD. Emits intents; the app turns them into orders. |
-| `app` | all but tools/campaign | Browser wiring; owns real time. |
+| `app` | all but tools | Browser wiring; owns real time. |
 | `tools` | sim, data, scenario, ai, campaign | Headless runner, batch runner, golden replays, data linter, screenshots. |
 
 Guards: `packages/tools/test/architecture.test.ts` (import scan, sim purity, maths routing, no faction
@@ -875,6 +875,10 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |
 | 9.3 | Procedural scenario generator | scenario/battle.ts (`buildScenario`, `ScenarioDef`) | ✅ platoon attack and defence on every map kind (M6.2); more scenario kinds M12.0b | `tools/test/scenario-platoon.test.ts`, `tools/test/scenario-mounted.test.ts` |
 | 9.3 | Persistent map damage stored as data | `state.terrain` (components.ts) | ✅ storage (damage is created from M2) | `sim/test/terrain.test.ts` "terrain damage is battle state" |
+| 9.3 | Damage and wrecks of earlier battles in, damage out (M12.0a) | battle.ts `BattleInput.damage` / `wrecksIn`, `BattleResult.damageOut`; setup.ts `applyDamage` / `addWrecks` (`WRECK_SIDE`, `VehicleState.wreckIn`); nav.ts `CRATER_NAV` (craters carried in: rough ground); scenario `ScenarioDef.terrain` | ✅ holes in the wall tables, grids and interiors as a hole blown in the battle; wrecks are crewless hulls of neither force, stamped as `isWreck`; `damageOut` only with `rules.campaignOut` | `tools/test/campaign-contract.test.ts` "craters are rough ground, holes in walls are open, wrecks block the grid and are nobody's" |
+| 9.3 | Per-man service tally for experience and stress history (M12.0a) | service.ts (`serviceSystem`, `serviceOut`; `SoldierState.service`), `BattleResult.service` | ✅ seconds under effective fire and in contact, rounds fired, wounds, peak shock and strain; only with `rules.campaignOut` (write-only: the battle's events are the same) | `campaign-contract.test.ts` "adds damageOut and service only" |
+| 9.3 | Roster forces into the scenario generator (M12.0a) | scenario/battle.ts `ScenarioDef.forces` (`rosterSide`) | ✅ roster units and hulls placed and mounted by the generator (crew seats from the faction's crew templates by role); kinds and company size M12.0b | `campaign-contract.test.ts` "every field of every man and hull", "property: seeded variations" |
+| 9.3 | Campaign package rules (M12.0a) | eslint.config.js (sim lint block covers `packages/campaign/src`), architecture.test.ts rows (campaign: sim, data, scenario; app may import campaign), campaign/src/runner.ts `BattleRunner`, carry.ts, chain.ts; `npm run campaign -- chain` | ✅ | `architecture.test.ts`, `campaign-contract.test.ts` "rejects Math.random", "xf runs a two-battle chain" |
 | 9.4 | Data packs validated with readable errors | data/loader.ts | ✅ | `data/test/loader.test.ts` |
 | 9.5 | All order delivery and contact sharing via comms interface | comms.ts, systems/contacts.ts | ✅ orders (M0) and contacts (M3.3) | `sim/test/orders.test.ts` "delayed by the comms model"; `tools/test/foundation-guards.test.ts` "contact sharing goes only through the comms model" (a mute model: no man ever hears of an enemy from a comrade; only contacts.ts queues reports) |
 | 9.6 | No dependence on frame rate, device or wall clock | sim purity | ✅ | `architecture.test.ts`, tsconfig of sim |

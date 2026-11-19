@@ -1,7 +1,8 @@
 # M12 Persistent roster and linked battles (SPEC 9.3 stage one): build plan
 
-**Progress:** plan written 2026-11-19 (this file, branch `claude/m12`, from main 828e4e0 after balance pass 4). No
-slice built yet.
+**Progress:** plan written 2026-11-19 (this file, branch `claude/m12`, from main 828e4e0 after balance pass 4).
+12.0a built 2026-11-19 (DECISIONS "M12.0a"; craters carried in are rough ground only, this battle's own craters
+still do not touch the grids; wrecks of earlier battles are hulls of side `WRECK_SIDE`).
 
 SPEC 9.3 stage one: the player's force carries over between linked battles; soldiers keep names, experience, wounds,
 fatigue and stress history; vehicles keep damage; replacements arrive green. The owner answered the M12 round on

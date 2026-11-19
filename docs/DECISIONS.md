@@ -9223,3 +9223,8 @@ Owner decisions (binding, all the recommended options). Band for the four platoo
   untouched); `npm run check` alone: `npm test` 1,603 passed, 6 skipped; `test:perf` 23 of 24 (bench-vehicles passed;
   bench-caches 16.8 against 17.8). bench-caches alone, branch and 21eb8a4 alternated three times: each failed once by
   a few per cent and passed twice (container noise, the base included).
+- Owner answers on the open questions (2026-11-19, all the recommended options): the Russian hold gap of +5 points
+  (target 10, within noise at 40 seeds) is accepted, no further tuning; the BMP-2's larger HE danger zone (no laser
+  rangefinder, HE stops once its dismounts are within ~70-100 m of the enemy) is accepted as a difference between the
+  sides; overhead fire by vehicle guns over own infantry (~1 own man hit per 20 mounted battles) is accepted with the
+  current clearance values.

@@ -4,6 +4,7 @@ import { emptyLogistics, logisticsFromEvents, tracerMap, type SideLogistics } fr
 import { rosterStatus } from "./impair";
 import { isAssetUnit, isOffMap } from "./offmap";
 import { battleScore } from "./systems/objectives";
+import { exitedOf } from "./systems/exits";
 import type { BattleInput, BattleResult, Controller, PrisonerResult, RunOptions, SaveGame, SideResult, UnitInput } from "./battle";
 import type { SimState } from "./state";
 import type { SimContext } from "./context";
@@ -91,6 +92,8 @@ function summarize(
     // mounted: ok (a man who got away counts wherever he is)
     for (const [, s] of state.soldier.entries()) if (s.freedFrom === sd.id) escaped++;
     if (escaped > 0) out.prisonersEscaped = escaped;
+    // (M12.0b: out by the side's exit zones.)
+    if ((input.rules.exits ?? []).length > 0) { const sv = exitedOf(state, sd.id).men; if (sv > 0) out.saved = sv; }
     // Vehicles (M7): only for a side that has any, so infantry results keep their shape.
     let vs: NonNullable<SideResult["vehicles"]> | null = null;
     for (const [, v] of state.vehicle.entries()) {
@@ -103,6 +106,7 @@ function summarize(
       // (M11.7b: a hull towed off the map counts by its status and as towed; one recovered at the end too.)
       if (v.recovery?.state === "towed") vs.towed = (vs.towed ?? 0) + 1;
       else if (v.recovery?.state === "recovered") vs.recovered = (vs.recovered ?? 0) + 1;
+      if (v.exited !== undefined) vs.exited = (vs.exited ?? 0) + 1;
     }
     if (vs) out.vehicles = vs;
     return out;

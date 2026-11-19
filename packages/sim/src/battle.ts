@@ -138,6 +138,9 @@ export interface ForceInput {
   offMap?: { vehicleId: string; kind: OffMapKind }[];
   /** Whether this side attacks or defends (scenario). Optional: absent = not stated. */
   posture?: "attack" | "defend";
+  /** M12.0b: the side's plan in the battle (scenario kinds, SPEC 6.9), for its commander (AI or the player's briefing).
+   *  The simulation does not read it. Absent: the plan follows from `posture` and the objectives (every battle before). */
+  plan?: ForcePlan;
   /** M11.1: crates and cans of this side on the ground: each a cache (M11.3: an entity with a place, a container and
    *  a `cache` record of this side). `point`: the supply point of the side's nearest platoon. */
   caches?: { x: number; y: number; load: ItemStack[]; point?: boolean }[];
@@ -145,6 +148,23 @@ export interface ForceInput {
    *  (supply vehicle runs, combat vehicles' rear runs, the support top-up). `supportTopUp`: `rounds` moved into the
    *  side's off-map mortar or artillery section every `everyS` (owner: allotments topped up by deliveries). */
   stock?: { load: ItemStack[]; supportTopUp?: { rounds: number; everyS: number } };
+}
+
+/**
+ * M12.0b: what a side is to do in a battle of a scenario kind (`ForceInput.plan`): "attack" / "defend" the objectives;
+ * "meeting" advance to the objectives in the middle (both sides); "ambush" lie in wait (`ambushRangeM`) and spring it;
+ * "transit" move along `route` to the side's exit zone `exit` (the ambushed side); "withdraw" hold the objectives until
+ * `untilS`, then get out by `exit`; "follow" attack the objectives and, from `untilS` on, follow the enemy up toward
+ * `exit` (the enemy's exit). `reserve`: callsigns of the side's units arriving late (`UnitInput.arriveS`) that attack
+ * on their own when they come (a counter-attack, reinforcements).
+ */
+export interface ForcePlan {
+  posture: "attack" | "defend" | "meeting" | "ambush" | "transit" | "withdraw" | "follow";
+  untilS?: number;
+  exit?: { x0: number; y0: number; x1: number; y1: number };
+  route?: { x: number; y: number }[];
+  reserve?: string[];
+  ambushRangeM?: number;
 }
 
 /**
@@ -205,10 +225,14 @@ export interface SideResult {
   prisonersTaken?: number;
   prisonersEvacuated?: number;
   prisonersEscaped?: number;
+  /** M12.0b (absent: none): men out by the side's exit zones (saved; counted in fit or wounded as they left). */
+  saved?: number;
   /** Vehicles (M7): how many started and how they ended; absent for a force without vehicles. */
   vehicles?: { start: number; ok: number; immobilised: number; disarmed: number; abandoned: number; destroyed: number; captured: number;
     /** M11.7b (absent: none): towed off the map in the battle; recovered by the own side at the end. */
-    towed?: number; recovered?: number };
+    towed?: number; recovered?: number;
+    /** M12.0b (absent: none): out by the side's exit zones with everyone aboard (counted by their status too). */
+    exited?: number };
 }
 
 /** A prisoner at the end of a battle (M11.9b, `BattleResult.prisoners`). */

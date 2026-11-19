@@ -361,7 +361,7 @@ export interface SoldierState {
    * (off the map) from then on: his wounds no longer run their course here, he counts as out, and his roster status
    * is "evacuated" (the aid station's outcome is M10.6b). Absent: not evacuated.
    */
-  evacuated?: { tick: number; vehicle?: EntityId; via?: "ambulance" | "vehicle" | "end" };
+  evacuated?: { tick: number; vehicle?: EntityId; via?: "ambulance" | "vehicle" | "end" | "exit" };
   /** M11.9c review fix: the side he got away from as a prisoner in this battle (escaped, freed by his own men, or back
    *  with his side at the end; `SideResult.prisonersEscaped`). Absent: never. */
   freedFrom?: SideId;
@@ -1089,6 +1089,8 @@ export interface VehicleState {
   towedBy?: EntityId;
   /** M11.7b: towed off the map (it and its crew aboard are off the map for good, `isOffMap`). */
   towAway?: true;
+  /** M12.0b: left the map by its side's exit zone at this tick, with everyone aboard (`isOffMap` for good; saved). */
+  exited?: number;
   /** M12.0a: a wreck of an earlier battle (`BattleInput.wrecksIn`, side `WRECK_SIDE`): the side it was and its status
    *  then, for `BattleResult.wrecks`. */
   wreckIn?: { side: SideId; status: VehicleStatus };

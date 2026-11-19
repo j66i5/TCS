@@ -203,6 +203,7 @@
   "aar.reason.side-broken": "{loser} broke.",
   "aar.reason.side-eliminated": "{loser} has nobody left standing (all down, fled or surrendered).",
   "aar.reason.scenario": "",
+  "aar.reason.side-withdrew": "A side got everyone it could out by its exit.",
   "aar.score": "{side}: {objectives} for objectives held, {down} men lost (down or surrendered) - score {score}.",
   "aar.sideHead": "{side}: {down} of {total} down or surrendered",
   "aar.man": "{rank} {name} ({callsign}, {role}): {status}",

@@ -24,6 +24,9 @@ export type SimEvent =
   | { kind: "unit.arrived"; tick: number; unit: EntityId }
   /** M11.1: a unit arriving late (a wave) has entered the battle. */
   | { kind: "unit.entered"; tick: number; unit: EntityId; side: SideId }
+  /** M12.0b: a man on foot (`soldier`) or a hull with everyone aboard (`vehicle`) left the map by its side's exit zone
+   *  (`rules.exits`): off the map for good, saved. */
+  | { kind: "unit.exited"; tick: number; side: SideId; soldier?: EntityId; vehicle?: EntityId; men: number }
   | { kind: "move.noRoute"; tick: number; target: EntityId }
   | {
       kind: "impact"; tick: number; x: number; y: number; z: number;
@@ -340,7 +343,8 @@ export type SimEvent =
 
 export type SimEventKind = SimEvent["kind"];
 
-export type BattleEndReason = "time-limit" | "side-eliminated" | "side-broken" | "scenario";
+/** M12.0b: "side-withdrew": a side with an exit zone has nobody left on the map (all out by the exit or down). */
+export type BattleEndReason = "time-limit" | "side-eliminated" | "side-broken" | "scenario" | "side-withdrew";
 
 /** Collects events during a tick. */
 export class EventSink {

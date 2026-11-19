@@ -36,10 +36,12 @@ export function buildInitialState(input: BattleInput): SimState {
     const offMap = new Set((force.offMap ?? []).map((a) => a.vehicleId));
     // Vehicles first (M7): crews are seated in them as their units are added. (Off-map assets come after every
     // force, M10.6a, so that the entities of the battle itself keep the ids they have without them.)
-    const vehicles = addVehicles(state, force, input.catalog, (id) => !offMap.has(id));
+    // (M12.0b: the hulls of a unit arriving late come with it.)
+    const late = lateHulls(force);
+    const vehicles = addVehicles(state, force, input.catalog, (id) => !offMap.has(id) && !late.has(id));
     // (A unit arriving late, M11.1, enters at its time: arrivalSystem.)
     for (const u of force.units) if ((u.arriveS ?? 0) <= 0 && (u.vehicleId === undefined || !offMap.has(u.vehicleId))) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
-    seatPassengers(state, force, vehicles, input.catalog);
+    seatPassengers(state, force, vehicles, input.catalog, late.size > 0 ? (id) => !late.has(id) : undefined);
   }
   // Off-map assets (M10.6a): their crews are nobody's to order; they wait at the off-map park until called. (M11.9b:
   // the military police come after everything else, below, so that no other entity moves its id.)
@@ -242,13 +244,21 @@ function seatCrew(state: SimState, uid: EntityId, vid: EntityId, members: Entity
   }
 }
 
-/** Men placed `mountedIn` a vehicle (passengers), after all units exist. */
-function seatPassengers(state: SimState, force: ForceInput, vehicles: Map<string, EntityId>, catalog: Catalog): void {
+/** M12.0b: the vehicle ids crewed by the force's units that arrive late (`arriveS`): they come on with them. */
+export function lateHulls(force: ForceInput): Set<string> {
+  const out = new Set<string>();
+  const walk = (u: UnitInput) => { if (u.vehicleId !== undefined) out.add(u.vehicleId); u.subunits.forEach(walk); };
+  for (const u of force.units) if ((u.arriveS ?? 0) > 0) walk(u);
+  return out;
+}
+
+/** Men placed `mountedIn` a vehicle (passengers), after all units exist (`which`: only into these vehicle ids). */
+function seatPassengers(state: SimState, force: ForceInput, vehicles: Map<string, EntityId>, catalog: Catalog, which?: (vehicleId: string) => boolean): void {
   const byPerson = new Map<string, EntityId>();
   // mounted: ok roster mapping (every man, aboard or not)
   for (const [id, ident] of state.identity.entries()) if (ident.side === force.side) byPerson.set(ident.personId, id);
   for (const p of force.placements) {
-    if (p.mountedIn === undefined) continue;
+    if (p.mountedIn === undefined || (which !== undefined && !which(p.mountedIn))) continue;
     const vid = vehicles.get(p.mountedIn);
     if (vid === undefined) throw new Error(`soldier ${p.personId}: no vehicle '${p.mountedIn}'`);
     const sid = byPerson.get(p.personId);
@@ -558,7 +568,13 @@ export function arrivalSystem(ctx: SimContext, state: SimState, events: EventSin
   for (const l of ctx.late) {
     if (state.tick < l.tick || (state.arrived ?? []).includes(l.unit.key)) continue;
     const first = state.nextEntityId;
-    const uid = addUnit(state, l.unit, null, l.side, l.faction, l.placements, ctx.catalog, new Map());
+    // (M12.0b: its hulls come on with it, crews in their seats, its riders aboard.)
+    const hulls = new Set<string>();
+    const walk = (u: UnitInput) => { if (u.vehicleId !== undefined) hulls.add(u.vehicleId); u.subunits.forEach(walk); };
+    walk(l.unit);
+    const vehicles = hulls.size > 0 && l.force ? addVehicles(state, l.force, ctx.catalog, (id) => hulls.has(id)) : new Map<string, EntityId>();
+    const uid = addUnit(state, l.unit, null, l.side, l.faction, l.placements, ctx.catalog, vehicles);
+    if (hulls.size > 0 && l.force) seatPassengers(state, l.force, vehicles, ctx.catalog, (id) => hulls.has(id));
     (state.arrived ??= []).push(l.unit.key);
     events.emit({ kind: "unit.entered", tick: state.tick, unit: uid, side: l.side });
     // (What its men carry enters the battle with them: a delivery from off the map, for the conservation guard.)

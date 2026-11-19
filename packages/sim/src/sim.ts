@@ -47,6 +47,7 @@ import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
 import { initObjectives, objectiveSystem } from "./systems/objectives";
+import { exitSystem } from "./systems/exits";
 import { initSupport, supportSystem } from "./systems/support";
 import { spottingSystem } from "./systems/spotting";
 import { contactSystem } from "./systems/contacts";
@@ -86,7 +87,7 @@ export function createContext(input: BattleInput): SimContext {
     ...(input.damage && input.damage.craters.length > 0 ? { navCraters: input.damage.craters.map((c) => ({ x: c.x, y: c.y, radiusM: c.radiusM })) } : {}),
     late: input.forces.flatMap((f) => {
       const placements = new Map(f.placements.map((p) => [p.personId, p]));
-      return f.units.filter((u) => (u.arriveS ?? 0) > 0).map((u) => ({ side: f.side, faction: f.faction, unit: u, tick: secondsToTicks(u.arriveS!), placements }));
+      return f.units.filter((u) => (u.arriveS ?? 0) > 0).map((u) => ({ side: f.side, faction: f.faction, unit: u, tick: secondsToTicks(u.arriveS!), placements, force: f }));
     }),
   };
 }
@@ -200,6 +201,7 @@ export function step(sim: Sim): SimEvent[] {
   drillSystem(ctx, state, events);
   // Getting in and out of vehicles, seat swaps (M7.2; returns at once without vehicles).
   boardingSystem(ctx, state, events);
+  if (ctx.rules.exits !== undefined && ctx.rules.exits.length > 0) exitSystem(ctx, state, events); // (M12.0b)
   objectiveSystem(ctx, state, events);
   if (ctx.rules.prepared !== undefined) positionsSystem(ctx, state, events); // (M11 hold battle)
   // Late arrivals (M11.1): a wave enters at its time (once a second; nothing without late units).

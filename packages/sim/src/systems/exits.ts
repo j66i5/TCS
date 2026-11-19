@@ -17,11 +17,15 @@ import { isAble } from "../impair";
 import { isAssetUnit, isOffMap, OFF_MAP_PARK, parkOffMap } from "../offmap";
 import type { SimState, SimView } from "../state";
 
-/** Is (x, y) inside one of this side's exit zones? */
-export function inExit(ctx: SimContext, side: SideId, x: number, y: number): boolean {
+/** A hull counts as in a zone when its centre is within this much of it (m): a hull cannot drive its centre to the very
+ *  edge of the map (game value). */
+export const EXIT_HULL_SLACK_M = 10;
+
+/** Is (x, y) inside one of this side's exit zones (`slack`: the zone grown by that much, m)? */
+export function inExit(ctx: SimContext, side: SideId, x: number, y: number, slack = 0): boolean {
   for (const z of ctx.rules.exits ?? []) {
     if (z.side !== side) continue;
-    if (x >= Math.min(z.x0, z.x1) && x <= Math.max(z.x0, z.x1) && y >= Math.min(z.y0, z.y1) && y <= Math.max(z.y0, z.y1)) return true;
+    if (x >= Math.min(z.x0, z.x1) - slack && x <= Math.max(z.x0, z.x1) + slack && y >= Math.min(z.y0, z.y1) - slack && y <= Math.max(z.y0, z.y1) + slack) return true;
   }
   return false;
 }
@@ -39,7 +43,7 @@ export function exitSystem(ctx: SimContext, state: SimState, events: EventSink):
     if (isOffMap(v) || v.offMap !== undefined || v.wreckIn !== undefined) continue;
     if ((v.status !== "ok" && v.status !== "disarmed") || v.unit === null || v.towedBy !== undefined || v.recoveryBy !== undefined) continue;
     const t = state.transform.get(vid);
-    if (!t || !inExit(ctx, v.side, t.x, t.y)) continue;
+    if (!t || !inExit(ctx, v.side, t.x, t.y, EXIT_HULL_SLACK_M)) continue;
     let men = 0;
     for (const sid of v.seats) {
       if (sid === null) continue;

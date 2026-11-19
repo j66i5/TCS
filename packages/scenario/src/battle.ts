@@ -42,7 +42,7 @@ export const SCENARIO_KINDS = ["attack", "defence-counterattack", "meeting", "am
  *  as shares of the time limit, the ambush (where it lies: along the route past the middle, off it), the map's size per
  *  kind (m) and its growth with the force (men of both sides per `menPerBase`, at most `maxScale`), the company. */
 export const SCENARIO_KIND = {
-  exitStripM: 40, exitPointsPerMan: 2, exitPointsPerVehicle: 10,
+  exitStripM: 15, exitPointsPerMan: 2, exitPointsPerVehicle: 10,
   reserveAtShare: 0.4, delayUntilShare: 0.35,
   ambushRangeM: 220, ambushAlongShare: 0.05, ambushOffShare: 0.17, ambushOffM: [110, 200] as const, ambushSpacingM: 40,
   mapM: { attack: [1200, 900], "defence-counterattack": [1200, 900], meeting: [1400, 900], ambush: [1600, 1000], withdrawal: [1400, 900] } as Record<string, readonly [number, number]>,
@@ -299,6 +299,9 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   // side's at its own edge.
   const strip = (edge: "blue" | "red") => (edge === "blue" ? { x0: 0, y0: 0, x1: SCENARIO_KIND.exitStripM, y1: H } : { x0: W - SCENARIO_KIND.exitStripM, y0: 0, x1: W, y1: H });
   const exitZone = kind === "ambush" ? { side: def.attacker, ...strip(defender) } : kind === "withdrawal" ? { side: defender, ...strip(defender) } : null;
+  // A side that attacks (both in a meeting; the follower of a withdrawal) and gives the attack up leaves by its own map
+  // edge (its break-off exit: saved, no points), so a broken-off attack ends the battle instead of waiting at its start.
+  const breakOffSides = kind === "meeting" ? ["blue", "red"] : kind === "ambush" ? [] : [def.attacker];
   // The defender is built first: the attacker's start (dead ground) depends on where the defenders stand.
   let observers: { x: number; y: number; z: number; thermal?: boolean }[] = [];
   const buildSide = (side: "blue" | "red", s: number): ForceInput => {
@@ -430,7 +433,9 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
       const team = buildForceWithVehicles(data, { faction, template: tpl, seed: def.seed * seedK + s * 13, keyPrefix: `${side}-${prefix}`, number: 1 }).unit;
       units.push(team);
       const flank = (def.seed % 2 === 0 ? -1 : 1) * (other ? -1 : 1); // (the missile team: the flank away from the second objective)
-      let bx = stance !== "edge" ? Math.min(Math.max(mainP.x + dx * (other ? 250 : 300), 20), W - 20) : side === "blue" ? Math.max(20, W * 0.08 - 150) : Math.min(W - 20, W * 0.92 + 150);
+      // (M12.0b: clear of the break-off exit along the map edge in the new kinds.)
+      const em = def.kind === "platoon-attack" ? 20 : 30;
+      let bx = stance !== "edge" ? Math.min(Math.max(mainP.x + dx * (other ? 250 : 300), em), W - em) : side === "blue" ? Math.max(em, W * 0.08 - 150) : Math.min(W - em, W * 0.92 + 150);
       let by = stance !== "edge" ? mainP.y + (other ? 60 * flank : 0) : H / 2 + flank * H * 0.3;
       // Review fix: the attacker's team starts in dead ground as its vehicles do (hidden from the defence's sights
       // and men, nearest the flank spot, clear of the hulls); else next to the vehicles' start, behind them.
@@ -537,7 +542,11 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   if (def.airRecon && def.airRecon.length > 0) rules.airRecon = [...def.airRecon];
   if (def.campaignOut === true) rules.campaignOut = true;
   // M12.0b: the kinds' exit zones and each side's plan (its commander's posture); the late platoons attack on their own.
-  if (exitZone) rules.exits = [{ ...exitZone, pointsPerMan: SCENARIO_KIND.exitPointsPerMan, pointsPerVehicle: SCENARIO_KIND.exitPointsPerVehicle }];
+  const breakOff = kind === "attack" && def.kind === "platoon-attack" ? [] : breakOffSides;
+  if (exitZone || breakOff.length > 0) rules.exits = [
+    ...(exitZone ? [{ ...exitZone, pointsPerMan: SCENARIO_KIND.exitPointsPerMan, pointsPerVehicle: SCENARIO_KIND.exitPointsPerVehicle }] : []),
+    ...breakOff.map((side) => ({ side, ...strip(side as "blue" | "red"), pointsPerMan: 0, pointsPerVehicle: 0 })),
+  ];
   const zone = exitZone ? { x0: exitZone.x0, y0: exitZone.y0, x1: exitZone.x1, y1: exitZone.y1 } : undefined;
   for (const f of forces) {
     const att = f.side === def.attacker;
@@ -546,8 +555,9 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
     if (kind === "meeting") plan = { posture: "meeting" };
     else if (kind === "ambush") plan = att ? { posture: "transit", exit: zone!, route: [{ x: def.attacker === "blue" ? 10 : W - 10, y: H / 2 }, { x: def.attacker === "blue" ? W - 10 : 10, y: H / 2 }] } : { posture: "ambush", ambushRangeM: SCENARIO_KIND.ambushRangeM };
     else if (kind === "withdrawal") plan = att ? { posture: "follow", untilS: delayUntil, exit: zone! } : { posture: "withdraw", untilS: delayUntil, exit: zone! };
-    else if (kind === "defence-counterattack" || reserve.length > 0) plan = { posture: att ? "attack" : "defend" };
+    else if (def.kind !== "platoon-attack" || reserve.length > 0) plan = { posture: att ? "attack" : "defend" };
     if (plan && reserve.length > 0) plan.reserve = reserve;
+    if (plan && breakOff.includes(f.side)) plan.breakOff = strip(f.side as "blue" | "red");
     if (plan) f.plan = plan;
   }
   const out: BattleInput = { map, catalog, forces, rules, seed: def.seed, orders: [] };

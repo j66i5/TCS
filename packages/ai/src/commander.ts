@@ -290,7 +290,10 @@ function launcherReady(view: SimView, input: BattleInput, m: EntityId): { range:
  *  `attack`: it attacks even where its side holds the objectives, a reserve's counter-attack). */
 export interface CommanderScope { callsign?: string; except?: readonly string[]; attack?: boolean }
 
-export function commanderController(side: SideId, input: BattleInput, only?: CommanderScope): Controller {
+/** M12.0b: the platoon commander, with its current phase readable ("withdraw": it has broken the attack off). */
+export type CommanderController = Controller & { phase(): string };
+
+export function commanderController(side: SideId, input: BattleInput, only?: CommanderScope): CommanderController {
   const objectives: readonly ObjectiveDef[] = input.rules.objectives;
   const W = input.map.widthM, H = input.map.heightM;
   const force = input.forces.find((f) => f.side === side)!;
@@ -2083,7 +2086,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
     loadState: (d) => { mem = JSON.parse(JSON.stringify(d)) as Memory; },
   };
   // (M9.4b: it also keeps its platoons' drones up, over where it wants to look.)
-  return withDrones(ctl, input);
+  // (M12.0b: its phase can be read by a commander above it: a posture's break-off.)
+  return Object.assign(withDrones(ctl, input), { phase: (): string => mem.phase });
 }
 
 function clamp(v: number, max: number): number { return Math.min(Math.max(v, 5), max - 5); }

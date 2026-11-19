@@ -3,6 +3,9 @@
 **Progress:** plan written 2026-11-19 (this file, branch `claude/m12`, from main 828e4e0 after balance pass 4).
 12.0a built 2026-11-19 (DECISIONS "M12.0a"; craters carried in are rough ground only, this battle's own craters
 still do not touch the grids; wrecks of earlier battles are hulls of side `WRECK_SIDE`).
+12.0b built 2026-11-19 (DECISIONS "M12.0b"; kinds attack / defence-counterattack / meeting / ambush / withdrawal,
+exit zones, objectives scoring at a time, late units with their hulls, a company per side, `bench-company` and the
+per-battle cap in `core/campaign.json`; the company headquarters is not in the data yet: it comes with 12.1a).
 
 SPEC 9.3 stage one: the player's force carries over between linked battles; soldiers keep names, experience, wounds,
 fatigue and stress history; vehicles keep damage; replacements arrive green. The owner answered the M12 round on

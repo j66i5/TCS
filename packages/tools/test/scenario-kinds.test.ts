@@ -89,11 +89,16 @@ describe("M12.0b exit zones", () => {
 });
 
 describe("M12.0b scenario kinds", () => {
-  it("platoon-attack and attack build the same battle", () => {
+  it("attack is platoon-attack with the plans and the attacker's break-off exit (platoon-attack unchanged)", () => {
     const a = buildScenario(data, { kind: "platoon-attack", seed: 4, mapKind: "village", factions: ["de", "ru"], attacker: "red", vehicles: true }, ON_POSTS);
     const b = buildScenario(data, { kind: "attack", seed: 4, mapKind: "village", factions: ["de", "ru"], attacker: "red", vehicles: true }, ON_POSTS);
-    expect(JSON.stringify({ ...b, catalog: null })).toBe(JSON.stringify({ ...a, catalog: null }));
     expect(a.forces.some((f) => f.plan !== undefined)).toBe(false);
+    expect(a.rules.exits).toBeUndefined();
+    expect(b.rules.exits).toEqual([{ side: "red", x0: b.map.widthM - 15, y0: 0, x1: b.map.widthM, y1: b.map.heightM, pointsPerMan: 0, pointsPerVehicle: 0 }]);
+    expect(b.forces.find((f) => f.side === "red")!.plan).toEqual({ posture: "attack", breakOff: { x0: b.map.widthM - 15, y0: 0, x1: b.map.widthM, y1: b.map.heightM } });
+    expect(b.forces.find((f) => f.side === "blue")!.plan).toEqual({ posture: "defend" });
+    const strip = (i: BattleInput) => JSON.stringify({ ...i, catalog: null, rules: { ...i.rules, exits: undefined }, forces: i.forces.map((f) => ({ ...f, plan: undefined })) });
+    expect(strip(b)).toBe(strip(a));
   });
 
   it("every kind generates on every map kind, from templates and from roster forces", () => {
@@ -106,8 +111,14 @@ describe("M12.0b scenario kinds", () => {
         if (p.mountedIn !== undefined) continue;
         expect(p.x).toBeGreaterThanOrEqual(0); expect(p.x).toBeLessThanOrEqual(input.map.widthM);
       }
-      if (kind !== "attack") expect(input.forces.every((f) => f.plan !== undefined)).toBe(true);
-      if (kind === "ambush" || kind === "withdrawal") expect(input.rules.exits?.length).toBe(1);
+      expect(input.forces.every((f) => f.plan !== undefined)).toBe(true);
+      // The kinds' exits: the ambushed side's and the withdrawing side's; each attacking side's break-off at its own edge.
+      expect(input.rules.exits?.length).toBe(kind === "meeting" || kind === "withdrawal" ? 2 : 1);
+      // Nobody starts in an exit zone of his side.
+      for (const f of input.forces) for (const p of f.placements) {
+        if (p.mountedIn !== undefined) continue;
+        for (const z of input.rules.exits!) if (z.side === f.side) expect(p.x < Math.min(z.x0, z.x1) || p.x > Math.max(z.x0, z.x1)).toBe(true);
+      }
       if (kind === "withdrawal") expect(input.rules.objectives.every((o) => o.untilS !== undefined)).toBe(true);
       if (kind === "meeting") expect(input.rules.objectives.every((o) => o.holder === null)).toBe(true);
       if (kind === "defence-counterattack") {

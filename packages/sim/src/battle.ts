@@ -165,6 +165,8 @@ export interface ForcePlan {
   route?: { x: number; y: number }[];
   reserve?: string[];
   ambushRangeM?: number;
+  /** Where the side leaves the map when it gives its attack up (its own edge; an exit zone of the side, no points). */
+  breakOff?: { x0: number; y0: number; x1: number; y1: number };
 }
 
 /**

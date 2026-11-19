@@ -15,6 +15,8 @@
  *   for them a little, and everyone makes for the exit zone at its own edge.
  * - "follow": the platoon commander's attack until `untilS`; then every unit follows the enemy up toward his exit
  *   (the nearest enemy its side knows within `followNearM`, else the exit zone, stopping short of it).
+ * - break-off (`plan.breakOff`): once the platoon commander has broken its attack off (`phase()` "withdraw") for
+ *   `breakOffAfterS`, the side leaves by its own map edge (the break-off exit zone), and the battle ends when it is out.
  *
  * Game values in POSTURES_AI (confidence low).
  */
@@ -30,16 +32,21 @@ export const POSTURES_AI = {
   followNearM: 500, followShortM: 80,
   /** Ambush: once sprung and this long after, squads close on the enemy they know within `pursueM` of the ambush. */
   pursueAfterS: 120, pursueM: 350,
+  /** Break-off: once the platoon commander has broken the attack off this long (its men remounting), the side leaves by
+   *  its break-off exit. */
+  breakOffAfterS: 60,
 } as const;
 
 interface Zone { x0: number; y0: number; x1: number; y1: number }
 
 const clampTo = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 
-/** Where a unit at (x, y) makes for in the zone: its middle across, level with the unit along it; inside the map. */
+/** Where a unit at (x, y) makes for in the zone: 2 m from its outer side (the map edge) for a strip along an edge, else
+ *  its middle across; level with the unit along it; inside the map. */
 function zonePoint(z: Zone, _x: number, y: number, W: number, H: number): { x: number; y: number } {
   const x0 = Math.min(z.x0, z.x1), x1 = Math.max(z.x0, z.x1), y0 = Math.min(z.y0, z.y1), y1 = Math.max(z.y0, z.y1);
-  return { x: clampTo((x0 + x1) / 2, 1, W - 1), y: clampTo(clampTo(y, y0 + 5, y1 - 5), 1, H - 1) };
+  const x = x0 <= 0 ? 2 : x1 >= W ? W - 2 : (x0 + x1) / 2;
+  return { x: clampTo(x, 1, W - 1), y: clampTo(clampTo(y, y0 + 5, y1 - 5), 1, H - 1) };
 }
 
 const able = (s: SoldierState | undefined) => s !== undefined && !isOut(s) && s.mental.behaviour !== "routed";
@@ -82,8 +89,12 @@ function knownEnemies(view: SimView, side: SideId): { x: number; y: number }[] {
 }
 
 interface PostureMemory { last: Record<string, number>; phase?: string; phaseTick?: number; mountUntil?: number; sprung?: number; fireFree?: true;
+  /** Break-off: when the commander was first seen withdrawing, and whether the side is leaving. */
+  brokeOff?: number; leaving?: true;
   /** Where each unit was when last looked at (x, y, tick): one on its way that has not moved is sent on again. */
-  pos?: Record<string, [number, number, number]> }
+  pos?: Record<string, [number, number, number]>;
+  /** Crews of hulls that got stuck and were told to let their riders out (once each). */
+  dismounted?: EntityId[] }
 
 /** Orders that send units toward `goal(x, y)` (null: leave it), each again once it has stood still `idleS`. */
 function sendOn(view: SimView, side: SideId, tick: number, mem: PostureMemory, goal: (x: number, y: number) => { x: number; y: number } | null, footMode: string, hold?: (id: EntityId) => boolean): Order[] {
@@ -99,7 +110,15 @@ function sendOn(view: SimView, side: SideId, tick: number, mem: PostureMemory, g
     if (!p || hypot2(u.x - p[0], u.y - p[1]) >= POSTURES_AI.stuckM) mem.pos[key] = [u.x, u.y, tick];
     const stuck = p !== undefined && tick - p[2] >= stuckT && hypot2(u.x - p[0], u.y - p[1]) < POSTURES_AI.stuckM;
     if ((!u.idle && !stuck) || tick - last < idleT) continue;
-    if (stuck) mem.pos[key] = [u.x, u.y, tick];
+    if (stuck) {
+      mem.pos[key] = [u.x, u.y, tick];
+      // A hull that does not get on (a broken track the crew cannot mend in time): its riders get out and walk.
+      if (u.vehicle !== undefined && !(mem.dismounted ??= []).includes(u.id)) {
+        const v = view.vehicle.get(u.vehicle);
+        const riders = (v?.seats ?? []).some((m) => m !== null && view.identity.get(m)?.unit !== u.id);
+        if (riders) { mem.dismounted.push(u.id); out.push({ tick, issuer: side, target: u.id, kind: "dismount" }); }
+      }
+    }
     const g = goal(u.x, u.y);
     if (!g || hypot2(g.x - u.x, g.y - u.y) < 15) continue;
     mem.last[key] = tick;
@@ -147,6 +166,22 @@ export function sideCommander(side: SideId, input: BattleInput): Controller {
   });
   const think = (view: SimView, tick: number): Order[] => {
     const out: Order[] = [];
+    // Break-off: the commander has given the attack up (before any "follow" phase): the side leaves by its own edge.
+    if (plan.breakOff && main && (plan.posture !== "follow" || untilT === null || tick < untilT)) {
+      if (mem.leaving !== true && main.phase() === "withdraw") {
+        mem.brokeOff ??= tick;
+        if (tick - mem.brokeOff >= secondsToTicks(POSTURES_AI.breakOffAfterS)) mem.leaving = true;
+      }
+      if (mem.leaving === true) {
+        if (tick % every === 0) {
+          if (mem.fireFree !== true) { mem.fireFree = true; out.push(...fireFree(view, side, tick, true)); }
+          const z = plan.breakOff;
+          out.push(...sendOn(view, side, tick, mem, (x, y) => zonePoint(z, x, y, W, H), "run"));
+        }
+        out.push(...reserveOrders(view, tick));
+        return out;
+      }
+    }
     switch (plan.posture) {
       case "attack": case "defend": case "meeting":
         out.push(...main!.think(view, tick));

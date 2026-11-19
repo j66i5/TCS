@@ -355,8 +355,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .cmp.look-flat .cmp-top { background: #121a10; border-bottom-width: 2px; }
 .cmp-title { font-weight: 700; letter-spacing: 0.04em; font-size: 17px; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cmp-clock { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 14px; white-space: nowrap; }
-.cmp-scroll { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 10px calc(16px + env(safe-area-inset-bottom, 0)); }
-.cmp-body { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
+.cmp-scroll { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 10px; }
+.cmp-body { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; padding: 10px 0 calc(16px + env(safe-area-inset-bottom, 0)); }
+.cmp-body:has(> .cmp-actions.sticky:last-child) { padding-bottom: 0; }
 .cmp-sub { max-width: 760px; margin: 8px auto 0; color: var(--muted); font-size: 13px; }
 .cmp-card { background: var(--c-card); border: 1px solid var(--c-line); border-radius: var(--radius); padding: 10px 12px; }
 .cmp.look-photo .cmp-card { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04); }

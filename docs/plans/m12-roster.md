@@ -15,6 +15,9 @@ ID repair, canonical export / import, app/src/campaign-store.ts, mid-battle save
 12.2 built 2026-11-19 (DECISIONS "M12.2"; `campaign/src/operation.ts` and `flow.ts`, node types and the transition
 table in `core/campaign.json`, flank battles, endless mode, sector memory, the enemy committing by ratio,
 `npm run campaign -- batch`; not split into 12.2a/b).
+12.3 built 2026-11-19 (DECISIONS "M12.3"; `campaign/src/view.ts`, `ui/src/campaign.ts`, `app/src/campaign/` (page,
+Web Worker, played battle hand-back through `battleResultOf`), `makeLeader`, `reviseForces`; `npm run e2e:campaign`,
+`npm run screenshot -- --scene campaign`; the owner's two linked battles on his phone still to come).
 
 SPEC 9.3 stage one: the player's force carries over between linked battles; soldiers keep names, experience, wounds,
 fatigue and stress history; vehicles keep damage; replacements arrive green. The owner answered the M12 round on

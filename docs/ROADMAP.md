@@ -491,7 +491,12 @@ for the owner's numbers answer after playing, not for more building).
     2), sector memory (craters, holes, wrecks), the enemy battalion committing by ratio and remembering its losses,
     `proposeChoice` / `validateCommit`, the state machine `campaign/src/flow.ts` (briefing, choose, battle played or
     auto-resolved, after-battle, replenishment, operation end), `npm run campaign -- batch`.
-  - 12.3 phone roster interface ⬜ · 12.4 review ⬜
+  - 12.3 phone roster interface ✅ (2026-11-19; owner's phone test pending): `?campaign=1` opens the campaign page
+    (home: new campaign, continue, slots load / save / rename / delete / export / import; battalion tree; man card with
+    "Make leader"; briefing with the sector preview, enemy estimate and the choice; auto-resolve in a Web Worker with
+    cancel; a played battle back to the campaign through the review; what changed; replenishment), both looks, views
+    in `campaign/src/view.ts`, `npm run e2e:campaign` (Playwright) and `npm run screenshot -- --scene campaign`.
+  - 12.4 review ⬜
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 
 ## Stage D — breadth

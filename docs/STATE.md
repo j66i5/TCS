@@ -1,10 +1,20 @@
 # State — handover note
 
-_Last updated: 2026-11-19 (M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-19 (M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M12.3 built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.6).** `?campaign=1` opens the
+  campaign page (`app/src/campaign/page.ts`): home (new campaign: faction, carriers, operations / endless; continue;
+  slots load / save / rename / delete / export; import), battalion tree, man card ("Make leader"), briefing (sector
+  preview, kind, who attacks, clock, enemy estimate, the choice with the proposed default and the cap; Play or
+  Auto-resolve; Change forces), auto-resolve in a Web Worker (progress bars, Cancel leaves the record), what changed,
+  replenishment; both looks; strings `cmp.*`. Views in `campaign/src/view.ts`; `makeLeader`, `reviseForces`. A played
+  battle: `?campaign=auto&play=1`, the review's "Back to the campaign" hands `battleResultOf` back through the store's
+  pending key (`?campaign=1&finish=1`). `npm run e2e:campaign` (Playwright, 11 checks) and `npm run screenshot --
+  --scene campaign` (phone and desktop, both looks) pass. Owner acceptance pending: two linked battles on his phone.
+  Next: 12.4 review and tuning.
 - **M12.2 built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.5).** `campaign/src/operation.ts`
   (operations: a line of 3-5 sectors, node types and the transition table in `core/campaign.json`, success / failure /
   limit / no-force, flank battles for a second company, endless mode, sector memory), commit.ts (`selectables`,
@@ -586,6 +596,12 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+- M12.3 (2026-11-19): (1) please play two linked battles on your phone (`?campaign=1`: new campaign, Play the first
+  battle, back to the campaign, continue to the second) and say what feels wrong; (2) the campaign clock is shown from
+  06:00 on day 1 but every battle is fought in daylight: should campaign battles take the clock's time of day (night
+  battles, M9.1)?; (3) the enemy estimate in the briefing is his committed men rounded to 5 / 10 and his vehicles by
+  type: show less (only "about a company") or more?; (4) a played battle hands its result back only through the
+  review's "Back to the campaign" button: also offer to leave a battle early (withdraw everyone, counted as a loss)?
 - M12.2 (2026-11-19): new low game values in `core/campaign.json`: campaign battles 1200 s; operations of 3-5 sectors
   (at least 3, at most 5 battles; failure only from the third); first node attack / attack / meeting / defend, later
   sectors attack / attack / meeting / pursue / ambush; a flank battle in 30 % of nodes; the six node types and their

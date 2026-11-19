@@ -9589,3 +9589,70 @@ so draws repeat a sector (that is where most revisits come from). Record hashes:
 `588943a79d74f946`, ru s100 `abb5318dee43c74a`, ru s101 `297bb939c168233c`, endless de s200 `8a67815fcf1a33b9`;
 reproducible: RU vs DE seed 7, 2 operations at 300 s, run twice at once -> `be1b44a1b3a704fa` both times (and the
 xf test). The first batch (before the leader fix) found the one enemy man held twice and nothing else.
+
+## 2026-11-19 — M12.3: the phone roster interface (slice 12.3, plan docs/plans/m12-roster.md 4.6)
+
+**Where the screens live.** The screens are DOM layout in `ui/src/campaign.ts` (`createCampaignUi`, `drawSectorPreview`):
+they read plain views and call back on taps; the ui package still imports no campaign code (its `Cmp*` interfaces are
+the parts of the views it reads, structurally). Every number on a screen comes from pure views in
+`campaign/src/view.ts` (tested in Node): `battalionView` (the tree with places, men, fit, walking wounded, recovering,
+lost for good, ammunition as the mean share of the standard load over the ammunition kinds a unit carries, hulls in
+service / workshop / lost), `manView` (a man wherever he is: unit or pool; skills with experience, condition, wounds,
+days, service entries and their stress peaks, his squad, `canMakeLeader`), `briefingView` (node, sector, who attacks,
+the enemy's estimate rounded to 5 / 10 men with its hulls by type, the selectables with callsigns and hull counts, the
+choice, the proposal, the cap, problems, steps so far), `afterBattleView` (built from the record alone by the battle
+indexes on pools, logs, service entries and the consumption log, so a loaded save shows the same card: results of the
+node's battles, killed, wounded with days, captured and missing, experience (men, total, the five who gained most), new
+leaders, men back, rounds fired by calibre, hulls lost / workshop / repaired, prisoners taken, the operation's steps and
+next node), `replenishmentView` (the last replenishment's log entries: replacements, men back, hulls replaced and
+repaired, rounds and litres delivered, strength after). New flow steps: `makeLeader` (owner: leaders automatic, the
+player can change them; refused for medical personnel, his own leader, and once the forces are confirmed: the battle is
+built from the record; logged `how: "player"`), `reviseForces` (battle -> choose, the choice kept; after a cancelled
+auto-resolve). `between.ts` exports `standardSlot` and `loadOf` for the ammunition share.
+
+**The app.** `?campaign=1` opens the campaign page (`app/src/campaign/page.ts`) instead of a battle: home (new campaign:
+faction, carriers, operations / endless; continue (the automatic slot); slots with load, save under a name, rename,
+delete, export; import), battalion tree (expand a unit to see its men), man card ("Make leader"), briefing (the sector
+preview, kind, who attacks, the clock, the enemy estimate, the flank battle, the steps so far; the choice with the
+proposed default marked, the cap, problems; Proposed, Battalion, Auto-resolve, Play; in phase "battle": Change forces),
+progress (bars for the flank and main battles; Cancel), what changed, replenishment. The record the player works on is
+written to the automatic slot after every step (`store.saveAuto`); a named save is the player's own. The briefing opens
+straight on the choice (`chooseForces` with the proposal). The look (photo / flat) is the battle's (`?look=`, localStorage
+`tcs.ui.look`), switchable on every screen: photo has gradients, soft shadows, a photo-painted sector preview; flat has
+square corners, solid fills, a monospace face and the flat painter's preview. **Auto-resolve and the preview run in a Web
+Worker** (`campaign/worker.ts`, `client.ts`; the pure work in `campaign/resolve.ts`: `finishNode`, `sectorPreview`,
+`appRunner` = `runBattle` with `planControllers`, progress every 10 battle seconds). Cancel terminates the worker: the
+record the page holds is untouched (pure steps), the briefing shows phase "battle" and the preview is drawn again.
+**A played battle**: Play confirms the choice, saves the automatic slot and opens `?campaign=auto&play=1` (main.ts): the
+node's main battle exactly as `battleInputs` builds it, the player blue, the enemy's AI by its plan (`sideCommander`);
+logistics gathered from the events (`logisticsFromEvents`); the review gets "Back to the campaign": `battleResultOf(sim,
+input, orders, logistics)` (new in sim/run.ts, the summary `continueBattle` gives at its end; read-only) goes to the
+store's pending key and `?campaign=1&finish=1` applies it in the worker with the flank battle auto-resolved there, then
+the what-changed card. The mid-battle save of 12.1b keeps working (`?campaign=auto&play=1&load=1`; logistics count from
+the load, as for any continued run). The review is the ordinary one (all four tabs). The clock shows "Day N, HH:MM" from
+the campaign's hours with day 1 starting 06:00 (`CAMPAIGN_START_HOUR`, display only: battles are fought in daylight in
+stage one; owner question). App URL options: `&seconds=<s>` a new campaign's battle length, `&seed=<n>`,
+`&fixtures=1` (lists xf).
+
+**Strings.** ~240 `cmp.*` keys and `aar.campaign` in `core/strings.en.json` (strings are outside the catalog
+fingerprint: goldens unchanged).
+
+**Acceptance.** `npm run e2e:campaign` (Playwright, phone viewport, DE vs RU, 60 s battles, seed 7; `campaign-e2e.ts`):
+11 checks, all pass in 58 s: home with nothing to continue -> new campaign -> briefing (7 of 15 units proposed, preview
+drawn) -> a platoon unticked and Proposed restoring the choice -> battalion tree -> man card -> Make leader -> back ->
+auto-resolve (progress bars) -> what changed (1 battle) -> save as "E2E one" -> reload -> load: the same record hash ->
+proceed -> the next briefing -> **Play** -> the battle page run to its end -> review -> "Back to the campaign" -> what
+changed (battles 1 -> 2) -> on to the operation's end -> replenishment card -> a cancelled auto-resolve (phase battle,
+nothing fought, preview back). `npm run screenshot -- --scene campaign` runs the same flow on phone and desktop in both
+looks (4 x 11 checks, no page errors) and saves 16 shots each (`screenshots/campaign-<phone|desktop>-<look>-*.png`);
+LOOKed at: home, briefing and forces, battalion and an opened platoon, man card, progress, what changed, slots, next
+briefing, the played battle's review with its button, the after card of the played battle, replenishment, cancelled.
+Fixed from the looking: the progress screen showed no bar until the battles were built (now "Building the battle..."
+with a moving bar), the desktop preview filled the screen (now at most 52 % of the height), a cancelled preview stayed
+"Drawing..." (drawn again), "Headquarters company HQ" twice, the sticky button bar let text through. Node tests
+`tools/test/campaign-views.test.ts` (7): the tree adds up (a new DE battalion all fit, ammunition 1, every hull in
+service), the man card and Make leader (squad, refusals, the chosen leader leads the squad in the next battle's input),
+the briefing (proposal, cap, estimate rounded, problems, Change forces), the sector preview in both looks, what changed
+(numbers = the battle summary, lists = the pools; identical from a loaded save), the replenishment card, and a battle
+played tick by tick in the app's way handed back through `battleResultOf` = the auto-resolved record (same hash).
+**Owner acceptance pending:** two linked battles played on his phone.

@@ -531,7 +531,7 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
     if (sc.note) body.append(h("div", "cmp-note", sc.note));
     bars = [];
     if (sc.bars.length === 0) body.append(h("div", "cmp-label", t("cmp.progress.building")), h("div", "cmp-meter big indet", h("span", "fill")));
-    for (const b of sc.bars) {
+    for (let i = 0; i < sc.bars.length; i++) {
       const fill = h("span", "fill");
       const lbl = h("div", "cmp-label", "");
       bars.push(fill, lbl);

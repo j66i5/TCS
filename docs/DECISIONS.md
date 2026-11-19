@@ -9437,3 +9437,62 @@ runs; player won 2 of 10; 374 Russian dead; 233 replacements for the player; boo
 days left are 11-408 days: owner question); the replenishment after battle 5 brought each battalion back to its
 establishment (DE 340, RU 298, xf 107) and every hull lost before it was replaced (DE as the enemy: 31). Reports
 `reports/campaign-{de,ru,xf}-s1-*.md` (not in git; numbers here). Low game values and questions in STATE.
+
+## 2026-11-19 — M12.1b: campaign saves (slice 12.1b, plan docs/plans/m12-roster.md 4.4)
+
+**The save (campaign/src/save.ts).** `CampaignSave { version, record, slotName, savedAt, fingerprint }`: `savedAt` is
+the app's clock as a string (the slot list shows it; the rules never read it, so a campaign stays deterministic),
+`fingerprint` the catalog fingerprint of the campaign's factions at saving. `CAMPAIGN_VERSION` is now **2** (record and
+save carry the same number; so every record hash differs from M12.1a's by the version field alone). Version 1 was the
+bare `CampaignRecord` that `npm run campaign -- chain` wrote as .json in M12.1a: `MIGRATIONS[1]` wraps it (slot
+"imported", no time, fingerprint "" = unknown, no warning). Migrations run n -> n+1 in turn and each step is checked;
+a save newer than the game is refused. A released migration is never edited. The fixture
+`packages/campaign/test/fixtures/campaign-v1.json` is a real M12.1a record (xf against xf, seed 5, two 90 s battles,
+made with 12.1a's code at f72ed80; record hash then `03e36a92bde09920`): never regenerate it.
+
+**Loading (`readSave`):** parse -> migrate -> validate the shape (fatal problems listed in `SaveError.problems`: missing
+sides, a faction the data does not have, members that are not records...) -> **ID repair** -> fingerprint check (a
+mismatch is the warning "data-changed"; the save still loads: records name items by id, and a changed catalog only
+changes numbers). ID repair (`repairIds`, in place, returned as a list for the player): person ids unique across both
+sides (they share a battle); an id with a side's prefix belongs to that side first; then, per side, battalion men in
+roster order and the pools in a fixed order: the first holder keeps the id, a later holder or a man without one gets
+`<prefix>#<n>`; `nextPersonId` raised past every serial in use (men, pools, service history). Hulls: in service, then
+the workshop; a duplicate gets `<base>~<n>` and the crews naming the duplicated id are shared out over the copies in
+roster order; a crew or carried unit naming a hull the force has nowhere (not in service, workshop or lost) loses the
+link (it walks; a lost hull's link stays for its replacement); `nextHullSerial` raised past every `~n`. A leader index
+out of range is cleared and the leader rule (`appointLeaders`) appoints one. A valid save loads without any change.
+
+**Export / import.** `exportSave` is canonical JSON (sorted keys), so a save always gives the same bytes and export ->
+import -> export is byte-identical (a migrated or repaired import changes once, then is stable). **App storage**
+(app/src/campaign-store.ts): `SaveBackend` (get / put / delete / keys) with an IndexedDB implementation (database
+`tcs-campaign`, store `saves`; no new dependency) and an in-memory one (Node tests; also the fallback without
+IndexedDB); per slot `save:<slot>` (the export text) and `meta:<slot>` (the slot list line); named slots (1-40
+characters, not "auto") and the automatic slot `auto` (`saveAuto`, after every battle: 12.2/12.3 call it); export as a
+.json download (`downloadText`, `exportFileName` = `tcs-campaign-<slot>-b<battles>.json`), import from a file
+(`pickFileText`, `importText`: validated, migrated, repaired; stored under its own slot name unless one is given).
+**Mid-battle save (plan Q-E option a):** the one existing save (localStorage `tcs.save`) now carries `campaignSlot`
+(from `?campaign=<slot>`, which the 12.3 interface will set) and loads only into a battle of the same slot (a plain
+battle's save only outside a campaign; old saves have no tag = plain).
+
+**Continuing a chain.** `continueCampaignChain(data, record, opts, runner)` goes on from any record until
+`opts.battles`; `runCampaignChain` is it from `newCampaign`. The replenishment of a finished operation now runs before
+the next battle instead of right after the last battle of the operation: the same records in an uninterrupted chain
+(it never ran after the chain's last battle), but a chain saved between them continues exactly. `npm run campaign --
+chain` writes a `CampaignSave` (slot "chain") instead of the bare record and takes `--from <save.json>` (faction,
+enemy, seed and carriers from the save; migrations and repairs printed).
+
+**Acceptance.** `tools/test/campaign-saves.test.ts` (4 tests): xf against xf, operations of 3, 90 s battles: saved
+after battle 3, exported, loaded and continued to battle 6 (the replenishment falls in the continued part) = the
+uninterrupted chain's record hash, books exact; the v1 fixture migrates (only the version changes, no repair, no
+warning) and continues two battles, twice with the same hash, books exact; a corrupted id set (two men with one id, a
+man without one, a player man with an enemy id, a recovering man copying a battalion man, two hulls and their crews
+with one id, a crew and a carried unit linked to hulls that do not exist, a leader index 99, both counters at 0) is
+repaired (4 person ids, hull id, crew and carrier links, leader, both counters; nothing on the enemy side), every id is
+unique and every link valid, a second load repairs nothing, and two more battles run; unreadable, damaged and newer
+saves are refused, a changed fingerprint warns and loads. `app/test/campaign-store.test.ts` (3 tests): slots (auto
+first, then by name; overwrite, remove, slot names), export -> import -> export byte-identical (DE against RU fresh;
+the v1 fixture after its one migration), a non-save import refused and nothing stored, the mid-battle tag. CLI,
+DE against RU, seed 2, 300 s battles: 6 battles uninterrupted -> `1d461639db88381f`; 3 battles, then `--from` that save
+to 6 (the replenishment before battle 6 in the continued run) -> `1d461639db88381f`; the two final save files are
+byte-identical but for `savedAt`. A DE battalion save is 0.95 MB after 3 battles, 1.48 MB after 6 (the service history
+and the logs grow with the battles; IndexedDB holds that easily, but 12.3's slot list reads only the `meta:` lines).

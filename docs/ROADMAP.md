@@ -482,8 +482,10 @@ for the owner's numbers answer after playing, not for more building).
     podpolkovnik; `CampaignRecord` (both battalions, pools, service history, consumption log, battle history);
     `applyResult` / `replenish` (recovery, experience, stress history, automatic leaders, no refill or replacements
     inside an operation); `npm run campaign -- chain` (10 battles, replenishment after 5).
-  - 12.1b
-    saves ⬜ · 12.2 operations and endless mode ⬜ · 12.3 phone roster interface ⬜ · 12.4 review ⬜
+  - 12.1b saves ✅ (2026-11-19): versioned `CampaignSave` (migrations, validation, ID repair, fingerprint warning),
+    canonical export / import, app campaign store (IndexedDB, named slots plus `auto`), mid-battle save tagged with its
+    slot, `continueCampaignChain` and `campaign -- chain --from` (saved after battle 3 = uninterrupted at battle 6).
+  - 12.2 operations and endless mode ⬜ · 12.3 phone roster interface ⬜ · 12.4 review ⬜
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 
 ## Stage D — breadth

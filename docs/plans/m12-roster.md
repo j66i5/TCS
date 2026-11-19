@@ -9,6 +9,9 @@ per-battle cap in `core/campaign.json`; the company headquarters is not in the d
 12.1a built 2026-11-19 (DECISIONS "M12.1a"; company and battalion data with the company headquarters, the campaign
 record, `applyResult` / `replenish`, automatic leaders, the books, `npm run campaign -- chain`; Q-A and Q-B built with
 option (a)).
+12.1b built 2026-11-19 (DECISIONS "M12.1b"; `CampaignSave` version 2 with migrations from the bare 12.1a record,
+ID repair, canonical export / import, app/src/campaign-store.ts, mid-battle save tagged with its slot (Q-E (a)),
+`continueCampaignChain`).
 
 SPEC 9.3 stage one: the player's force carries over between linked battles; soldiers keep names, experience, wounds,
 fatigue and stress history; vehicles keep damage; replacements arrive green. The owner answered the M12 round on

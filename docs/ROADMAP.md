@@ -485,7 +485,13 @@ for the owner's numbers answer after playing, not for more building).
   - 12.1b saves ✅ (2026-11-19): versioned `CampaignSave` (migrations, validation, ID repair, fingerprint warning),
     canonical export / import, app campaign store (IndexedDB, named slots plus `auto`), mid-battle save tagged with its
     slot, `continueCampaignChain` and `campaign -- chain --from` (saved after battle 3 = uninterrupted at battle 6).
-  - 12.2 operations and endless mode ⬜ · 12.3 phone roster interface ⬜ · 12.4 review ⬜
+  - 12.2 operations and endless mode ✅ (2026-11-19): operations of 3-5 nodes on a line of connected sectors (node
+    types and the transition table in `core/campaign.json`: the result picks the next node; success, failure, limit),
+    flank battles for a second company (auto-resolved), endless mode (a replenishment every 3 nodes, a new sector every
+    2), sector memory (craters, holes, wrecks), the enemy battalion committing by ratio and remembering its losses,
+    `proposeChoice` / `validateCommit`, the state machine `campaign/src/flow.ts` (briefing, choose, battle played or
+    auto-resolved, after-battle, replenishment, operation end), `npm run campaign -- batch`.
+  - 12.3 phone roster interface ⬜ · 12.4 review ⬜
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 
 ## Stage D — breadth

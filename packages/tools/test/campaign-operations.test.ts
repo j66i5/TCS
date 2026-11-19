@@ -142,8 +142,10 @@ describe("M12.2 the flow (xf against xf, 90 s battles)", () => {
     // Played: the app runs the main battle and hands the result in (the flank battle, if any, is auto-resolved).
     const played: BattleResult = aiRunner(nb.main!.input, {});
     const viaPlayed = finishBattle(data, r, ENV, played);
-    const viaAuto = autoResolve(data, loaded, ENV);
+    const progress: string[] = [];
+    const viaAuto = autoResolve(data, loaded, { ...ENV, onProgress: (which, sec) => progress.push(`${which} ${sec}`) });
     expect(hashRecord(viaPlayed)).toBe(hashRecord(viaAuto));
+    expect(progress).toContain("main 60");
     expect(phaseOf(viaAuto)).toBe("after-battle");
     const next = proceed(data, viaAuto);
     expect(["briefing", "operation-end"]).toContain(phaseOf(next));

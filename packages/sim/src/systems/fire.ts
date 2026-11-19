@@ -84,6 +84,8 @@ const LINE_OF_FIRE_ALLOWANCE_M = 5;
 /** Geometry of the friend-in-line check (not behaviour): the muzzle sits this far out in front of him, a man's body
  * this far from where he stands (more lying down), and a man more than this far above or below is on another floor. */
 const MUZZLE_OUT_M = 0.4, BODY_REACH_M = 0.7, FLOOR_APART_M = 1;
+/** Balance pass 4 (G): a comrade nearer than this to the shooter shares his spot (a placement artefact), not his line (m). */
+const SAME_SPOT_M = 0.15;
 /** Margin round a friendly hull in the line of fire (balance pass 3), as a man's body reach. */
 const HULL_GROW_M = 0.5;
 
@@ -234,6 +236,11 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
     if (along <= MUZZLE_OUT_M - reach || along >= range + beyondM) continue;
     if (os !== undefined && os.casualty !== "none" && (along <= 0.5 || along >= range + LINE_OF_FIRE_ALLOWANCE_M)) continue;
     const across = Math.abs((o.x - me.x) * -uy + (o.y - me.y) * ux);
+    // (Balance pass 4, G: a comrade on the very spot he stands on — within SAME_SPOT_M, two men given one window place
+    // or one place in a house — is no body in front of his muzzle; before, such men held each other's fire for good:
+    // hold-resupply-ru seed 4, a squad upstairs fired 9 rounds in 4 minutes against 760. A comrade at his elbow, 0.3 m
+    // or more off, still counts.)
+    if (along * along + across * across < SAME_SPOT_M * SAME_SPOT_M) continue;
     if (across < reach + Math.max(0, along) * sinCone) return true;
   }
   return hullInLine(ctx, state, side, id, self.z, me.x, me.y, ux, uy, range + beyondM, sinCone);

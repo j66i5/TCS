@@ -50,7 +50,18 @@ describe("friend in the line of fire: at his elbow and past the point", () => {
     const me = s.transform.req(shooter), t = s.transform.req(mate);
     t.x = me.x; t.y = me.y; t.z = me.z + 2.8;
     expect(friendInLine(sim.ctx, s, shooter, me.x + 150, me.y)).toBe(false);
-    t.z = me.z + 0.3; // (the same floor: a step, a slope)
+    t.z = me.z + 0.3; t.x = me.x + 0.3; // (the same floor: a step, a slope; at his elbow)
+    expect(friendInLine(sim.ctx, s, shooter, me.x + 150, me.y)).toBe(true);
+  });
+
+  it("a comrade on the very spot he stands on (one place given to two men) is not in his line (balance pass 4, G)", () => {
+    const sim = createSim(armedInput());
+    const s = sim.state;
+    const shooter = idOf(sim, "a.0"), mate = idOf(sim, "a.1");
+    const me = s.transform.req(shooter), t = s.transform.req(mate);
+    t.x = me.x + 0.05; t.y = me.y + 0.05; t.z = me.z;
+    expect(friendInLine(sim.ctx, s, shooter, me.x + 150, me.y)).toBe(false);
+    t.x = me.x + 0.3; t.y = me.y; // (at his elbow: he still counts)
     expect(friendInLine(sim.ctx, s, shooter, me.x + 150, me.y)).toBe(true);
   });
 

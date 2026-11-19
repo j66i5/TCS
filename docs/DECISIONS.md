@@ -9049,3 +9049,78 @@ Owner decisions (binding, all the recommended options). Band for the four platoo
 - **Checks (H+E):** typecheck, lint, data lint (no errors); `npm test` 1,594 pass, 6 skipped, 2 failed and fixed
   (`gtk-seatswap`: the gunner now holds fire through his own platoon, see H; `overwatch-bound`: the repeated bound,
   fixed in tanks.ts), both re-run pass. Timing tests not run (other measurements on the machine).
+- **F. Hold battle: a small loose-round share for the defenders** (scenario/battle.ts `HOLD.defenderLooseShare` 0.25,
+  was 0; waves kept at 600 / 1,500 / 2,400 s; magazines `defenderMagazineShare` 0.25 and the full point unchanged):
+  each defender keeps a quarter of each package's rounds (rounded down), so `--no-resupply` is no longer "the chain
+  against empty pockets" (balance pass 3's disclosed question 1). Test: `scenario-hold.test` (loose rounds > 0 and at
+  most a quarter of the full load; `defenderLooseShare: 0` still gives none).
+- **G. Hold defences that break without firing.**
+  - *Diagnosis* (German seed 16 with balance pass 3's settings, reproduced with `defenderLooseShare: 0`; scratch probes
+    of spotting rates, sight lines and the fire system's gates): (1) the wave's mortar smoke lay between the two
+    sides (smoke transmission 0.000 on every line): the defenders' spotting rate for the prone attackers firing from
+    357-370 m on open ground was 0.05-0.16 a second before smoke and the view then 0, so nobody saw a shooter; the
+    attackers fired through the smoke at the defenders' places known from before (an order's base of fire at
+    contacts 100+ s old) and hit them (123 hits against 0 by 1,020 s). The defenders knew the shooters' places within
+    10-14 m from reports, but a man fires on his own only at an enemy he sees (`pickTarget`), and the suppressive
+    fire at known places (`soldier.suppressKnown`, M11.1) is off. (2) The range rule lifted under fire works (it was
+    lifted at 840 s); the contacts are kept (reported every ~10 s); positions' fields of view were not the cause;
+    muzzle flash by day is already a 6x factor at 360 m. (3) hold-resupply-ru seed 4 (balance pass 4 F): a Russian
+    squad upstairs with seen enemies and clear lines fired 9 rounds in 4 minutes: four men stood on the very same spot
+    (two floors, one window place), and `friendInLine` counted a comrade 0 m away as in the line, so every shot was
+    held (`friend` on every due shot). (4) Remaining cases (German seed 19 of the Russian defence) are a squad killed
+    by fire within a minute, not a defence that cannot find the shooters.
+  - *Return fire* (decisions.ts `returnFire`, data `behaviour.json soldier.returnFire` {firedOnS 10, withinS 20,
+    maxErrM 30, bearingDeg 30, intervalS 3, mgIntervalS 4}, game values, low; schema; every side): a halted man, not
+    pinned or panicked, not down to his last magazine, with no enemy in sight to fire at, at whom rounds cracked past
+    within 10 s (`fireFrom`) fires at the known place (seen, reported or heard within 20 s, known to within 30 m now)
+    of the nearest enemy firing within 10 s (he hears him) within 30 degrees of where the rounds came from and within
+    his engage range (the unit's range rule is lifted under fire) and defend arc, not through a comrade. The task is
+    fire at a place (`FireTask.suppress` "return": one shot per 3 s, a machine-gun burst per 4 s, the line may end in
+    cover near the point); it ends 10 s after the last round past him, when the place is older than 20 s, or when he
+    sees an enemy (aimed fire). Unlike `suppressKnown` (fire at any known place, defenders only, measured useless in
+    M11.1) it answers only shooters who are firing at him.
+  - *Same spot* (fire.ts `SAME_SPOT_M` 0.15): a comrade within 0.15 m of the shooter (two men given one place) is not
+    in his line; a comrade at his elbow (0.3 m) still is. Open: why two men get the same window place (not changed).
+  - Tests: `sim/test/return-fire.test.ts` (fires at the place, at most one shot per 3 s per man, on either side; the
+    task is "return"; nothing without the data, not fired on, rounds from 60 degrees off, a silent enemy, a place
+    known to 60 m, beyond his reach; the fire ends 10 s after the last round); `fire-discipline.test` (the same spot
+    does not block, the elbow does; the floor test now puts the comrade at the elbow).
+  - Seen (German seed 16, `defenderLooseShare: 0`): the defence now fires 11 rounds by 870 s (1 before) and stops the
+    first wave (the attack lost 7 men; before 0), though it still falls at 2,211 s.
+- **Hold battle, F and G** (holds of the defence; with the chain 40 seeds, without it `--no-resupply` 20 seeds; 3,600 s;
+  casualties attacker / defender; G cases = the defence lost while the attack lost 5 men or fewer):
+
+  | defence | balance pass 3 (40 / 40 seeds) | **F alone** (c6088ce) | **F and G** (cb78c8f) |
+  |---|---|---|---|
+  | German, with chain | 28 / 40 (70 %) | 28 / 40 (70 %; seeds 1-20 14); 36.8 / 12.3; G cases 1 (s40) | **27 / 40 (67.5 %; seeds 1-20 14, 70 %)**; 36.4 / 11.2; G cases 1 (s40) |
+  | German, without | 13 / 40 (32 %) | 12 / 20 (60 %); G cases 0 | **10 / 20 (50 %)**; G cases 1 (s4) |
+  | gap (seeds 1-20) | +38 points | **+10** | **+20** |
+  | Russian, with chain | 20 / 40 (50 %) | 22 / 40 (55 %; seeds 1-20 10); 32.6 / 12.9; G cases 4 (s4, 6, 19, 39) | **21 / 40 (52.5 %; seeds 1-20 12, 60 %)**; 34.1 / 12.2; G cases 1 (s19) |
+  | Russian, without | 9 / 40 (22 %) | 9 / 20 (45 %); G cases 1 (s14) | **6 / 20 (30 %)**; G cases 1 (s5) |
+  | gap (seeds 1-20) | +28 points | **+5 (below the 10-point target)** | **+30** |
+
+  F alone closed the gap (German +10, Russian +5: the defenders now refill from their pockets without the chain); G
+  restored it (+20, +30) because a defence that returns fire spends rounds and needs the chain. Both targets met with
+  F and G (with-chain holds 70 % / 60 % on seeds 1-20, 30-70 %; gap >= 10 points); no compensating lever used.
+  **G rate** (defence lost, attack lost <= 5): with the chain 5 of 80 (F alone) -> **2 of 80**; without it 1 of 40 ->
+  2 of 40; together 6 of 120 -> 4 of 120 (balance pass 3: 6 of 80 and 4 of 80). Defenders' small-arms rounds per
+  battle with the chain: German 1,043 -> 1,088, Russian 904 -> 1,061.
+- **Platoon battles after F and G** (20 seeds x 1,200 s, attacker wins; casualties attacker / defender; G changes every
+  battle: every side returns fire):
+
+  | scenario | after H and E | **after F and G** |
+  |---|---|---|
+  | platoon | 10; 16.75 / 10.25 | **6; 20.9 / 10.1; time 13, eliminated 6, broken 1** (at the band's lower edge; 9 with return fire before the same-spot fix) |
+  | platoon-ru | 7; 20.95 / 9.40 | **7; 19.2 / 8.85; eliminated 12, time 8** |
+  | platoon-vehicles | 15 (seeds 21-40: 13) | **16; 17.5 / 30.0; time 13, eliminated 7; hulls 1.35 / 4.85** (out of band, as before; seeds 21-40: 12; **28 / 40** as before; 6 of 40 battles G cases, the mounted defence losing its hulls) |
+  | platoon-ru-vehicles | 11; 23.4 / 16.85 | **11; 22.1 / 17.05; time 9, broken 8, eliminated 3; hulls 2.35 / 2.5** |
+- `npm run golden:update` after F and G: every golden changed from tick 600 (catalog fingerprint; return fire changes
+  every battle with fire); `golden/no-interiors` untouched.
+- `npm run lab -- consumption --conservation`: 182 runs, every one exact.
+- **Open (owner):** platoon is at the band's lower edge (6 of 20) with return fire on both sides; platoon-vehicles stays
+  above the band (16 of 20, 28 / 40; levers outside E, see above); why two men are given one window place (the
+  same-spot rule only removes its effect on fire); `suppressKnown` stays off (return fire answers only shooters).
+- **Checks (F+G):** typecheck, lint, data lint (no errors); `npm run check` alone: 1,600 passed, 6 skipped, 1 failed
+  and fixed (`tools logistics.test`: the man put beside the threatened point, the squad's third, is now one of its
+  ammunition bearers on his errand, so the commander rightly leaves him out; the test takes a man with no errand), re-run
+  pass.

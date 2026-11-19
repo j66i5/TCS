@@ -169,10 +169,17 @@ export function battalionTemplateOf(data: DataSet, faction: string, carriers: Ca
   return { template: t, carriers: bt?.[carriers] !== undefined ? carriers : other };
 }
 
-/** The catalog of a campaign (both factions). */
+/** The catalog of a campaign (both factions; built once per data set and pair of factions). */
 export function campaignCatalog(data: DataSet, record: CampaignRecord): Catalog {
-  return buildCatalog(data, [record.sides.player.faction, record.sides.enemy.faction].filter((f, i, a) => a.indexOf(f) === i));
+  const ids = [record.sides.player.faction, record.sides.enemy.faction].filter((f, i, a) => a.indexOf(f) === i);
+  let m = CATALOGS.get(data);
+  if (!m) { m = new Map(); CATALOGS.set(data, m); }
+  const key = ids.join(",");
+  let c = m.get(key);
+  if (!c) { c = buildCatalog(data, ids); m.set(key, c); }
+  return c;
 }
+const CATALOGS = new WeakMap<DataSet, Map<string, Catalog>>();
 
 /** Unit key -> template id, walking the template tree as `buildForceWithVehicles` builds it. */
 function establishmentOf(data: DataSet, faction: string, template: string, unit: UnitInput, out: Record<string, string>): void {

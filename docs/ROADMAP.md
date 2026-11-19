@@ -477,7 +477,12 @@ for the owner's numbers answer after playing, not for more building).
   - 12.0b scenario kinds and company-size battles ✅ (2026-11-19): attack, defence-counterattack, meeting, ambush,
     withdrawal; exit zones, objectives scoring at a time, late units with their hulls, the AI's postures; a company per
     side, `bench-company` 14x, the per-battle cap in `core/campaign.json`; `npm run lab -- kinds` (no stalemates).
-  - 12.1a battalion data and rules between battles ⬜ · 12.1b
+  - 12.1a battalion data and rules between battles ✅ (2026-11-19): company headquarters, company and battalion
+    templates (DE, RU, xf; manifest `battalionTemplates`), Hauptmann / Major / Oberstleutnant and kapitan / mayor /
+    podpolkovnik; `CampaignRecord` (both battalions, pools, service history, consumption log, battle history);
+    `applyResult` / `replenish` (recovery, experience, stress history, automatic leaders, no refill or replacements
+    inside an operation); `npm run campaign -- chain` (10 battles, replenishment after 5).
+  - 12.1b
     saves ⬜ · 12.2 operations and endless mode ⬜ · 12.3 phone roster interface ⬜ · 12.4 review ⬜
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 

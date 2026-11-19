@@ -1,10 +1,21 @@
 # State — handover note
 
-_Last updated: 2026-11-19 (M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-19 (M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M12.1a built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.3).** Battalion data: company
+  headquarters in their own hull (DE Kompaniefuehrungstrupp in a Puma / GTK Boxer, RU company command group in a BMP-2 /
+  BTR-82A), company templates (HQ + 3 existing platoons), battalion templates (HQ, 3 companies, mortar section, AGL team,
+  RU Metis team, an attached tank section; DE 340 / 354 men and 42 hulls, RU 298 / 316 and 33, xf 107 and 20), manifest
+  `battalionTemplates`, ranks Hauptmann / Major / Oberstleutnant and kapitan / mayor / podpolkovnik (insignia element
+  `wreath`); goldens: the fingerprint only (events, orders and forcesOut of all 12 identical). `core/campaign.json`
+  clock, operation, endless, experience, recovery, repair, replacements, combat-ineffective. `CampaignRecord` (both
+  battalions, establishment, pools, workshop, lost hulls, service history, consumption log, battle history, campaign
+  RNG); `applyResult` / `replenish` (pure); automatic leaders; `proposeCommit` (the fittest company within the cap);
+  the books (`forceHoldings`, `bookedChange`: exact in every chain); `npm run campaign -- chain` (10 battles, a
+  replenishment after 5; the old one-map chain is `campaign -- sector`). Next: 12.1b saves.
 - **M12.0b built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.2).** Scenario kinds attack
   (`platoon-attack` unchanged), defence-counterattack (reserve mounted at 40 %), meeting, ambush (to an exit at the far
   edge), withdrawal (hold until 35 %, out by the own edge); exit zones (`rules.exits`: men out are `evacuated` `via:
@@ -558,6 +569,21 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+- M12.1a (2026-11-19): built with option (a) of plan section 5: **Q-A** a recovered man rejoins at the first battle
+  after his days are up, inside an operation too (`recovery.rejoinWithinOperation`); **Q-B** destroyed and captured
+  hulls are replaced at a replenishment (`repair.replaceLost`). New low game values in `core/campaign.json`: 12 h between
+  battles, 7 days between operations, operations of 5 battles in the chain, experience +0.005 a battle and +0.004 a
+  minute under effective fire (at most +0.04 a battle, cap 0.9), fatigue -0.05 / shock -0.1 / strain -0.01 an hour,
+  7 recovery days and 3 workshop days when a battle settled none, green replacements of the conscript level,
+  combat-ineffective below half. New organisation data (low/medium from search extracts): the company HQs (who is in
+  them, their hulls and ranks), the battalions' support (one mortar section, one AGL team, RU one Metis team, an attached
+  tank section; staff, supply and reconnaissance not modelled), the leader rule (leader's role, then rank, then
+  experience; a sub-unit's leader moves up when the HQ has nobody; medics never lead). Questions: (1) the medical
+  settlement's recovery days are months (60-400 days in the chains), so nobody evacuated is back within ten battles:
+  keep (realistic) or shorten for the campaign? (2) in the 10-battle chains Germany won 9 of 10 as the player and
+  8 of 10 as the enemy (in the German chain the Russian battalion lost 468 dead, its replacements included): balance belongs to 12.4, but is the lopsided Puma
+  versus BMP-2 result expected? (3) the company that fought rests: the next battle takes the fittest company, so the
+  battalion rotates its companies; or should the player's choice (12.2) default to the same company?
 - M11.9a prisoners (2026-11-17; plan `docs/plans/m11-mp-pow.md` section 6): built with the recommended option, to be
   confirmed: **Q2** search automatic for every prisoner, kit to the searcher, beyond 15 kg into a captured cache at the
   point; **Q3** one escort per 4 on the move, one guard per 6 at the point; **Q8** guards fire only in self-defence

@@ -9339,3 +9339,101 @@ man who leaves from the stores (his record would have to be rebuilt; every refer
 "vehicle" carrying the men off (needs a vehicle type in the data: catalog fingerprint); resuming a broken-off attack
 after a pause (the faction's casualty tolerance said stop; leaving ends the battle and keeps the auto-resolve short);
 an `attack` identical to `platoon-attack` (without the break-off the matrix had a stalemate).
+
+## 2026-11-19 — M12.1a: battalion data, the campaign record, rules between battles (slice 12.1a, plan docs/plans/m12-roster.md 4.3)
+
+**Data (add-data-entry; search extracts only, no page opened: medium at most).** Company headquarters in their own hull:
+DE `pzgren-kompanie` / `jaeger-kompanie` = members Kompaniechef (Hauptmann), Kompanietruppfuehrer (Hauptfeldwebel), Funker
+riding in the HQ Puma / GTK Boxer (`puma-besatzung-kp`, `boxer-besatzung-kp`, carriage `hq`) + three existing Zuege
+(battleorder.org HS.30-era extract: the company commander, a Hauptmann, with a company troop leader in his own vehicle;
+the Puma-era table was not found, low); RU `motostrelkovaya-rota` / `-btr` = company commander (kapitan), deputy
+(starshiy leytenant), starshina, radio operator in their BMP-2 / BTR-82A + three existing platoons (extracts: a company
+HQ section and three platoons, medium; the men and ranks low). Battalions `pzgren-bataillon` / `jaeger-bataillon`
+(Kommandeur Oberstleutnant, S3 Major, Funker in a Puma / Boxer; three companies; `moerser-gruppe`, `gmw-trupp`, an attached
+`panzer-halbzug`: 340 / 354 men, 42 hulls) and `motostrelkoviy-batalyon` / `-btr` (podpolkovnik, mayor, radio operator;
+three companies; `minomyotny-vzvod-82`, `raschet-ags`, `raschet-metis`, attached `tankovaya-gruppa`: 298 / 316 men, 33
+hulls; extracts list command, three motor rifle companies, mortar battery, grenade launcher platoon, anti-tank platoon:
+medium for the listing, the sizes here low). Staff, supply, maintenance and reconnaissance elements are not modelled
+(they stay behind the battles). xf: `cart-company` (a boss and a porter, three cart bands), `cart-battalion` (three
+companies, the dart team, the tortoise pair; 107 men, 20 hulls). Manifest `battalionTemplates {tracked, wheeled}` (loader:
+echelon "battalion", every carriage crew of that class; a class without an entry falls back to the other). New ranks
+DE hauptmann / major / oberstleutnant (OF-2..4, grades 16-18) and RU kapitan / mayor / podpolkovnik, with insignia: a
+new insignia element `wreath` (an open ring, the Eichenlaubkranz; drawn in ui/insignia.ts; sizes low), RU field
+officers' two long stripes as `band`s along the board and 20 mm stars (low). New roles (leader flag on the commanders
+and deputies). **Goldens: `golden:update` for the catalog fingerprint only**: the 12 goldens' checkpoint hashes change
+(the state carries the fingerprint), their orders are unchanged, and a run of every golden spec before and after the
+data change gives identical event streams, orders and `forcesOut` (hashed; recorded in the slice's notes).
+
+**`core/campaign.json` (game values, low):** clock 12 h between battles, 7 days between operations; the chain's
+operation 5 battles; endless `replenishEvery` 3; experience +0.005 a battle plus +0.004 a minute under effective fire,
+at most +0.04 a battle, never above 0.9 (a man above it keeps what he has); recovery an hour: fatigue 0.05, shock 0.1,
+strain 0.01, water back to full; 7 recovery days and 3 workshop days where a battle settled none; Q-A (a)
+`rejoinWithinOperation` true, Q-B (a) `replaceLost` true; replacements of the "conscript" level; combat-ineffective
+below 0.5 of the establishment (read by M12.2).
+
+**Campaign record (campaign/src/record.ts):** `CampaignRecord` { version 1, seed, rng (the campaign's own named streams:
+`campaign/<prefix>/names|skills`), hours, mode, operation {index, battles}, battles, sides {player, enemy}, history
+(per battle: kind, map, seeds, sides, winner, end, men and hulls in / able / killed / evacuated / captured / missing,
+service / workshop / lost), consumption, log }. A side: faction, carriers, battalion template, key prefix ("P" / "E"),
+the battalion as one `UnitInput` tree (every unit kept, empty ones too), hulls in service, `establishment` (unit key ->
+template: the places a unit has), workshop hulls (days to go), lost hulls, pools (recovering with days, dead, missing,
+held by the enemy, the enemy's men it holds as references, replacements, unassigned), `service` (per personId every
+battle's entry: minutes under fire and in contact, rounds, wounds, peak shock and strain, strain after, experience
+gained, status; kept for the dead), `nextPersonId` / `nextHullSerial`. Per-man history lives in the record, not in
+`SoldierRecord`, so the battle contract and the goldens do not change.
+
+**Who fights (commit.ts, until M12.2's choice):** the fittest company (most men; ties the first): its HQ (the company
+unit with only its non-platoon sub-units: the HQ crew), up to `battle.platoons` platoons, and the battalion's support
+up to the cap (by the manifest's support templates), each a top-level unit of the battle; crews of hulls not in service
+rest; carriers not there are taken off their squads. So the company that just fought usually rests in the next battle
+(owner question). Results come back by unit key (men by personId, hulls by vehicleId); the battle's own assets
+(ambulances, recovery, military police) are not the battalion's and are ignored.
+
+**Rules between battles (between.ts, pure: each returns a new record):** as the file comment and plan 4.3: men fit /
+wounded stay (walking wounded's days run down, healed: fit, wounds and physiology gone); evacuated (and incapacitated)
+to recovering; killed / missing / captured to their pools with their loads written off; hulls in service stay, recovered
+or towed to the workshop for their `repairDays`, destroyed or captured lost (written off); experience and service
+entries; the clock runs (battle + 12 h): rest, healing, rejoining (old unit if it has room, else unassigned), the
+workshop; automatic leaders (leaders.ts: top down, the best of the unit's own men and its direct sub-units' leaders by
+leader's role, grade, experience, own man first; a sub-unit's leader chosen moves up into the HQ and his unit gets its
+own leader; medical personnel never lead; logged with whom he replaced). No replacements, no refill inside an
+operation. `replenish`: 7 days pass; unassigned men fill vacancies of their role; green replacements (conscript skills
+from the campaign rng, new `P#<n>` ids) the rest (vacancies: template slots unmatched by role, at most as many as the
+unit lacks); every man's load to his role's slot load (his unit's template, else the first template with the role),
+`powerFitted` cleared; every hull's stowage and fuel to `newVehicleRecord`, ready belts full, components repaired; lost
+hulls replaced with a new id (`<crewKey>~<n>`; the crew's `vehicleId` and every `carrierId` moved to it); leaders;
+operation counter on. **The books (holdings.ts):** rounds by ammunition id, charges by kind, items, counted over the
+battalion's men, hulls in service and workshop, recovering and unassigned men; a battle logs `net` (the committed
+records in minus out), `fired` (`BattleResult.logistics` consumed), `writtenOff`; a replenishment logs `delivered`; so
+start + delivered - net - written off = now, per id. Rejected: refilling men in the recovering pool (they are not with
+a unit; refilled when they rejoin at a replenishment); carrying the history in `SoldierRecord` (moves the battle
+contract); replacing the dead in the same place by "rank promotion" chains (the appointed leader keeps the lead; the
+green man takes the empty slot).
+
+**CLI:** `npm run campaign -- chain --faction de|ru|xf --battles 10 [--seed N] [--seconds 600] [--carriers]` (kinds
+attack, defence-counterattack, meeting, ambush, withdrawal in turn on village / farmland / woodland / industrial, a new
+map each battle; one company's worth per side; AI both sides; replenishment after battle 5); report and record JSON in
+`reports/`. The M12.0a one-map chain is now `campaign -- sector`.
+
+**Acceptance.** Tests (`tools/test/campaign-rules.test.ts`, 10): battalions built for DE, RU and xf with their
+establishment and hulls; the commit (one company's worth, every crew with its hull, it builds and sets up); a man
+evacuated in battle 1 with 5 recovery days is in the recovering pool through the five battles of the operation (2.5
+days) and back in his squad, fit and healed, after the replenishment, or unassigned when his squad was filled; no
+replacement and no refill inside an operation (dead stay gone, a magazine at 3 rounds and a hull at 17 l stay so), both
+at the replenishment (two green men with new ids and conscript experience, loads and hulls back to the data, the books
+exact); a dead squad leader replaced by the rule's man and a dead platoon leader by the Zugtruppfuehrer moving up from
+the HQ Puma, both the units' leaders in the next battle's sim; medics never appointed; experience grows more under fire
+(+0.04 capped against +0.005), never above 0.9 over 30 battles, and the history keeps all 30 entries with their peak
+shock; the dead keep their history, the enemy's captured men in the player's prisoners; hulls lost, to the workshop and
+back, replaced with a new id; a real xf chain (4 battles, operations of 2) twice with the same record hash and exact books.
+10-battle chains (600 s battles, seed 1, AI both sides), each run twice:
+DE (player) against RU: record hash `079ac646b303cbf4` both runs; player won 9 of 10; player 12 / 0 / 0 / 9 / 1 / 2 / 5 / 0 / 1 / 0
+killed per battle (30 dead), the enemy 468 dead over the chain (its battalion down to 28 men before the replenishment;
+296 green replacements in all, 26 the player's); 141 leaders appointed (14 the player's); books exact both sides
+(player: start 312,354 rounds + 25,051 delivered - 8,656 net (8,601 fired by the events) - 22,762 written off =
+305,987); wall time 11 min a run (three chains at once on 4 cores). RU (player) against DE: `8eadca7b494622ce` both
+runs; player won 2 of 10; 374 Russian dead; 233 replacements for the player; books exact. xf (player) against DE:
+`9794e763732c31aa` both runs; books exact. In all three no recovering man came back (the medical settlement's recovery
+days left are 11-408 days: owner question); the replenishment after battle 5 brought each battalion back to its
+establishment (DE 340, RU 298, xf 107) and every hull lost before it was replaced (DE as the enemy: 31). Reports
+`reports/campaign-{de,ru,xf}-s1-*.md` (not in git; numbers here). Low game values and questions in STATE.

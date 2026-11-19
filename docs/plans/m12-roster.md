@@ -6,6 +6,9 @@ still do not touch the grids; wrecks of earlier battles are hulls of side `WRECK
 12.0b built 2026-11-19 (DECISIONS "M12.0b"; kinds attack / defence-counterattack / meeting / ambush / withdrawal,
 exit zones, objectives scoring at a time, late units with their hulls, a company per side, `bench-company` and the
 per-battle cap in `core/campaign.json`; the company headquarters is not in the data yet: it comes with 12.1a).
+12.1a built 2026-11-19 (DECISIONS "M12.1a"; company and battalion data with the company headquarters, the campaign
+record, `applyResult` / `replenish`, automatic leaders, the books, `npm run campaign -- chain`; Q-A and Q-B built with
+option (a)).
 
 SPEC 9.3 stage one: the player's force carries over between linked battles; soldiers keep names, experience, wounds,
 fatigue and stress history; vehicles keep damage; replacements arrive green. The owner answered the M12 round on

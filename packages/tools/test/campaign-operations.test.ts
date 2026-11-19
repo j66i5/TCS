@@ -95,7 +95,7 @@ describe("M12.2 the flow (xf against xf, 90 s battles)", () => {
     const a = runCampaignPart(data, part);
     expect(a.operations).toHaveLength(2);
     for (const op of a.operations) { expect(op.nodes).toBeGreaterThanOrEqual(3); expect(op.nodes).toBeLessThanOrEqual(5); }
-    expect(a.checks).toEqual({ ...a.checks, zeroMen: 0, badOpLength: [], tableMismatch: [], revisitMismatch: [], enemyMismatch: [], replenishmentMisplaced: [] });
+    expect(a.checks).toEqual({ ...a.checks, zeroMen: 0, badOpLength: [], tableMismatch: [], revisitMismatch: [], enemyMismatch: [], replenishmentMisplaced: [], duplicateIds: [] });
     expect(a.replenishments.map((x) => x.afterNode)).toEqual([a.operations[0]!.nodes, a.operations[0]!.nodes + a.operations[1]!.nodes]);
     expect(a.checks.revisits).toBeGreaterThan(0);
     const b = runCampaignPart(data, part);
@@ -194,3 +194,30 @@ describe("M12.2 sector memory", () => {
 });
 
 void autoPlay;
+
+describe("M12.2 a flank battle and the main battle share a company", () => {
+  it("a headquarters lost in the flank battle is not replaced from a platoon fighting the main battle (no man twice)", async () => {
+    const { applyResult, unitsOf, clone } = await import("@tcs/campaign");
+    const r0 = newCampaign(data, { seed: 9, faction: "de", enemy: "ru" });
+    const e = r0.sides.enemy;
+    const company = e.battalion.subunits.find((u) => u.echelon === "company")!;
+    const hq = { ...company, subunits: company.subunits.filter((s) => s.echelon !== "platoon") };
+    const pPlat = r0.sides.player.battalion.subunits.find((u) => u.echelon === "company")!.subunits.find((s) => s.echelon === "platoon")!;
+    // The enemy's company HQ fights the flank battle and is lost to the last man; its platoons fight the main battle.
+    const fake = (enemyUnits: typeof company[], killHq: boolean) => {
+      const out = clone(enemyUnits);
+      if (killHq) for (const u of unitsOf(out[0]!)) for (const m of u.members) m.status = "killed";
+      const input = { seed: 1, forces: [{ side: "blue", units: [clone(pPlat)], vehicles: [] }, { side: "red", units: clone(enemyUnits), vehicles: [] }] } as unknown as Parameters<typeof applyResult>[2]["input"];
+      const result = { forcesOut: [{ side: "blue", units: [clone(pPlat)], vehicles: [] }, { side: "red", units: out, vehicles: [] }], winner: null, endReason: "time-limit", durationSeconds: 60, logistics: [], service: {} } as unknown as BattleResult;
+      return { input, result };
+    };
+    const f1 = fake([hq], true), m1 = fake(company.subunits.filter((s) => s.echelon === "platoon"), false);
+    let r = applyResult(data, r0, { ...f1, playerSide: "blue", kind: "attack", mapKind: "village", mapSeed: 1, attacker: "player", flank: true });
+    r = applyResult(data, r, { ...m1, playerSide: "blue", kind: "attack", mapKind: "village", mapSeed: 1, attacker: "player" });
+    const ids = unitsOf(r.sides.enemy.battalion).flatMap((u) => u.members.map((m) => m.personId));
+    expect(new Set(ids).size).toBe(ids.length);
+    // The company still gets a leader (appointed once both battles are applied).
+    const c = unitsOf(r.sides.enemy.battalion).find((u) => u.key === company.key)!;
+    expect(c.leaderIndex).toBeGreaterThanOrEqual(0);
+  });
+});

@@ -51,6 +51,8 @@ export interface PartResult {
   checks: {
     zeroMen: number; badOpLength: string[]; tableMismatch: string[]; revisits: number; revisitsWithCraters: number; revisitsWithWrecks: number; revisitMismatch: string[];
     enemyMismatch: string[]; replenishmentMisplaced: string[];
+    /** A person id held by two men (units and pools of a side) after a node or replenishment. */
+    duplicateIds: string[];
   };
   /** Per side at the end and after every replenishment / operation: men with units, recovering, dead, experience. */
   snapshots: { afterNode: number; side: CampaignSide; men: number; recovering: number; dead: number; held: number; xp: number[] }[];
@@ -72,7 +74,7 @@ export function runCampaignPart(data: DataSet, o: PartOptions, runner: BattleRun
   const timed: BattleRunner = (input, ro) => { const t = performance.now(); const r = runner(input, ro); walls.push((performance.now() - t) / 1000); return r; };
   const res: PartResult = {
     opts: o, hash: "", rows: [], operations: [], replenishments: [],
-    checks: { zeroMen: 0, badOpLength: [], tableMismatch: [], revisits: 0, revisitsWithCraters: 0, revisitsWithWrecks: 0, revisitMismatch: [], enemyMismatch: [], replenishmentMisplaced: [] },
+    checks: { zeroMen: 0, badOpLength: [], tableMismatch: [], revisits: 0, revisitsWithCraters: 0, revisitsWithWrecks: 0, revisitMismatch: [], enemyMismatch: [], replenishmentMisplaced: [], duplicateIds: [] },
     snapshots: [], wallS: 0,
   };
   let record = newCampaign(data, { seed: o.seed, faction: o.faction, enemy: o.enemy, carriers: o.carriers, mode: o.mode, battleSeconds: o.seconds });
@@ -83,6 +85,14 @@ export function runCampaignPart(data: DataSet, o: PartOptions, runner: BattleRun
     for (const side of ["player", "enemy"] as const) {
       const f = r.sides[side];
       res.snapshots.push({ afterNode: nodes, side, men: membersOf(f.battalion).length, recovering: f.pools.recovering.length, dead: f.pools.dead.length, held: f.pools.heldByEnemy.length, xp: membersOf(f.battalion).map((m) => m.skills["experience"] ?? 0) });
+    }
+  };
+  const dupCheck = (r: CampaignRecord) => {
+    for (const side of ["player", "enemy"] as const) {
+      const f = r.sides[side];
+      const ids = [...membersOf(f.battalion), ...(["recovering", "dead", "missing", "heldByEnemy", "unassigned", "replacements"] as const).flatMap((k) => f.pools[k].map((p) => p.record))].map((m) => m.personId);
+      const seen = new Set<string>();
+      for (const id of ids) { if (seen.has(id)) res.checks.duplicateIds.push(`after node ${nodes}: ${side} ${id}`); seen.add(id); }
     }
   };
   const stop = (r: CampaignRecord) => (o.mode === "endless" ? nodes >= o.count : (r.operations?.length ?? 0) >= o.count);
@@ -127,6 +137,7 @@ export function runCampaignPart(data: DataSet, o: PartOptions, runner: BattleRun
         }
       }
       enemyAfter = enemyMen(r);
+      dupCheck(r);
       // The table.
       const planned = (p: number) => opBefore.planned[p]!;
       if (!op.endless) {
@@ -175,6 +186,7 @@ export function runCampaignPart(data: DataSet, o: PartOptions, runner: BattleRun
         else if (since !== rules.replenishEvery) res.replenishments.at(-1)!.reason += " (early: no able platoon)";
       }
       sinceRepl = 0;
+      dupCheck(r);
       log?.(`${o.faction} s${o.seed} replenishment after node ${nodes}: ${res.replenishments.at(-1)!.reason}; battalions ${membersOf(r.sides.player.battalion).length}/${membersOf(r.sides.enemy.battalion).length} men`);
     }
   });
@@ -201,13 +213,13 @@ export function batchReport(parts: PartResult[], header: string): string {
   const out: string[] = [header, ""];
   const byFaction = new Map<string, PartResult[]>();
   for (const p of parts) { const k = `${p.opts.faction} vs ${p.opts.enemy} (${p.opts.mode})`; byFaction.set(k, [...(byFaction.get(k) ?? []), p]); }
-  out.push("## Acceptance checks", "", "| campaigns | campaigns' record hashes | nodes | battles | zero-men battles | operations outside 3-5 nodes | table mismatches | sectors fought again (with craters / wrecks) | memory mismatches | enemy roster mismatches | misplaced replenishments |", "|---|---|---:|---:|---:|---|---:|---|---:|---:|---|");
+  out.push("## Acceptance checks", "", "| campaigns | campaigns' record hashes | nodes | battles | zero-men battles | operations outside 3-5 nodes | table mismatches | sectors fought again (with craters / wrecks) | memory mismatches | enemy roster mismatches | misplaced replenishments | person ids twice |", "|---|---|---:|---:|---:|---|---:|---|---:|---:|---|---:|");
   for (const [k, ps] of byFaction) {
     const c = (f: (p: PartResult) => number) => ps.reduce((n, p) => n + f(p), 0);
     const battles = c((p) => p.rows.reduce((n, r) => n + (r.walkover ? 0 : 1) + (r.flankMen ? 1 : 0), 0));
-    out.push(`| ${k} | ${ps.map((p) => `s${p.opts.seed} \`${p.hash}\``).join(", ")} | ${c((p) => p.rows.length)} | ${battles} | ${c((p) => p.checks.zeroMen)} | ${ps.flatMap((p) => p.checks.badOpLength).join("; ") || "0"} | ${c((p) => p.checks.tableMismatch.length)} | ${c((p) => p.checks.revisits)} (${c((p) => p.checks.revisitsWithCraters)} / ${c((p) => p.checks.revisitsWithWrecks)}) | ${c((p) => p.checks.revisitMismatch.length)} | ${c((p) => p.checks.enemyMismatch.length)} | ${ps.flatMap((p) => p.checks.replenishmentMisplaced).join("; ") || "0"} |`);
+    out.push(`| ${k} | ${ps.map((p) => `s${p.opts.seed} \`${p.hash}\``).join(", ")} | ${c((p) => p.rows.length)} | ${battles} | ${c((p) => p.checks.zeroMen)} | ${ps.flatMap((p) => p.checks.badOpLength).join("; ") || "0"} | ${c((p) => p.checks.tableMismatch.length)} | ${c((p) => p.checks.revisits)} (${c((p) => p.checks.revisitsWithCraters)} / ${c((p) => p.checks.revisitsWithWrecks)}) | ${c((p) => p.checks.revisitMismatch.length)} | ${c((p) => p.checks.enemyMismatch.length)} | ${ps.flatMap((p) => p.checks.replenishmentMisplaced).join("; ") || "0"} | ${c((p) => p.checks.duplicateIds.length)} |`);
   }
-  const problems = parts.flatMap((p) => [...p.checks.tableMismatch, ...p.checks.revisitMismatch, ...p.checks.enemyMismatch.slice(0, 10)]);
+  const problems = parts.flatMap((p) => [...p.checks.tableMismatch, ...p.checks.revisitMismatch, ...p.checks.enemyMismatch.slice(0, 10), ...p.checks.duplicateIds.slice(0, 10)]);
   if (problems.length > 0) out.push("", "Problems:", "", ...problems.slice(0, 40).map((x) => `- ${x}`));
   for (const [k, ps] of byFaction) {
     const rows = ps.flatMap((p) => p.rows);

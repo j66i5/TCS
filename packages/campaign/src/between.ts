@@ -49,8 +49,8 @@ export interface CampaignBattle {
   mapSeed: number;
   attacker: CampaignSide;
   /** M12.2: the node type and sector; `flank`: a flank battle fought at the same time as the node's main battle (it is
-   *  applied first, without the clock: the main battle's application runs the clock for both, and only the main battle
-   *  counts as a battle of the operation). */
+   *  applied first, without the clock and without appointing leaders: the main battle's application does both for the
+   *  two, and only the main battle counts as a battle of the operation). */
   node?: string;
   sector?: number;
   flank?: boolean;
@@ -172,7 +172,11 @@ export function applyResult(data: DataSet, record0: CampaignRecord, battle: Camp
   const hours = battle.result.durationSeconds / 3600 + rules.clock.hoursBetweenBattles;
   if (!battle.flank) record.hours += hours;
   for (const side of ["player", "enemy"] as const) {
-    if (!battle.flank) record.log.push(...passTime(data, rules, record.sides[side], hours, rules.recovery.rejoinWithinOperation, index, side));
+    // A flank battle appoints no leaders: a leader moved up from a sub-unit now could be a man of the main battle,
+    // whose records come back by unit key afterwards (he would be in two units); the main battle's application
+    // appoints them for both.
+    if (battle.flank) continue;
+    record.log.push(...passTime(data, rules, record.sides[side], hours, rules.recovery.rejoinWithinOperation, index, side));
     record.log.push(...appointLeaders(data, record.sides[side], index, side, lost[side]));
   }
   const w = battle.result.winner;

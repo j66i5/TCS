@@ -183,6 +183,6 @@ async function runBatch(which: string, a: Record<string, string>): Promise<void>
   writeFileSync(file, batchReport(results, header));
   writeFileSync(file.replace(/\.md$/, ".json"), JSON.stringify(results.map((r) => ({ opts: r.opts, hash: r.hash, checks: r.checks, operations: r.operations, replenishments: r.replenishments }))));
   console.log(`Wrote ${file}`);
-  const bad = results.reduce((n, r) => n + r.checks.zeroMen + r.checks.tableMismatch.length + r.checks.revisitMismatch.length + r.checks.enemyMismatch.length + r.checks.replenishmentMisplaced.length + r.checks.badOpLength.length, 0);
+  const bad = results.reduce((n, r) => n + r.checks.zeroMen + r.checks.tableMismatch.length + r.checks.revisitMismatch.length + r.checks.enemyMismatch.length + r.checks.replenishmentMisplaced.length + r.checks.badOpLength.length + r.checks.duplicateIds.length, 0);
   console.log(bad === 0 ? "All checks passed." : `CHECKS FAILED: ${bad}`);
 }

@@ -13,6 +13,7 @@
  *     M12.0a: battles on one map, each with both sides as the last left them (roster records out -> in) and the map's
  *     damage and wrecks; AI on both sides.
  */
+import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,11 +23,17 @@ import { parseArgs } from "../args";
 import { aiRunner, enemyOf } from "../campaign";
 import { chainReport, stepRow, type ChainStepRow } from "../campaign-report";
 import { loadData, ON_POSTS } from "../scenarios";
+import { batchReport, runCampaignPart, type PartOptions, type PartResult } from "../campaign-batch";
 
 const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
+if (cmd === "batch" || cmd === "batch-part") {
+  await runBatch(cmd, args);
+  process.exit(0);
+}
 if (cmd !== "chain" && cmd !== "sector") {
-  console.error("usage: npm run campaign -- chain --faction de|ru|xf [--enemy f] [--battles 10] [--seed n] [--seconds 600] [--carriers tracked|wheeled] [--from save.json]\n" +
+  console.error("usage: npm run campaign -- batch [--faction de,ru] [--operations 50] [--mode operations|endless] [--battles 30] [--seed n] [--seconds 600] [--campaigns 1] [--jobs 1]\n" +
+    "       npm run campaign -- chain --faction de|ru|xf [--enemy f] [--battles 10] [--seed n] [--seconds 600] [--carriers tracked|wheeled] [--from save.json]\n" +
     "       npm run campaign -- sector --faction de|ru|xf [--enemy f] [--battles n] [--seed n] [--map kind] [--seconds s] [--attacker blue|red] [--on-foot]");
   process.exit(1);
 }
@@ -101,4 +108,66 @@ if (cmd === "chain") {
     console.log(`  wall time ${(ms / 1000).toFixed(1)} s (${(r.durationSeconds / Math.max(ms / 1000, 1e-3)).toFixed(0)}x real time)`);
   }
   console.log(`\nEnd: ${chain.end}`);
+}
+
+/**
+ * `batch` (M12.2): per faction (`--faction`, a list) `--campaigns` campaigns (seeds `seed * 100 + c`) sharing the
+ * `--operations` (operations mode) or each fighting `--battles` nodes (endless), AI on both sides, `--jobs` campaigns
+ * at a time in child processes (`batch-part`, one campaign, its result as JSON to `--out`). Writes
+ * reports/campaign-batch-<mode>-<stamp>.md and prints each campaign's record hash (the batch is reproducible from
+ * `--seed`: the same hashes again).
+ */
+async function runBatch(which: string, a: Record<string, string>): Promise<void> {
+  if (which === "batch-part") {
+    const o = JSON.parse(a["opts"]!) as PartOptions;
+    const d = loadData(o.faction === "xf" || o.enemy === "xf");
+    const r = runCampaignPart(d, o, aiRunner, (line) => console.log(line));
+    writeFileSync(a["out"]!, JSON.stringify(r));
+    return;
+  }
+  const factions = (a["faction"] ?? "de,ru").split(",");
+  const mode = a["mode"] === "endless" ? "endless" : "operations";
+  const total = mode === "endless" ? Number(a["battles"] ?? 30) : Number(a["operations"] ?? 50);
+  const campaigns = Number(a["campaigns"] ?? 1), jobs = Number(a["jobs"] ?? 1), seed0 = Number(a["seed"] ?? 1), seconds = Number(a["seconds"] ?? 600);
+  const d = loadData(factions.includes("xf"));
+  const parts: PartOptions[] = [];
+  for (const f of factions) {
+    const enemy = a["enemy"] ?? enemyOf(d, f);
+    for (let c = 0; c < campaigns; c++) {
+      const count = mode === "endless" ? total : Math.floor(total / campaigns) + (c < total % campaigns ? 1 : 0);
+      if (count > 0) parts.push({ faction: f, enemy, carriers: a["carriers"] === "wheeled" ? "wheeled" : "tracked", seed: seed0 * 100 + c, mode, count, seconds });
+    }
+  }
+  const dir = fileURLToPath(new URL("../../../../reports", import.meta.url));
+  mkdirSync(dir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  console.log(`Campaign batch (${mode}): ${parts.map((p) => `${p.faction} vs ${p.enemy} s${p.seed} x${p.count}`).join(", ")}; ${seconds} s battles; ${jobs} at a time`);
+  const results: PartResult[] = new Array(parts.length);
+  const t0 = performance.now();
+  if (jobs <= 1) {
+    parts.forEach((p, i) => { results[i] = runCampaignPart(d, p, aiRunner, (line) => console.log(line)); console.log(`${p.faction} s${p.seed}: record hash ${results[i]!.hash}`); });
+  } else {
+    let next = 0;
+    const runOne = async (): Promise<void> => {
+      while (next < parts.length) {
+        const i = next++;
+        const p = parts[i]!;
+        const out = join(dir, `.campaign-part-${stamp}-${i}.json`);
+        await new Promise<void>((res, rej) => {
+          const ch = spawn(process.execPath, [...process.execArgv, process.argv[1]!, "batch-part", "--opts", JSON.stringify(p), "--out", out], { stdio: ["ignore", "inherit", "inherit"] });
+          ch.on("exit", (code) => (code === 0 ? res() : rej(new Error(`part ${i} (${p.faction} s${p.seed}) exited ${code}`))));
+        });
+        results[i] = JSON.parse(readFileSync(out, "utf8")) as PartResult;
+        console.log(`${p.faction} s${p.seed}: record hash ${results[i]!.hash}`);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(jobs, parts.length) }, runOne));
+  }
+  const header = `# Campaign batch: ${mode}, ${mode === "endless" ? `${total} nodes per campaign` : `${total} operations per faction`}, seed ${seed0}\n\nM12.2 (plan m12-roster 4.5). AI on both sides (the player's side auto-resolved with the proposed choice), ${seconds} s battles, ${campaigns} campaign(s) per faction, ${((performance.now() - t0) / 60000).toFixed(0)} min wall with ${jobs} at a time. \`npm run campaign -- batch ${process.argv.slice(3).join(" ")}\`.`;
+  const file = join(dir, `campaign-batch-${mode}-s${seed0}-${stamp}.md`);
+  writeFileSync(file, batchReport(results, header));
+  writeFileSync(file.replace(/\.md$/, ".json"), JSON.stringify(results.map((r) => ({ opts: r.opts, hash: r.hash, checks: r.checks, operations: r.operations, replenishments: r.replenishments }))));
+  console.log(`Wrote ${file}`);
+  const bad = results.reduce((n, r) => n + r.checks.zeroMen + r.checks.tableMismatch.length + r.checks.revisitMismatch.length + r.checks.enemyMismatch.length + r.checks.replenishmentMisplaced.length + r.checks.badOpLength.length, 0);
+  console.log(bad === 0 ? "All checks passed." : `CHECKS FAILED: ${bad}`);
 }

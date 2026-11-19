@@ -231,7 +231,7 @@ export function attackerOf(data: DataSet, record: CampaignRecord): CampaignSide 
 
 /** What `autoPlay` reports after every step. */
 export type AutoPlayEvent =
-  | { kind: "node"; record: CampaignRecord; battles: NodeBattles; wallMs?: number }
+  | { kind: "node"; before: CampaignRecord; record: CampaignRecord; battles: NodeBattles }
   | { kind: "replenishment"; record: CampaignRecord }
   | { kind: "operation-end"; record: CampaignRecord };
 
@@ -248,8 +248,9 @@ export function autoPlay(data: DataSet, record0: CampaignRecord, env: FlowEnv, s
     if (phase === "choose") { record = confirmForces(data, record); continue; }
     if (phase === "battle") {
       const battles = battleInputs(data, record, env.hooks ?? {});
+      const before = record;
       record = autoResolve(data, record, env, battles);
-      onStep?.({ kind: "node", record, battles });
+      onStep?.({ kind: "node", before, record, battles });
       continue;
     }
     if (phase === "after-battle") { record = proceed(data, record); continue; }

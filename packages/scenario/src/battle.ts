@@ -581,8 +581,10 @@ export const HOLD = {
    *  leaves the men refilling from their own pockets): the share of the defenders' loose rounds (packages) still on
    *  them (the smaller of this and `defenderLoadShare` applies). 0: they have none; what they refill from is at the
    *  supply point (`pointShare` 1) and in the deliveries, so only the chain can load their empty magazines. With the
-   *  first wave at 600 s (`waveS`) the bearers have time to bring the point's rounds forward before contact. */
-  defenderLooseShare: 0,
+   *  first wave at 600 s (`waveS`) the bearers have time to bring the point's rounds forward before contact.
+   *  Balance pass 4 (owner 2026-11-19, F): 0.25, a small share (a quarter of each package's rounds, rounded down), so
+   *  `--no-resupply` is not "the chain against empty pockets": the men can refill a little on their own. */
+  defenderLooseShare: 0.25,
   /** Balance pass 2: the supply point (and with it the off-map stock, `stockLoads` times it) holds this share of the
    *  rounds of one can per squad and cartridge: full cans and one part-filled can per cartridge (so a fresh point's
    *  marker reads 0.75 full). Balance pass 3: 1 (full cans), with the men's loose rounds gone. */

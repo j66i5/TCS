@@ -8959,3 +8959,93 @@ duplicate scenarios removed. Band for the four platoon battles: attacker wins 6-
     in, never fire, and break under fire from 350-460 m): over 40 seeds a defence lost while the attacker lost 5 men
     or fewer in 6 of 80 battles with the chain and 4 of 80 without (balance pass 2's settings: 0 of 11). A spotting /
     range-rule question for a later pass, not changed here.
+
+## 2026-11-19 — Balance pass 4 (owner decisions 2026-11-19: E defence starts on its posts, F hold loose rounds, G hold defences that break without firing, H cannon HE danger close)
+Owner decisions (binding, all the recommended options). Band for the four platoon battles: attacker wins 6-14 of 20
+(20 seeds x 1,200 s). Parts H and E below; F and G are recorded by their own blocks.
+- **H. Danger close for bursting rounds.**
+  - *The bug behind most of it* (sim/systems/fire.ts `friendInLine`): a man on another floor is not in the line
+    (`FLOOR_APART_M` 1 m), and a vehicle gunner's `z` is his seat height (1.2-1.6 m above the ground): every vehicle
+    gunner's line check skipped every own man on foot. Measured before (scratch analysis of `hit` events by the
+    target's own side, platoon-ru-vehicles s4): BMP-2 30 mm HE striking own men squarely in the line, 0-4 m across it,
+    84-217 m out, firing at enemies 500-570 m away. A gunner aboard (not out on the roof) now counts as at ground level.
+  - *Danger radius* (`dangerRadiusM`, fire.ts; data `ballistics.json fragments.danger` {presentedAreaM2 0.5,
+    hitChance 0.05}, game values, low): where a round's fragments, spread evenly over a sphere, strike a 0.5 m2 body
+    with a 5 % chance, sqrt(count x 0.5 / (4 pi x 0.05)), at least the blast's injury radius: 30 mm HE (80
+    fragments) 8.0 m, 40 mm HE (300) 15.5 m (published casualty radius about 15 m), VOG-17 (400) 17.8 m, 120/125 mm tank
+    HE 31-40 m; 0 for rounds that do not burst.
+  - *Stations* (gunnery.ts `stationDangerM`: the danger radius plus one standard deviation of the range error, the
+    laser rangefinder's or the eye's, plus two of the station's and weapon's angular error at the range; the gunner's
+    skill not counted): before each burst no own man (alive, not a prisoner, on foot or out on a hull) within it of
+    the point on any side (`ownMenWithin`, fire.ts), and the line check looks past the point by the larger of it and
+    `gunnery.friendBeyondM` (60 m, new, as `soldier.friendBeyondM` for men on foot: rounds that miss go on). The
+    crew's target choice keeps its 60 m `friendlyClearM` for high explosive or the round's danger, whichever is
+    larger; a bursting round substituted for the machine gun or the armour-piercing round (none left) is held near own
+    men ("why.hold.dangerClose", new string).
+  - *Grenade launcher teams* (agl-team.ts): `aglDangerM(ctx, range, round)` takes the round's danger radius (at
+    least the old 8 m) and the team holds its burst with an own man within it of the point on any side, not only in
+    the line; the AI commander's AGL target filter uses the same.
+  - *Measured* (10 seeds x 1,200 s each; men of a side hit by their own side, first hit; hits by vehicle gunners):
+
+    | scenario | before (origin/main 21eb8a4) | **after H and E** |
+    |---|---|---|
+    | platoon-vehicles | 13 men (11 by gunners: 30 mm HE and fragments, 7.62 coax), 54 gunner hits | **2 men (hand grenades), 0 by gunners** |
+    | platoon-ru-vehicles | 23 men (22 by gunners), 108 gunner hits | **0** |
+
+    (H alone, before E, same seeds: 3 and 6 men by gunners; seed 6 of platoon-ru-vehicles had a Puma's HE land among
+    its own men twice; with E that battle changed and none were hit.)
+  - Side effect: gunners now hold fire through their own infantry. In `gtk-seatswap.test` (seed 1, wheeled) the
+    GTK's platoon stands 60-130 m ahead in its FLW 200's line all battle long: the station takes targets but never
+    fires (the test now asks for a target taken).
+  - Tests: `tools/test/danger-close.test.ts` (danger radii; a BMP-2 gunner sees an own man 60 m ahead in his line and
+    not 80 m wide of it, failed before; a station holds high explosive with an own man 6 m beside the point, across
+    the line, and fires with him 400 m off; both fail on the old code).
+- **E. The defence's hulls start on their hull-down posts.**
+  - `defenceStartPosts(input, side)` (ai/start-posts.ts): runs the defending side's own commander on a throw-away
+    simulation of the defence alone until it has sited every hull it sites (tank sections, carriers whose squads are
+    out; tanks.ts `tankSections`, unchanged siting), and writes each hull's first post (place, facing) into the
+    force's `vehiclePlacements` with `onPost: true` (new optional field; the simulation does not read it).
+  - The scenario cannot use the AI (dependency direction), so `buildScenario(data, def, hooks)` takes
+    `ScenarioHooks.defenceStartPosts`, called after the defence is built and before the attacker: the attacker's
+    dead-ground start is looked for from the posts. `ScenarioDef.defenceOnPosts: false` switches it off. The tools'
+    mounted scenarios (`ON_POSTS`, scenarios.ts) and the app's platoon battle pass the hook; direct `buildScenario`
+    calls without it (most tests) build as before.
+  - In the battle the commander's first siting (defending, stage "hold") keeps a hull flagged `onPost` on its spot as
+    its first post (scored with `siteHullDown`'s new `at` option; dropped only if the spot is now exposed); the other
+    hulls' posts keep off the kept spots. Without the flag the defence would re-site from a new home and drive off
+    (seen at 6-11 s in 3 of 4 seeds in the first try, which kept a hull only when its spot scored within 0.1 of the best).
+  - Seen (platoon-vehicles seeds 1, 3, 5, 120 s): no defending hull moves at the start; one BMP-2 relocates at 95 s.
+  - Review-style fix found by the tests: the overwatch bounds now leave out every post a hull was sent to and missed
+    from the spot it stands on (`obBound.missed`), not only the last one (platoon-vehicles s2: a stuck Puma
+    alternated between two such posts).
+  - Tests: `tools/test/defence-posts.test.ts` (5 hulls flagged and moved, the defence's men unchanged, deterministic,
+    off with `defenceOnPosts: false`; in the battle no defending hull moves 5 m in 45 s; the fixture faction sited);
+    `mounted-invariants` (the hull-blocks-fire pairs now over seeds 1 and 2: the hulls are spread over their posts) and
+    `tanks-ai` (with the BMP-2s on posts from the start, seed 1's Leopards fire and move on before both stand on
+    their posts at once: each has reached its post by 180 s).
+- **Balance after H and E** (20 seeds x 1,200 s, attacker wins; casualties attacker / defender; end reasons; hulls
+  lost attacker / defender):
+
+  | scenario | balance pass 3 (after review fixes) | **after H and E** |
+  |---|---|---|
+  | platoon | 10; 16.75 / 10.25 | **10; 16.75 / 10.25; eliminated 8, time 12** (unchanged: no hulls) |
+  | platoon-ru | 7; 20.95 / 9.40 | **7; 20.95 / 9.40; eliminated 11, broken 1, time 8** (unchanged) |
+  | platoon-vehicles | 16 (seeds 21-40: 12; 28 / 40) | **15; 16.6 / 29.3; time 16, eliminated 4; hulls 1.6 / 4.5** (seeds 21-40: 13; 17.5 / 26.9; hulls 1.05 / 4.15; **28 / 40**) |
+  | platoon-ru-vehicles | 11; 26.80 / 17.05 | **11; 23.4 / 16.85; time 11, broken 6, eliminated 3; hulls 2.6 / 2.25** |
+
+  **platoon-vehicles stays above the band** (15 of 20; 28 of 40 as before). Why (seeds 1-4, every penetration of a
+  defending hull, 600 s): the hulls now stand still on their posts (moved 0 m, speed 0) and are penetrated there at
+  44-102 s by Puma 30 mm APFSDS (PMC287) from 490-640 m: BMP-2s through the front hull and turret, T-90Ms through the
+  hull side (the hull turned 30 degrees toward one Puma, the others 47-64 degrees off its front). The posts are
+  hull-down against the defence's approach points (out to 325 m from the objective), not against the Pumas'
+  overwatch line 500-650 m out. Variants measured within the lever and not kept: (1) a hull on its post faces the
+  middle of the enemy vehicles it knows, not the newest: 15 of 20, the same battles' outcomes; (2) the defence's
+  hulls sited against approach points out to 725 m (rings 125-725 m): 14 of 20, seeds 21-40 15 (29 / 40),
+  platoon-ru-vehicles 10 of 20, losses 4.45 hulls instead of 4.5: within noise. Remaining levers are outside E
+  (owner question): the Puma's 30 mm APFSDS against a T-90M's side and a BMP-2's front at 500-650 m, the T-90M's front
+  kept toward the Pumas, or the attack's Pumas held farther back.
+- `npm run golden:update` after H+E: every golden changed from tick 600 (the catalog fingerprint); the bounds fix
+  changed none; `golden/no-interiors` untouched.
+- **Checks (H+E):** typecheck, lint, data lint (no errors); `npm test` 1,594 pass, 6 skipped, 2 failed and fixed
+  (`gtk-seatswap`: the gunner now holds fire through his own platoon, see H; `overwatch-bound`: the repeated bound,
+  fixed in tanks.ts), both re-run pass. Timing tests not run (other measurements on the machine).

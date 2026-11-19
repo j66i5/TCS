@@ -246,6 +246,8 @@ fire volume where the sources support it.
    300 s replay of each. The AI commander takes each wave as it arrives (a wave is a new platoon of its side; the
    attack plan is made again for it). `rules.resupply: false` (headless and batch
    `--no-resupply`, as `--no-medical`) switches every resupply route of slices 44-48 off for comparison batches.
+   (Later changes, see DECISIONS: balance pass 3 moved the waves to 10, 25 and 40 minutes and narrowed
+   `--no-resupply` to the supply chain; `--no-refill` switches off the men's own refilling and the squad's sharing.)
 7. **Men fire more, only where justified** (`core/shooting.json`, `core/behaviour.json`): today a rifleman fires
    0.02-0.84 rounds a minute averaged over the battle and a machine gunner 0.06-6 (section 2), against sources of
    12-15 (rifle, sustained) and about 100 (machine gun, sustained) while engaged. The comparison must be per minute

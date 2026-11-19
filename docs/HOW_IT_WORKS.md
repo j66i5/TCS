@@ -1563,8 +1563,10 @@ knows near the objective, never close to its own men. Since balance pass 3 (owne
 that has fired nothing for 75 s bounds forward: the AI picks a hull-down spot up to 150 m ahead (the same search as
 the tanks' posts), at least 40 m farther forward, always 100 m or more behind the side's foremost man on foot and
 200 m from houses or woods the enemy may still hold and from enemy men it knows; if there is none it tries again 30 s
-later. A vehicle that is busy with an enemy vehicle, out of main-gun rounds, hit and reversing, or still carrying men
-stays where it is (game values in `core/behaviour.json` `mounting.overwatchBound`; without them the vehicles stay).
+later. The new spot is never farther from the objective, at most about 225 m away, never nearer a known enemy
+vehicle that could reach it with its guns or missiles, and one the vehicle can drive to (a spot it was sent to and
+could not reach is not picked again from where it stands). A vehicle that is busy with an enemy vehicle, out of
+main-gun rounds, hit and reversing, re-arming or refuelling, or still carrying men stays where it is (game values in `core/behaviour.json` `mounting.overwatchBound`; without them the vehicles stay).
 
 **Wheeled carriers (M7.6c).** Each army also has a wheeled platoon: the German **Jägerzug** in four **GTK Boxer**
 (eight-wheeled; a crew of two, the commander working the remote weapon station on the roof — a 12.7 mm heavy

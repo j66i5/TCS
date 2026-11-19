@@ -366,6 +366,11 @@ as `"tankSectionTemplate": "<section id>"`: generated battles with `tanks: true 
 scenarios `platoon-vehicles-tanks`, `platoon-ru-vehicles` (its attack's T-72B3M; balance pass 3 removed the identical `platoon-ru-vehicles-tanks`), `platoon-vehicles-tanks-both`; app `?tanks=1`,
 `?tanks=attacker`, `&tankCrew=<blue section>,<red section>`) add it as a unit of its own; the AI commander recognises
 it from the data alone (crews of vehicles that carry no one) and runs it in overwatch (`ai/src/tanks.ts`).
+The balanced mounted battle's sections (balance pass 3) are named in code, not data: `MOUNTED_TANKS` in
+`packages/scenario/src/battle.ts` names `tankovaya-gruppa-t90m` for the defence when blue attacks (the scenario
+package may name template ids; rule 8 covers sim, ai, render and ui); a faction without that template falls back to
+its manifest's `tankSectionTemplate`, so other factions and the fixture work unchanged. Renaming that template means
+changing it there too.
 
 The loader checks (errors): the template exists; it has no members and at least one sub-unit; every sub-unit is a
 vehicle crew; none of their vehicles has a passenger seat. Check with `npm run lint:data` and

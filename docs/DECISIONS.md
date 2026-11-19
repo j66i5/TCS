@@ -8908,3 +8908,52 @@ duplicate scenarios removed. Band for the four platoon battles: attacker wins 6-
   their posts; their front kept toward the Pumas on the way; or another)? The hold battle's first wave now comes at 10
   minutes (the chain needs the time): keep, or another way to give the bearers time?
 
+- **Review fixes (2026-11-19, three reviews: rules, behaviour, code).**
+  - *Bounds (C):* a post is checked with `planVehicleRoute` before the order, and a post the hull was sent to and
+    never reached is left out (`obBound[c].to/at`) while it stands within 5 m of where it stood (before: platoon-vehicles
+    seed 1, a Puma got the same unreachable post six times and never moved; 8 of 110 bounds were such repeats). The
+    post must be no farther from the objective than the hull, at most 1.5 `stepM` away, and the search rings are
+    0 / 40 / 80 m round the anchor (`BOUND_RINGS_M`; before, 6 of 110 bounds moved away from the objective and single
+    bounds ran up to 347 m). Known enemy hulls (seen, not wrecks, not heard) beyond the carrier's own reach now count:
+    no post nearer one inside its longest `engageRangeM` (a T-90M's 5,000 m missile against a Puma's 2,000 m gun). Not
+    while the hull re-arms or refuels (`v.resupply`): an order would break that off. The avoid list uses `isOffMap`
+    (on-map ambulances, recovery and MP hulls count). Tests: an enemy hull beyond the Puma's reach holds the bound
+    back; in the battle a bounding hull drives off and no crew gets the same bound twice; the fixture test now asserts
+    a move order to an xf crew, not only an attempt.
+  - *Fire (A):* a crewman at an outside action (repairing, hooking up, reloading on the roof: `onRoof`) blocks a
+    comrade's line like a man on foot (he stands 0.6-0.8 m off the hull, outside its 0.5 m margin). Test added.
+  - *App (D):* the default tanks go only to the battle the batch measures: tracked carriers on both sides and no
+    assault group (`defaultTanksApply`); `vehicles=wheeled`, mixed carriers and `assault=1` stay without tanks unless
+    `tanks=` asks. An unknown `tanks=` value warns (as `vehicles=`) and takes the default.
+  - Docs: CLAUDE.md's scenario list gains `bench-caches`, `bench-medical`, `house-clear`; DATA_GUIDE notes that
+    `MOUNTED_TANKS` names a template id in the scenario package; the M11 plan notes the later wave times. The
+    mounted-invariants per-scenario test has a 120 s timeout (43 s alone, timed out beside another battle test).
+  - Goldens: unchanged by the fixes (golden test passes as committed).
+  - Perf (rules review: is A's `hullInLine` under the 8x floor?): bench-vehicles alone, branch and origin/main
+    480f582 alternated, two rounds of three: branch 8.3, 8.4, 7.7, 8.4, 8.6, 8.4x (median 8.4x), origin/main 8.3,
+    7.4, 7.6, 8.2, 8.9, 9.2x (median 8.25x): no consistent difference, the misses are container noise. `hullInLine`
+    returns at once with no hull on the map and otherwise reads the per-tick vehicle grid; a per-side count would not
+    help bench-vehicles (both sides have 15 hulls), so it is left as it is.
+  - `npm run lab -- consumption --conservation`: 182 runs, every one exact.
+  - **Re-measured, 20 seeds x 1,200 s, attacker wins:** platoon 10 (16.75 / 10.25), platoon-ru 7 (20.95 / 9.40),
+    platoon-ru-vehicles 11 (26.80 / 17.05) — all three as before the fixes; **platoon-vehicles 16** (18.05 / 32.75;
+    time limit 14, eliminated 6; vehicles lost 1.85 / 4.80), seeds 21-40: 12 (17.80 / 26.70; vehicles lost 1.55 /
+    3.70): **28 / 40 (70 %)**, still above the 6-14 band (owner question below).
+  - **Hold battle on 40 seeds** (seeds 1-20 as above, re-run seed 2 identical on the fixed code; seeds 21-40 new),
+    holds with the chain / without (`--no-resupply`), 95 % intervals about +-15 points each:
+    German defence 28 / 40 (70 %) against 13 / 40 (32 %), +38 points (seeds 21-40 alone: 17 / 20 against 8 / 20);
+    Russian defence 20 / 40 (50 %) against 9 / 40 (22 %), +28 points (seeds 21-40: 8 / 20 against 5 / 20). Both gaps
+    are above the 10 points; the German rate with the chain sits on the 70 % ceiling over 40 seeds.
+  - **Skipped, with reasons:** the band (a lever needs the owner's choice; the bounds are not the cause: 3 of 20
+    outcomes flipped); own men hit by their own 30 mm HE and fragments (no danger-close check for cannon HE; outside
+    decision A, follow-up question); the bound's "front" being the single foremost man (design note; no case seen of
+    a carrier passing its squads: 0 of 110 bound posts within 100 m of the foremost man); defences that rout without
+    firing in the hold battle (see below).
+  - **Disclosed (owner questions):** (1) with `defenderLooseShare` 0 the defenders have nothing of their own to refill
+    from, so in the hold battle `--no-resupply` mostly helps the attacker's self-refill (seed 3: no defender ever
+    refilled either way; with `--no-resupply --no-refill` the defence held); the measured gap is "the chain against
+    empty pockets". (2) Some defences rout while firing almost nothing (German seed 16 with the chain: 1 shot against
+    873, eliminated at 1,031 s with red losing none; the defenders see the attackers only now and then from 446 m
+    in, never fire, and break under fire from 350-460 m): over 40 seeds a defence lost while the attacker lost 5 men
+    or fewer in 6 of 80 battles with the chain and 4 of 80 without (balance pass 2's settings: 0 of 11). A spotting /
+    range-rule question for a later pass, not changed here.

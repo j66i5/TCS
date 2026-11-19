@@ -34,7 +34,7 @@ import type { SimState } from "../state";
 import { heightAt, standZ } from "../terrain";
 import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget, unitSoldiers } from "./orders";
-import { isMounted } from "../mount";
+import { isMounted, onRoof } from "../mount";
 import { isGuiding } from "./missile-team";
 import { protectedContact } from "../protection";
 import { beyondSelfDefence, breachActive, noteFireAt, noteShot } from "../conduct";
@@ -215,9 +215,10 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
   const ux = dx / range, uy = dy / range;
   const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
   for (const [other, ident] of state.identity.entries()) {
-    // (Men aboard a vehicle never block a comrade's fire: they are behind armour, M7.)
+    // (Men aboard a vehicle are behind armour, M7: their hull blocks, `hullInLine`. A man aboard but working outside
+    // it (repairing, hooking up, reloading on the roof) is a body like a man on foot: he blocks, balance pass 3 review.)
     const os = state.soldier.get(other);
-    if (ident.side !== side || other === id || isMounted(os)) continue;
+    if (ident.side !== side || other === id || (isMounted(os) && !onRoof(state, other))) continue;
     // (Review fixes 2026-11-14: the dead and prisoners never block his fire; a man lying hit counts only between
     // the muzzle and the point, as before fire discipline, not at the elbow or in the beaten zone past the point.)
     if (os !== undefined && (!os.physiology.alive || os.captive !== null)) continue;

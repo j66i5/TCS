@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-18 (balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-19 (balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -19,6 +19,10 @@ DECISIONS.md under its date._
   threats (`overwatchBounds`, ai/tanks.ts; `mounting.overwatchBound`). 20 seeds x 1,200 s attacker wins: platoon 10,
   platoon-ru 7, platoon-ru-vehicles 11, **platoon-vehicles 16 (out of band; seeds 21-40: 13; 29 / 40)**: the defence
   loses 4.75 of 5 hulls, T-90Ms penetrated in the side/rear by Puma 30 mm in the first 4 minutes (owner question).
+  Review fixes (2026-11-19): bounds only to posts the hull can drive to (no repeats), never farther from the
+  objective, at most 1.5 x 150 m, out of known enemy hulls' reach, not while re-arming; a crewman working outside his
+  hull blocks fire; the app's default tanks only in the tracked, non-assault battle; unknown `tanks=` warns. Re-measured:
+  platoon-vehicles 16 / 20 (28 / 40), the others unchanged; hold on 40 seeds: German 28 / 13, Russian 20 / 9 of 40.
 - **Balance pass 2 (2026-11-18, branch `claude/mounted-balance`; owner decisions 2026-11-17).** The range rule
   lifted under fire is on (`decisions.rangeRuleLiftsUnderFire`); the platoon battle's defence digs hasty holes
   (`SCENARIO_HASTY_DEPTH_M` 0.6 m, `rules.prepared[].depthM`; the hold battle keeps 1.2 m); the dead-ground start

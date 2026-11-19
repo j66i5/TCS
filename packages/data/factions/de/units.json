@@ -3328,6 +3328,1502 @@
       ],
       "confidence": "low",
       "note": "Feldjaegertrupp (M11.9b): three Feldjaeger (military police) in their protected vehicle, the Bundeswehr's troop for prisoner-of-war matters (Kriegsgefangenenwesen), custody and transports (bundeswehr.de extracts, medium; 'Orange Road 2' 2023: Feldjaeger run transports and hand-overs from the collecting point). Three men and ranks are game values (low). Not in any platoon: called from off the map."
+    },
+    {
+      "id": "puma-besatzung-kp",
+      "echelon": "vehicle",
+      "callsign": "Puma KpTrp",
+      "leaderIndex": 0,
+      "vehicle": "de-puma",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "oberfeldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "richtschuetze",
+          "rank": "unteroffizier",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/mediathek/podcast-schuetzenpanzer-puma-5579472",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): crew of the company headquarters Puma (the Kompaniefuehrungstrupp's vehicle): as puma-besatzung, commander an Oberfeldwebel. The company commander rides in it with his Truppfuehrer and radio operator (HS.30-era table: the commander's vehicle carried the command element; the Puma-era table was not found). Ranks and the fixed callsign are game values (low). Search extracts only; no page could be opened."
+    },
+    {
+      "id": "boxer-besatzung-kp",
+      "echelon": "vehicle",
+      "callsign": "Boxer KpTrp",
+      "leaderIndex": 0,
+      "vehicle": "de-boxer-gtk",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "oberfeldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): crew of the Jaegerkompanie headquarters GTK Boxer: as boxer-besatzung, commander an Oberfeldwebel (game value, low). Search extracts only; no page could be opened."
+    },
+    {
+      "id": "puma-besatzung-btl",
+      "echelon": "vehicle",
+      "callsign": "Puma BtlKdo",
+      "leaderIndex": 0,
+      "vehicle": "de-puma",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "oberfeldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "richtschuetze",
+          "rank": "unteroffizier",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/mediathek/podcast-schuetzenpanzer-puma-5579472",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): crew of the battalion commander's Puma (game value, low: the battalion's command vehicles were not found in the extracts). Search extracts only; no page could be opened."
+    },
+    {
+      "id": "boxer-besatzung-btl",
+      "echelon": "vehicle",
+      "callsign": "Boxer BtlKdo",
+      "leaderIndex": 0,
+      "vehicle": "de-boxer-gtk",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "oberfeldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): crew of the Jaegerbataillon commander's GTK Boxer (game value, low). Search extracts only; no page could be opened."
+    },
+    {
+      "id": "pzgren-kompanie",
+      "echelon": "company",
+      "callsign": "{n}. Kompanie",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "kompaniechef",
+          "rank": "hauptmann",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "kompanietruppfuehrer",
+          "rank": "hauptfeldwebel",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "funker",
+          "rank": "stabsgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [
+        "pzgren-zug",
+        "pzgren-zug",
+        "pzgren-zug",
+        "puma-besatzung-kp"
+      ],
+      "sources": [
+        "https://www.battleorder.org/post/de-pzg-1966",
+        "https://www.bundeswehr.de/de/organisation/heer/struktur/10-panzerdivision/panzergrenadierbrigade-37/panzergrenadierbataillon-212-",
+        "https://www.bundeswehr.de/de/organisation/heer/aktuelles/ganzes-puma-bataillon-zeigt-krallen-5457088"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): Panzergrenadierkompanie: the Kompaniefuehrungstrupp (Kompaniechef, a Hauptmann; Kompanietruppfuehrer; Funker; medium: the HS.30-era table lists the company commander, a Hauptmann, with a company troop leader and a driver and gunner) in its own Puma, and three Panzergrenadierzuege (the existing pzgren-zug). The company's supply and maintenance elements (Kompanietross) are not modelled (they stay behind the battle). Loads as the Zugtrupp's (no drone: the platoons fly theirs). Search extracts only; no page could be opened.",
+      "carriage": [
+        {
+          "crew": 3,
+          "carries": [],
+          "hq": true
+        }
+      ]
+    },
+    {
+      "id": "jaeger-kompanie",
+      "echelon": "company",
+      "callsign": "{n}. Kompanie",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "kompaniechef",
+          "rank": "hauptmann",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "kompanietruppfuehrer",
+          "rank": "hauptfeldwebel",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "funker",
+          "rank": "stabsgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [
+        "jaeger-zug",
+        "jaeger-zug",
+        "jaeger-zug",
+        "boxer-besatzung-kp"
+      ],
+      "sources": [
+        "https://www.battleorder.org/post/de-pzg-1966",
+        "https://www.bundeswehr.de/de/organisation/heer/struktur/10-panzerdivision/panzergrenadierbrigade-37/panzergrenadierbataillon-212-",
+        "https://www.bundeswehr.de/de/organisation/heer/aktuelles/ganzes-puma-bataillon-zeigt-krallen-5457088"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): Jaegerkompanie in GTK Boxers: as the Panzergrenadierkompanie (Kompaniefuehrungstrupp in its own Boxer, three Jaegerzuege); mirrored, low. Search extracts only; no page could be opened.",
+      "carriage": [
+        {
+          "crew": 3,
+          "carries": [],
+          "hq": true
+        }
+      ]
+    },
+    {
+      "id": "pzgren-bataillon",
+      "echelon": "battalion",
+      "callsign": "Bataillon {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "bataillonskommandeur",
+          "rank": "oberstleutnant",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "stabsoffizier",
+          "rank": "major",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "funker",
+          "rank": "stabsgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [
+        "pzgren-kompanie",
+        "pzgren-kompanie",
+        "pzgren-kompanie",
+        "moerser-gruppe",
+        "gmw-trupp",
+        "panzer-halbzug",
+        "puma-besatzung-btl"
+      ],
+      "sources": [
+        "https://www.battleorder.org/post/de-pzg-1966",
+        "https://www.bundeswehr.de/de/organisation/heer/struktur/10-panzerdivision/panzergrenadierbrigade-37/panzergrenadierbataillon-212-",
+        "https://www.bundeswehr.de/de/organisation/heer/aktuelles/ganzes-puma-bataillon-zeigt-krallen-5457088"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): Panzergrenadierbataillon (campaign force, owner 2026-11-19: a battalion): the Kommandeur (an Oberstleutnant) with his S3 Stabsoffizier (a Major) and a Funker in his Puma; three Panzergrenadierkompanien (medium: three combat companies in the extracts); the battalion's support as the game has it: a mortar section of two 120 mm tubes (moerser-gruppe), a 40 mm GMW team (gmw-trupp) and an attached Leopard 2A7V Halbzug (panzer-halbzug, attached from a Panzerbataillon: game value, low). The staff and supply company, the heavy company's other weapons and the reconnaissance elements are not modelled. About 330 men and 40 hulls. Search extracts only; no page could be opened.",
+      "carriage": [
+        {
+          "crew": 6,
+          "carries": [],
+          "hq": true
+        }
+      ]
+    },
+    {
+      "id": "jaeger-bataillon",
+      "echelon": "battalion",
+      "callsign": "Bataillon {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "bataillonskommandeur",
+          "rank": "oberstleutnant",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "stabsoffizier",
+          "rank": "major",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            },
+            {
+              "item": "de-dokumente",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "funker",
+          "rank": "stabsgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-radio-battery",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1,
+              "charge": 2000
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-nvg-battery",
+              "count": 2,
+              "charge": 4
+            },
+            {
+              "item": "de-556-bandolier",
+              "count": 1,
+              "charge": 140
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [
+        "jaeger-kompanie",
+        "jaeger-kompanie",
+        "jaeger-kompanie",
+        "moerser-gruppe",
+        "gmw-trupp",
+        "panzer-halbzug",
+        "boxer-besatzung-btl"
+      ],
+      "sources": [
+        "https://www.battleorder.org/post/de-pzg-1966",
+        "https://www.bundeswehr.de/de/organisation/heer/struktur/10-panzerdivision/panzergrenadierbrigade-37/panzergrenadierbataillon-212-",
+        "https://www.bundeswehr.de/de/organisation/heer/aktuelles/ganzes-puma-bataillon-zeigt-krallen-5457088"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): Jaegerbataillon in GTK Boxers: as pzgren-bataillon (Kommandeur's Boxer, three Jaegerkompanien, mortar section, GMW team, an attached Leopard Halbzug); mirrored, low. Search extracts only; no page could be opened.",
+      "carriage": [
+        {
+          "crew": 6,
+          "carries": [],
+          "hq": true
+        }
+      ]
     }
   ]
 }

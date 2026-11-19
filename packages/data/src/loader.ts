@@ -486,6 +486,30 @@ function loadFaction(
       if (vd && vd.class !== cls) err(`'${id}': carriage crew '${su!.id}' drives '${vd.id}', a ${vd.class} vehicle, not ${cls}`);
     }
   }
+  // M12.1a: the campaign's battalion by carrier class: a template of echelon "battalion", every template under it
+  // known (lint: unknown sub-units are reported for every template), its carriage crews of that class.
+  for (const cls of ["tracked", "wheeled"] as const) {
+    const id = manifest.battalionTemplates?.[cls];
+    if (id === undefined) continue;
+    const err = (message: string) => errors.push({ file: f("manifest.json"), path: `battalionTemplates.${cls}`, message, severity: "error" });
+    const bt = pack.units[id];
+    if (!bt) { err(`unknown unit template '${id}' (known: ${known(pack.units)})`); continue; }
+    if (bt.echelon !== "battalion") err(`'${id}' is of echelon '${bt.echelon}', not 'battalion'`);
+    const seen = new Set<string>();
+    const walk = (tid: string) => {
+      if (seen.has(tid)) return;
+      seen.add(tid);
+      const t = pack.units[tid];
+      if (!t) return;
+      for (const c of t.carriage ?? []) {
+        const su = pack.units[t.subunits[c.crew] ?? ""];
+        const vd = su?.vehicle !== undefined ? pack.vehicles[su.vehicle] : undefined;
+        if (vd && vd.class !== cls) err(`'${tid}' (in '${id}'): carriage crew '${su!.id}' drives '${vd.id}', a ${vd.class} vehicle, not ${cls}`);
+      }
+      t.subunits.forEach(walk);
+    };
+    walk(id);
+  }
   // M7.6d: the automatic grenade launcher team and the assault group are templates of this faction; the team's men
   // carry an "agl" post.
   for (const key of ["aglTeamTemplate", "assaultGroupTemplate", "missileTeamTemplate"] as const) {

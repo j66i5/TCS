@@ -181,6 +181,97 @@
             "points": 5
           }
         ]
+      },
+      "kapitan": {
+        "elements": [
+          {
+            "kind": "star",
+            "x": -12.5,
+            "y": 25,
+            "diameterMm": 13,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 12.5,
+            "y": 25,
+            "diameterMm": 13,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 50,
+            "diameterMm": 13,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 75,
+            "diameterMm": 13,
+            "points": 5
+          }
+        ]
+      },
+      "mayor": {
+        "elements": [
+          {
+            "kind": "band",
+            "y0": 0,
+            "y1": 120,
+            "x0": -9,
+            "x1": -6
+          },
+          {
+            "kind": "band",
+            "y0": 0,
+            "y1": 120,
+            "x0": 6,
+            "x1": 9
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 40,
+            "diameterMm": 20,
+            "points": 5
+          }
+        ],
+        "note": "field officers: two long stripes in place of the lumens, one 20 mm star between them; stripe width and places low"
+      },
+      "podpolkovnik": {
+        "elements": [
+          {
+            "kind": "band",
+            "y0": 0,
+            "y1": 120,
+            "x0": -9,
+            "x1": -6
+          },
+          {
+            "kind": "band",
+            "y0": 0,
+            "y1": 120,
+            "x0": 6,
+            "x1": 9
+          },
+          {
+            "kind": "star",
+            "x": -14,
+            "y": 40,
+            "diameterMm": 20,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 14,
+            "y": 40,
+            "diameterMm": 20,
+            "points": 5
+          }
+        ],
+        "note": "as mayor, a pair of 20 mm stars outside the stripes (low)"
       }
     },
     "sources": [

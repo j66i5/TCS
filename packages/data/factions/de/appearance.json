@@ -279,6 +279,74 @@
             "points": 4
           }
         ]
+      },
+      "hauptmann": {
+        "elements": [
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 20,
+            "diameterMm": 17,
+            "points": 4
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 40,
+            "diameterMm": 17,
+            "points": 4
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 60,
+            "diameterMm": 17,
+            "points": 4
+          }
+        ]
+      },
+      "major": {
+        "elements": [
+          {
+            "kind": "wreath",
+            "y": 22,
+            "diameterMm": 30,
+            "widthMm": 5
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 52,
+            "diameterMm": 17,
+            "points": 4
+          }
+        ],
+        "note": "Stabsoffizier: an oak-leaf wreath (Eichenlaubkranz) at the shoulder end, the stars above it; drawn as an open ring of a 5 mm band; sizes and places low (no drawing readable)"
+      },
+      "oberstleutnant": {
+        "elements": [
+          {
+            "kind": "wreath",
+            "y": 22,
+            "diameterMm": 30,
+            "widthMm": 5
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 52,
+            "diameterMm": 17,
+            "points": 4
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 72,
+            "diameterMm": 17,
+            "points": 4
+          }
+        ],
+        "note": "as major, two stars"
       }
     },
     "sources": [

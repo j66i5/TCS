@@ -175,5 +175,15 @@
   "item.de-jerrycan": "Fuel can (20 l)",
   "item.de-dokumente": "Documents (Dokumente: map, orders, notebook)",
   "vehicle.de.dingo2-feldjaeger": "Dingo 2 (Feldjäger)",
-  "item.de-dingo2-diesel": "Diesel (Dingo tank)"
+  "item.de-dingo2-diesel": "Diesel (Dingo tank)",
+  "rank.de.hauptmann": "Hauptmann",
+  "rank.de.hauptmann.abbr": "H",
+  "rank.de.major": "Major",
+  "rank.de.major.abbr": "M",
+  "rank.de.oberstleutnant": "Oberstleutnant",
+  "rank.de.oberstleutnant.abbr": "OTL",
+  "role.de.kompaniechef": "Kompaniechef",
+  "role.de.kompanietruppfuehrer": "Kompanietruppführer",
+  "role.de.bataillonskommandeur": "Bataillonskommandeur",
+  "role.de.stabsoffizier": "Stabsoffizier S3"
 }

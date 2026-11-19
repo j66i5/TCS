@@ -22,5 +22,8 @@
   "mp": {
     "template": "wagon-crew",
     "count": 1
+  },
+  "battalionTemplates": {
+    "wheeled": "cart-battalion"
   }
 }

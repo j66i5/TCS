@@ -84,6 +84,7 @@ describe("appearance (M7.5a)", () => {
         if (e.kind === "band" && e.x0 !== undefined) expect(Math.abs(e.x0), where).toBeLessThanOrEqual(hw(e.y0));
         if (e.kind === "star") { expect(Math.abs(e.x) + e.diameterMm / 2, where).toBeLessThanOrEqual(hw(e.y)); expect(e.y - e.diameterMm / 2, where).toBeGreaterThanOrEqual(0); expect(e.y + e.diameterMm / 2, where).toBeLessThanOrEqual(L); }
         if (e.kind === "bar") { const t = Math.tan((e.angleDeg * Math.PI) / 180) * (hw(e.y) - e.insetMm); expect(e.y - Math.abs(t), where).toBeGreaterThan(0); expect(e.y + Math.abs(t), where).toBeLessThan(L); }
+        if (e.kind === "wreath") { expect(e.diameterMm / 2, where).toBeLessThanOrEqual(hw(e.y)); expect(e.y - e.diameterMm / 2, where).toBeGreaterThanOrEqual(0); expect(e.y + e.diameterMm / 2, where).toBeLessThanOrEqual(L); }
         if (e.kind === "chevron") { expect(e.halfSpanMm, where).toBeLessThan(hw(e.y)); expect(e.y + 2 * (e.headMm ?? 0), where).toBeLessThanOrEqual(L); expect(e.y - e.riseMm, where).toBeGreaterThan(0); }
       }
     }

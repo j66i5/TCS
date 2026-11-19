@@ -859,6 +859,9 @@ export const FactionManifest = withProv({
    *  a class without an entry falls back to `platoonTemplate`. Each template's carriage crews drive vehicles of
    *  that class. */
   platoonTemplates: z.object({ tracked: Id.optional(), wheeled: Id.optional() }).strict().optional(),
+  /** M12.1a: the campaign's battalion by the class of its carriers (a template of echelon "battalion": its
+   *  headquarters, companies and support); a class without an entry falls back to the other. */
+  battalionTemplates: z.object({ tracked: Id.optional(), wheeled: Id.optional() }).strict().optional(),
   /** On-map mortar section generated battles add with `mortars` (M8.3a). */
   mortarTemplate: Id.optional(),
   /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */
@@ -1317,6 +1320,9 @@ export const InsigniaElementSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("chevron"), y: Mm, halfSpanMm: PosMm, riseMm: PosMm, widthMm: PosMm, headMm: z.number().min(0).max(60).optional() }).strict(),
   /** A star (pip) of `points` points, `diameterMm` across its points, one point towards the collar. */
   z.object({ kind: z.literal("star"), x: Mm, y: Mm, diameterMm: PosMm, points: z.union([z.literal(4), z.literal(5)]) }).strict(),
+  /** M12.1a: an open wreath (Eichenlaubkranz) centred on (0, y): a ring of a `widthMm` band, `diameterMm` across its
+   *  outer edge, open towards the collar (its upper third left out). */
+  z.object({ kind: z.literal("wreath"), y: Mm, diameterMm: PosMm, widthMm: PosMm }).strict(),
 ]);
 /** One rank: the devices on its board; `bare`: the rank wears no board at all (only the strap, if any, shows). */
 export const InsigniaDeviceSchema = z.object({

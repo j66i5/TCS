@@ -89,6 +89,12 @@ function element(e: InsigniaElement, fr: Frame): string {
       const k = h / r;
       return line([[-s, e.y - r], [0, e.y], [s * k, e.y + h], [0, e.y + 2 * h], [-s * k, e.y + h], [0, e.y], [s, e.y - r]], e.widthMm, false);
     }
+    case "wreath": {
+      // M12.1a: an open ring (the oak-leaf wreath), its centre line r = (diameter - width) / 2, open over the top third.
+      const r = (e.diameterMm - e.widthMm) / 2, pts: P[] = [];
+      for (let k = 0; k <= 24; k++) { const a = ((120 + (300 * k) / 24) * Math.PI) / 180; pts.push([r * Math.cos(a), e.y + r * Math.sin(a)]); }
+      return line(pts, e.widthMm, false);
+    }
     case "star": {
       const r = Math.max(e.diameterMm / 2, minStarR);
       return star(e.x, Y(e.y), r, e.points, e.points === 4 && r > 6 * px1); // facets only where they show (12 px across)

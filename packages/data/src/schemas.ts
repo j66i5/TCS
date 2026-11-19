@@ -1526,6 +1526,27 @@ export const CampaignFile = z.object({
       /** Headless speed floor (multiples of real time) and what the benchmark measured. */
       floorX: Num(1, 100), measuredX: Num(0, 10000),
     }).strict(),
+    /** M12.1a: the clock between battles: hours from one battle's end to the next battle of an operation, days between
+     *  operations (the replenishment); battles of an operation (the chain's), endless mode's replenishment rhythm. */
+    clock: z.object({ hoursBetweenBattles: Num(0, 720), daysBetweenOperations: Num(0, 365) }).strict(),
+    operation: z.object({ battles: z.number().int().min(1).max(20) }).strict(),
+    endless: z.object({ replenishEvery: z.number().int().min(1).max(50) }).strict(),
+    /** Experience (owner 2026-11-19: a little per battle, more under fire, capped): a man who took part gains `perBattle`
+     *  plus `perMinuteUnderFire` per minute under effective fire (`BattleResult.service`), at most `capPerBattle` in one
+     *  battle, never above `cap` (a man already above it keeps what he has). */
+    experience: z.object({ perBattle: Num(0, 1), perMinuteUnderFire: Num(0, 1), capPerBattle: Num(0, 1), cap: Num(0, 1) }).strict(),
+    /** Recovery per hour between battles: fatigue, shock (stress) and strain down by these, to 0; water back to full.
+     *  `defaultDays`: recovery days of an evacuated man the battle gave none. `rejoinWithinOperation` (owner Q-A (a)): a
+     *  recovered man rejoins at the first battle after his days are up, inside an operation too (false: only at a
+     *  replenishment). */
+    recovery: z.object({ fatiguePerHour: Num(0, 1), shockPerHour: Num(0, 1), strainPerHour: Num(0, 1), defaultDays: Num(0, 365), rejoinWithinOperation: z.boolean() }).strict(),
+    /** Hulls: workshop days of a recovered hull the battle gave none; `replaceLost` (owner Q-B (a)): destroyed and captured
+     *  hulls are replaced at a replenishment. */
+    repair: z.object({ defaultDays: Num(0, 365), replaceLost: z.boolean() }).strict(),
+    /** Green replacements: the quality level (core/qualities.json) they are drawn from. */
+    replacements: z.object({ quality: Id }).strict(),
+    /** A battalion with fewer than this share of its establishment able is combat-ineffective (M12.2 ends an operation). */
+    combatIneffective: Num(0, 1),
   }),
 });
 export type CampaignT = z.infer<typeof CampaignFile>;

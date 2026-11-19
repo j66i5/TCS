@@ -10,8 +10,39 @@
       "floorX": 4,
       "measuredX": 14
     },
+    "clock": {
+      "hoursBetweenBattles": 12,
+      "daysBetweenOperations": 7
+    },
+    "operation": {
+      "battles": 5
+    },
+    "endless": {
+      "replenishEvery": 3
+    },
+    "experience": {
+      "perBattle": 0.005,
+      "perMinuteUnderFire": 0.004,
+      "capPerBattle": 0.04,
+      "cap": 0.9
+    },
+    "recovery": {
+      "fatiguePerHour": 0.05,
+      "shockPerHour": 0.1,
+      "strainPerHour": 0.01,
+      "defaultDays": 7,
+      "rejoinWithinOperation": true
+    },
+    "repair": {
+      "defaultDays": 3,
+      "replaceLost": true
+    },
+    "replacements": {
+      "quality": "conscript"
+    },
+    "combatIneffective": 0.5,
     "sources": [],
     "confidence": "low",
-    "note": "M12.0b (plan m12-roster 4.2, owner Q-C option (a)): software values, no source. What one battle commits per side at most: a company's worth, three platoons, its headquarters (company headquarters data come with M12.1a), one mortar section, one missile team, one AGL team and one tank section. Measured with bench-company (a company each, mounted, AI against AI) headless on the build container: measuredX multiples of real time against the floor floorX (DECISIONS M12.0b)."
+    "note": "M12.0b (plan m12-roster 4.2, owner Q-C option (a)): software values, no source. What one battle commits per side at most: a company's worth, three platoons, its headquarters (company headquarters data come with M12.1a), one mortar section, one missile team, one AGL team and one tank section. Measured with bench-company (a company each, mounted, AI against AI) headless on the build container: measuredX multiples of real time against the floor floorX (DECISIONS M12.0b). M12.1a (plan 4.3, game values, low): 12 h between the battles of an operation and 7 days between operations; an operation of 5 battles (the chain; M12.2 makes them 3-5), endless mode replenished every 3 battles; experience +0.005 per battle and +0.004 per minute under effective fire, at most +0.04 a battle, never above 0.9 (a survivor of a full operation under fire about +0.1-0.2, plan 4.7); fatigue -0.05, shock -0.1, strain -0.01 an hour; an evacuated man without settled days is out 7 days and rejoins when they are up (owner Q-A (a)); a recovered hull without settled days 3 workshop days, lost hulls replaced at replenishment (Q-B (a)); green replacements of the conscript level; combat-ineffective below half the establishment able."
   }
 }

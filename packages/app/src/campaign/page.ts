@@ -299,7 +299,11 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
             const box = ui.root.querySelector(".cmp-preview");
             if (box) box.replaceChildren(preview.canvas ?? Object.assign(document.createElement("div"), { className: "cmp-preview-wait", textContent: t("cmp.brief.noPreview") }));
           }
-        }).catch((e: unknown) => { if (!(e instanceof CancelledError)) console.warn("preview", e); });
+        }).catch((e: unknown) => {
+          // (Cancelled with an auto-resolve: drawn again when the briefing shows next.)
+          if (preview?.key === key) preview = null;
+          if (e instanceof CancelledError) { if (screen === "briefing") showFlow(); } else console.warn("preview", e);
+        });
       }
       ui.show({ kind: "briefing", b, faction: record.sides.player.faction, enemy: record.sides.enemy.faction, phase: ph, preview: preview.canvas, ...(m ? { message: m } : {}) }, hd);
       return;

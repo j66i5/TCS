@@ -11,6 +11,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "../args";
+import { campaignE2e, type E2ePage } from "../campaign-e2e";
 
 const ROOT = fileURLToPath(new URL("../../../..", import.meta.url));
 const args = parseArgs(process.argv.slice(2));
@@ -2281,6 +2282,17 @@ try {
     if (args["scene"] === "repair") { await repairScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "supply") { await supplyScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "prisoners") { await prisonerScenes(page, name, errors, shots); await page.close(); continue; }
+    // M12.3: the campaign screens in both looks, driven through the acceptance flow (campaign-e2e.ts).
+    if (args["scene"] === "campaign") {
+      for (const look of ["photo", "flat"] as const) {
+        const p2 = look === "photo" ? page : await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
+        if (p2 !== page) p2.on("pageerror", (e) => errors.push(e.message));
+        const passed = await campaignE2e(p2 as unknown as E2ePage, { base: `http://localhost:${port}`, shots: { dir: outDir, name, list: shots }, look, seconds: Number(args["seconds"] ?? 60), seed, log: () => undefined });
+        console.log(`${name} ${look}: campaign scene, ${passed.length} checks passed; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+        if (p2 !== page) await p2.close();
+      }
+      await page.close(); continue;
+    }
     if (args["scene"] === "recovery") { await recoveryScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks") { await tankScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
@@ -2426,7 +2438,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "prisoners" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "prisoners" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" || args["scene"] === "campaign" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

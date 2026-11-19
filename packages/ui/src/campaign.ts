@@ -346,7 +346,7 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
       skills.append(h("div", `cmp-skill${k === "experience" ? " xp" : ""}`, h("span", "nm", s.has(`cmp.skill.${k}`) ? t(`cmp.skill.${k}`) : k), meter(r.skills[k]!, "skill"), h("span", "val", pct(r.skills[k]!))));
     }
     const gained = sum(m.service.map((e) => e.xp));
-    if (gained > 0) skills.append(h("div", "cmp-note", t("cmp.man.xpGained", { xp: `+${(100 * gained).toFixed(1)}`, n: m.service.length })));
+    if (gained > 0) skills.append(h("div", "cmp-note", t("cmp.man.xpGained", { xp: `+${(100 * gained).toFixed(1)}%`, n: m.service.length })));
     body.append(skills);
     const worst = r.wounds.reduce((x, w) => Math.max(x, w.severity), 0);
     body.append(section(t("cmp.man.condition"),
@@ -364,7 +364,7 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
       tbl.append(h("div", "tr th", ...["cmp.man.col.battle", "cmp.man.col.fire", "cmp.man.col.rounds", "cmp.man.col.shock", "cmp.man.col.xp"].map((k) => h("span", "", t(k)))));
       for (const e of [...m.service].reverse().slice(0, 12)) {
         tbl.append(h("div", `tr${e.wounds > 0 ? " hurt" : ""}`, h("span", "", `#${e.battle + 1}${e.wounds > 0 ? " ✚" : ""}`), h("span", "", `${e.underFireMin.toFixed(1)}′`), h("span", "", String(e.rounds)),
-          h("span", "", pct(e.peakShock)), h("span", "", `+${(100 * e.xp).toFixed(1)}`)));
+          h("span", "", pct(e.peakShock)), h("span", "", `+${(100 * e.xp).toFixed(1)}%`)));
       }
       hist.append(tbl);
     }
@@ -420,7 +420,7 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
       const on = chosen.has(x.key);
       const row = h("button", `cmp-pick${on ? " on" : ""}${x.men === 0 ? " empty" : ""}`,
         h("span", "box", on ? "✓" : ""), h("span", "nm", x.what === "hq" ? t("cmp.brief.hq") : x.callsign),
-        h("span", "dim", ` ${t(`cmp.what.${x.what}`)}`),
+        x.what === "hq" ? null : h("span", "dim", ` ${t(`cmp.what.${x.what}`)}`),
         proposed.has(x.key) ? h("span", "cmp-tag prop", t("cmp.brief.proposed")) : null,
         h("span", "val", t("cmp.brief.menHulls", { men: x.men, hulls: x.hulls }))) as HTMLButtonElement;
       row.type = "button";
@@ -443,10 +443,12 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
     void hd;
     return body;
   };
+  /** A `validateCommit` problem in words (its shapes: "no able platoon", "platoons 4 > 3", "twice: P/1/2", ...). */
   const problemText = (p: string) => {
-    const [k, ...rest] = p.split(": ");
-    const key = k!.replace(/ .*/, "");
-    return s.has(`cmp.problem.${key}`) ? t(`cmp.problem.${key}`, { what: rest.join(": ") || p }) : p;
+    const pats: [RegExp, string][] = [[/^no able platoon/, "noPlatoon"], [/^no men: /, "noMen"], [/^twice: /, "twice"], [/^not selectable: /, "unknown"], [/^committed elsewhere: /, "elsewhere"],
+      [/^squad .* without its carrier/, "squadNoCarrier"], [/^carrier .* without its squad/, "carrierNoSquad"], [/ > \d+$/, "cap"]];
+    for (const [re, k] of pats) if (re.test(p)) return t(`cmp.problem.${k}`, { what: p });
+    return p;
   };
 
   // -------------------------------------------------------------------------------------------- after a battle
@@ -472,8 +474,8 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
     if (a.wounded.length > 0) body.append(section(t("cmp.after.woundedList", { n: a.wounded.length }), manList(a.wounded, f, (m) => (m.days !== undefined ? t("cmp.man.days", { d: Math.ceil(m.days) }) : ""))));
     if (a.captured.length + a.missing.length > 0) body.append(section(t("cmp.after.capturedList", { n: a.captured.length + a.missing.length }), manList([...a.captured, ...a.missing], f, (m) => (a.missing.includes(m) ? t("cmp.after.missingShort") : t("cmp.after.capturedShort")))));
     body.append(section(t("cmp.after.xp"),
-      h("div", "cmp-note", t("cmp.after.xpLine", { n: a.experience.men, avg: a.experience.men > 0 ? `+${((100 * a.experience.total) / a.experience.men).toFixed(1)}` : "0" })),
-      manList(a.experience.top, f, (m) => `+${(100 * (m.xp ?? 0)).toFixed(1)}`, 5)));
+      h("div", "cmp-note", t("cmp.after.xpLine", { n: a.experience.men, avg: a.experience.men > 0 ? `+${((100 * a.experience.total) / a.experience.men).toFixed(1)}%` : "0" })),
+      manList(a.experience.top, f, (m) => `+${(100 * (m.xp ?? 0)).toFixed(1)}%`, 5)));
     if (a.leaders.length > 0) body.append(section(t("cmp.after.leaders"), manList(a.leaders, f, (m) => (m.replaced ? t("cmp.after.replaced", { name: m.replaced }) : t("cmp.after.appointed")))));
     if (a.rejoined.length > 0) body.append(section(t("cmp.after.rejoined"), manList(a.rejoined, f, (m) => t(m.how === "unassigned" ? "cmp.after.unassigned" : "cmp.after.back"))));
     if (a.fired.length > 0) {
@@ -528,6 +530,7 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
     body.append(h("div", "cmp-node-title", sc.title));
     if (sc.note) body.append(h("div", "cmp-note", sc.note));
     bars = [];
+    if (sc.bars.length === 0) body.append(h("div", "cmp-label", t("cmp.progress.building")), h("div", "cmp-meter big indet", h("span", "fill")));
     for (const b of sc.bars) {
       const fill = h("span", "fill");
       const lbl = h("div", "cmp-label", "");

@@ -286,7 +286,11 @@ function launcherReady(view: SimView, input: BattleInput, m: EntityId): { range:
   return null;
 }
 
-export function commanderController(side: SideId, input: BattleInput, only?: { callsign: string }): Controller {
+/** Which of a side's units a commander leads (M11.1 waves: `callsign`, one platoon; M12.0b: `except`, all but these;
+ *  `attack`: it attacks even where its side holds the objectives, a reserve's counter-attack). */
+export interface CommanderScope { callsign?: string; except?: readonly string[]; attack?: boolean }
+
+export function commanderController(side: SideId, input: BattleInput, only?: CommanderScope): Controller {
   const objectives: readonly ObjectiveDef[] = input.rules.objectives;
   const W = input.map.widthM, H = input.map.heightM;
   const force = input.forces.find((f) => f.side === side)!;
@@ -298,11 +302,13 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
   const walkMode = input.catalog.movementModes["walk"], walkMps = walkMode?.class === "foot" ? walkMode.speedMps : 1.4;
   // Where this side starts (its men's mean position): the way back, and the side the attack comes from.
   // (M11.1: a commander of one wave — `only` — starts from where that wave's men come in.)
-  const mine = only === undefined ? null : new Set(unitPersons(force.units.find((u) => u.callsign === only.callsign)));
-  const starts = mine === null ? force.placements : force.placements.filter((p) => mine.has(p.personId));
+  const mine = only?.callsign === undefined ? null : new Set(unitPersons(force.units.find((u) => u.callsign === only.callsign)));
+  // (M12.0b: a commander of all but some units starts from where the rest stand.)
+  const notMine = only?.except === undefined ? null : new Set(force.units.filter((u) => only.except!.includes(u.callsign)).flatMap(unitPersons));
+  const starts = mine !== null ? force.placements.filter((p) => mine.has(p.personId)) : notMine !== null ? force.placements.filter((p) => !notMine.has(p.personId)) : force.placements;
   const sx = starts.reduce((a, p) => a + p.x, 0) / Math.max(1, starts.length);
   const sy = starts.reduce((a, p) => a + p.y, 0) / Math.max(1, starts.length);
-  const defending = objectives.length > 0 && objectives[0]!.holder === side;
+  const defending = objectives.length > 0 && objectives[0]!.holder === side && only?.attack !== true;
   // Balance pass 4: the side's hulls that start on their posts (`defenceStartPosts`), by vehicle id.
   const startPosts = new Set((force.vehiclePlacements ?? []).filter((p) => p.onPost === true).map((p) => p.vehicleId));
   let mem: Memory = { phase: "start", phaseTick: 0, target: 0, lastFire: -1e9, lastAssault: {}, pulledBack: [], counterTick: -1e9 };
@@ -790,7 +796,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: { c
       // (M9.3b: nor a missile team: it is sited and fired below; its men's eyes still count for what the side knows.)
       // (M10.6a: nor an off-map asset's crew: an ambulance is called by the casualties' platoon, never commanded.)
       // (M7.6b: nor a tank section: it is sited and moved below, tanks.ts.)
-      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id) && u.missileTeam === undefined && !isArmourSection(view, ground(), id) && !isAssetUnit(view, id) && (only === undefined || u.callsign === only.callsign));
+      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id) && u.missileTeam === undefined && !isArmourSection(view, ground(), id) && !isAssetUnit(view, id) && (only?.callsign === undefined || u.callsign === only.callsign) && !(only?.except?.includes(u.callsign) ?? false));
       if (tops.length === 0) return out;
       const topIds = tops.map(([id]) => id);
       // Squads on foot and vehicle crews (M7.2), paired by the squad's carrier.

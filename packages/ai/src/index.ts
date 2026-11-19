@@ -73,3 +73,4 @@ export * from "./tanks";
 export { RECOVERY_AI, recoveryCalls, type RecoveryMemory } from "./recovery";
 export { LOGISTICS_AI, logisticsOrders, type LogisticsMemory } from "./logistics";
 export { defenceStartPosts } from "./start-posts";
+export { POSTURES_AI, planControllers, sideCommander } from "./postures";

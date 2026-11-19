@@ -42,8 +42,29 @@ import { resupplyLab, resupplyLabMarkdown, vehicleResupplyLab, vehicleResupplyLa
 import { rearmLab, rearmLabMarkdown } from "../labs/rearm";
 import { escapeLab, escapeLabMarkdown, fireLab, fireLabMarkdown, mpLab, mpLabMarkdown, prisonersLab, prisonersLabMarkdown } from "../labs/prisoners";
 import { loadData, SCENARIOS } from "../scenarios";
+import { KIND_MAPS, kindsLab, kindsMarkdown } from "../labs/kinds";
+import { SCENARIO_KINDS, type MapKind } from "@tcs/scenario";
+
+/** `--name v` from the lab's arguments. */
+function argOf(name: string): string | undefined {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}
 
 const LABS: Record<string, () => string> = {
+  // M12.0b: `lab -- kinds [seeds] [--kinds a,b] [--maps a,b] [--seconds s] [--vehicles] [--roster] [--company]`: every
+  // scenario kind AI against AI on every map kind; stalemates flagged.
+  kinds: () => {
+    const n = Number(process.argv[3] !== undefined && !process.argv[3].startsWith("--") ? process.argv[3] : 10);
+    const kinds = (argOf("kinds") ?? SCENARIO_KINDS.join(",")).split(",");
+    const maps = (argOf("maps") ?? KIND_MAPS.join(",")).split(",") as MapKind[];
+    const rows = kindsLab(loadData(), {
+      kinds, maps, seeds: Array.from({ length: n }, (_, i) => i + 1), seconds: Number(argOf("seconds") ?? 1200),
+      vehicles: process.argv.includes("--vehicles"), roster: process.argv.includes("--roster"), ...(process.argv.includes("--company") ? { size: "company" as const } : {}),
+      onRow: (r) => console.error(`${r.kind} ${r.map} ${r.seed}${r.roster ? " roster" : ""}: ${r.endReason} ${r.endS}s winner ${r.winner ?? "draw"} able ${r.ableEnd.join("/")} of ${r.men.join("/")} saved ${r.saved.join("/")} fire ${r.lastFireS.join("/")}${r.stalemate ? " STALEMATE" : ""}${r.savedBad ? ` SAVED-NOT-FIT ${r.savedBad}` : ""} (${r.speed}x)`),
+    });
+    return `# Scenario kinds lab (M12.0b)\n\n${kindsMarkdown(rows)}\n`;
+  },
   consumption: () => {
     const o = consumptionOptions(process.argv.slice(3));
     const names = Object.keys(SCENARIOS).filter((n) => !n.startsWith("hold"));

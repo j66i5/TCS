@@ -214,9 +214,9 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
   if (range < 1e-6) return false;
   const ux = dx / range, uy = dy / range;
   const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
+  // (Men aboard a vehicle are behind armour, M7: their hull blocks, `hullInLine`. A man aboard but working outside
+  // it (repairing, hooking up, reloading on the roof) is a body like a man on foot: he blocks, balance pass 3 review.)
   for (const [other, ident] of state.identity.entries()) {
-    // (Men aboard a vehicle are behind armour, M7: their hull blocks, `hullInLine`. A man aboard but working outside
-    // it (repairing, hooking up, reloading on the roof) is a body like a man on foot: he blocks, balance pass 3 review.)
     const os = state.soldier.get(other);
     if (ident.side !== side || other === id || (isMounted(os) && !onRoof(state, other))) continue;
     // (Review fixes 2026-11-14: the dead and prisoners never block his fire; a man lying hit counts only between

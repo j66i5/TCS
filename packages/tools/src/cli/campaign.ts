@@ -4,16 +4,19 @@
  *     M12.1a: a campaign of `--battles` battles (attack, defence with counter-attack, meeting, ambush, withdrawal in turn,
  *     each on a new map), one company's worth per side, AI on both sides, the rules between battles and a replenishment
  *     after every operation (core/campaign.json `operation.battles`, 5). Writes reports/campaign-<faction>-<stamp>.md
- *     and the final record (.json); prints the record hash.
+ *     and the final record as a campaign save (.json, M12.1b: `CampaignSave`, slot "chain"); prints the record hash.
+ *     `--from <save.json>` (M12.1b): go on from a save (this command's .json, an exported slot, or a version-1 record:
+ *     migrated and ids repaired, with what was changed printed) until `--battles` battles in all; faction, enemy and
+ *     seed come from the save.
  *   npm run campaign -- sector --faction de [--enemy ru] [--battles 2] [--seed 1] [--map village] [--seconds 900]
  *     [--attacker blue|red] [--on-foot]
  *     M12.0a: battles on one map, each with both sides as the last left them (roster records out -> in) and the map's
  *     damage and wrecks; AI on both sides.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { hashRecord, runCampaignChain, runChain } from "@tcs/campaign";
+import { continueCampaignChain, exportSave, hashRecord, makeSave, newCampaign, readSave, runChain, type CampaignRecord } from "@tcs/campaign";
 import type { CarrierClass, MapKind } from "@tcs/scenario";
 import { parseArgs } from "../args";
 import { aiRunner, enemyOf } from "../campaign";
@@ -23,24 +26,36 @@ import { loadData, ON_POSTS } from "../scenarios";
 const [cmd, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 if (cmd !== "chain" && cmd !== "sector") {
-  console.error("usage: npm run campaign -- chain --faction de|ru|xf [--enemy f] [--battles 10] [--seed n] [--seconds 600] [--carriers tracked|wheeled]\n" +
+  console.error("usage: npm run campaign -- chain --faction de|ru|xf [--enemy f] [--battles 10] [--seed n] [--seconds 600] [--carriers tracked|wheeled] [--from save.json]\n" +
     "       npm run campaign -- sector --faction de|ru|xf [--enemy f] [--battles n] [--seed n] [--map kind] [--seconds s] [--attacker blue|red] [--on-foot]");
   process.exit(1);
 }
-const faction = args["faction"] ?? "de";
-const data = loadData(faction === "xf" || args["enemy"] === "xf");
+// --from: the save's text (its factions decide whether the fixture faction is loaded).
+const fromText = args["from"] !== undefined ? readFileSync(args["from"], "utf8") : null;
+const fromSides = fromText !== null ? (JSON.parse(fromText) as { record?: CampaignRecord } & Partial<CampaignRecord>) : null;
+const fromRec = fromSides ? (fromSides.record ?? fromSides as CampaignRecord) : null;
+const faction = fromRec?.sides.player.faction ?? args["faction"] ?? "de";
+const data = loadData(faction === "xf" || (fromRec?.sides.enemy.faction ?? args["enemy"]) === "xf");
 if (!data.factions[faction]) throw new Error(`unknown faction '${faction}'`);
-const enemy = args["enemy"] ?? enemyOf(data, faction);
-const seed = Number(args["seed"] ?? 1);
+const enemy = fromRec?.sides.enemy.faction ?? args["enemy"] ?? enemyOf(data, faction);
+const seed = fromRec?.seed ?? Number(args["seed"] ?? 1);
 
 if (cmd === "chain") {
   const battles = Number(args["battles"] ?? 10), seconds = Number(args["seconds"] ?? 600);
-  const carriers = (args["carriers"] === "wheeled" ? "wheeled" : "tracked") as CarrierClass;
-  const opts = { seed, faction, enemy, carriers, battles, seconds };
+  const carriers = fromRec?.sides.player.carriers ?? (args["carriers"] === "wheeled" ? "wheeled" : "tracked") as CarrierClass;
+  const opts = { seed, faction, enemy, carriers, ...(fromRec ? { enemyCarriers: fromRec.sides.enemy.carriers } : {}), battles, seconds };
+  let start: CampaignRecord;
+  if (fromText !== null) {
+    const loaded = readSave(data, fromText);
+    start = loaded.save.record;
+    console.log(`From ${args["from"]}: version ${loaded.fromVersion}, slot '${loaded.save.slotName}', ${start.battles} battles fought; record hash ${hashRecord(start)}`);
+    for (const w of loaded.warnings) console.log(`  warning: ${w}`);
+    for (const r of loaded.repairs) console.log(`  repaired: ${r.side} ${r.kind} ${r.where}${r.from !== undefined ? ` ${r.from}` : ""}${r.to !== undefined ? ` -> ${r.to}` : ""}`);
+  } else start = newCampaign(data, opts);
   console.log(`Campaign chain: ${battles} battles, ${faction} (player, blue) against ${enemy}, ${carriers}, seed ${seed}, ${seconds} s each`);
   const rows: ChainStepRow[] = [];
   let t = performance.now();
-  const out = runCampaignChain(data, {
+  const out = continueCampaignChain(data, start, {
     ...opts, timeLimitSeconds: seconds, hooks: ON_POSTS,
     onStep: (record, step) => {
       const now = performance.now();
@@ -60,7 +75,7 @@ if (cmd === "chain") {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const base = join(dir, `campaign-${faction}-s${seed}-${stamp}`);
   writeFileSync(`${base}.md`, chainReport(data, opts, out.record, rows));
-  writeFileSync(`${base}.json`, JSON.stringify(out.record));
+  writeFileSync(`${base}.json`, exportSave(makeSave(data, out.record, "chain", new Date().toISOString())));
   console.log(`Wrote ${base}.md and .json`);
 } else {
   const battles = Number(args["battles"] ?? 2), seconds = Number(args["seconds"] ?? 900);

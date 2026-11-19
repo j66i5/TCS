@@ -10,7 +10,7 @@ import { buildCatalog } from "@tcs/data";
 import { canonicalJson, createRng, hashText, newVehicleRecord, type Catalog, type RngState, type SoldierRecord, type UnitInput, type VehicleRecord } from "@tcs/sim";
 import { buildForceWithVehicles, type CarrierClass } from "@tcs/scenario";
 
-export const CAMPAIGN_VERSION = 1;
+export const CAMPAIGN_VERSION = 2;
 
 export type CampaignMode = "operations" | "endless";
 export type CampaignSide = "player" | "enemy";

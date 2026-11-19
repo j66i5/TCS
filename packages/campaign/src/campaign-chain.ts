@@ -2,7 +2,8 @@
  * A CAMPAIGN CHAIN (M12.1a, plan 4.3): the smallest driver of the campaign record. A fixed sequence of scenario kinds
  * (attack, defence with counter-attack, meeting, ambush, withdrawal; the player blue), each on a new map, one company's
  * worth per side (`proposeCommit`), the battles run through the injected `BattleRunner`; `applyResult` after every
- * battle and `replenish` after every `operation.battles` battles (not after the last). M12.2 replaces the fixed
+ * battle and `replenish` before the battle after every `operation.battles` battles (not after the last); a saved
+ * chain continues with `continueCampaignChain`. M12.2 replaces the fixed
  * sequence by operations whose result picks the next battle.
  */
 import type { DataSet } from "@tcs/data";
@@ -51,9 +52,23 @@ export function chainBattleDef(data: DataSet, record: CampaignRecord, k: number,
 }
 
 export function runCampaignChain(data: DataSet, opts: CampaignChainOptions, runner: BattleRunner): CampaignChainResult {
+  return continueCampaignChain(data, newCampaign(data, opts), opts, runner);
+}
+
+/**
+ * Go on with a chain from a record (a new one, or one loaded from a save, M12.1b) until `opts.battles` battles are
+ * fought in all. The record alone says where the chain stands (`battles`, `operation.battles`), so a chain saved after
+ * battle k and continued gives the record an uninterrupted chain gives. An operation that is complete is replenished
+ * before its next battle (never after the last battle).
+ */
+export function continueCampaignChain(data: DataSet, from: CampaignRecord, opts: Omit<CampaignChainOptions, keyof NewCampaignOptions> & Partial<NewCampaignOptions>, runner: BattleRunner): CampaignChainResult {
   const rules = campaignRules(data);
-  let record = newCampaign(data, opts);
-  for (let k = 0; k < opts.battles; k++) {
+  let record = from;
+  for (let k = record.battles; k < opts.battles; k++) {
+    if (record.operation.battles >= rules.operation.battles) {
+      record = replenish(data, record);
+      opts.onStep?.(record, { kind: "replenishment" });
+    }
     const def = chainBattleDef(data, record, k, opts.timeLimitSeconds ?? 900);
     if (!def) return { record, end: "side-empty" };
     const input = buildScenario(data, def, opts.hooks ?? {});
@@ -61,10 +76,6 @@ export function runCampaignChain(data: DataSet, opts: CampaignChainOptions, runn
     const result = runner(input, {});
     record = applyResult(data, record, { input, result, playerSide: "blue", kind: def.kind, mapKind: def.mapKind, mapSeed: def.seed, attacker: def.attacker === "blue" ? "player" : "enemy" });
     opts.onStep?.(record, { kind: "battle", input });
-    if (record.operation.battles >= rules.operation.battles && k + 1 < opts.battles) {
-      record = replenish(data, record);
-      opts.onStep?.(record, { kind: "replenishment" });
-    }
   }
   return { record, end: "done" };
 }

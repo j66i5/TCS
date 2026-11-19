@@ -13,6 +13,7 @@
     "@tcs/data": "*",
     "@tcs/scenario": "*",
     "@tcs/ai": "*",
+    "@tcs/campaign": "*",
     "@tcs/render": "*",
     "@tcs/ui": "*"
   }

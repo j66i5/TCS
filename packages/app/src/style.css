@@ -464,6 +464,8 @@ button.cmp-row:active { background: rgba(255, 255, 255, 0.06); }
 .cmp-pick .box { flex: 0 0 22px; height: 22px; border: 2px solid #6d7c55; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: #1b241a; font-weight: 900; }
 .cmp.look-flat .cmp-pick .box { border-radius: 0; }
 .cmp-pick.on .box { background: var(--accent); border-color: var(--accent); }
+.cmp-pick { flex-wrap: wrap; row-gap: 2px; }
+.cmp-pick .nm, .cmp-pick .dim { white-space: nowrap; }
 .cmp-pick .nm { font-weight: 600; }
 .cmp-pick .val { margin-left: auto; color: var(--muted); white-space: nowrap; font-size: 13px; }
 .cmp-pick.empty { opacity: 0.5; }

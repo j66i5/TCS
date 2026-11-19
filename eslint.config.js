@@ -14,7 +14,7 @@ const FORBIDDEN = {
   campaign: ["ai", "render", "ui", "app", "tools"],
   render: ["ai", "scenario", "campaign", "ui", "app", "tools"],
   ui: ["ai", "scenario", "campaign", "app", "tools"],
-  app: ["tools", "campaign"],
+  app: ["tools"],
   tools: ["render", "ui", "app"],
 };
 
@@ -50,7 +50,8 @@ export default tseslint.config(
     // The simulation is pure: no randomness except the seeded RNG, no wall clock, no DOM/Node, no
     // transcendental maths outside sim/math (SPEC 4.3 rules 1-2).
     // Scenario/map generation feeds battle inputs, so it follows the same rules (same map on every device).
-    files: ["packages/sim/src/**/*.ts", "packages/scenario/src/**/*.ts"],
+    // The campaign (M12.0a) builds battle inputs and its record from battle results: the same rules again.
+    files: ["packages/sim/src/**/*.ts", "packages/scenario/src/**/*.ts", "packages/campaign/src/**/*.ts"],
     ignores: ["packages/sim/src/math.ts"],
     rules: {
       "no-restricted-properties": ["error",

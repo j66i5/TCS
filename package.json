@@ -29,7 +29,8 @@
     "phoneperf": "tsx packages/tools/src/cli/phoneperf.ts",
     "map": "tsx packages/tools/src/cli/map.ts",
     "probe": "tsx packages/tools/src/cli/probe.ts",
-    "lab": "tsx packages/tools/src/cli/lab.ts"
+    "lab": "tsx packages/tools/src/cli/lab.ts",
+    "campaign": "tsx packages/tools/src/cli/campaign.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

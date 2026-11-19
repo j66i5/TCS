@@ -9,7 +9,8 @@
  * - "ambush": every unit lays an ambush (D4b `ambush` order) where it stands and holds; once it is sprung and
  *   `AMBUSH_AI.pursueAfterS` have passed with the enemy still near, its squads close on the enemy they know.
  * - "transit": every unit makes for the side's exit zone across the map (crews drive, squads aboard ride, the rest
- *   walk), fire free; a unit standing still is sent on again (the drill against an ambush: keep going).
+ *   walk), fire free and pushing on through contact; a unit standing still, or on its way without moving, is sent on
+ *   again (the drill against an ambush: keep going).
  * - "withdraw": the platoon commander's defence until `untilS`; then squads near their carriers mount, the hulls wait
  *   for them a little, and everyone makes for the exit zone at its own edge.
  * - "follow": the platoon commander's attack until `untilS`; then every unit follows the enemy up toward his exit
@@ -22,7 +23,7 @@ import { commanderController } from "./commander";
 
 export const POSTURES_AI = {
   /** How often the posture commanders look (s), and how long a unit stands still before it is sent on again. */
-  stepS: 5, idleS: 20,
+  stepS: 5, idleS: 20, stuckS: 60, stuckM: 10,
   /** Withdrawal: squads within this distance of their carrier mount it; the hulls wait at most this long. */
   mountWithinM: 250, mountWaitS: 60,
   /** Follow-up: the nearest known enemy within this distance is followed, else the exit; units stop this far short of it. */
@@ -80,16 +81,25 @@ function knownEnemies(view: SimView, side: SideId): { x: number; y: number }[] {
   return [...best.entries()].sort((a, b) => a[0] - b[0]).map(([, c]) => c);
 }
 
-interface PostureMemory { last: Record<string, number>; phase?: string; phaseTick?: number; mountUntil?: number; sprung?: number; fireFree?: true }
+interface PostureMemory { last: Record<string, number>; phase?: string; phaseTick?: number; mountUntil?: number; sprung?: number; fireFree?: true;
+  /** Where each unit was when last looked at (x, y, tick): one on its way that has not moved is sent on again. */
+  pos?: Record<string, [number, number, number]> }
 
 /** Orders that send units toward `goal(x, y)` (null: leave it), each again once it has stood still `idleS`. */
 function sendOn(view: SimView, side: SideId, tick: number, mem: PostureMemory, goal: (x: number, y: number) => { x: number; y: number } | null, footMode: string, hold?: (id: EntityId) => boolean): Order[] {
   const out: Order[] = [];
   const idleT = secondsToTicks(POSTURES_AI.idleS);
+  const stuckT = secondsToTicks(POSTURES_AI.stuckS);
+  mem.pos ??= {};
   for (const u of movers(view, side)) {
     if (hold?.(u.id) === true) continue;
     const key = String(u.id), last = mem.last[key] ?? -1e9;
-    if (!u.idle || tick - last < idleT) continue;
+    // (On its way but not moved `stuckM` in `stuckS`: sent on again, as if it stood still.)
+    const p = mem.pos[key];
+    if (!p || hypot2(u.x - p[0], u.y - p[1]) >= POSTURES_AI.stuckM) mem.pos[key] = [u.x, u.y, tick];
+    const stuck = p !== undefined && tick - p[2] >= stuckT && hypot2(u.x - p[0], u.y - p[1]) < POSTURES_AI.stuckM;
+    if ((!u.idle && !stuck) || tick - last < idleT) continue;
+    if (stuck) mem.pos[key] = [u.x, u.y, tick];
     const g = goal(u.x, u.y);
     if (!g || hypot2(g.x - u.x, g.y - u.y) < 15) continue;
     mem.last[key] = tick;
@@ -98,10 +108,10 @@ function sendOn(view: SimView, side: SideId, tick: number, mem: PostureMemory, g
   return out;
 }
 
-/** Fire at will for every top unit of the side (once). */
-function fireFree(view: SimView, side: SideId, tick: number): Order[] {
+/** Fire at will for every top unit of the side (once); `push`: on contact they keep going, firing as they go. */
+function fireFree(view: SimView, side: SideId, tick: number, push = false): Order[] {
   const out: Order[] = [];
-  for (const [id, u] of view.unit.entries()) if (u.side === side && u.parent === null && u.asset === undefined) out.push({ tick, issuer: side, target: id, kind: "rules", fire: "free" });
+  for (const [id, u] of view.unit.entries()) if (u.side === side && u.parent === null && u.asset === undefined) out.push({ tick, issuer: side, target: id, kind: "rules", fire: "free", ...(push ? { onContact: "push" as const } : {}) });
   return out;
 }
 
@@ -147,7 +157,7 @@ export function sideCommander(side: SideId, input: BattleInput): Controller {
         if (mem.phase === undefined) {
           // Squads near their carrier mount it; the hulls wait for them a little.
           mem.phase = "mount"; mem.phaseTick = tick; mem.mountUntil = tick + secondsToTicks(POSTURES_AI.mountWaitS);
-          out.push(...fireFree(view, side, tick));
+          out.push(...fireFree(view, side, tick, true));
           for (const [id, u] of view.unit.entries()) {
             if (u.side !== side || u.carrier === undefined || u.vehicle !== undefined) continue;
             const v = view.vehicle.get(u.carrier), vt = view.transform.get(u.carrier);
@@ -186,7 +196,7 @@ export function sideCommander(side: SideId, input: BattleInput): Controller {
       }
       case "transit": {
         if (tick % every !== 0 || !exit) break;
-        if (mem.fireFree !== true) { mem.fireFree = true; out.push(...fireFree(view, side, tick)); }
+        if (mem.fireFree !== true) { mem.fireFree = true; out.push(...fireFree(view, side, tick, true)); }
         out.push(...sendOn(view, side, tick, mem, (x, y) => zonePoint(exit, x, y, W, H), "walk"));
         break;
       }

@@ -46,6 +46,9 @@ export const SCENARIO_KIND = {
   reserveAtShare: 0.4, delayUntilShare: 0.35,
   ambushRangeM: 220, ambushAlongShare: 0.05, ambushOffShare: 0.17, ambushOffM: [110, 200] as const, ambushSpacingM: 40,
   mapM: { attack: [1200, 900], "defence-counterattack": [1200, 900], meeting: [1400, 900], ambush: [1600, 1000], withdrawal: [1400, 900] } as Record<string, readonly [number, number]>,
+  /** The ambush on foot: a smaller map, and the moving side starts this share of the map in from its edge (a walk to
+   *  the ambush of about 400 m, not 800). */
+  ambushFootM: [1200, 900] as const, ambushFootStartShare: 0.2,
   menPerBase: 90, maxScale: 2, companyScale: 1.6,
   /** Platoons per side by kind (attacker, defender) at platoon size; a company: 3 each (the defender's third the reserve
    *  in a counter-attack battle). */
@@ -221,7 +224,7 @@ export interface ScenarioHooks {
  *  terrain carried) for a big roster force. `platoon-attack` keeps 1200 x 900. */
 export function scenarioMapSize(def: ScenarioDef): { W: number; H: number } {
   const kind = def.kind === "platoon-attack" ? "attack" : def.kind;
-  const base = SCENARIO_KIND.mapM[kind] ?? [1200, 900];
+  const base = kind === "ambush" && !scenarioMounted(def) ? SCENARIO_KIND.ambushFootM : SCENARIO_KIND.mapM[kind] ?? [1200, 900];
   let scale = def.size === "company" ? SCENARIO_KIND.companyScale : 1;
   if (def.forces && def.kind !== "platoon-attack" && !def.terrain) {
     let men = 0;
@@ -231,6 +234,11 @@ export function scenarioMapSize(def: ScenarioDef): { W: number; H: number } {
   }
   const r = (v: number) => Math.round((v * scale) / 100) * 100;
   return { W: def.mapWidthM ?? r(base[0]!), H: def.mapHeightM ?? r(base[1]!) };
+}
+
+/** Does the battle have vehicles (the template build's `vehicles`, or roster forces with hulls)? */
+function scenarioMounted(def: ScenarioDef): boolean {
+  return def.forces ? def.forces.some((f) => (f?.vehicles?.length ?? 0) > 0) : def.vehicles === true;
 }
 
 export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHooks = {}): BattleInput {
@@ -243,6 +251,11 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   const T = def.timeLimitSeconds ?? 2400;
   // M12.0b: how each side stands at the start: holding its objectives, at its map edge, or lying in wait.
   const stanceOf = (side: string): Stance => (kind === "meeting" || side === def.attacker ? "edge" : kind === "ambush" ? "ambush" : "defend");
+  // Where a side at its edge starts on foot (x): 8 % in; the ambushed side on foot further in.
+  const edgeX = (side: string): number => {
+    const k = kind === "ambush" && side === def.attacker && !scenarioMounted(def) ? SCENARIO_KIND.ambushFootStartShare : 0.08;
+    return side === "blue" ? W * k : W * (1 - k);
+  };
   // Dead ground for the attacker's start only where it attacks a defence that watches.
   const deadGround = def.deadGroundStart !== false && (kind === "attack" || kind === "defence-counterattack" || kind === "withdrawal");
   const sup = (v: boolean | undefined): boolean | undefined => (v === undefined && company ? true : v);
@@ -291,7 +304,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   const buildSide = (side: "blue" | "red", s: number): ForceInput => {
     const roster = def.forces?.[s] ?? null;
     if (roster) {
-      const force = rosterSide(data, catalog, map, roster, side, def.factions[s]!, stanceOf(side), { mainP, secondP, dx, W, H, flank },
+      const force = rosterSide(data, catalog, map, roster, side, def.factions[s]!, stanceOf(side), { mainP, secondP, dx, W, H, flank, edgeX: edgeX(side) },
         side === def.attacker && deadGround ? { observers, objectives: [mainP, secondP] } : null, navExtra,
         kind === "defence-counterattack" && side === defender ? reserveAt : null);
       return finishSide(force, side, s, (force.vehicles?.length ?? 0) > 0);
@@ -369,7 +382,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
         cx = sp.x + (count > 1 ? dx * Math.floor(gi / 4) * 25 : 0); cy = sp.y;
       } else {
         // Attack: start in a line of squads near the own map edge, opposite the objectives.
-        cx = side === "blue" ? W * 0.08 : W * 0.92;
+        cx = edgeX(side);
         cy = H / 2 + (gi - (groups.length - 1) / 2) * lineSpacing(groups.length, H);
       }
       men.forEach((m, mi) => {
@@ -561,7 +574,7 @@ function terrainNav(catalog: Catalog, terrain: ScenarioTerrain | undefined): Nav
  */
 function rosterSide(
   data: DataSet, catalog: Catalog, map: MapDef, roster: ScenarioForces, side: "blue" | "red", faction: string, stance: Stance,
-  geo: { mainP: { x: number; y: number }; secondP: { x: number; y: number }; dx: number; W: number; H: number; flank: number },
+  geo: { mainP: { x: number; y: number }; secondP: { x: number; y: number }; dx: number; W: number; H: number; flank: number; edgeX: number },
   dead: { observers: readonly { x: number; y: number; z: number; thermal?: boolean }[]; objectives: readonly { x: number; y: number }[] } | null, navExtra: NavGridOptions,
   reserveAt: number | null,
 ): ForceInput {
@@ -633,7 +646,7 @@ function rosterSide(
       const sp = defenceSpots(mainP, secondP, dx)[gi % 4]!, back = Math.floor(gi / 4) * 25;
       cx = sp.x + dx * back; cy = sp.y;
     } else {
-      cx = side === "blue" ? W * 0.08 : W * 0.92;
+      cx = geo.edgeX;
       cy = H / 2 + (line - (lineGroups.length - 1) / 2) * lineSpacing(lineGroups.length, H);
       line++;
     }

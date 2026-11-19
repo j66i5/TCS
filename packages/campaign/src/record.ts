@@ -136,7 +136,7 @@ export interface CampaignLogEntry {
   personId?: string;
   /** Leader: whom he replaced; how he was chosen ("own": a man of the unit; "sub": a sub-unit's leader moved up). */
   replaced?: string;
-  how?: "own" | "sub" | OperationEnd;
+  how?: "own" | "sub" | "player" | OperationEnd;
   vehicleId?: string;
   count?: number;
 }

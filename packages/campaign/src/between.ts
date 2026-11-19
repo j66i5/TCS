@@ -279,7 +279,7 @@ function vacancies(data: DataSet, f: CampaignForce, u: UnitInput) {
 
 /** The standard load of a man: his role's slot in his unit's template, else the first slot of his role in any template
  *  of his faction (template ids in order); null: none (his load stays). */
-function standardSlot(data: DataSet, f: CampaignForce, unitKey: string, role: string) {
+export function standardSlot(data: DataSet, f: CampaignForce, unitKey: string, role: string) {
   const own = slotsOf(data, f, unitKey).find((s) => s.role === role);
   if (own) return own;
   const units = data.factions[f.faction]!.units;
@@ -287,7 +287,7 @@ function standardSlot(data: DataSet, f: CampaignForce, unitKey: string, role: st
   return null;
 }
 
-const loadOf = (slot: { load: readonly { item: string; count: number; charge?: number | undefined }[] }) =>
+export const loadOf = (slot: { load: readonly { item: string; count: number; charge?: number | undefined }[] }) =>
   slot.load.map((l) => (l.charge === undefined ? { type: l.item, count: l.count } : { type: l.item, count: l.count, charge: l.charge }));
 
 /** A green replacement for a slot (new person id; names and skills from the campaign's dice). */

@@ -87,6 +87,15 @@ export function confirmForces(data: DataSet, record0: CampaignRecord): CampaignR
   return record;
 }
 
+/** M12.3: battle -> choose (the player goes back to his choice before the battle is fought, e.g. after cancelling an
+ *  auto-resolve); the choice is kept. */
+export function reviseForces(record0: CampaignRecord): CampaignRecord {
+  expect(record0, "battle");
+  const record = clone(record0);
+  record.flow = { phase: "choose", choice: record.flow!.choice ?? [] };
+  return record;
+}
+
 /** One battle of a node, built. */
 export interface NodeBattle { which: "main" | "flank"; def: ScenarioDef; input: BattleInput; sector: number; node: string; playerKeys: string[]; enemyKeys: string[] }
 export interface NodeBattles {

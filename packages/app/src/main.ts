@@ -12,12 +12,15 @@ import { buildAppearance, formatErrors, Strings } from "@tcs/data";
 import { buildScenario, demoBattle, holdBattle, MAP_KINDS, mountedTanks, SCENARIO_KINDS, vehicleBattle, withoutRecovery, type MapKind, type ScenarioKind } from "@tcs/scenario";
 import { commanderController, defenceStartPosts, sideCommander, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
 import {
-  DT, environmentAt, isOffMapMan, navFor, newBattleRecord, parseTimeOfDay, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
+  battleResultOf, DT, emptyLogistics, environmentAt, logisticsFromEvents, tracerMap, isOffMapMan, navFor, newBattleRecord, parseTimeOfDay, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
 import { ageLabel, cacheMarkers, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, prisonerMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
+import { hashRecord } from "@tcs/campaign";
 import { loadBundledData } from "./data";
+import { loadCampaignBattle, returnToCampaign, type CampaignBattle } from "./campaign/battle";
+import { campaignPage } from "./campaign/page";
 import type { App } from "./app";
 import { centredOn, centreOn, centreOnDrone, droneCentred, followStep, keepSelectedClear, startFollow, stopFollow } from "./camera";
 import { attachControls, gestureOverlay, planOverlay } from "./controls";
@@ -48,6 +51,25 @@ async function main(): Promise<void> {
   }
   const strings = new Strings(data, "en");
   const params = new URLSearchParams(location.search);
+  // M12.3: `?campaign=1` opens the campaign page (no battle); `?campaign=<slot>&play=1` plays the node's battle the
+  // campaign in that slot has ready.
+  const campaignParam = params.get("campaign");
+  if (campaignParam !== null && params.get("play") !== "1") {
+    const page = await campaignPage(hudRoot, data, strings, params, hashRecord);
+    (globalThis as { __tcsCampaign?: unknown }).__tcsCampaign = { ready: true, ...page };
+    return;
+  }
+  let campaign: CampaignBattle | null = null;
+  if (campaignParam !== null) {
+    try { campaign = await loadCampaignBattle(data, campaignParam); } catch (e) {
+      hudRoot.textContent = `${strings.t("cmp.msg.noBattle")} ${e instanceof Error ? e.message : String(e)}`;
+      hudRoot.style.pointerEvents = "auto";
+      const back = document.createElement("a");
+      back.href = "?campaign=1"; back.textContent = ` ${strings.t("cmp.title.home")}`; back.style.color = "#f5d061";
+      hudRoot.append(back);
+      return;
+    }
+  }
   const seed = Number(params.get("seed") ?? 1) >>> 0;
   const factions = (params.get("factions") ?? "de,ru").split(",") as [string, string];
   const mapParam = params.get("map") ?? "village";
@@ -56,7 +78,7 @@ async function main(): Promise<void> {
   // M6 first playable: the generated platoon battle (?scenario=demo for the old one-squad sandbox).
   // ?side=blue|red picks your side, ?attacker=blue|red who attacks; the AI commands the other side.
   const scenario = params.get("scenario") ?? "platoon";
-  const playerSide = params.get("side") === "red" ? "red" : "blue";
+  const playerSide = campaign ? "blue" : params.get("side") === "red" ? "red" : "blue";
   const enemySide = playerSide === "blue" ? "red" : "blue";
   // M7.6d: &assault=1: red's platoon is its assault group (on foot) with its AGS team, red attacking unless
   // &attacker= says otherwise.
@@ -69,7 +91,7 @@ async function main(): Promise<void> {
   const withVehicles = vp.vehicles;
   const limit = Number(params.get("limit") ?? 2400) || 2400;
   // ?scenario=vehicles (M7.1c): IFV platoons with their squads on foot; vehicles appear nowhere else yet.
-  const input = scenario === "demo"
+  const input = campaign ? campaign.input : scenario === "demo"
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "hold"
     // M11.1 ?scenario=hold: hold the village against three waves (60 min); &attacker=blue swaps the sides.
@@ -85,7 +107,7 @@ async function main(): Promise<void> {
   // ?recovery=0 (M11.7b): no recovery vehicles; ?recovery=1: the vehicles scenario gets them too.
   if (params.get("recovery") === "0") withoutRecovery(input);
   // ?ai=0: no enemy controller (screenshots: a scene the enemy must not walk into).
-  const ai = params.get("ai") === "0" ? [] : scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
+  const ai = params.get("ai") === "0" ? [] : campaign ? [sideCommander(enemySide, input)] : scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
     : scenario === "hold" && input.forces.find((f) => f.side === enemySide)?.posture === "attack" ? [waveCommanders(enemySide, input)]
     // (M12.0b: a battle of a scenario kind: the enemy's commander by its plan.)
@@ -282,7 +304,11 @@ async function main(): Promise<void> {
   if (loaded.failed) hud.radio(strings.t("app.loadFailed"), 0, "#ffb4b4");
 
   // ---- Events (rule 5): the renderer's effects, the battle record (the review's source, D2), the radio log.
+  // M12.3: a campaign battle gathers its logistics from the events (the result handed back to the campaign).
+  const campLogistics = sim.state.sides.map((x) => emptyLogistics(x.id));
+  const tracer = campaign ? tracerMap(input.catalog) : null;
   const handleEvents = (events: SimEvent[]) => {
+    if (tracer && events.length > 0) logisticsFromEvents(campLogistics, events, sim.state, input.catalog, tracer);
     renderer.onEvents(events, sim.state, overlay);
     vehicleDebug.onEvents(events);
     recordEvents(a.record, events, sim.state, input.catalog);
@@ -313,6 +339,7 @@ async function main(): Promise<void> {
   a.review = createAar(hudRoot, strings, {
     onHeat: (on) => { overlay.heat = on ? { shots: a.record.heatShots, falls: a.record.heatFalls } : null; },
     onClose: () => { /* the map stays; the battle is over */ },
+    ...(campaign ? { onCampaign: () => { void returnToCampaign(data, campaign, battleResultOf(sim, input, a.orderLog, campLogistics), look); } } : {}),
   });
   let aarShown = false;
   const showAar = () => { aarShown = true; a.speed = 0; a.review!.show(reviewModel(a)); };

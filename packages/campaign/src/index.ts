@@ -17,3 +17,4 @@ export * from "./campaign-chain";
 export * from "./save";
 export * from "./operation";
 export * from "./flow";
+export * from "./view";

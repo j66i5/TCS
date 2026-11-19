@@ -78,6 +78,7 @@ export interface SlotInfo {
 }
 
 export const SLOT_NAME_MAX = 40;
+const PENDING_KEY = "pending:result";
 
 /** A slot name the player may use: 1-40 characters after trimming, not the automatic slot's. */
 export function validSlotName(name: string): boolean {
@@ -139,6 +140,20 @@ export class CampaignStore {
     await this.backend.delete(`save:${slotName}`);
     await this.backend.delete(`meta:${slotName}`);
   }
+
+  /** M12.3: a played campaign battle's result waiting to be applied (the battle page hands it to the campaign page):
+   *  one at a time, with the battle count of the record it belongs to. */
+  putPending(battles: number, resultText: string): Promise<void> {
+    return this.backend.put(PENDING_KEY, JSON.stringify({ battles, result: resultText }));
+  }
+
+  async pending(): Promise<{ battles: number; result: string } | null> {
+    const t = await this.backend.get(PENDING_KEY);
+    if (t === undefined) return null;
+    try { return JSON.parse(t) as { battles: number; result: string }; } catch { return null; }
+  }
+
+  clearPending(): Promise<void> { return this.backend.delete(PENDING_KEY); }
 
   /** The slot's text as stored (the export file's content). */
   async exportText(slotName: string): Promise<string> {

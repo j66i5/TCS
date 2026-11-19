@@ -61,6 +61,15 @@ export function continueBattle(sim: Sim, input: BattleInput, opts: RunOptions = 
   return { ...summarize(sim, input, allOrders, counts), logistics };
 }
 
+/**
+ * M12.3: the result of a battle run elsewhere (the app's live battle, a played campaign battle): the same summary
+ * `continueBattle` gives at its end, from the sim as it stands, the orders sent and the logistics the caller gathered
+ * from the events with `logisticsFromEvents` (a battle loaded from a save counts from the load). Reads only.
+ */
+export function battleResultOf(sim: Sim, input: BattleInput, orders: readonly Order[], logistics: SideLogistics[], eventCounts: Partial<Record<SimEventKind, number>> = {}): BattleResult {
+  return { ...summarize(sim, input, [...orders], eventCounts), logistics };
+}
+
 function summarize(
   sim: Sim,
   input: BattleInput,

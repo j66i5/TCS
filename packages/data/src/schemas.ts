@@ -1506,6 +1506,24 @@ export type SupplyT = z.infer<typeof SupplyFile>;
  * core/prisoners.json (M11.9, plan docs/plans/m11-mp-pow.md section 4; optional file): the prisoner collection point,
  * the search, escorts and guards, segregation by rank. Game values (low) unless a source says more.
  */
+/**
+ * core/campaign.json (M12; optional file): the campaign's rules between battles. Not part of the catalog: battles never
+ * read it. M12.0b: `battle`, what one battle may commit per side (the cap from the company benchmark: `bench-company`
+ * headless at `measuredX` real time on the build container against the floor `floorX`; DECISIONS "M12.0b").
+ */
+export const CampaignFile = z.object({
+  campaign: withProv({
+    battle: z.object({
+      /** Platoons per side, the company headquarters, and the support (sections and teams) a battle takes at most. */
+      platoons: z.number().int().min(1).max(9), companyHq: z.boolean(),
+      mortarSections: z.number().int().min(0).max(3), missileTeams: z.number().int().min(0).max(3), aglTeams: z.number().int().min(0).max(3), tankSections: z.number().int().min(0).max(3),
+      /** Headless speed floor (multiples of real time) and what the benchmark measured. */
+      floorX: Num(1, 100), measuredX: Num(0, 10000),
+    }).strict(),
+  }),
+});
+export type CampaignT = z.infer<typeof CampaignFile>;
+
 export const PrisonersFile = z.object({
   prisoners: withProv({
     /** The prisoners are looked at every `stepS` (s). */

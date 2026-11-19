@@ -1,0 +1,17 @@
+{
+  "campaign": {
+    "battle": {
+      "platoons": 3,
+      "companyHq": true,
+      "mortarSections": 1,
+      "missileTeams": 1,
+      "aglTeams": 1,
+      "tankSections": 1,
+      "floorX": 4,
+      "measuredX": 0
+    },
+    "sources": [],
+    "confidence": "low",
+    "note": "M12.0b (plan m12-roster 4.2, owner Q-C option (a)): software values, no source. What one battle commits per side at most: a company's worth, three platoons, its headquarters (company headquarters data come with M12.1a), one mortar section, one missile team, one AGL team and one tank section. Measured with bench-company (a company each, mounted, AI against AI) headless on the build container: measuredX multiples of real time against the floor floorX (DECISIONS M12.0b)."
+  }
+}

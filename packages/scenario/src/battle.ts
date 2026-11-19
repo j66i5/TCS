@@ -9,7 +9,7 @@
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
-  atan2, buildBallistics, buildMapIndex, buildNavGrid, heightAt, hypot2, nearestPassable, newVehicleRecord, PI, sight, TICK_HZ, wreckStamp,
+  atan2, buildBallistics, buildMapIndex, buildNavGrid, heightAt, hypot2, nearestPassable, newVehicleRecord, PI, sight, sqrt, TICK_HZ, wreckStamp,
   type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type NavGridOptions, type ObjectiveDef, type Placement, type SideId, type SimContext,
   type TerrainDamage, type UnitInput, type VehicleRecord, type WreckRecord,
 } from "@tcs/sim";
@@ -227,7 +227,7 @@ export function scenarioMapSize(def: ScenarioDef): { W: number; H: number } {
     let men = 0;
     const count = (u: UnitInput): void => { men += u.members.length; u.subunits.forEach(count); };
     for (const f of def.forces) for (const u of f?.units ?? []) count(u);
-    scale = Math.max(scale, Math.min(SCENARIO_KIND.maxScale, Math.sqrt(men / SCENARIO_KIND.menPerBase)));
+    scale = Math.max(scale, Math.min(SCENARIO_KIND.maxScale, sqrt(men / SCENARIO_KIND.menPerBase)));
   }
   const r = (v: number) => Math.round((v * scale) / 100) * 100;
   return { W: def.mapWidthM ?? r(base[0]!), H: def.mapHeightM ?? r(base[1]!) };

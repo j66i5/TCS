@@ -16,7 +16,7 @@ import {
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   MedicalFile, type MedicalT,
   RepairFile, type RepairT,
-  SupplyFile, type SupplyT, PrisonersFile, type PrisonersT,
+  SupplyFile, type SupplyT, PrisonersFile, type PrisonersT, CampaignFile, type CampaignT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
   StringsFile, UnitsFile, VehiclesFile, type VehicleT,
   CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT,
@@ -69,6 +69,8 @@ export interface DataSet {
   supply?: SupplyT;
   /** Prisoners of war (M11.9; optional file core/prisoners.json). */
   prisoners?: PrisonersT;
+  /** The campaign's rules (M12; optional file core/campaign.json). Not in the catalog. */
+  campaign?: CampaignT;
   shooting: ShootingT | null;
   spotting: SpottingT | null;
   behaviour: BehaviourT | null;
@@ -204,6 +206,7 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     if (P.pcp.minBackM > P.pcp.maxBackM) errors.push({ file: "core/prisoners.json", path: "prisoners.pcp.minBackM", message: "minBackM above maxBackM", severity: "error" });
     if (P.escort.gapMinM > P.escort.gapMaxM) errors.push({ file: "core/prisoners.json", path: "prisoners.escort.gapMinM", message: "gapMinM above gapMaxM", severity: "error" });
   }
+  const campaign = files["core/campaign.json"] === undefined ? null : parse(CampaignFile, "core/campaign.json", files["core/campaign.json"], errors);
   const data: DataSet = {
     wounds,
     shooting,
@@ -221,6 +224,7 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     ...(repair ? { repair } : {}),
     ...(supply ? { supply } : {}),
     ...(prisoners ? { prisoners } : {}),
+    ...(campaign ? { campaign } : {}),
   };
   // Appearance (M7.5): presentation only, outside the catalog; its keys must name terrain entries.
   if (files["core/appearance.json"] !== undefined) {

@@ -1,7 +1,7 @@
 /**
  * D3 phone proxy: frame times of the app on an emulated phone, split by part (`__tcs.perf()`), as a table.
  *   npm run phoneperf [-- --look photo,flat] [--dpr 2.625] [--throttle 4] [--seconds 10] [--map village] [--seed 1]
- *                     [--port 4319] [--no-build] [--url http://localhost:5173/]
+ *                     [--port 4319] [--no-build] [--url http://localhost:5173/] [--query "kind=attack&size=company"]
  *
  * Builds the app and serves it with `vite preview` (as `npm run screenshot` does; `--no-build` serves the existing
  * dist, `--url` measures a running server instead), opens it in Playwright Chromium as a Pixel 7 (412x915, touch),
@@ -30,6 +30,8 @@ const seconds = Number(args["seconds"] ?? 10);
 const seed = Number(args["seed"] ?? 1);
 const map = args["map"] ?? "village";
 const port = Number(args["port"] ?? 4319);
+// M12.0b: `--query "kind=attack&size=company"`: more URL parameters for the battle (the company benchmark).
+const query = args["query"] ?? "";
 
 // Minimal structural types: Playwright is pre-installed globally, not a dependency, so no type package.
 interface Cdp { send(method: string, params?: object): Promise<unknown> }
@@ -83,7 +85,7 @@ async function measureLook(browser: Browser, base: string, look: string): Promis
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
   const t0 = Date.now();
-  await page.goto(`${base}?seed=${seed}&map=${map}&look=${look}`, { waitUntil: "load", timeout: 60000 });
+  await page.goto(`${base}?seed=${seed}&map=${map}&look=${look}${query ? `&${query}` : ""}`, { waitUntil: "load", timeout: 60000 });
   await page.waitForFunction(fn<boolean>("return globalThis.__tcs?.ready === true && globalThis.__tcs.tilesPending() === 0"), null, { timeout: 120000 });
   const loadMs = Date.now() - t0;
   await page.waitForTimeout(1000);

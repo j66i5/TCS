@@ -80,6 +80,7 @@ export function exitedOf(state: SimView, side: SideId): { men: number; vehicles:
     const s = state.soldier.get(id);
     if (s && s.physiology.alive && hasExited(s)) men++;
   }
+  // off-map: ok (the hulls that left are off the map: they are what is counted)
   for (const [, v] of state.vehicle.entries()) if (v.side === side && v.exited !== undefined) vehicles++;
   return { men, vehicles };
 }

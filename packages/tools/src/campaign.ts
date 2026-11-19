@@ -2,14 +2,14 @@
  * The tools' side of the campaign (M12.0a): the battle runner with the AI commander on both sides (the campaign
  * package never imports the AI) and the faction pairing of a chain.
  */
-import { commanderController } from "@tcs/ai";
+import { planControllers } from "@tcs/ai";
 import type { BattleRunner } from "@tcs/campaign";
 import type { DataSet } from "@tcs/data";
 import { runBattle, TICK_HZ } from "@tcs/sim";
 
-/** `runBattle` with the AI commander on every side of the input (progress once a battle minute). */
+/** `runBattle` with the AI commander on every side of the input, by its plan (M12.0b; progress once a battle minute). */
 export const aiRunner: BattleRunner = (input, opts) => runBattle(input, {
-  controllers: input.forces.map((f) => commanderController(f.side, input)),
+  controllers: planControllers(input),
   ...(opts.onProgress ? { onTick: (sim) => { if (sim.state.tick % (60 * TICK_HZ) === 0) opts.onProgress!(sim.state.tick / TICK_HZ); } } : {}),
 });
 

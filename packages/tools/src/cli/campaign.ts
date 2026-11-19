@@ -125,6 +125,21 @@ async function runBatch(which: string, a: Record<string, string>): Promise<void>
     writeFileSync(a["out"]!, JSON.stringify(r));
     return;
   }
+  if (a["merge"] !== undefined) {
+    // Merge part results written by `batch-part --out` (parts run apart, e.g. detached in the background).
+    const results = a["merge"].split(",").map((f) => JSON.parse(readFileSync(f, "utf8")) as PartResult);
+    const m = results[0]!.opts;
+    const dir = fileURLToPath(new URL("../../../../reports", import.meta.url));
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const factionsM = [...new Set(results.map((r) => r.opts.faction))];
+    const total = m.mode === "endless" ? m.count : results.reduce((n, r) => n + r.opts.count, 0) / factionsM.length;
+    const header = `# Campaign batch: ${m.mode}, ${m.mode === "endless" ? `${m.count} nodes per campaign` : `${total} operations per faction`}\n\nM12.2 (plan m12-roster 4.5). AI on both sides (the player's side auto-resolved with the proposed choice), ${m.seconds} s battles; parts ${results.map((r) => `${r.opts.faction} s${r.opts.seed} x${r.opts.count}`).join(", ")} run as \`npm run campaign -- batch-part --opts <json> --out <file>\` and merged with \`batch --merge\`.`;
+    const file = join(dir, `campaign-batch-${m.mode}-${stamp}.md`);
+    writeFileSync(file, batchReport(results, header));
+    console.log(`Wrote ${file}`);
+    for (const r of results) console.log(`${r.opts.faction} s${r.opts.seed}: record hash ${r.hash}`);
+    return;
+  }
   const factions = (a["faction"] ?? "de,ru").split(",");
   const mode = a["mode"] === "endless" ? "endless" : "operations";
   const total = mode === "endless" ? Number(a["battles"] ?? 30) : Number(a["operations"] ?? 50);

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   autoPlay, autoResolve, battleInputs, campaignRules, checkOperationRules, chooseForces, confirmForces, enemyChoice, exportSave, finishBattle, FlowError,
   generateOperation, hashRecord, makeSave, membersOf, menOf, newCampaign, nextNode, operationRules, phaseOf, proceed, proposeChoice, readSave, rememberSector,
-  selectables, setChoice, startFlow, validateCommit, type CampaignRecord, type FlowEnv, type NodeResult,
+  enemyFor, fightingValue, selectables, setChoice, startFlow, validateCommit, valueRatio, type CampaignRecord, type FlowEnv, type NodeResult,
 } from "@tcs/campaign";
 import type { DataSet } from "@tcs/data";
 import type { BattleResult } from "@tcs/sim";
@@ -86,6 +86,30 @@ describe("M12.2 choosing forces", () => {
     expect(sup.some((k) => sel.get(k)!.what === "hq")).toBe(true);
     expect(validateCommit(data, e, sup)).toEqual([]);
     expect(men(small)).toBeGreaterThan(0);
+  });
+  it("M12.4: the enemy's ratio is weighed by the factions' fighting values (factions/<id>/campaign.json; 1 without it)", () => {
+    const withValues = (v: Record<string, number | null>): DataSet => ({
+      ...data,
+      factions: Object.fromEntries(Object.entries(data.factions).map(([k, f]) => {
+        const { campaign: _c, ...rest } = f; void _c;
+        const x = v[k];
+        return [k, x === null || x === undefined ? rest : { ...rest, campaign: { fightingValue: x, sources: [], confidence: "low" as const } }];
+      })),
+    });
+    for (const f of ["de", "ru", "xf"]) expect(fightingValue(data, f)).toBeGreaterThan(0);
+    const plain = withValues({ de: null, ru: null });
+    const rec = generateOperation(plain, newCampaign(plain, { seed: 5, faction: "ru", enemy: "de" }));
+    expect(fightingValue(plain, "de")).toBe(1);
+    expect(valueRatio(plain, rec)).toBe(1);
+    const e = rec.sides.enemy;
+    const sel = new Map(selectables(plain, e).map((s) => [s.key, s]));
+    const plats = (d: DataSet) => enemyFor(d, rec, "main", 120).filter((k) => sel.get(k)!.what === "platoon").length;
+    // The enemy three times as good a man: a third of the men (the attack: 0.7 x 120 men, then a third of it).
+    const strong = withValues({ de: 3, ru: 1 });
+    expect(valueRatio(strong, rec)).toBeCloseTo(1 / 3, 9);
+    expect(plats(plain)).toBeGreaterThan(plats(strong));
+    // Equal values cancel whatever they are.
+    expect(enemyFor(withValues({ de: 2, ru: 2 }), rec, "main", 120)).toEqual(enemyFor(plain, rec, "main", 120));
   });
 });
 

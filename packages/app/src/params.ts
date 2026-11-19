@@ -17,3 +17,35 @@ export function carriersParam(v: string | null, warn: (msg: string) => void = ()
   warn(`vehicles=${v}: expected 0, 1, tracked, wheeled or <blue>,<red>; using tracked`);
   return { vehicles: true };
 }
+
+/**
+ * `?tanks=0|1|both|attacker|defender` (M7.6b): the sides' tank sections (1, both: both sides; 0: none);
+ * `&tankCrew=<blue section>,<red section>` (unit template ids, empty: the default's or the manifest's), e.g.
+ * `tankCrew=,tankovaya-gruppa-t90m`. Absent (balance pass 3): `mounted`, the balanced mounted battle's sections
+ * (`mountedTanks`, the batch's platoon-vehicles / platoon-ru-vehicles), or none (null: the battle on foot). Any other
+ * value: a warning and the default.
+ */
+export function tanksParam(v: string | null, crew: string | null, mounted: TankOpts | null = null, warn: (msg: string) => void = () => undefined): TankOpts {
+  const tanks = v === "1" || v === "both" ? true : v === "attacker" || v === "defender" ? v : undefined;
+  if (tanks === undefined && v !== null && v !== "" && v !== "0") warn(`tanks=${v}: expected 0, 1, both, attacker or defender; using the default`);
+  const parts = (crew ?? "").split(",");
+  const named: [string | null, string | null] | undefined = crew ? [parts[0] || null, parts[1] || null] : undefined;
+  if (tanks === undefined) {
+    if (v === "0" || mounted === null || mounted.tanks === undefined) return {};
+    return { tanks: mounted.tanks, ...(named ? { tankTemplates: named } : mounted.tankTemplates ? { tankTemplates: mounted.tankTemplates } : {}) };
+  }
+  return { tanks, ...(named ? { tankTemplates: named } : {}) };
+}
+
+export interface TankOpts { tanks?: true | "attacker" | "defender"; tankTemplates?: [string | null, string | null] }
+
+/**
+ * Whether the app's platoon battle takes the balanced mounted battle's default tanks (balance pass 3 review): only the
+ * tracked carriers' battle on both sides without the assault group, the one the batch's platoon-vehicles /
+ * platoon-ru-vehicles measure; the wheeled, mixed and assault battles stay without tanks unless `tanks=` asks.
+ */
+export function defaultTanksApply(vp: { vehicles: boolean; carriers?: CarrierClass | [CarrierClass, CarrierClass] }, assault: boolean): boolean {
+  if (!vp.vehicles || assault) return false;
+  const c = vp.carriers;
+  return c === undefined || c === "tracked" || (Array.isArray(c) && c[0] === "tracked" && c[1] === "tracked");
+}

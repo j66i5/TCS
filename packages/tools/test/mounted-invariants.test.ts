@@ -66,36 +66,125 @@ describe("mounted-man invariants at run time (M7.2)", () => {
       // (M7.5e defend: with the German defence at windows, platoon-ru-vehicles s2 loses two BMPs with men aboard in
       // the first minute; 22 men get out by 180 s, 31 before. Still plenty to check the invariants on.)
       expect(gotOut).toBeGreaterThan(20);
-    });
+    }, 120_000);
   }
 
-  it("a man aboard never blocks a comrade's line of fire (he is behind armour)", () => {
+  it("a hull of his side, and the men aboard it, block a comrade's line of fire; wide of it they do not (balance pass 3)", () => {
     const sc = getScenario("platoon-vehicles");
     const sim = createSim(sc.build(data, 1, 60));
     const s = sim.state;
-    let checked = 0;
+    let through = 0, wide = 0;
     // Defenders: their vehicle crews are aboard behind the objective, the riflemen on foot in front.
     // mounted: ok the test pairs men on foot with men aboard
     const men = [...s.identity.entries()].filter(([, i]) => i.side === "red");
     const foot = men.filter(([id]) => s.soldier.req(id).mount === undefined).map(([id]) => id);
-    const aboard = men.filter(([id]) => s.soldier.req(id).mount !== undefined).map(([id]) => id);
-    for (const f of foot) for (const a of aboard) {
-      const ft = s.transform.req(f), at = s.transform.req(a);
-      const d = hypot2(at.x - ft.x, at.y - ft.y);
-      const tx = ft.x + ((at.x - ft.x) / d) * (d + 30), ty = ft.y + ((at.y - ft.y) / d) * (d + 30);
-      // Only where no other man on foot is anywhere near that line.
-      const clear = foot.every((o: EntityId) => {
+    const hulls = [...s.vehicle.entries()].filter(([, v]) => v.side === "red" && !isOffMap(v) && v.seats.some((x) => x !== null)).map(([id]) => id);
+    expect(hulls.length).toBeGreaterThan(0);
+    for (const f of foot) for (const h of hulls) {
+      const ft = s.transform.req(f), ht = s.transform.req(h);
+      const d = hypot2(ht.x - ft.x, ht.y - ft.y);
+      if (d < 15) continue;
+      const ux = (ht.x - ft.x) / d, uy = (ht.y - ft.y) / d;
+      // Through the hull to 30 m past it; and the same distance, but 40 m to its side (plus the cone).
+      const tx = ft.x + ux * (d + 30), ty = ft.y + uy * (d + 30);
+      const side = 40 + d * 0.1;
+      const wx = ft.x + ux * d - uy * side, wy = ft.y + uy * d + ux * side;
+      // Only where no other man on foot is anywhere near either line.
+      const clearOf = (ex: number, ey: number) => foot.every((o: EntityId) => {
         if (o === f) return true;
         const ot = s.transform.req(o);
-        const u = ((ot.x - ft.x) * (tx - ft.x) + (ot.y - ft.y) * (ty - ft.y)) / ((d + 30) * (d + 30));
-        const px = ft.x + u * (tx - ft.x), py = ft.y + u * (ty - ft.y);
+        const L2 = (ex - ft.x) * (ex - ft.x) + (ey - ft.y) * (ey - ft.y);
+        const u = ((ot.x - ft.x) * (ex - ft.x) + (ot.y - ft.y) * (ey - ft.y)) / L2;
+        const px = ft.x + u * (ex - ft.x), py = ft.y + u * (ey - ft.y);
         return u < -0.1 || u > 1.1 || hypot2(ot.x - px, ot.y - py) > 15;
       });
-      if (!clear) continue;
-      checked++;
-      expect(friendInLine(sim.ctx, s, f, tx, ty), `${f} past ${a}`).toBe(false);
+      if (clearOf(tx, ty)) { through++; expect(friendInLine(sim.ctx, s, f, tx, ty), `${f} through ${h}`).toBe(true); }
+      // (Wide of this hull: no other own hull near that line either.)
+      const otherHull = hulls.some((o) => {
+        const ot = s.transform.req(o);
+        const L2 = (wx - ft.x) * (wx - ft.x) + (wy - ft.y) * (wy - ft.y);
+        const u = ((ot.x - ft.x) * (wx - ft.x) + (ot.y - ft.y) * (wy - ft.y)) / L2;
+        const px = ft.x + u * (wx - ft.x), py = ft.y + u * (wy - ft.y);
+        return u > -0.1 && u < 1.1 && hypot2(ot.x - px, ot.y - py) < 15;
+      });
+      if (clearOf(wx, wy) && !otherHull) { wide++; expect(friendInLine(sim.ctx, s, f, wx, wy), `${f} wide of ${h}`).toBe(false); }
     }
-    expect(checked).toBeGreaterThan(5);
+    expect(through).toBeGreaterThan(2);
+    expect(wide).toBeGreaterThan(2);
     step(sim);
+  });
+
+  it("a gunner aboard does not fire through a hull of his side; his own hull and an enemy hull do not block (balance pass 3)", () => {
+    const sc = getScenario("platoon-vehicles");
+    const sim = createSim(sc.build(data, 1, 60));
+    const s = sim.state;
+    const blue = [...s.vehicle.entries()].filter(([, v]) => v.side === "blue" && !isOffMap(v) && v.stations.length > 0 && v.seats.some((x) => x !== null));
+    expect(blue.length).toBeGreaterThan(1);
+    const gunnerOf = (vid: EntityId): EntityId => s.vehicle.req(vid).seats.find((x) => x !== null)!;
+    let pairs = 0;
+    for (const [a] of blue) for (const [b] of blue) {
+      if (a === b) continue;
+      const g = gunnerOf(a), at = s.transform.req(a), bt = s.transform.req(b), gt = s.transform.req(g);
+      const d = hypot2(bt.x - gt.x, bt.y - gt.y);
+      if (d < 12) continue;
+      const ux = (bt.x - gt.x) / d, uy = (bt.y - gt.y) / d;
+      pairs++;
+      // Through the other Puma, 200 m on: blocked.
+      expect(friendInLine(sim.ctx, s, g, gt.x + ux * (d + 200), gt.y + uy * (d + 200)), `${a} through ${b}`).toBe(true);
+      // Away from it (the opposite way, past his own hull): only if nothing else of his side is that way.
+      const bx = at.x - ux * 200, by = at.y - uy * 200;
+      const behind = [...s.vehicle.entries()].some(([o, v]) => o !== a && v.side === "blue" && !isOffMap(v) && ((s.transform.req(o).x - at.x) * -ux + (s.transform.req(o).y - at.y) * -uy) > -5)
+        || [...s.identity.entries()].some(([o, i]) => i.side === "blue" && s.soldier.req(o).mount === undefined && ((s.transform.req(o).x - at.x) * -ux + (s.transform.req(o).y - at.y) * -uy) > -5);
+      if (!behind) expect(friendInLine(sim.ctx, s, g, bx, by), `${a} away from ${b}`).toBe(false);
+    }
+    expect(pairs).toBeGreaterThan(0);
+    // An enemy hull in the line is no friend.
+    const red = [...s.vehicle.entries()].find(([, v]) => v.side === "red" && !isOffMap(v))!;
+    const [a] = blue[0]!;
+    const g = gunnerOf(a), gt = s.transform.req(g), rt = s.transform.req(red[0]);
+    const clear = !blue.some(([o]) => o !== a && (() => {
+      const ot = s.transform.req(o), L = hypot2(rt.x - gt.x, rt.y - gt.y);
+      const u = ((ot.x - gt.x) * (rt.x - gt.x) + (ot.y - gt.y) * (rt.y - gt.y)) / (L * L);
+      const px = gt.x + u * (rt.x - gt.x), py = gt.y + u * (rt.y - gt.y);
+      return u > -0.1 && u < 1.1 && hypot2(ot.x - px, ot.y - py) < 15 + L * 0.07;
+    })()) && ![...s.identity.entries()].some(([o, i]) => i.side === "blue" && s.soldier.req(o).mount === undefined);
+    if (clear) expect(friendInLine(sim.ctx, s, g, rt.x, rt.y)).toBe(false);
+    // A destroyed hull of his side no longer counts.
+    for (const [b] of blue) if (b !== a) s.vehicle.req(b).status = "destroyed";
+    const [b] = blue.find(([o]) => o !== a)!;
+    const bt = s.transform.req(b), d = hypot2(bt.x - gt.x, bt.y - gt.y);
+    const onFoot = [...s.identity.entries()].some(([o, i]) => i.side === "blue" && s.soldier.req(o).mount === undefined);
+    if (!onFoot && d > 12) expect(friendInLine(sim.ctx, s, g, gt.x + ((bt.x - gt.x) / d) * (d + 200), gt.y + ((bt.y - gt.y) / d) * (d + 200))).toBe(false);
+  });
+
+  it("a crewman working outside his hull blocks a comrade's line like a man on foot (balance pass 3 review)", () => {
+    const sim = createSim(getScenario("platoon-vehicles").build(data, 1, 60));
+    const s = sim.state;
+    // mounted: ok the test takes a man on foot and a crewman aboard
+    const red = [...s.identity.entries()].filter(([, i]) => i.side === "red").map(([id]) => id);
+    const f = red.find((id) => s.soldier.req(id).mount === undefined)!;
+    const c = red.find((id) => s.soldier.req(id).mount !== undefined && !isOffMap(s.vehicle.req(s.soldier.req(id).mount!.vehicle)))!;
+    const ft = s.transform.req(f);
+    // A direction from him with nothing of his side within 20 m of a 60 m line.
+    let dir: [number, number] | null = null;
+    for (let k = 0; k < 32 && dir === null; k++) {
+      const ux = Math.cos((k * Math.PI) / 16), uy = Math.sin((k * Math.PI) / 16);
+      const clear = [...red, ...[...s.vehicle.entries()].filter(([, v]) => v.side === "red").map(([id]) => id)].every((o) => {
+        if (o === f || o === c) return true;
+        const ot = s.transform.req(o), u = (ot.x - ft.x) * ux + (ot.y - ft.y) * uy;
+        return u < -5 || u > 65 || Math.abs((ot.x - ft.x) * -uy + (ot.y - ft.y) * ux) > 20;
+      });
+      if (clear) dir = [ux, uy];
+    }
+    expect(dir).not.toBeNull();
+    const [ux, uy] = dir!;
+    const ct = s.transform.req(c);
+    ct.x = ft.x + ux * 30; ct.y = ft.y + uy * 30; ct.z = ft.z;
+    const tx = ft.x + ux * 60, ty = ft.y + uy * 60;
+    // Aboard (in his seat as far as fire is concerned): behind armour, not a body in the line.
+    expect(friendInLine(sim.ctx, s, f, tx, ty)).toBe(false);
+    // Outside at the hull's track: a body in the line.
+    s.action.set(c, { kind: "repairOutside", startTick: 0, durationTicks: 600, params: {} });
+    expect(friendInLine(sim.ctx, s, f, tx, ty)).toBe(true);
   });
 });

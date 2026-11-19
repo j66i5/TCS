@@ -29,8 +29,12 @@ const noRepair = args["no-repair"] !== undefined;
 const noRecovery = args["no-recovery"] !== undefined;
 /** `--no-mp` (M11.9b): no military police off the map (none built), for comparison batches. */
 const noMp = args["no-mp"] !== undefined;
-/** `--no-resupply` (M11.1): no refilling of magazines and no resupply route (`rules.resupply: false`). */
+/** `--no-resupply` (M11.1): no supply chain (`rules.resupply: false`: no supply point use, bearers, deliveries or
+ *  top-up). Balance pass 3: the men still refill from their own loose rounds and even out within the squad. */
 const noResupply = args["no-resupply"] !== undefined;
+/** `--no-refill` (balance pass 3): no refilling from a man's own loose rounds and no evening out or taking in the
+ *  squad (`rules.refill: false`; with `--no-resupply`: the old `--no-resupply`). */
+const noRefill = args["no-refill"] !== undefined;
 /** `--no-deliveries` (M11.4b): resupply on foot only (no deliveries from off the map, no vehicle supply runs, no top-up). */
 const noDeliveries = args["no-deliveries"] !== undefined;
 /** `--no-point` (balance pass 2 review): the hold battle's supply point starts empty (with `--no-deliveries`: the
@@ -128,6 +132,7 @@ for (let i = 0; i < runs; i++) {
   if (noRecovery) withoutRecovery(input);
   if (noMp) withoutMp(input);
   if (noResupply) input.rules.resupply = false;
+  if (noRefill) input.rules.refill = false;
   if (noDeliveries) input.rules.deliveries = false;
   if (noPoint) for (const f of input.forces) for (const c of f.caches ?? []) if (c.point === true) c.load = [];
   const s0 = performance.now();
@@ -305,7 +310,7 @@ const md = [
   `- Field repair: ${noRepair ? "off (--no-repair)" : "on"}`,
   `- Recovery: ${noRecovery ? "off (--no-recovery)" : "on"}`,
   `- Military police: ${noMp ? "off (--no-mp)" : "on"}`,
-  `- Resupply: ${noResupply ? "off (--no-resupply)" : noDeliveries ? "on foot only (--no-deliveries)" : "on"}${noPoint ? ", supply point empty (--no-point)" : ""}`,
+  `- Resupply: ${noResupply ? "supply chain off (--no-resupply)" : noDeliveries ? "on foot only (--no-deliveries)" : "on"}${noPoint ? ", supply point empty (--no-point)" : ""}${noRefill ? ", no refilling from own loose rounds or in the squad (--no-refill)" : ""}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   ...(timeOfDay !== null ? [`- Local time at the start: ${args["time"]} (moon ${args["moon"] ?? 0.5}; M9.1, light from the clock)`] : []),
   `- Wall time: ${(totalMs / 1000).toFixed(1)} s total, mean ${mean(rows.map((r) => r.wallMs)).toFixed(1)} ms per battle`,
@@ -471,7 +476,7 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noMp ? "-no-mp" : ""}${noResupply ? "-no-resupply" : ""}${noDeliveries ? "-no-deliveries" : ""}${noPoint ? "-no-point" : ""}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noMp ? "-no-mp" : ""}${noResupply ? "-no-resupply" : ""}${noRefill ? "-no-refill" : ""}${noDeliveries ? "-no-deliveries" : ""}${noPoint ? "-no-point" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
 console.log(md.split("\n").slice(0, 21).join("\n"));

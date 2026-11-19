@@ -408,11 +408,14 @@ describe("men aboard and their own weapons (gates)", () => {
     return { sim, shooter, crew: crewIds };
   }
 
-  it("riflemen fire past a friendly vehicle with men aboard (men behind armour never block a comrade's fire)", () => {
-    const { sim, shooter } = withRiflemen();
-    submitOrder(sim, { tick: 0, issuer: "blue", target: shooter, kind: "fire", x: 300, y: 102.5 });
-    const ev = run(sim, 15);
-    expect(ev.filter((e) => e.kind === "shot.fired" && e.shooter === shooter).length).toBeGreaterThan(2);
+  it("a friendly vehicle with men aboard blocks a rifleman's line of fire; wide of it he fires (balance pass 3)", () => {
+    // (Before balance pass 3 men aboard never blocked a comrade's fire; the owner had hulls block it, 2026-11-18.)
+    const a = withRiflemen();
+    submitOrder(a.sim, { tick: 0, issuer: "blue", target: a.shooter, kind: "fire", x: 300, y: 102.5 });
+    expect(run(a.sim, 15).filter((e) => e.kind === "shot.fired" && e.shooter === a.shooter).length).toBe(0);
+    const b = withRiflemen();
+    submitOrder(b.sim, { tick: 0, issuer: "blue", target: b.shooter, kind: "fire", x: 300, y: 140 });
+    expect(run(b.sim, 15).filter((e) => e.kind === "shot.fired" && e.shooter === b.shooter).length).toBeGreaterThan(2);
   });
 
   it("a seated crewman's rifle starts no reload in a lull, and he takes no fire task", () => {

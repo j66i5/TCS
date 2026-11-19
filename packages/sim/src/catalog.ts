@@ -517,11 +517,17 @@ export interface BehaviourDef {
    * it holds gets out; resupplyRangeM / resupplyReachM / resupplyCount: a man out of spare walks to a halted own
    * vehicle this close and takes this many from it standing this close to an exit; seatSwapCheckSeconds: how
    * often a crew sees whether a fallen driver or gunner must be replaced.
+   * overwatchBound (balance pass 3, owner 2026-11-18; absent: the carriers stay where they dropped their squads): an
+   * attacking side's carriers in overwatch (`afterDismount` not "follow") that have fired nothing for `idleS` bound
+   * forward to a new hull-down post up to `stepM` ahead along the axis, at least `minGainM` farther forward, never
+   * less than `behindM` behind the side's foremost man on foot and off known anti-tank threats; a carrier that found
+   * no such post tries again after `retryS` (the AI commander, ai/tanks.ts `overwatchBounds`).
    */
   mounting: {
     boardReachM: number; approachReplanM: number; casualtyLoadM: number; carriersWithinM: number;
     completeAfterSeconds: number; giveUpSeconds: number; exitFanMinM: number; exitFanMaxM: number;
     remountM: number; holdDismountM: number; resupplyRangeM: number; resupplyReachM: number; resupplyCount: number; seatSwapCheckSeconds: number;
+    overwatchBound?: { idleS: number; stepM: number; behindM: number; minGainM: number; retryS: number };
   };
   /**
    * Vehicle gunnery (M7.3). stepSeconds: how often a crew chooses its target. A crew engages what it has seen

@@ -162,11 +162,18 @@ describe("refillMagazines (M11.1)", () => {
     expect(run(sim, 40).some((e) => e.kind === "action.started" && e.action === REFILL_ACTION)).toBe(false);
   });
 
-  it("not with rules.resupply false", () => {
+  it("not with rules.refill false", () => {
+    const input = refillInput();
+    input.rules.refill = false;
+    const sim = createSim(input);
+    expect(run(sim, 40).some((e) => e.kind === "items.refilled")).toBe(false);
+  });
+
+  it("still with rules.resupply false (balance pass 3: only the supply chain is off)", () => {
     const input = refillInput();
     input.rules.resupply = false;
     const sim = createSim(input);
-    expect(run(sim, 40).some((e) => e.kind === "items.refilled")).toBe(false);
+    expect(run(sim, 40).some((e) => e.kind === "items.refilled")).toBe(true);
   });
 });
 

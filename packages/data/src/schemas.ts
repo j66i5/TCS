@@ -481,6 +481,11 @@ export const BehaviourFile = withProv({
     completeAfterSeconds: Num(1, 3600), giveUpSeconds: Num(1, 7200), exitFanMinM: Num(0, 50), exitFanMaxM: Num(0, 50),
     remountM: Num(0, 2000), holdDismountM: Num(0, 2000), resupplyRangeM: Num(0, 500), resupplyReachM: Num(0, 50),
     resupplyCount: z.number().int().min(0).max(50), seatSwapCheckSeconds: Num(0.1, 60),
+    /** Balance pass 3 (owner 2026-11-18): an attacking side's carriers in overwatch after the dismount bound forward
+     *  when they have not fired for `idleS`. See BehaviourDef.mounting. */
+    overwatchBound: z.object({
+      idleS: Num(1, 3600), stepM: Num(10, 2000), behindM: Num(0, 2000), minGainM: Num(0, 1000), retryS: Num(1, 3600),
+    }).strict().optional(),
   }).strict(),
   /** Vehicle gunnery (M7.3): the same for every side. See BehaviourDef.gunnery. */
   gunnery: z.object({

@@ -26,7 +26,7 @@
  * Its memory is plain data (part of the commander's, saved with the game); the cover cells are derived from the map.
  */
 import {
-  atan2, cos, countItems, hypot2, indoorAt, isCaptive, isOut, PI, sin, wrapAngle,
+  atan2, cos, countItems, hypot2, indoorAt, isCaptive, isOffMap, isOut, PI, planVehicleRoute, sin, wrapAngle,
   type EntityId, type ObjectiveDef, type SimContext, type SimView, type SoldierState, type VehicleDef, type VehicleState,
 } from "@tcs/sim";
 import { approachPoints, siteHullDown } from "./siting";
@@ -58,6 +58,9 @@ export interface TanksMemory {
   tkSited?: Record<string, string>; tkHome?: Record<string, [number, number]>; tkResite?: Record<string, number>;
   /** Review fix (balance pass 2): a defence's carrier crew -> its pair (fixed the first time it is seen). */
   tkPair?: Record<string, number>;
+  /** Balance pass 3: an attacker's overwatch carrier crew -> since when it counts as idle (first seen, last shot or
+   *  last bound, ticks), its last shot seen, its last try at a bound. */
+  obBound?: Record<string, { since: number; shot: number; tried: number; to?: { x: number; y: number }; at?: { x: number; y: number } }>;
 }
 
 /** The vehicle a crew unit has (or had, if it bailed out). */
@@ -453,4 +456,139 @@ export function tankSections(a: TankArgs): number {
     }
   }
   return notReady;
+}
+
+export interface BoundArgs {
+  view: SimView; tick: number; side: string; ctx: SimContext; objectives: readonly ObjectiveDef[]; mem: TanksMemory;
+  order: (target: EntityId, body: Record<string, unknown>) => void;
+  /** The attacker's axis toward its objective (unit vector). */
+  ux: number; uy: number;
+  /** The objective the attack is after now (its index). */
+  target: number;
+  /** The carrier crews in overwatch whose squads are out. */
+  crews: readonly EntityId[];
+  /** Own able men on foot (where they stand). */
+  ownFoot: readonly { x: number; y: number }[];
+  bound: { idleS: number; stepM: number; behindM: number; minGainM: number; retryS: number };
+  reverseHoldSeconds: number;
+}
+
+/** The last shot of any of a hull's weapons (ticks). */
+function lastShotOf(v: VehicleState): number {
+  let t = -1e9;
+  for (const st of v.stations) for (const w of st.weapons) if (w.lastShotTick > t) t = w.lastShotTick;
+  return t;
+}
+
+/** The bound's post search rings (m round the anchor `stepM` ahead): the bound stays about `stepM` long (review fix). */
+const BOUND_RINGS_M = [0, 40, 80] as const;
+
+/**
+ * Balance pass 3 (owner 2026-11-18, "idle overwatch Pumas move up"): an attacking side's carriers in overwatch after
+ * the dismount (`afterDismount` not "follow") that have fired nothing for `idleS` (since they were first seen here,
+ * their last shot or their last bound) bound forward: a hull-down post (siting.ts `siteHullDown`, as the tank
+ * sections') sited about `stepM` ahead along the axis, over the objective the attack is after and the ground beyond
+ * it, at least `minGainM` farther forward than the hull stands, never less than `behindM` behind the side's foremost
+ * man on foot, `TANKS.coverStandoffM` off threat cover and known enemy men (`threatCover`), 30 m off the other own
+ * hulls and where they go. None found (or the hull is already as far forward as allowed): it tries again after
+ * `retryS`. Not a hull that is hit and reversing out, immobilised, moving, out of main-gun rounds, or whose crew
+ * knows an enemy vehicle within its gun's reach (it is busy), re-arming or refuelling. Review fixes: the post is no
+ * farther from the objective than the hull, at most 1.5 `stepM` away, not nearer a known enemy hull inside that hull's
+ * longest reach, and on a route the hull can drive (`planVehicleRoute`); a post it was sent to and never reached is
+ * left out while it stands where it stood. Values: core/behaviour.json `mounting.overwatchBound`.
+ */
+export function overwatchBounds(a: BoundArgs): void {
+  const { view, tick, side, ctx, mem, order, ux, uy, bound: B } = a;
+  if (a.crews.length === 0 || a.ownFoot.length === 0) return;
+  const obj = a.objectives[a.target] ?? a.objectives[0];
+  if (!obj) return;
+  mem.obBound ??= {};
+  const front = a.ownFoot.reduce((m, f) => Math.max(m, f.x * ux + f.y * uy), -Infinity);
+  const limit = front - B.behindM;
+  const W = ctx.map.widthM, H = ctx.map.heightM;
+  let threats: { x: number; y: number }[] | null = null;
+  const threatsNow = (): { x: number; y: number }[] => {
+    if (threats) return threats;
+    const enemies = knownEnemyMen(view, side);
+    const held = a.objectives.filter((_, i) => view.objectives[i]?.holder === side);
+    threats = [...threatCover(ctx, ux, uy, a.ownFoot, front, enemies, held, tick), ...enemies.filter((e) => tick - e.tick <= TANKS.menSeenSeconds * 60)];
+    return threats;
+  };
+  // Where the side's other hulls stand or go (no post within 30 m of one).
+  const others = (self: EntityId): { x: number; y: number }[] => {
+    const out: { x: number; y: number }[] = [];
+    for (const [vid, v] of view.vehicle.entries()) {
+      if (vid === self || v.side !== side || isOffMap(v) || v.status === "destroyed") continue;
+      const t = view.transform.get(vid);
+      if (t) out.push({ x: t.x, y: t.y });
+      const r = v.drive.route, end = r[r.length - 1];
+      if (!v.drive.arrived && end) out.push({ x: end.x, y: end.y });
+    }
+    return out;
+  };
+  const ring: { x: number; y: number }[] = [{ x: obj.x, y: obj.y }];
+  for (let k = 0; k < 8; k++) ring.push({ x: obj.x + cos((k * PI) / 4) * obj.radiusM, y: obj.y + sin((k * PI) / 4) * obj.radiusM });
+  for (const s of [-1, -0.5, 0, 0.5, 1]) ring.push({ x: obj.x + ux * TANKS.beyondM - uy * s * TANKS.beyondM * 0.6, y: obj.y + uy * TANKS.beyondM + ux * s * TANKS.beyondM * 0.6 });
+  const targets = ring.filter((p) => p.x > 5 && p.y > 5 && p.x < W - 5 && p.y < H - 5);
+  for (const c of [...a.crews].sort((x, y) => x - y)) {
+    const vid = view.unit.get(c)?.vehicle;
+    const v = vid === undefined ? undefined : (view.vehicle.get(vid) as VehicleState | undefined);
+    const def = v ? ctx.catalog.vehicles[v.def] : undefined;
+    const t = vid === undefined ? undefined : view.transform.get(vid);
+    if (vid === undefined || !v || !def || !t) continue;
+    const shot = lastShotOf(v);
+    const m = (mem.obBound[String(c)] ??= { since: tick, shot, tried: -1e9 });
+    if (shot > m.shot) { m.shot = shot; m.since = Math.max(m.since, shot); }
+    // (Not while it re-arms or refuels: a move order would break that off, review fix.)
+    if (v.status !== "ok" || v.crewReaction === "bailOut" || v.resupply !== undefined) continue;
+    if (v.crewReaction === "reverseOut" && tick - v.reactionTick < a.reverseHoldSeconds * 60) continue;
+    if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) continue;
+    if (tick - m.since < B.idleS * 60 || tick - m.tried < B.retryS * 60) continue;
+    m.tried = tick;
+    const proj = t.x * ux + t.y * uy;
+    if (proj + B.minGainM > limit) continue;
+    if (mainGunRounds(view, vid, v, def) <= 0) continue;
+    // (Busy: its crew knows an enemy vehicle within its gun's reach lately.)
+    const reach = def.stations[0]?.weapons[0]?.engageRangeM ?? 0;
+    // (Known enemy hulls, each with its longest gun or launcher reach: no post nearer one inside that reach, review fix.)
+    let busy = false;
+    const armour: { x: number; y: number; reach: number }[] = [];
+    for (const mm of view.unit.get(c)?.members ?? []) {
+      const s = view.soldier.get(mm) as SoldierState | undefined;
+      for (const ct of s?.contacts ?? []) {
+        if (ct.cls !== "vehicle" || ct.wreck === true || ct.kind === "heard" || tick - ct.tick > TANKS.menSeenSeconds * 60) continue;
+        if (hypot2(ct.x - t.x, ct.y - t.y) <= reach) busy = true;
+        const ed = ct.vtype !== undefined ? ctx.catalog.vehicles[ct.vtype] : undefined;
+        let r = 0;
+        for (const st of ed?.stations ?? []) for (const w of st.weapons) if ((w.engageRangeM ?? 0) > r) r = w.engageRangeM ?? 0;
+        armour.push({ x: ct.x, y: ct.y, reach: r });
+      }
+      if (busy) break;
+    }
+    if (busy) continue;
+    // (A post it was sent to and never reached, standing where it stood then: left out, review fix.)
+    const failed = m.to !== undefined && m.at !== undefined && hypot2(t.x - m.at.x, t.y - m.at.y) <= 5 ? [m.to] : [];
+    const step = Math.min(B.stepM, limit - proj);
+    const anchor = { x: Math.min(Math.max(t.x + ux * step, 10), W - 10), y: Math.min(Math.max(t.y + uy * step, 10), H - 10) };
+    // (The line it must stay behind: `behindM` short of the foremost man, as a `behind` bound facing back.)
+    const lx = t.x + ux * (limit - proj), ly = t.y + uy * (limit - proj);
+    const { turretZ, hullZ } = heights(def);
+    const posts = siteHullDown(ctx, anchor, targets, {
+      cls: def.class, turretZ, hullZ, rangeM: TANKS.rangeM, threats: threatsNow(), standoffM: TANKS.coverStandoffM,
+      behind: { x: lx, y: ly, ux: -ux, uy: -uy, minM: 0 }, from: { x: t.x, y: t.y }, vegMaxM: TANKS.coverMinHeightM, avoid: [...others(vid), ...failed],
+      ringsM: BOUND_RINGS_M,
+    });
+    // (A bound: forward by minGainM, no farther from the objective, at most 1.5 stepM long, out of known enemy hulls'
+    //  reach unless nearer none of them, and a route the hull can drive there; review fixes.)
+    const dObj = hypot2(t.x - obj.x, t.y - obj.y);
+    const p = posts.find((q) => q.exposed !== true && q.x * ux + q.y * uy >= proj + B.minGainM && hypot2(q.x - obj.x, q.y - obj.y) <= dObj
+      && hypot2(q.x - t.x, q.y - t.y) <= 1.5 * B.stepM
+      && !armour.some((h) => { const d = hypot2(q.x - h.x, q.y - h.y); return d <= h.reach && d < hypot2(t.x - h.x, t.y - h.y); })
+      && planVehicleRoute(ctx, def.class, t.x, t.y, [{ x: q.x, y: q.y, mode: "walk" }]) !== null);
+    if (!p) continue;
+    order(c, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "walk" }], facing: p.facing });
+    m.since = tick;
+    m.to = { x: p.x, y: p.y };
+    m.at = { x: t.x, y: t.y };
+  }
 }

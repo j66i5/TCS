@@ -54,7 +54,7 @@ function loosePackage(ctx: SimContext, c: Container, cart: string): { type: stri
  *  that he is able, halted, not pinned, has no action and no posture change. */
 export function refillDecision(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState): boolean {
   const R = ctx.catalog.behaviour.refill;
-  if (!R || ctx.rules.resupply === false) return false;
+  if (!R || ctx.rules.refill === false) return false; // (balance pass 3: not the supply chain's `resupply`)
   // (Not a man of a mortar, missile or AGL team that is set up: he is at his post.)
   const u = state.unit.get(state.identity.get(id)?.unit ?? -1);
   if ((u?.mortar !== undefined && u.mortar.state !== "packed") || (u?.missileTeam !== undefined && u.missileTeam.state !== "packed")) return false;

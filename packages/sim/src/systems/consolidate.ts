@@ -195,7 +195,7 @@ function keepOf(ctx: SimContext, state: SimState, C: Consolidate, c: EntityId, s
 
 export function consolidateSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const C = ctx.catalog.behaviour.consolidate;
-  if (!C || ctx.rules.resupply === false) return;
+  if (!C || ctx.rules.refill === false) return; // (balance pass 3: not the supply chain's `resupply`)
   const every = Math.max(1, secondsToTicks(C.stepS));
   // (Who is busy with whom: worked out only if a casualty with ammunition is looked at this tick.)
   let map: Map<EntityId, EntityId> | null = null;

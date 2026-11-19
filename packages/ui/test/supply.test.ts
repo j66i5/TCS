@@ -18,8 +18,8 @@ describe("supply points and caches in the interface (M11.3)", () => {
     expect(own).toHaveLength(1);
     expect(own[0]).toMatchObject({ cache: cid, own: true, point: true, empty: false, burning: false });
     expect(own[0]!.rounds).toBeGreaterThan(1000);
-    // (Balance pass 2: the hold battle's point holds half a full point: per cartridge one full can and one half-filled.)
-    expect(own[0]!.fill).toBeCloseTo(0.75, 5);
+    // (Balance pass 3: the hold battle's point is full again, `HOLD.pointShare` 1; balance pass 2's half point read 0.75.)
+    expect(own[0]!.fill).toBeCloseTo(1, 5);
     const foe = cache.side === "blue" ? "red" : "blue";
     expect(cacheMarkers(sim.state, cat, foe)).toHaveLength(0);
     cache.known = [foe];

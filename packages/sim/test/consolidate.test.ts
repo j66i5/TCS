@@ -177,12 +177,20 @@ describe("own casualties' ammunition (M11.2)", () => {
     expect(spare(sim2, d!, "mag") + spare(sim2, d!, "bandolier")).toBe(0);
   });
 
-  it("not with rules.resupply false", () => {
+  it("not with rules.refill false", () => {
+    const input = casualtyInput();
+    input.rules.refill = false;
+    const sim = createSim(input);
+    downIt(sim, blues(sim)[0]!, true);
+    expect(run(sim, 30).some((e) => e.kind === "items.taken")).toBe(false);
+  });
+
+  it("still with rules.resupply false (balance pass 3: only the supply chain is off)", () => {
     const input = casualtyInput();
     input.rules.resupply = false;
     const sim = createSim(input);
     downIt(sim, blues(sim)[0]!, true);
-    expect(run(sim, 30).some((e) => e.kind === "items.taken")).toBe(false);
+    expect(run(sim, 30).some((e) => e.kind === "items.taken")).toBe(true);
   });
 });
 

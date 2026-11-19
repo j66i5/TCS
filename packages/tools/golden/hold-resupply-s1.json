@@ -9,6 +9,20 @@
   {
    "tick": 0,
    "issuer": "blue",
+   "target": 9,
+   "kind": "resupplyAt",
+   "cache": 50
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 8,
+   "kind": "resupplyAt",
+   "cache": 50
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
    "target": 6,
    "kind": "resupplyAt",
    "cache": 50
@@ -16,14 +30,14 @@
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 10,
+   "target": 16,
    "kind": "resupplyAt",
    "cache": 50
   },
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 11,
+   "target": 15,
    "kind": "resupplyAt",
    "cache": 50
   },
@@ -37,14 +51,14 @@
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 17,
+   "target": 23,
    "kind": "resupplyAt",
    "cache": 50
   },
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 18,
+   "target": 22,
    "kind": "resupplyAt",
    "cache": 50
   },
@@ -52,20 +66,6 @@
    "tick": 0,
    "issuer": "blue",
    "target": 20,
-   "kind": "resupplyAt",
-   "cache": 50
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 24,
-   "kind": "resupplyAt",
-   "cache": 50
-  },
-  {
-   "tick": 0,
-   "issuer": "blue",
-   "target": 25,
    "kind": "resupplyAt",
    "cache": 50
   },
@@ -347,42 +347,42 @@
    "target": 1,
    "kind": "drone",
    "op": "fly",
-   "x": 830.6209949462823,
-   "y": 454.04208767912075,
+   "x": 830.5632456386868,
+   "y": 455.08860801333367,
    "altM": 120
   }
  ],
  "checkpoints": {
-  "600": "4f4e370fc060ab05",
-  "1200": "ae8ab53467f78a4b",
-  "1800": "5bdad549e7138eef",
-  "2400": "3b257a9d1d84e92d",
-  "3000": "b7461778a62fc577",
-  "3600": "0425cbf33b0aee7e",
-  "4200": "1acdd97e60430ee8",
-  "4800": "b4080df510fa68d1",
-  "5400": "2dc20fe1631904eb",
-  "6000": "83f1b00392d75ec7",
-  "6600": "f3da8e851395c716",
-  "7200": "804f5f5c3401231c",
-  "7800": "c43d8ad1ada63df0",
-  "8400": "1d9b2f75a37b8d57",
-  "9000": "7e87b28d59636385",
-  "9600": "329b6b21eff74c42",
-  "10200": "73e5bdab86c519f8",
-  "10800": "13526c5724ebf46b",
-  "11400": "9f695b42981bf617",
-  "12000": "13924947dc830bed",
-  "12600": "af38984c8a907eab",
-  "13200": "8bd0224e072a6df5",
-  "13800": "486836a63d8d4324",
-  "14400": "91b6fd67ce6a7d1b",
-  "15000": "f35006710a768676",
-  "15600": "0379dcc719c72378",
-  "16200": "ab5d0da21102e294",
-  "16800": "9c649edff5bab216",
-  "17400": "c2c0c754fe4beb86",
-  "18000": "6aaf75ed11064dc1"
+  "600": "becfb2ab2dbbf479",
+  "1200": "b043670308a839b4",
+  "1800": "4ecb09966de66d1c",
+  "2400": "af41f8df7f69cd81",
+  "3000": "c4cfc69e303763bd",
+  "3600": "3d0dd770599a15a7",
+  "4200": "d1e50b99bc5d429e",
+  "4800": "2e6b34e309d40e6c",
+  "5400": "260c70cefd722511",
+  "6000": "9ca84b08f16f0a1f",
+  "6600": "5b77d327237e9adf",
+  "7200": "35825388b491c9a7",
+  "7800": "4eaff3a9611b6fb2",
+  "8400": "286957b5ce05b7b4",
+  "9000": "6edf31e1f3e2f93d",
+  "9600": "817c71dc82751cc0",
+  "10200": "a454a8b6b848aa8e",
+  "10800": "8faebf3de243812e",
+  "11400": "8342539f8916dea9",
+  "12000": "deefc91a200f507b",
+  "12600": "2f14f2790b5bbd4a",
+  "13200": "cdb1d9974b8367cb",
+  "13800": "a5b5556962b3aa48",
+  "14400": "cfb7dc7264e2254c",
+  "15000": "f453235f54d36bfe",
+  "15600": "cd938699b12724ee",
+  "16200": "7a699a5f274fe196",
+  "16800": "c4b450b7d90d2d1a",
+  "17400": "4092b34442021868",
+  "18000": "b48e5493d18560b4"
  },
- "catalogFingerprint": "76096a9fee043972"
+ "catalogFingerprint": "05245914174365ef"
 }

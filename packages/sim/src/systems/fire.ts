@@ -206,7 +206,7 @@ function topUnit(state: SimState, soldier: EntityId): EntityId | null {
  * his elbow was shot), and the caller may look `beyondM` past the point fired at (a burst's beaten zone: rounds
  * that miss go on). `from`: as if he were there (a covering man looking for a spot with a clear line).
  */
-export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0, from?: { x: number; y: number }): boolean {
+export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0, from?: { x: number; y: number }, over?: { mz: number; tz: number }): boolean {
   const side = state.identity.get(id)?.side;
   if (side === undefined) return false;
   const self = state.transform.req(id);
@@ -219,6 +219,10 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
   // (Balance pass 4: a gunner aboard sits 1.2-1.6 m above the ground (his seat), which the floor test below took for
   // another floor: a vehicle gunner never saw his own men on foot in his line. Aboard, he fires from ground level.)
   const selfZ = isMounted(state.soldier.get(id)) && !onRoof(state, id) ? 0 : self.z;
+  // (Balance pass 4 review, H1: a station's gun fires over own men on foot whose heads its line clears well, `over`:
+  // the muzzle's and the point's world heights; `gunnery.overClearM` etc. Without, every man in the cone blocks.)
+  const GN = ctx.catalog.behaviour.gunnery;
+  const ovC = over !== undefined && GN.overClearM !== undefined ? GN.overClearM : -1, ovP = GN.overPerM ?? 0, ovN = GN.overNearM ?? 0;
   // (Men aboard a vehicle are behind armour, M7: their hull blocks, `hullInLine`. A man aboard but working outside
   // it (repairing, hooking up, reloading on the roof) is a body like a man on foot: he blocks, balance pass 3 review.)
   for (const [other, ident] of state.identity.entries()) {
@@ -240,8 +244,15 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
     // or one place in a house — is no body in front of his muzzle; before, such men held each other's fire for good:
     // hold-resupply-ru seed 4, a squad upstairs fired 9 rounds in 4 minutes against 760. A comrade at his elbow, 0.3 m
     // or more off, still counts.)
-    if (along * along + across * across < SAME_SPOT_M * SAME_SPOT_M) continue;
-    if (across < reach + Math.max(0, along) * sinCone) return true;
+    // (Only for his own spot: a covering man testing another spot, `from`, is blocked by a comrade standing on it.)
+    if (from === undefined && along * along + across * across < SAME_SPOT_M * SAME_SPOT_M) continue;
+    if (across >= reach + Math.max(0, along) * sinCone) continue;
+    if (ovC >= 0 && along > ovN && along < range) {
+      const lineZ = over!.mz + ((over!.tz - over!.mz) * along) / range;
+      const top = standZ(ctx.map, o) + ctx.catalog.body.postures[os?.posture ?? "standing"].heightM;
+      if (lineZ - top >= ovC + ovP * along) continue;
+    }
+    return true;
   }
   return hullInLine(ctx, state, side, id, self.z, me.x, me.y, ux, uy, range + beyondM, sinCone);
 }

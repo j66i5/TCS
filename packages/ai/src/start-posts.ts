@@ -23,7 +23,7 @@ const START_POSTS_MAX_S = 10;
 export function defenceStartPosts(input: BattleInput, side: SideId): string[] {
   const force = input.forces.find((f) => f.side === side);
   if (!force || (force.vehiclePlacements?.length ?? 0) === 0) return [];
-  const alone: BattleInput = { ...input, forces: [stripForce(force)], orders: [] };
+  const alone: BattleInput = { ...input, forces: [copyForce(force)], orders: [] };
   const sim = createSim(alone);
   const ctrl = commanderController(side, alone);
   const crews = [...sim.state.unit.entries()].filter(([, u]) => u.side === side && u.vehicle !== undefined && u.asset === undefined).map(([id]) => id).sort((a, b) => a - b);
@@ -54,6 +54,6 @@ export function defenceStartPosts(input: BattleInput, side: SideId): string[] {
 }
 
 /** A copy of the force for the throw-away run (its placements copied: the run must not move the real ones). */
-function stripForce(f: ForceInput): ForceInput {
+function copyForce(f: ForceInput): ForceInput {
   return { ...f, placements: f.placements.map((p) => ({ ...p })), ...(f.vehiclePlacements ? { vehiclePlacements: f.vehiclePlacements.map((p) => ({ ...p })) } : {}) };
 }

@@ -548,6 +548,10 @@ export interface BehaviourDef {
     friendlyClearM: number; scanReturnSeconds: number; dischargeAheadM: number;
     /** Balance pass 4: the beaten zone past the point that own men block a station's fire in (m; absent 0). */
     friendBeyondM?: number;
+    /** Balance pass 4 review (H1): a station's line passing this far over an own man's head (m, plus `overPerM` per
+     *  metre along the line: its spread) does not count him as in the line, beyond `overNearM` of the muzzle (see the
+     *  schema). Absent: no overhead fire (every man in the cone blocks). */
+    overClearM?: number; overPerM?: number; overNearM?: number;
     /** Guided missiles (owner 2026-11-13; see the schema). */
     missileBeyondM?: number; missileHaltedMps?: number; missileSightSeconds?: number; missileSeenFloor?: number; missileHitLoseChance?: number;
   };

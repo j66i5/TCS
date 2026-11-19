@@ -237,7 +237,7 @@ export function stationDangerM(ctx: SimContext, def: VehicleDef, si: number, wi:
 
 /** The crew's choice of target: score, reasons, nature. */
 function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState, def: VehicleDef, crew: Unit, si: number):
-  { target: EntityId; x: number; y: number; heightM: number; nature: Nature; keys: string[] } | null {
+  { target: EntityId; x: number; y: number; heightM: number; nature: Nature; keys: string[] } | "why.hold.friends" | "why.hold.dangerClose" | null {
   const G = ctx.catalog.behaviour.gunnery, tick = state.tick;
   const me = state.transform.req(vid);
   const sn = def.stations[si]!;
@@ -280,25 +280,46 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     scored.push({ target, x: c.x, y: c.y, kind: c.kind, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
   }
   scored.sort((a, b) => a.score - b.score || a.target - b.target);
-  // The best one the gun can reach from where the vehicle stands (a few lines of fire tried, best first).
-  let best: (typeof scored)[number] | null = null;
-  let bestAp = 0;
+  // The best one the gun can reach from where the vehicle stands (a few lines of fire tried, best first), and fire at
+  // it not held for own men (balance pass 4 review, H2: before, the crew kept a target its gun could never fire at).
   const st = v.stations[si]!;
+  const op = stationOperator(state, v, def, si);
+  let held: "why.hold.friends" | "why.hold.dangerClose" | null = null;
   for (const cnd of scored.slice(0, 4)) {
     const [mx, my, mz] = muzzleWorld(ctx, def, si, 0, me.x, me.y, me.heading, st.azimuth);
     // M7.6b: at a vehicle, the lowest of its aim points the line clears (hull, else the turret over a crest).
+    let ap = 0;
     if (cnd.vehicle) {
-      const k = visibleAimIndex(ctx, state, cnd.target, mx, my, mz, vid, cnd.x, cnd.y);
-      if (k >= 0) { best = cnd; bestAp = k; break; }
-      continue;
+      ap = visibleAimIndex(ctx, state, cnd.target, mx, my, mz, vid, cnd.x, cnd.y);
+      if (ap < 0) continue;
+    } else {
+      const tz = heightAt(ctx.map, cnd.x, cnd.y) + aimHeightAt(ctx, cnd); // ground: ok (a man's floor in his aim height)
+      const r = sight(ctx, mx, my, mz, cnd.x, cnd.y, tz, vid, -1);
+      if (!(r.blockedBy === null || (1 - r.blockedAt) * hypot2(cnd.x - mx, cnd.y - my) <= LINE_ALLOWANCE_M)) continue;
     }
-    const tz = heightAt(ctx.map, cnd.x, cnd.y) + aimHeightAt(ctx, cnd); // ground: ok (a man's floor in his aim height)
-    const r = sight(ctx, mx, my, mz, cnd.x, cnd.y, tz, vid, -1);
-    if (r.blockedBy === null || (1 - r.blockedAt) * hypot2(cnd.x - mx, cnd.y - my) <= LINE_ALLOWANCE_M) { best = cnd; break; }
+    const pick = natureFor(ctx, state, vid, me, v, def, si, st, cands, cnd, ap, reach, mReach, msl);
+    if (typeof pick === "string") { held ??= pick; continue; }
+    if (pick.nature !== "atgm" && op !== null) {
+      const f = feedFor(ctx, def, st, si, pick.nature, v);
+      const why = f ? stationHeld(ctx, state, vid, v, def, si, f.weapon, f.feed, op, cnd.x, cnd.y, pick.heightM) : null;
+      if (why !== null) { held ??= why; continue; }
+    }
+    return { target: cnd.target, x: cnd.x, y: cnd.y, ...pick };
   }
-  if (!best) return null;
+  return held;
+}
+
+/** The nature to fire at a chosen target and why (`chooseTarget`), or why not at all. */
+function natureFor(
+  ctx: SimContext, state: SimState, vid: EntityId, t: { x: number; y: number }, v: VehicleState, def: VehicleDef, si: number, st: StationState,
+  cands: ReadonlyMap<EntityId, { x: number; y: number }>,
+  best: { target: EntityId; x: number; y: number; z?: number; posture?: Posture; kind: Contact["kind"]; vehicle: boolean; firing: boolean },
+  bestAp: number, reach: number, mReach: number, msl: ReturnType<typeof missileReady>,
+): { heightM: number; nature: Nature; keys: string[] } | "why.hold.dangerClose" {
+  const G = ctx.catalog.behaviour.gunnery;
+  const sn = def.stations[si]!;
   const keys: string[] = [best.vehicle ? "why.target.vehicle" : best.firing ? "why.target.firing" : "why.target.nearest"];
-  const d = hypot2(best.x - me.x, best.y - me.y);
+  const d = hypot2(best.x - t.x, best.y - t.y);
   let nature: Nature;
   let heightM: number;
   if (best.vehicle) {
@@ -309,12 +330,12 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     // M7.6a: the weapon's own missile range if it has one; nearer, only when the missile gets through where the
     // armour-piercing round does not (the face's plate and the tiles it expects there).
     const far = d > reach || (msl !== null && d >= (sn.weapons[msl.weapon]!.missileBeyondM ?? G.missileBeyondM ?? 1000));
-    if (msl && d >= msl.g.minRangeM && d <= mReach && (far || (!apCanPierce(ctx, state, def, si, me.x, me.y, best.target, zone) && missileCanPierce(ctx, state, def, si, msl.weapon, me.x, me.y, best.target, zone))) && missileSeesTarget(ctx, state, vid, v, def, si, msl.weapon, best.target)) { nature = "atgm"; keys.push(far ? "why.nature.missileFar" : "why.nature.missileArmour"); }
+    if (msl && d >= msl.g.minRangeM && d <= mReach && (far || (!apCanPierce(ctx, state, def, si, t.x, t.y, best.target, zone) && missileCanPierce(ctx, state, def, si, msl.weapon, t.x, t.y, best.target, zone))) && missileSeesTarget(ctx, state, vid, v, def, si, msl.weapon, best.target)) { nature = "atgm"; keys.push(far ? "why.nature.missileFar" : "why.nature.missileArmour"); }
     else { nature = "ap"; keys.push("why.nature.vehicle"); }
   }
   else {
     let group = 0;
-    for (const [t, c] of cands) if (t !== best.target && !state.vehicle.has(t) && hypot2(c.x - best.x, c.y - best.y) <= G.groupRadiusM) group++;
+    for (const [tg, c] of cands) if (tg !== best.target && !state.vehicle.has(tg) && hypot2(c.x - best.x, c.y - best.y) <= G.groupRadiusM) group++;
     if (group > 0) { nature = "he"; keys.push("why.nature.group"); }
     else if (d > G.coaxSingleWithinM) { nature = "he"; keys.push("why.nature.far"); }
     else { nature = "mg"; keys.push("why.nature.single"); }
@@ -325,10 +346,30 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     const he = nature === "he" ? pickFeed(ctx, def, st, si, "he", v) : null;
     if (nature === "he" && ownMenWithin(state, v.side, best.x, best.y, Math.max(G.friendlyClearM, he ? stationDangerM(ctx, def, si, he.weapon, he.feed, d) : 0))) {
       if (d <= (sn.weapons.find((w) => w.coax)?.engageRangeM ?? 0)) { nature = "mg"; heightM = aimHeightAt(ctx, best); keys.push("why.hold.friends"); }
-      else return null;
+      else return "why.hold.dangerClose";
     }
   }
-  return { target: best.target, x: best.x, y: best.y, heightM, nature, keys };
+  return { heightM, nature, keys };
+}
+
+/**
+ * Balance pass 4 review (H1, H2): is a burst of this weapon and feed at (x, y), `heightM` above the ground, held for
+ * own men? "why.hold.dangerClose": one within the round's danger radius and spread of the point (a bursting round,
+ * `stationDangerM`); "why.hold.friends": one in the line (the safety cone, out to `gunnery.friendBeyondM` or the
+ * danger radius past the point), unless the line passes well over his head (`friendInLine`'s `over`). The one gate
+ * for choosing a target, the substitute round and each burst.
+ */
+export function stationHeld(
+  ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState, def: VehicleDef, si: number, wi: number, fi: number,
+  op: EntityId, x: number, y: number, heightM: number,
+): "why.hold.friends" | "why.hold.dangerClose" | null {
+  const t = state.transform.req(vid);
+  const dz = stationDangerM(ctx, def, si, wi, fi, hypot2(x - t.x, y - t.y));
+  if (dz > 0 && ownMenWithin(state, v.side, x, y, dz)) return "why.hold.dangerClose";
+  const mz = muzzleWorld(ctx, def, si, wi, t.x, t.y, t.heading, v.stations[si]!.azimuth)[2];
+  const tz = heightAt(ctx.map, x, y) + heightM; // ground: ok (the point fired at)
+  if (friendInLine(ctx, state, op, x, y, Math.max(ctx.catalog.behaviour.gunnery.friendBeyondM ?? 0, dz), undefined, { mz, tz })) return "why.hold.friends";
+  return null;
 }
 
 function emitDecision(events: EventSink, state: SimState, vid: EntityId, si: number, st: StationState, nature: Nature | null, keys: string[]): void {
@@ -373,8 +414,9 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
         continue;
       }
       const pick = chooseTarget(ctx, state, vid, v, def, crew, si);
-      if (!pick) {
-        if (st.task) { st.task = null; emitDecision(events, state, vid, si, st, null, ["why.hold.noTarget"]); }
+      if (pick === null || typeof pick === "string") {
+        // (Balance pass 4 review: targets there, but fire at each held for own men: say so.)
+        if (st.task || (pick !== null && st.why.keys[0] !== pick)) { st.task = null; emitDecision(events, state, vid, si, st, null, [pick ?? "why.hold.noTarget"]); }
         continue;
       }
       const f = feedFor(ctx, def, st, si, pick.nature, v);
@@ -382,15 +424,7 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
         if (st.task) { st.task = null; emitDecision(events, state, vid, si, st, null, ["why.hold.ammunition"]); }
         continue;
       }
-      // (Balance pass 4: a bursting round in place of the machine gun or the armour-piercing one, none left, is held
-      // when own men are within its danger radius of the point.)
-      if (f.nature !== pick.nature) {
-        const me = state.transform.req(vid), dz = stationDangerM(ctx, def, si, f.weapon, f.feed, hypot2(pick.x - me.x, pick.y - me.y));
-        if (dz > 0 && ownMenWithin(state, v.side, pick.x, pick.y, Math.max(G.friendlyClearM, dz))) {
-          if (st.task) { st.task = null; emitDecision(events, state, vid, si, st, null, ["why.hold.dangerClose"]); }
-          continue;
-        }
-      }
+      // (The feed fired, a substitute included, was checked for own men in chooseTarget: `stationHeld`.)
       const changed = !st.task || st.task.contact !== pick.target || st.taskWeapon !== f.weapon || st.taskFeed !== f.feed;
       if (changed) setStationTask(ctx, state, vid, si, pick.x, pick.y, pick.heightM, f.weapon, f.feed, pick.target, true);
       else { st.task!.x = pick.x; st.task!.y = pick.y; st.task!.reasonTick = tick; if (state.vehicle.has(pick.target)) st.task!.heightM = pick.heightM; }
@@ -622,11 +656,16 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       }
       if (!task.lineClear || st.laidTick < 0 || tick < w.nextShotTick) continue;
       if (w.burstLeft <= 0) {
-        // Own men in the line, past the point within the beaten zone, or (a bursting round, balance pass 4: danger
-        // close) within its danger radius and spread of the point: no burst.
-        const dz = stationDangerM(ctx, def, si, st.taskWeapon, w.feed, hypot2(task.x - t.x, task.y - t.y));
-        if (friendInLine(ctx, state, op, task.x, task.y, Math.max(ctx.catalog.behaviour.gunnery.friendBeyondM ?? 0, dz))
-          || (dz > 0 && ownMenWithin(state, v.side, task.x, task.y, dz))) { w.nextShotTick = tick + TICK_HZ / 2; continue; }
+        // Own men in the line (unless it passes well over their heads), past the point within the beaten zone, or (a
+        // bursting round, balance pass 4: danger close) within its danger radius and spread of the point: no burst.
+        // (Review fix: the crew's own task is dropped, with the reason, and the next decision picks a target it can
+        // fire at; an ordered one waits, the player told once why.)
+        const why = stationHeld(ctx, state, vid, v, def, si, st.taskWeapon, w.feed, op, task.x, task.y, task.heightM);
+        if (why !== null) {
+          if (task.self) { st.task = null; emitDecision(events, state, vid, si, st, null, [why]); }
+          else if (st.why.keys[0] !== why) emitDecision(events, state, vid, si, st, natureOf(ctx, def, si, st.taskWeapon, w.feed), [why]);
+          w.nextShotTick = tick + TICK_HZ / 2; continue;
+        }
         w.burstLeft = wdef.feedKind === "belt" && wd.sustained ? wd.sustained.burstRounds : 1;
         w.burstIndex = 0;
       }

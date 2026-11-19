@@ -351,11 +351,17 @@ export function tankSections(a: TankArgs): number {
             const m = mem.tk[String(q.c)]!;
             if (m.pulled) continue;
             // Tank k takes post k; the others follow as its alternates.
-            const list = free.length > 0 ? free : posts;
-            let mine = list.length > 0 ? list.map((_, j) => list[(k + j) % list.length]!) : [];
+            // (Review fix: never a spot another hull keeps; a hull left with no post at all goes to the plan's
+            // anchor, facing its targets, as a relocation does, rather than standing idle until the next re-site.)
+            let mine = free.length > 0 ? free.map((_, j) => free[(k + j) % free.length]!) : [];
             const here = kept.get(q.c);
             if (here) mine = [here, ...mine];
             m.posts = mine.map((p) => [p.x, p.y, p.facing]);
+            if (m.posts.length === 0) {
+              const tg = plan.targets.length > 0 ? plan.targets : [{ x: q.x + cos(q.h), y: q.y + sin(q.h) }];
+              const tx = tg.reduce((n, p) => n + p.x, 0) / tg.length, ty = tg.reduce((n, p) => n + p.y, 0) / tg.length;
+              m.posts = [[plan.anchor.x, plan.anchor.y, atan2(ty - plan.anchor.y, tx - plan.anchor.x)]];
+            }
             m.post = 0; m.stage = stage; m.sent = -1e9; m.shots = 0;
             k++;
           }

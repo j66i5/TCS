@@ -503,6 +503,10 @@ export const BehaviourFile = withProv({
      *  station's fire, as `soldier.friendBeyondM` for men on foot; a bursting round adds its danger radius and spread.
      *  Absent: 0 (none). */
     friendBeyondM: Num(0, 500).optional(),
+    /** Balance pass 4 review (H1): overhead fire. An own man on foot farther than `overNearM` from the muzzle and short
+     *  of the point does not block a station when the straight line from its muzzle to the point passes at least
+     *  `overClearM` + `overPerM` x his distance along it above the top of his body. All three or none. */
+    overClearM: Num(0, 10).optional(), overPerM: Num(0, 0.1).optional(), overNearM: Num(0, 500).optional(),
     /** Guided missiles from a station (owner 2026-11-13): a crew prefers the missile against an enemy vehicle beyond
      *  `missileBeyondM`, or nearer when its armour-piercing round cannot get through the face it shows; it fires
      *  halted only (below `missileHaltedMps`); the gunner checks his sight line every `missileSightSeconds` and

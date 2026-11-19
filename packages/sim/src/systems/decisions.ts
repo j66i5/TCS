@@ -1487,7 +1487,7 @@ function returnFire(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
   const cosMax = cos((RF.bearingDeg * PI) / 180), within = secondsToTicks(RF.withinS);
   let best: Contact | null = null, bd = Infinity;
   for (const c of s.contacts) {
-    if (spared(c) || c.cls === "vehicle" || tick - c.tick > within) continue;
+    if (spared(c) || c.cls === "vehicle" || tick - c.tick > within || (state.soldier.get(c.target)?.casualty ?? "none") !== "none") continue;
     const ew = state.weapon.get(c.target);
     if (ew === undefined || tick - ew.lastShotTick > firedOn) continue;
     const dx = c.x - me.x, dy = c.y - me.y, d = hypot2(dx, dy);

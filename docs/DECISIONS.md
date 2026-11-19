@@ -8935,6 +8935,8 @@ duplicate scenarios removed. Band for the four platoon battles: attacker wins 6-
     returns at once with no hull on the map and otherwise reads the per-tick vehicle grid; a per-side count would not
     help bench-vehicles (both sides have 15 hulls), so it is left as it is.
   - `npm run lab -- consumption --conservation`: 182 runs, every one exact.
+  - `npm run check` alone (after merging origin/main 6f00284): 1,590 passed, 6 skipped (one architecture-test miss, a
+    comment pushing the mount gate out of its window, fixed and re-run).
   - **Re-measured, 20 seeds x 1,200 s, attacker wins:** platoon 10 (16.75 / 10.25), platoon-ru 7 (20.95 / 9.40),
     platoon-ru-vehicles 11 (26.80 / 17.05) — all three as before the fixes; **platoon-vehicles 16** (18.05 / 32.75;
     time limit 14, eliminated 6; vehicles lost 1.85 / 4.80), seeds 21-40: 12 (17.80 / 26.70; vehicles lost 1.55 /

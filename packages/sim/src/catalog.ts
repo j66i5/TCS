@@ -637,6 +637,15 @@ export interface BehaviourDef {
      *  off, its place known to within `maxErrM`, within his engage range, no faster than one shot per `intervalS` (a machine gun one burst per
      *  `mgIntervalS`). Absent: off. */
     suppressKnown?: { withinS: number; intervalS: number; mgIntervalS: number; minM: number; maxErrM: number };
+    /** Balance pass 4 (owner G, 2026-11-19: men under effective fire locate and return fire at shooters within weapon
+     *  range): a halted man, not pinned or panicked, whose last magazine is not his only one, with no enemy in sight to
+     *  fire at, at whom rounds cracked past within `firedOnS` fires at the known place of an enemy firing within
+     *  `firedOnS` (he hears him), known within `withinS` (seen, reported or heard) to within `maxErrM`, within
+     *  `bearingDeg` of the direction the rounds came from, within his engage range (the unit's range rule is lifted
+     *  under fire); no faster than one shot per `intervalS` (a machine gun one burst per `mgIntervalS`); it ends
+     *  `firedOnS` after the last round past him, when that place grows older than `withinS`, or when he sees an enemy
+     *  (aimed fire then). Every side. Absent: off. */
+    returnFire?: { firedOnS: number; withinS: number; maxErrM: number; bearingDeg: number; intervalS: number; mgIntervalS: number };
     friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
     /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
     stepAsideM: number[];

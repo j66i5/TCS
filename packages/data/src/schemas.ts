@@ -534,6 +534,7 @@ export const BehaviourFile = withProv({
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
     /** M11.1 (point 7b): defenders fire at the known place of an enemy they cannot see. See BehaviourDef. */
     suppressKnown: z.object({ withinS: Num(0, 600), intervalS: Num(0.5, 60), mgIntervalS: Num(0.5, 60), minM: Num(0, 1000), maxErrM: Num(0, 1000) }).strict().optional(),
+    returnFire: z.object({ firedOnS: Num(0, 600), withinS: Num(0, 600), maxErrM: Num(0, 1000), bearingDeg: Num(0, 180), intervalS: Num(0.5, 60), mgIntervalS: Num(0.5, 60) }).strict().optional(),
     moveEngageM: Num(0, 500).optional(), pinnedSelfDefenceM: Num(0, 500).optional(), closeThreatM: Num(0, 500).optional(), closeThreatTaskFactor: Num(1, 100).optional(),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), stepAsideM: z.array(Num(0.5, 20)).min(1).max(4), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
     hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),

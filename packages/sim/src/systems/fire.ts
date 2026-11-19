@@ -582,7 +582,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       // (A drill's covering fire at a point, no enemy named, likewise: before, riflemen ran dry in a long attack.)
       const sustained = task.intoCover === true || (task.suppress === "drill" && task.contact === undefined);
       // (Fire at a known place, M11.1 point 7b: one shot per suppressKnown.intervalS, a burst per mgIntervalS.)
-      const SK = task.suppress === "known" ? ctx.catalog.behaviour.soldier.suppressKnown : undefined;
+      // (Return fire at a shooter's known place, balance pass 4: returnFire.intervalS / mgIntervalS.)
+      const SK = task.suppress === "known" ? ctx.catalog.behaviour.soldier.suppressKnown : task.suppress === "return" ? ctx.catalog.behaviour.soldier.returnFire : undefined;
       const interval = SK ? Math.max(interval0, su ? SK.mgIntervalS : SK.intervalS) : sustained ? Math.max(interval0, ctx.catalog.behaviour.drills.suppressIntervalS) : interval0;
       // +-15 % so men do not fire in step.
       // Ammunition discipline of his unit (M5): conserve stretches the pause, maximum shortens it.

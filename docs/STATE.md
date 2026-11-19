@@ -1,10 +1,18 @@
 # State — handover note
 
-_Last updated: 2026-11-19 (M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-19 (M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M12.2 built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.5).** `campaign/src/operation.ts`
+  (operations: a line of 3-5 sectors, node types and the transition table in `core/campaign.json`, success / failure /
+  limit / no-force, flank battles for a second company, endless mode, sector memory), commit.ts (`selectables`,
+  `proposeChoice`, `enemyChoice` by ratio, `validateCommit`, `commitOf`), the state machine `campaign/src/flow.ts`
+  (briefing -> choose -> battle played (`finishBattle`) or `autoResolve` -> after-battle -> briefing / replenishment /
+  operation-end; `autoPlay`), `npm run campaign -- batch`. 50 operations per faction and 30 endless nodes: every check
+  clean (DECISIONS "M12.2"); DE as the player 52 % success, RU 2 %. A flank battle no longer appoints leaders (a man was
+  held twice). No UI yet. Next: 12.3 phone roster interface.
 - **M12.1b built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.4).** `campaign/src/save.ts`:
   `CampaignSave {version, record, slotName, savedAt, fingerprint}`, `CAMPAIGN_VERSION` 2, `MIGRATIONS` (1: the bare
   12.1a record; fixture `campaign/test/fixtures/campaign-v1.json`), `validateSave`, `repairIds` (duplicate / missing
@@ -578,6 +586,16 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+- M12.2 (2026-11-19): new low game values in `core/campaign.json`: campaign battles 1200 s; operations of 3-5 sectors
+  (at least 3, at most 5 battles; failure only from the third); first node attack / attack / meeting / defend, later
+  sectors attack / attack / meeting / pursue / ambush; a flank battle in 30 % of nodes; the six node types and their
+  enemy ratios (0.7 when the player attacks or ambushes, 1.0 with support otherwise); the transition table (a loss in
+  an attack is followed by the enemy's counter-attack on the same sector; a lost defence by a withdrawal a sector
+  back); endless: a new sector every 2 nodes. To decide: (1) RU as the player succeeds in 1 of 50 operations, DE in 26:
+  12.4 tunes ratios, but the Puma vs BMP-2 gap from 12.1a remains; (2) a flank battle's result does not change the
+  next node (only the main battle's does): should a lost flank turn a main win into a draw?; (3) the enemy commits
+  platoons of any company (fittest first) while the player commits a whole company: keep?; (4) the batch used 300 s
+  battles (time) - most end at the time limit, so draws repeat sectors: is 1200 s the right campaign battle length?
 - M12.1b (2026-11-19): saves built as planned (Q-E (a): the one mid-battle save, tied to its campaign slot). To
   confirm: a save made with other data (catalog fingerprint changed) only warns and loads; the automatic slot is a
   single slot overwritten after every battle (not a rolling history); a save grows with the service history (DE

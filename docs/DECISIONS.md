@@ -9496,3 +9496,96 @@ DE against RU, seed 2, 300 s battles: 6 battles uninterrupted -> `1d461639db8838
 to 6 (the replenishment before battle 6 in the continued run) -> `1d461639db88381f`; the two final save files are
 byte-identical but for `savedAt`. A DE battalion save is 0.95 MB after 3 battles, 1.48 MB after 6 (the service history
 and the logs grow with the battles; IndexedDB holds that easily, but 12.3's slot list reads only the `meta:` lines).
+
+## 2026-11-19 — M12.2: linked operations and endless mode (slice 12.2, plan docs/plans/m12-roster.md 4.5)
+
+**Operations (campaign/src/operation.ts).** `generateOperation` draws (campaign dice, stream "campaign/op") a LINE of
+3-5 sectors (`operation.sectors`): each a `Sector {mapKind, mapSeed, widthM, heightM}` (size: its first node's kind at
+company size, `scenarioMapSize`), so a sector fought again is the same map. The player is blue (west); the east edge
+of a sector leads to the west edge of the next. Each position has a planned node (the first from `operation.start`,
+the others from `operation.planned`). Node types are data (`core/campaign.json` `nodes`: scenario kind, who attacks,
+the enemy's commit ratio, whether it brings its company headquarters and support): attack (enemy 0.7, no support),
+defend (defence-counterattack, the enemy attacks, the player's last platoon its reserve; enemy 1.0 with support),
+meeting (1.0 with support), ambush (the player lies in wait for an enemy on the move; 0.7), withdraw (the player delays
+and leaves, the enemy follows; 1.0 with support), pursue (the enemy withdraws, the player follows; 0.7). **The
+transition table** (`transitions`, per node type and the player's result): a win goes on to the next sector's planned
+node; a loss turns an attack, a meeting or a pursuit into the enemy's counter-attack on the same sector (defend), a lost
+defence or ambush into a withdrawal, a withdrawal goes a sector back (won: an ambush there; else a defence); a draw
+fights the same sector again (attack / defend / meeting; an ambush draw: defend). `nextNode` is the table alone (pure);
+`advance` applies it: **success** = a win moving on past the last sector; **failure** = two losses in a row or the
+player's battalion below `combatIneffective` (able men / establishment places), both only from `minBattles` (3) nodes
+on, so an operation always has 3-5 nodes; **no-force** = the player has no able platoon (could end it earlier; never
+happened); **limit** after `battles` (5) nodes. A move before the first sector stays on it, a non-win past the last
+stays on the last. **Flank battles**: per node with chance `flankChance` (0.3) a flank battle (type from `flankNodes`)
+for a second company on a flank sector beside the line sector (made once, remembered like any sector); the player's
+flank company is the fittest company not chosen for the main battle (`proposeChoice(..., exclude)`), always
+auto-resolved; its result is recorded but does not drive the table (the main battle does). **Endless mode**: the same
+table ("planned" drawn from `operation.planned`), a new sector every `endless.sectorEvery` (2) nodes (older sectors are
+dropped), a replenishment every `endless.replenishEvery` (3) nodes (early when the player has no able platoon).
+**Sector memory**: after each battle its sector keeps `sectorTerrain(result)` (damage incl. the earlier battles', every
+wreck); the next battle there gets it as `ScenarioDef.terrain`, with the sector's size passed explicitly. All game
+values, confidence low.
+
+**Choosing forces (commit.ts).** `selectables` (company HQs by the company key, platoons, support units with their men),
+`proposeChoice` (the fittest company's HQ and platoons within the cap and the support; `proposeCommit` is now
+`commitOf(proposeChoice)`, the same units as in 12.1a), `enemyChoice` (platoons of any company, fittest first, until
+`ratio` x the player's committed men or the cap; with support the HQ of the company most of them come from and the
+support within the cap), `validateCommit` (unknown / doubled / committed-elsewhere keys, over the cap, no able
+platoon, a unit without men, a carrier without its squad or a squad without its carrier in service), `commitOf`.
+
+**The state machine (flow.ts)**, every step pure, the phase in `record.flow`: `startFlow` (operation generated,
+briefing) -> `chooseForces` (choose, the proposal) -> `setChoice` (problems listed) -> `confirmForces` (refused with
+the problems; the flank company proposed) -> `battleInputs` (main and flank `ScenarioDef` with `forces` and `terrain`,
+built by `buildScenario`; battle seeds `hashString32("campaign/<seed>/<battles>/<main|flank>")`; throws on a side of 0
+men; the enemy with no able platoon: no battle, the node won as a walkover, the clock runs `hoursBetweenBattles`) ->
+`finishBattle(record, env, result | "auto")` (the flank battle auto-resolved through `env.runner`, the main battle's
+result handed in from the app or auto-resolved; the flank applied first with `CampaignBattle.flank`: no clock, no
+leaders, not an operation battle; then the main) -> after-battle -> `proceed` (briefing, replenishment in endless
+mode, operation-end: archived in `record.operations`, `replenish`, a new operation). `autoResolve`, `autoPlay` (the AI
+plays the player's side), `env.onProgress(which, s)` for 12.3's progress bar. New record fields are optional (`op`,
+`operations`, `flow`, `battleSeconds`; `BattleSummary.node/sector/flank`; log kinds operation-start/-end, walkover), so
+`CAMPAIGN_VERSION` stays 2 (a 12.1b save loads unchanged and `startFlow` starts its first operation). `passHours` (a
+walkover's clock). `battle.seconds` 1200 for a campaign battle (`newCampaign({battleSeconds})` overrides).
+
+**Bug found by the batch and fixed:** the flank battle was applied with leader appointment; when the enemy's flank
+commit took a company HQ whose platoons fought the main battle (the enemy commits platoons of any company) and the HQ
+was lost to the last man, a platoon leader moved up into the HQ, then came back with his platoon's `forcesOut` too: one
+man in two units (`E#2486`, de s101 node 100). A flank battle now appoints no leaders (the main battle's application
+does, for both; the flank's lost leaders are not named as "replaced" in the log). Regression test with constructed
+results; the batch counts person ids held twice.
+
+**CLI.** `npm run campaign -- batch [--faction de,ru] [--operations 50] [--mode operations|endless] [--battles 30]
+[--seed n] [--seconds 600] [--campaigns k] [--jobs j]` (tools/src/campaign-batch.ts: per node the acceptance checks;
+`batch-part --opts <json> --out <file>` runs one campaign, `batch --merge` merges parts run apart).
+
+**Acceptance.** `tools/test/campaign-operations.test.ts` (11 tests): the data consistent (`checkOperationRules`);
+`nextNode` follows the table for every node type and result at the line's start, middle and end; `proposeChoice` (HQ
+and 3 platoons; the flank company shares no unit), `validateCommit` (cap, no platoon, twice, unknown, elsewhere, two
+HQs), `enemyChoice` by ratio; xf against xf, 90 s battles: two operations of 3-5 nodes with every batch check clean,
+replenished exactly at their ends, a sector fought again, the same record hash twice; endless (replenishEvery 2): 5
+nodes, replenishments after nodes 2 and 4, sectors 1-2 / 3-4 / 5; the phases (wrong phase refused, an empty choice
+refused with "no able platoon", a save in the battle phase loads to the same hash, a played main battle handed to
+`finishBattle` = `autoResolve`, `onProgress` reports "main 60"); the enemy with no able platoon: a walkover, no battle
+run, the clock 12 h; sector memory (craters and a wreck handed in, the sector's size passed); the flank/main leader
+regression. **Batch** (`npm run campaign -- batch`, AI on both sides, tracked carriers, the player's side auto-resolved
+with the proposed choice; parts run as `batch-part` four at a time and merged): 50 operations per faction with 300 s
+battles (two campaigns of 25 each; the 600 s battles of the first attempt ran ~80-140 s wall each under that load,
+about 10 h for the batch) and 30 endless nodes with 600 s battles:
+
+| run | nodes | battles (with flank) | zero-men | ops outside 3-5 | table mismatches | sectors fought again (craters / wrecks) | memory / enemy roster mismatches | misplaced replenishments | ids twice |
+|---|---:|---:|---:|---:|---:|---|---:|---:|---:|
+| DE vs RU, 50 operations | 229 | 288 | 0 | 0 | 0 | 54 (53 / 42) | 0 / 0 | 0 | 0 |
+| RU vs DE, 50 operations | 188 | 249 | 0 | 0 | 0 | 116 (110 / 96) | 0 / 0 | 0 | 0 |
+| DE vs RU, endless 30 nodes | 30 | 39 | 0 | - | 0 | 17 (16 / 13) | 0 / 0 | 0 (replenished after every 3rd node) | 0 |
+
+Outcomes (balance is 12.4's): DE as the player 52 % success (26 success, 24 limit, 0 failure; nodes per operation 3: 6,
+4: 9, 5: 35; 5.76 battles per operation with flank battles); RU as the player 2 % (1 success, 38 failure, 11 limit;
+3: 26, 4: 10, 5: 14). DE player losses over 50 operations 489 killed, 288 evacuated (enemy 5743 / 1204); RU player
+5026 / 1157 (enemy 452 / 208). Recovering men at operation ends: DE mean 60, RU 243 (recovery days are months). Player
+experience at the end: DE p10 / median / p90 / max 0.12 / 0.36 / 0.60 / 0.79, RU 0.02 / 0.12 / 0.24 / 0.51 (green
+replacements). Wall time: 300 s battles median 20 s (DE) / 23 s (RU), 600 s battles 57 s, four campaigns at a time;
+55-57 min per 25-operation campaign. Main battles at 300 s mostly end at the time limit (210 of 229 DE, 182 of 188 RU),
+so draws repeat a sector (that is where most revisits come from). Record hashes: de s100 `0aa22a1eeced40a1`, de s101
+`588943a79d74f946`, ru s100 `abb5318dee43c74a`, ru s101 `297bb939c168233c`, endless de s200 `8a67815fcf1a33b9`;
+reproducible: RU vs DE seed 7, 2 operations at 300 s, run twice at once -> `be1b44a1b3a704fa` both times (and the
+xf test). The first batch (before the leader fix) found the one enemy man held twice and nothing else.

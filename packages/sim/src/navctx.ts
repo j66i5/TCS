@@ -20,7 +20,7 @@ export function navFor(ctx: SimContext, cls: MovementClass, coverWeight = 0): { 
     const grid = !vehicle && coverWeight > 0
       ? coverGridFrom(navFor(ctx, cls, 0).grid, coverWeight)
       : buildNavGrid(ctx.map, ctx.catalog.terrain, cls, 2, vehicle ? 0 : coverWeight, ctx.breaches,
-        vehicle ? { clearanceCells: VEHICLE_CLEARANCE_CELLS, minBreachM: widestHull(ctx, cls) + 0.5, stamps: ctx.navStamps } : { stamps: ctx.navStamps });
+        { ...(vehicle ? { clearanceCells: VEHICLE_CLEARANCE_CELLS, minBreachM: widestHull(ctx, cls) + 0.5 } : {}), stamps: ctx.navStamps, ...(ctx.navCraters ? { craters: ctx.navCraters } : {}) });
     n = { grid, search: createNavSearch(grid) };
     ctx.nav[key] = n;
   }
@@ -38,6 +38,6 @@ function widestHull(ctx: SimContext, cls: MovementClass): number {
 /** Re-derive every built grid inside a rectangle (m) after terrain damage (M7.1c; replaces a full rebuild). */
 export function patchNavGrids(ctx: SimContext, x0: number, y0: number, x1: number, y1: number): void {
   for (const key of Object.keys(ctx.nav).sort()) {
-    patchNavGrid(ctx.nav[key]!.grid, ctx.map, ctx.catalog.terrain, ctx.breaches, ctx.navStamps, x0, y0, x1, y1);
+    patchNavGrid(ctx.nav[key]!.grid, ctx.map, ctx.catalog.terrain, ctx.breaches, ctx.navStamps, x0, y0, x1, y1, ctx.navCraters);
   }
 }

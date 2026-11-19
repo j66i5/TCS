@@ -9,13 +9,20 @@
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
-  atan2, buildBallistics, buildMapIndex, buildNavGrid, heightAt, hypot2, nearestPassable, newVehicleRecord, PI, sight, TICK_HZ,
-  type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type ObjectiveDef, type Placement, type SideId, type SimContext, type UnitInput, type VehicleRecord,
+  atan2, buildBallistics, buildMapIndex, buildNavGrid, heightAt, hypot2, nearestPassable, newVehicleRecord, PI, sight, TICK_HZ, wreckStamp,
+  type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type NavGridOptions, type ObjectiveDef, type Placement, type SideId, type SimContext,
+  type TerrainDamage, type UnitInput, type VehicleRecord, type WreckRecord,
 } from "@tcs/sim";
 import { defaultRules, freeSpot, SIDES } from "./demo";
 import { allMembers, buildForceWithVehicles, withoutVehicles, type ForceVehicle } from "./forces";
 import { generateMap, type MapKind } from "./mapgen/index";
 import { addMpAssets, addRecoveryAssets, addSupplyAssets, platoonTemplateOf, type CarrierClass } from "./vehicles";
+
+/** M12.0a: a side's force from the roster (campaign): its units (`UnitInput` records) and its vehicles. */
+export interface ScenarioForces { units: UnitInput[]; vehicles?: VehicleRecord[] }
+
+/** M12.0a: what earlier battles left on this map (campaign sector): terrain damage and wrecks. */
+export interface ScenarioTerrain { damage?: TerrainDamage; wrecks?: WreckRecord[] }
 
 export interface ScenarioDef {
   kind: "platoon-attack";
@@ -89,6 +96,17 @@ export interface ScenarioDef {
   /** Balance pass 2: how deep the defender's holes are (default SCENARIO_HASTY_DEPTH_M; null: the data's
    *  `fightingPosition.depthM`, as the hold battle). */
   preparedDepthM?: number | null;
+  /** M12.0a: per side (blue, red) the force from the roster instead of the templates (null: built as without it).
+   *  Every unit and vehicle given takes part: hulls placed as the side's vehicles (crews in their seats by the
+   *  template slots of their roles), carried squads aboard their carriers when attacking, the men on foot at the
+   *  side's start; the tank section, mortars and teams of the template build are not added (they are in the roster
+   *  or not). Off-map assets (ambulances, recovery, military police) are added per battle as without it. */
+  forces?: [ScenarioForces | null, ScenarioForces | null];
+  /** M12.0a: damage and wrecks from earlier battles on this map (`BattleInput.damage`, `wrecksIn`); hulls and men are
+   *  placed clear of the wrecks. The map must be the one they were made on (same kind, seed and size). */
+  terrain?: ScenarioTerrain;
+  /** M12.0a: the result carries `damageOut` and `service` (`rules.campaignOut`). */
+  campaignOut?: boolean;
 }
 
 /** Balance pass after M11: the window (s) in which the platoon battle's defenders dig in where they halt (the hold
@@ -160,6 +178,8 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   const W = def.mapWidthM ?? 1200, H = def.mapHeightM ?? 900;
   const map = generateMap(catalog.terrain, { kind: def.mapKind, seed: def.seed, widthM: W, heightM: H });
   const defender = def.attacker === "blue" ? "red" : "blue";
+  // M12.0a: wrecks and craters of earlier battles in the placement grids (none: the grids as before).
+  const navExtra = terrainNav(catalog, def.terrain);
   // Objectives on the defender's side of the map: the main one at a building near its middle, the second at
   // another building (or the ground) on a flank.
   const dx = defender === "red" ? 1 : -1;
@@ -174,6 +194,12 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   // The defender is built first: the attacker's start (dead ground) depends on where the defenders stand.
   let observers: { x: number; y: number; z: number; thermal?: boolean }[] = [];
   const buildSide = (side: "blue" | "red", s: number): ForceInput => {
+    const roster = def.forces?.[s] ?? null;
+    if (roster) {
+      const force = rosterSide(data, catalog, map, roster, side, def.factions[s]!, side === def.attacker, defender, mainP, secondP, dx, W, H,
+        side === def.attacker && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null, navExtra);
+      return finishSide(force, side, s, (force.vehicles?.length ?? 0) > 0);
+    }
     const faction = def.factions[s]!;
     const pack = data.factions[faction];
     const carriers = Array.isArray(def.carriers) ? def.carriers[s] : def.carriers;
@@ -186,7 +212,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
     const placements: Placement[] = [];
     const heading = side === "blue" ? 0 : PI; // facing the other side
     const attacking = side === def.attacker;
-    const fv = withVehicles ? placeVehicles(catalog, map, built.flatMap((b) => b.vehicles), attacking, side, mainP, dx, W, H, attacking && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null) : null;
+    const fv = withVehicles ? placeVehicles(catalog, map, built.flatMap((b) => b.vehicles), attacking, side, mainP, dx, W, H, attacking && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null, null, navExtra) : null;
     if (fv) placements.push(...fv.placements);
     // Tanks (M7.6b): the side's tank section, a unit of its own, its crews in their seats.
     const tankWanted = def.tanks === true || def.tanks === (attacking ? "attacker" : "defender");
@@ -207,7 +233,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
         home = { x: cx - ux * 60, y: cy - uy * 60 };
         behind = sec.vehicles.map((_, i) => ({ x: cx - ux * 40 - uy * (i - (sec.vehicles.length - 1) / 2) * 25, y: cy - uy * 40 + ux * (i - (sec.vehicles.length - 1) / 2) * 25 }));
       }
-      tv = placeVehicles(catalog, map, sec.vehicles, attacking, side, mainP, dx, W, H, attacking && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null, { home, avoid: ifvs, behind });
+      tv = placeVehicles(catalog, map, sec.vehicles, attacking, side, mainP, dx, W, H, attacking && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null, { home, avoid: ifvs, behind }, navExtra);
       placements.push(...tv.placements);
     }
     // Each sub-unit (squad) and each platoon's own men get a spot; men stand in a loose line, 6 m apart.
@@ -293,6 +319,11 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
     const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
     if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }
     if (tv) { force.vehicles = [...(force.vehicles ?? []), ...tv.records]; force.vehiclePlacements = [...(force.vehiclePlacements ?? []), ...tv.vehiclePlacements]; }
+    return finishSide(force, side, s, fv !== null || tv !== null);
+  };
+  /** The off-map assets every side gets (from its manifest, per battle) and the defence's observers. */
+  const finishSide = (force: ForceInput, side: "blue" | "red", s: number, hasVehicles: boolean): ForceInput => {
+    const faction = force.faction, pack = data.factions[faction], attacking = side === def.attacker;
     // Ambulances off the map (M10.6a): crews and hulls from the faction's data, waiting at the rear to be called.
     const amb = def.ambulances !== false ? pack?.manifest.ambulance : undefined;
     if (amb && amb.count > 0) {
@@ -301,14 +332,14 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
         for (let k = 0; k < amb.count; k++) {
           const crew = buildForceWithVehicles(data, { faction, template: amb.template, seed: def.seed * 43 + s * 17 + k, keyPrefix: `${side}-amb${k + 1}`, number: k + 1 }).unit;
           crew.vehicleId = crew.key;
-          units.push(crew);
+          force.units.push(crew);
           (force.vehicles ??= []).push(newVehicleRecord(catalog, vtype, crew.key));
           (force.offMap ??= []).push({ vehicleId: crew.key, kind: "ambulance" });
         }
       }
     }
     // Recovery vehicles off the map (M11.7b): only for a side with vehicles of its own, after the ambulances.
-    if (def.recovery !== false && (fv !== null || tv !== null)) addRecoveryAssets(data, catalog, force, def.seed * 47 + s * 19);
+    if (def.recovery !== false && hasVehicles) addRecoveryAssets(data, catalog, force, def.seed * 47 + s * 19);
     // The military police off the map (M11.9b): every side (built last of all in the battle: setup.ts).
     if (def.mp !== false) addMpAssets(data, catalog, force, def.seed * 59 + s * 23);
     if (!attacking) observers = observersOf(force);
@@ -369,7 +400,99 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
     });
   }
   if (def.airRecon && def.airRecon.length > 0) rules.airRecon = [...def.airRecon];
-  return { map, catalog, forces, rules, seed: def.seed, orders: [] };
+  if (def.campaignOut === true) rules.campaignOut = true;
+  const out: BattleInput = { map, catalog, forces, rules, seed: def.seed, orders: [] };
+  if (def.terrain?.damage) out.damage = def.terrain.damage;
+  if (def.terrain?.wrecks && def.terrain.wrecks.length > 0) out.wrecksIn = def.terrain.wrecks;
+  return out;
+}
+
+/** M12.0a: the placement grids' extra stamps: earlier battles' wrecks (blocked) and craters (rough). Empty: none. */
+function terrainNav(catalog: Catalog, terrain: ScenarioTerrain | undefined): NavGridOptions {
+  const stamps = (terrain?.wrecks ?? []).flatMap((w) => { const vd = catalog.vehicles[w.type]; return vd ? [wreckStamp(vd, w.x, w.y, w.heading)] : []; });
+  const craters = (terrain?.damage?.craters ?? []).map((c) => ({ x: c.x, y: c.y, radiusM: c.radiusM }));
+  return { ...(stamps.length > 0 ? { stamps } : {}), ...(craters.length > 0 ? { craters } : {}) };
+}
+
+/**
+ * M12.0a: a side built from roster records (`ScenarioDef.forces`): every hull placed as the side's vehicles (attacking:
+ * the dead-ground start; defending: behind the main objective), its crew unit in its seats (a crewman takes the seat
+ * of his role's slot in the faction's crew template for that vehicle type, else the next free crew seat); attacking,
+ * each foot group rides in its carrier when the carrier is there; the rest stand at the side's start (defending: the
+ * defence spots, further groups behind them; attacking: a line of groups at its map edge).
+ */
+function rosterSide(
+  data: DataSet, catalog: Catalog, map: MapDef, roster: ScenarioForces, side: "blue" | "red", faction: string, attacking: boolean, defender: string,
+  mainP: { x: number; y: number }, secondP: { x: number; y: number }, dx: number, W: number, H: number,
+  dead: { observers: readonly { x: number; y: number; z: number; thermal?: boolean }[]; objectives: readonly { x: number; y: number }[] } | null, navExtra: NavGridOptions,
+): ForceInput {
+  const units = JSON.parse(JSON.stringify(roster.units)) as UnitInput[];
+  const records = JSON.parse(JSON.stringify(roster.vehicles ?? [])) as VehicleRecord[];
+  const pack = data.factions[faction];
+  const crewOf = new Map<string, UnitInput>();
+  const walk = (u: UnitInput) => { if (u.vehicleId !== undefined) crewOf.set(u.vehicleId, u); u.subunits.forEach(walk); };
+  units.forEach(walk);
+  // The seat of each crewman: his role's slot in a crew template of the faction for this vehicle type.
+  const fvs: ForceVehicle[] = records.map((r) => {
+    const crew = crewOf.get(r.vehicleId);
+    const tpls = Object.keys(pack?.units ?? {}).sort().map((k) => pack!.units[k]!).filter((t) => t.vehicle === r.type);
+    const crewSeats: { personId: string; seat: string }[] = [];
+    if (crew) {
+      const used = new Set<string>();
+      for (const m of crew.members) {
+        for (const t of tpls) {
+          const slot = t.members.find((q) => q.role === m.role && q.seat !== undefined && !used.has(q.seat));
+          if (slot) { used.add(slot.seat!); crewSeats.push({ personId: m.personId, seat: slot.seat! }); break; }
+        }
+      }
+    }
+    return { vehicleId: r.vehicleId, type: r.type, crewSeats };
+  });
+  const placements: Placement[] = [];
+  const heading = side === "blue" ? 0 : PI;
+  const fv = records.length > 0 ? placeVehicles(catalog, map, fvs, attacking, side, mainP, dx, W, H, dead, null, navExtra) : null;
+  if (fv) {
+    placements.push(...fv.placements);
+    // (The roster's records go in as they are: fuel, stowage, belts, components; only the places are the scenario's.)
+    fv.records.splice(0, fv.records.length, ...records);
+  }
+  // Men on foot: every unit's own men and those of sub-units that are no crew of a hull in this battle.
+  const present = new Set(records.map((r) => r.vehicleId));
+  const groups: SoldierGroup[] = [];
+  const foot = (u: UnitInput) => {
+    if (u.vehicleId !== undefined && present.has(u.vehicleId)) return;
+    if (u.members.length > 0) groups.push({ men: u.members.map((m) => m.personId), carrier: u.carrierId !== undefined && present.has(u.carrierId) ? u.carrierId : undefined });
+    u.subunits.forEach(foot);
+  };
+  units.forEach(foot);
+  const seats = new Map<string, number>();
+  if (fv) for (const r of records) { const vd = catalog.vehicles[r.type]; seats.set(r.vehicleId, vd ? vd.seats.filter((q) => q.station === "passenger").length : 0); }
+  let line = 0;
+  const lineGroups = groups.filter((g) => !(attacking && g.carrier !== undefined && (seats.get(g.carrier) ?? 0) >= g.men.length));
+  groups.forEach((g, gi) => {
+    const vp = attacking && g.carrier !== undefined ? fv?.vehiclePlacements.find((p) => p.vehicleId === g.carrier) : undefined;
+    if (vp && (seats.get(g.carrier!) ?? 0) >= g.men.length) {
+      seats.set(g.carrier!, seats.get(g.carrier!)! - g.men.length);
+      for (const pid of g.men) placements.push({ personId: pid, x: vp.x, y: vp.y, heading: vp.heading, mountedIn: vp.vehicleId });
+      return;
+    }
+    let cx: number, cy: number;
+    if (side === defender) {
+      const sp = defenceSpots(mainP, secondP, dx)[gi % 4]!, back = Math.floor(gi / 4) * 25;
+      cx = sp.x + dx * back; cy = sp.y;
+    } else {
+      cx = side === "blue" ? W * 0.08 : W * 0.92;
+      cy = H / 2 + (line - (lineGroups.length - 1) / 2) * (lineGroups.length > 4 ? 45 : 70);
+      line++;
+    }
+    g.men.forEach((m, mi) => {
+      const p = freeSpot(map, catalog, cx, cy + (mi - (g.men.length - 1) / 2) * 6);
+      placements.push({ personId: m, x: p.x, y: p.y, heading });
+    });
+  });
+  const force: ForceInput = { side, faction, units, placements, posture: attacking ? "attack" : "defend" };
+  if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }
+  return force;
 }
 
 interface SoldierGroup { men: string[]; carrier: string | undefined }
@@ -491,7 +614,7 @@ const VEHICLE_SPACING_M = 20;
 function placeVehicles(
   catalog: Catalog, map: MapDef, vehicles: ForceVehicle[], attacking: boolean, side: string, mainP: { x: number; y: number }, dx: number, W: number, H: number,
   dead: { observers: readonly { x: number; y: number; z: number; thermal?: boolean }[]; objectives: readonly { x: number; y: number }[] } | null = null,
-  tank: TankPlacing | null = null,
+  tank: TankPlacing | null = null, navExtra: NavGridOptions = {},
 ): { records: VehicleRecord[]; vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]>; placements: Placement[] } {
   const records: VehicleRecord[] = [], vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]> = [], placements: Placement[] = [];
   const grids = new Map<string, NavGrid>();
@@ -501,7 +624,7 @@ function placeVehicles(
   if (dead && vehicles.length > 0) {
     const def0 = catalog.vehicles[vehicles[0]!.type];
     if (def0) {
-      const grid = buildNavGrid(map, catalog.terrain, def0.class, 2, 0, [], { clearanceCells: 3 });
+      const grid = buildNavGrid(map, catalog.terrain, def0.class, 2, 0, [], { clearanceCells: 3, ...navExtra });
       grids.set(def0.class, grid);
       const mainRegion = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
       let tallest = 0;
@@ -529,7 +652,7 @@ function placeVehicles(
     const def = catalog.vehicles[fv.type];
     if (!def) throw new Error(`scenario: vehicle type '${fv.type}' not in the catalog`);
     let grid = grids.get(def.class);
-    if (!grid) { grid = buildNavGrid(map, catalog.terrain, def.class, 2, 0, [], { clearanceCells: 3 }); grids.set(def.class, grid); }
+    if (!grid) { grid = buildNavGrid(map, catalog.terrain, def.class, 2, 0, [], { clearanceCells: 3, ...navExtra }); grids.set(def.class, grid); }
     const mainRegion = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
     const lat = (i - (vehicles.length - 1) / 2) * VEHICLE_SPACING_M;
     // Attack: a line across the own edge. Defence: behind the main objective (away from the attack), staggered.

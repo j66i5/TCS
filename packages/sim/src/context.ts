@@ -62,6 +62,9 @@ export interface BattleRules {
    *  (balance pass 2): the positions dug in this window are at most this deep (a hasty dig-in; absent: the data's
    *  `fightingPosition.depthM`). */
   prepared?: { side: SideId; fromS: number; untilS: number; depthM?: number }[];
+  /** M12.0a: the battle's result carries what a campaign needs (`BattleResult.damageOut`, `service`; a per-man tally
+   *  kept in `SoldierState.service`). Absent or false: nothing of it (every golden and batch result as before). */
+  campaignOut?: boolean;
 }
 
 /** An area worth holding (M6). */
@@ -109,6 +112,8 @@ export interface SimContext {
   physiologyParams: Record<string, number>;
   /** Holes blown in walls so far (a reference to the state's list; set by syncTerrainDamage). */
   breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number; sillM?: number; headM?: number }[];
+  /** M12.0a: craters carried in from earlier battles (`BattleInput.damage`): rough ground in the navigation grids. */
+  navCraters?: readonly { x: number; y: number; radiusM: number }[];
   /** Wrecks stamped into the navigation grids (derived from the vehicle store; M7), and their key. */
   navStamps: NavStamp[];
   navStampKey: string;

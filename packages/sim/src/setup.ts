@@ -69,7 +69,48 @@ export function buildInitialState(input: BattleInput): SimState {
   }
   // M11.9b: the military police off the map, last of all.
   addOffMap(state, input, (k) => k === "mp");
+  // M12.0a: the damage and the wrecks of earlier battles on this map (the wrecks after everything else, so the ids of
+  // the battle itself are as without them).
+  if (input.damage) applyDamage(state, input);
+  if (input.wrecksIn && input.wrecksIn.length > 0) addWrecks(state, input);
   return state;
+}
+
+/** M12.0a: the side of a wreck from an earlier battle: neither force's (no system counts it as anyone's hull). */
+export const WRECK_SIDE = "-";
+
+/** M12.0a: an earlier battle's terrain damage into the state (copied; `syncTerrainDamage` stamps the holes). */
+function applyDamage(state: SimState, input: BattleInput): void {
+  const d = input.damage!, map = input.map;
+  for (const b of d.breaches) {
+    const ok = b.owner === "obstacle" ? map.obstacles.some((o) => o.id === b.id) : map.buildings.some((q) => q.id === b.id);
+    if (!ok) throw new Error(`damage: no ${b.owner} ${b.id} on map '${map.id}' (damage belongs to the map it was made on)`);
+  }
+  state.terrain = {
+    breaches: d.breaches.map((b) => ({ ...b })),
+    craters: d.craters.map((c) => ({ ...c })),
+    vegetationLoss: d.vegetationLoss.map(([c, f]) => [c, f] as [number, number]),
+    ...(d.positions && d.positions.length > 0 ? { positions: d.positions.map((p) => ({ ...p })) } : {}),
+  };
+}
+
+/** M12.0a: wrecks of earlier battles: hulls of `WRECK_SIDE` (the faction of the force of their old side, if any),
+ *  no crew, empty (no fuel, stowage or ready rounds), destroyed, settled ("lost") so the end settlement passes them. */
+function addWrecks(state: SimState, input: BattleInput): void {
+  const wrecks = input.wrecksIn!;
+  const faction = (side: SideId) => input.forces.find((f) => f.side === side)?.faction ?? input.forces[0]?.faction ?? "";
+  for (const w of wrecks) {
+    const def = input.catalog.vehicles[w.type];
+    if (!def) throw new Error(`wreck ${w.vehicleId}: unknown vehicle type '${w.type}'`);
+    const rec: VehicleRecord = {
+      vehicleId: w.vehicleId, type: w.type, load: [], status: "destroyed", recovery: { state: "lost", tick: -1 },
+      ready: def.stations.flatMap((sn) => sn.weapons.map((wp) => wp.feeds.map((f) => ({ item: f.item, rounds: 0 })))),
+    };
+    const ids = addVehicles(state, { side: WRECK_SIDE, faction: faction(w.side), units: [], placements: [], vehicles: [rec], vehiclePlacements: [{ vehicleId: w.vehicleId, x: w.x, y: w.y, heading: w.heading }] }, input.catalog, () => true);
+    const v = state.vehicle.req(ids.get(w.vehicleId)!);
+    v.wreckIn = { side: w.side, status: w.status };
+    for (const st of v.stations) for (const wp of st.weapons) wp.loadedRound = false;
+  }
 }
 
 /** The forces' off-map assets of the kinds `which` takes: hulls, crews, parked off the map, waiting to be called. */

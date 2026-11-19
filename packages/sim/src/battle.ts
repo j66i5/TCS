@@ -11,7 +11,7 @@ import type { BattleRules } from "./context";
 import type { Environment } from "./environment";
 import type { BattleEndReason, SimEvent, SimEventKind } from "./events";
 import type { DefId, SideId } from "./ids";
-import type { OffMapKind, VehicleRecovery, VehicleStatus } from "./components";
+import type { OffMapKind, TerrainState, VehicleRecovery, VehicleStatus } from "./components";
 import type { ItemStack } from "./items";
 import type { SideLogistics } from "./ledger";
 import type { MapDef } from "./map";
@@ -147,6 +147,26 @@ export interface ForceInput {
   stock?: { load: ItemStack[]; supportTopUp?: { rounds: number; everyS: number } };
 }
 
+/**
+ * M12.0a: terrain damage carried from earlier battles on the same map (a campaign sector): holes in walls, craters,
+ * thinned vegetation, dug fighting positions, as `state.terrain` holds them (`BattleResult.damageOut`). Applied at
+ * setup: holes go into the wall tables, the navigation grids and the building interiors exactly as a hole blown in
+ * the battle; craters are rough ground in the navigation grids (`CRATER_NAV`, nav.ts); positions protect anyone in
+ * them. Their ticks are those of the battle that made them (before this one).
+ */
+export type TerrainDamage = TerrainState;
+
+/** A wreck lying on the map (M7 `BattleResult.wrecks`; M12.0a `BattleInput.wrecksIn`). */
+export interface WreckRecord { vehicleId: string; type: DefId; side: SideId; x: number; y: number; heading: number; status: VehicleStatus }
+
+/**
+ * M12.0a: what one man went through in a battle (`BattleResult.service`, per `personId`; the campaign's experience
+ * and stress history). Seconds are counted once a second: under effective fire (his suppression at least
+ * `SERVICE_FIRE_SUPPRESSION`), in contact (he knows an enemy); rounds he fired (his weapon or a vehicle station he
+ * served); wounds taken in this battle; his peak shock and strain (1 Hz samples and the start).
+ */
+export interface ServiceTally { underFireS: number; contactS: number; roundsFired: number; wounds: number; peakShock: number; peakStrain: number }
+
 export interface BattleInput {
   map: MapDef;
   catalog: Catalog;
@@ -156,6 +176,12 @@ export interface BattleInput {
   /** The order stream. For AI or human play, orders produced during the battle are appended. */
   orders: Order[];
   environment?: Environment;
+  /** M12.0a: terrain damage from earlier battles on this map (absent: none; the battle is as before). */
+  damage?: TerrainDamage;
+  /** M12.0a: wrecks from earlier battles on this map: crewless hulls of neither force (`WRECK_SIDE`), empty, burnt
+   *  out, lying where they were (navigation stamp as `isWreck`; they stop rounds as any hull). Placed after every
+   *  other entity, so the ids of the battle itself are as without them. */
+  wrecksIn?: WreckRecord[];
 }
 
 export interface SideResult {
@@ -203,7 +229,7 @@ export interface BattleResult {
   forcesOut: { side: SideId; faction: DefId; units: UnitInput[]; /** M7: every vehicle of the force. */ vehicles?: VehicleRecord[] }[];
   /** Wrecks left on the map (M7; persistent map damage as data): destroyed, abandoned, and immobilised hulls not
    *  penetrated for more than 30 s (`isWreck`, the same hulls stamped into the navigation grids). */
-  wrecks?: { vehicleId: string; type: DefId; side: SideId; x: number; y: number; heading: number; status: VehicleStatus }[];
+  wrecks?: WreckRecord[];
   /** Caches on the map at the end (M11.3): whose they are (`from`: the side a captured one was taken from), where, what
    *  is left in them, `burnt`. The contents of a captured cache count as captured (the campaign gives them to its
    *  captor). */
@@ -217,6 +243,11 @@ export interface BattleResult {
    *  off the map by the holder's military police; `medical`: by the holder's medical chain, wounded; `held`: still
    *  held on the map at the end), and the documents items taken from him. Input for M12 (roster) and M13 (intelligence). */
   prisoners?: PrisonerResult[];
+  /** M12.0a (only with `rules.campaignOut`): the map's terrain damage at the end, the input's `damage` included. */
+  damageOut?: TerrainDamage;
+  /** M12.0a (only with `rules.campaignOut`): per `personId` of every man of the forces who took part (late arrivals
+   *  that never came are not in it), what he went through (`ServiceTally`). */
+  service?: Record<string, ServiceTally>;
   /** Full order stream, including orders produced by controllers during the battle. */
   orders: Order[];
   eventCounts: Partial<Record<SimEventKind, number>>;

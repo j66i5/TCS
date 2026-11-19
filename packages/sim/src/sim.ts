@@ -61,6 +61,7 @@ import { vehicleDriveSystem, vehicleSyncSystem } from "./systems/drive";
 import { physiologySystem, postureSystem } from "./systems/body";
 import { enqueueOrder, deliverOrders, receiveOrders } from "./systems/orders";
 import { positionsSystem } from "./positions";
+import { serviceSystem } from "./service";
 
 export interface Sim {
   ctx: SimContext;
@@ -81,6 +82,8 @@ export function createContext(input: BattleInput): SimContext {
     physiology: PHYSIOLOGY_MODELS[input.rules.physiologyModel] ?? null,
     physiologyParams: { ...input.catalog.wounds.physiology, ...input.catalog.medical?.physiology, ...input.rules.physiologyParams },
     breaches: [], navStamps: [], navStampKey: "",
+    // (M12.0a: craters of earlier battles are rough ground; this battle's own craters do not touch the grids.)
+    ...(input.damage && input.damage.craters.length > 0 ? { navCraters: input.damage.craters.map((c) => ({ x: c.x, y: c.y, radiusM: c.radiusM })) } : {}),
     late: input.forces.flatMap((f) => {
       const placements = new Map(f.placements.map((p) => [p.personId, p]));
       return f.units.filter((u) => (u.arriveS ?? 0) > 0).map((u) => ({ side: f.side, faction: f.faction, unit: u, tick: secondsToTicks(u.arriveS!), placements }));
@@ -201,6 +204,8 @@ export function step(sim: Sim): SimEvent[] {
   if (ctx.rules.prepared !== undefined) positionsSystem(ctx, state, events); // (M11 hold battle)
   // Late arrivals (M11.1): a wave enters at its time (once a second; nothing without late units).
   if (ctx.late.length > 0) arrivalSystem(ctx, state, events);
+  // M12.0a: the men's service tally for the campaign (write-only; only when the input asks for it).
+  if (ctx.rules.campaignOut === true) serviceSystem(ctx, state, events.events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 
   state.environment.timeOfDaySeconds += 1 / TICK_HZ;

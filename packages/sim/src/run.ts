@@ -12,6 +12,7 @@ import type { SimEventKind } from "./events";
 import { secondsToTicks, ticksToSeconds } from "./ids";
 import type { Order } from "./orders";
 import { unitsFromState, vehiclesFromState } from "./setup";
+import { serviceOut } from "./service";
 import { createSim, loadSim, saveSim, simHash, step, submitOrder, type Sim } from "./sim";
 
 export function runBattle(input: BattleInput, opts: RunOptions = {}): BattleResult {
@@ -110,7 +111,8 @@ function summarize(
   for (const [id, v] of state.vehicle.entries()) {
     if (isOffMap(v) || !isWreck(v, state.tick)) continue;
     const t = state.transform.req(id);
-    wrecks.push({ vehicleId: v.vehicleId, type: v.def, side: v.side, x: t.x, y: t.y, heading: t.heading, status: v.status });
+    // (M12.0a: a wreck of an earlier battle as it came in: its old side and status.)
+    wrecks.push({ vehicleId: v.vehicleId, type: v.def, side: v.wreckIn?.side ?? v.side, x: t.x, y: t.y, heading: t.heading, status: v.wreckIn?.status ?? v.status });
   }
   // Caches left on the map (M11.3): whose they are now, what is in them; a captured one names the side it was taken from.
   const caches: NonNullable<BattleResult["caches"]> = [];
@@ -134,6 +136,8 @@ function summarize(
     ...([...state.vehicle.values()].some((v) => v.offMap === undefined) || wrecks.length > 0 ? { wrecks } : {}),
     ...(caches.length > 0 ? { caches } : {}),
     ...(prisoners.length > 0 ? { prisoners } : {}),
+    // M12.0a: what a campaign needs, only when asked for (every other result keeps its shape).
+    ...(input.rules.campaignOut === true ? { damageOut: JSON.parse(JSON.stringify(state.terrain)) as BattleResult["damageOut"], service: serviceOut(state, input) } : {}),
     orders,
     eventCounts,
     ...battleScore(sim.ctx, state),

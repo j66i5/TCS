@@ -244,6 +244,13 @@ export function addStoppedHit(state: SimState, G: VehicleGrid, row: number, owne
   G.hits[k] = G.hits[k]! + 1;
 }
 
+/** M12.0a: the navigation stamp of a wreck of type `def` lying at a pose (as `deriveWrecks` stamps it). Scenario
+ *  generation keeps hulls and men off the wrecks of earlier battles with it. */
+export function wreckStamp(def: VehicleDef, x: number, y: number, heading: number): NavStamp {
+  const o = hullObb(def, x, y, heading);
+  return { x: o.x, y: o.y, heading, halfL: o.hl, halfW: o.hw };
+}
+
 /** Is this vehicle a wreck for navigation (lies where it is for good)? */
 export function isWreck(v: VehicleState, tick: number): boolean {
   return v.status === "destroyed" || v.status === "abandoned" || (v.status === "immobilised" && tick - v.lastPenTick > 30 * 60);

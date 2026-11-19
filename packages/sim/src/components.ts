@@ -370,6 +370,8 @@ export interface SoldierState {
    * 11): how many of his wounds were already there (not handed over again) and the recovery days he still had.
    */
   rosterIn?: { wounds: number; recoveryDays: number };
+  /** M12.0a (`rules.campaignOut` only): his tally in this battle so far (`serviceSystem`; `BattleResult.service`). */
+  service?: { underFireS: number; contactS: number; roundsFired: number; peakShock: number; peakStrain: number };
   /**
    * What happens to him after the battle (M10.6b, settled when he is handed over to Role 1 — evacuated — or at the
    * battle's end): when he reaches Role 1 (`role1Tick`, battle ticks; or the captor's aid post, `by` "captor"), the days
@@ -1087,6 +1089,9 @@ export interface VehicleState {
   towedBy?: EntityId;
   /** M11.7b: towed off the map (it and its crew aboard are off the map for good, `isOffMap`). */
   towAway?: true;
+  /** M12.0a: a wreck of an earlier battle (`BattleInput.wrecksIn`, side `WRECK_SIDE`): the side it was and its status
+   *  then, for `BattleResult.wrecks`. */
+  wreckIn?: { side: SideId; status: VehicleStatus };
   /**
    * Field repair (M11.7a): the crew's task on component `comp` — man-seconds of work needed and done, who ordered it
    * (`ordered`: the player's `repair` order: no waiting for the quiet period), when it started and last had men at

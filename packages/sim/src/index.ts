@@ -82,6 +82,7 @@ export * from "./battle";
 export * from "./setup";
 export * from "./sim";
 export * from "./run";
+export * from "./service";
 export { unitSoldiers } from "./systems/orders";
 export { loadKg, postureChangeSeconds, requestPosture, thirstAimFactor, thirstShare } from "./systems/body";
 export * from "./expenditure";

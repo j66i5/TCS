@@ -69,7 +69,18 @@ export interface NavGridOptions {
   minBreachM?: number;
   /** Hulls lying on the map (wrecks): blocked in every grid; in foot grids the ring round them gives cover. */
   stamps?: readonly NavStamp[];
+  /** M12.0a: craters of earlier battles (`BattleInput.damage`): rough ground, costlier to cross (`CRATER_NAV`). */
+  craters?: readonly NavCrater[];
 }
+
+/** A crater on the ground (M12.0a, from `BattleInput.damage`). */
+export interface NavCrater { x: number; y: number; radiusM: number }
+
+/**
+ * M12.0a (game values, confidence low): a cell whose square a crater of an earlier battle touches costs this many
+ * times more to cross per movement class: churned earth and holes slow a man a little, a hull more, wheels most.
+ */
+export const CRATER_NAV: Readonly<Record<MovementClass, number>> = { foot: 1.3, tracked: 1.5, wheeled: 2 };
 
 type Breach = { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number };
 
@@ -114,7 +125,7 @@ export function coverGridFrom(plain: NavGrid, coverWeight: number): NavGrid {
  */
 export function patchNavGrid(
   grid: NavGrid, map: MapDef, terrain: TerrainCatalog, breaches: readonly Breach[], stamps: readonly NavStamp[],
-  x0: number, y0: number, x1: number, y1: number,
+  x0: number, y0: number, x1: number, y1: number, craters?: readonly NavCrater[],
 ): void {
   const { cellM, cols, rows } = grid;
   // A cell depends on the cells within the clearance and the cover radius of it: the cells to re-derive are
@@ -125,7 +136,7 @@ export function patchNavGrid(
   if (ic0 > ic1 || ir0 > ir1) return;
   const wc0 = Math.max(0, ic0 - g), wc1 = Math.min(cols - 1, ic1 + g), wr0 = Math.max(0, ir0 - g), wr1 = Math.min(rows - 1, ir1 + g);
   const w = computeWindow(map, terrain, grid.cls, cellM, cols, rows, grid.coverWeight, breaches,
-    { clearanceCells: grid.clearanceCells, minBreachM: grid.minBreachM, stamps }, wc0, wr0, wc1, wr1);
+    { clearanceCells: grid.clearanceCells, minBreachM: grid.minBreachM, stamps, ...(craters && craters.length > 0 ? { craters } : {}) }, wc0, wr0, wc1, wr1);
   const wcols = wc1 - wc0 + 1;
   // What changed: a cell closed or a wall added can split an area (relabel all); openings only join areas.
   let split = false, any = false, cr0 = rows, cr1 = -1, cc0 = cols, cc1 = -1;
@@ -311,6 +322,23 @@ function computeWindow(
         else if (cost[idx]! > 0) cost[idx] = cost[idx]! + extra;
       }
     }
+  }
+  // Craters of earlier battles (M12.0a): rough ground, each cell its square touches costlier once (not the walls).
+  const craters = opts.craters ?? [];
+  if (craters.length > 0) {
+    const k = CRATER_NAV[cls] ?? 1, rough = new Uint8Array(n);
+    for (const cr of craters) {
+      const R = cr.radiusM;
+      if (!meets(cr.x - R, cr.y - R, cr.x + R, cr.y + R, 0)) continue;
+      for (let r = Math.max(wr0, Math.floor((cr.y - R) / cellM)); r <= Math.min(wr1, Math.floor((cr.y + R) / cellM)); r++) {
+        for (let c = Math.max(wc0, Math.floor((cr.x - R) / cellM)); c <= Math.min(wc1, Math.floor((cr.x + R) / cellM)); c++) {
+          // (The nearest point of the cell's square to the crater's middle lies within its radius.)
+          const nx = Math.min(Math.max(cr.x, c * cellM), (c + 1) * cellM), ny = Math.min(Math.max(cr.y, r * cellM), (r + 1) * cellM);
+          if ((nx - cr.x) * (nx - cr.x) + (ny - cr.y) * (ny - cr.y) <= R * R) rough[loc(c, r)] = 1;
+        }
+      }
+    }
+    for (let i = 0; i < n; i++) if (rough[i] === 1 && cost[i]! > 0) cost[i] = cost[i]! * k;
   }
   // Wrecks (M7): blocked for everyone; in foot grids the ring of cells round the hull is "beside a wall".
   const stamps = opts.stamps ?? [];

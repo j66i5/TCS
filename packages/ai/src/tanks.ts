@@ -60,7 +60,7 @@ export interface TanksMemory {
   tkPair?: Record<string, number>;
   /** Balance pass 3: an attacker's overwatch carrier crew -> since when it counts as idle (first seen, last shot or
    *  last bound, ticks), its last shot seen, its last try at a bound. */
-  obBound?: Record<string, { since: number; shot: number; tried: number; to?: { x: number; y: number }; at?: { x: number; y: number } }>;
+  obBound?: Record<string, { since: number; shot: number; tried: number; to?: { x: number; y: number }; at?: { x: number; y: number }; missed?: { x: number; y: number }[] }>;
 }
 
 /** The vehicle a crew unit has (or had, if it bailed out). */
@@ -587,8 +587,9 @@ export function overwatchBounds(a: BoundArgs): void {
       if (busy) break;
     }
     if (busy) continue;
-    // (A post it was sent to and never reached, standing where it stood then: left out, review fix.)
-    const failed = m.to !== undefined && m.at !== undefined && hypot2(t.x - m.at.x, t.y - m.at.y) <= 5 ? [m.to] : [];
+    // (A post it was sent to and never reached, standing where it stood then: left out, review fix. Balance pass 4:
+    // every such post while it stands there, not only the last: a hull stuck at one spot alternated between two.)
+    const failed = m.to !== undefined && m.at !== undefined && hypot2(t.x - m.at.x, t.y - m.at.y) <= 5 ? [...(m.missed ?? []), m.to] : [];
     const step = Math.min(B.stepM, limit - proj);
     const anchor = { x: Math.min(Math.max(t.x + ux * step, 10), W - 10), y: Math.min(Math.max(t.y + uy * step, 10), H - 10) };
     // (The line it must stay behind: `behindM` short of the foremost man, as a `behind` bound facing back.)
@@ -611,5 +612,6 @@ export function overwatchBounds(a: BoundArgs): void {
     m.since = tick;
     m.to = { x: p.x, y: p.y };
     m.at = { x: t.x, y: t.y };
+    if (failed.length > 0) m.missed = failed; else delete m.missed;
   }
 }

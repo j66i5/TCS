@@ -354,6 +354,23 @@ describe("floors: occupy one window (M7.5e defend, D1)", () => {
     for (const t of men.slice(1)) expect(t.z !== w.z || Math.hypot(t.x - w.x, t.y - w.y) >= 1.1).toBe(true);
   });
 
+  it("balance pass 4 review: a man ordered to the window another man of his side holds goes to a free place, never onto him", () => {
+    const sim = simWith();
+    const w = windowPlaces(sim.ctx, 0)[2]!;
+    const [a, b] = blueMen(sim).sort((x, y) => x - y);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: a!, kind: "occupy", building: 1, windowIndex: 2, mode: "walk" });
+    for (let k = 0; k < 60 * 30 && sim.state.mover.req(a!).waypoints.length === 0; k++) step(sim);
+    run(sim, 60 * 90);
+    const ta = sim.state.transform.req(a!);
+    expect(Math.hypot(ta.x - w.x, ta.y - w.y)).toBeLessThan(0.05);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: b!, kind: "occupy", building: 1, windowIndex: 2, mode: "walk" });
+    for (let k = 0; k < 60 * 30 && sim.state.mover.req(b!).waypoints.length === 0; k++) step(sim);
+    run(sim, 60 * 120);
+    const tb = sim.state.transform.req(b!);
+    expect(indoorAt(sim.ctx, tb.x, tb.y)).toBe(0);
+    expect(Math.abs(tb.z - ta.z) > 1 || Math.hypot(tb.x - ta.x, tb.y - ta.y) >= 1.1).toBe(true);
+  });
+
   it("a window index out of range, not a whole number, or a pace that is not on foot is rejected", () => {
     for (const bad of [{ windowIndex: 3 }, { windowIndex: -1 }, { windowIndex: 0.5 }, { windowIndex: 0, mode: "nope" }]) {
       const sim = simWith();

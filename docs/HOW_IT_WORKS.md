@@ -665,7 +665,9 @@ for an hour against three Russian platoons that come in waves from the east, aft
 balance pass 3: at the start, after 15 and after 30) (the attacker has a third of the platoon battle's mortar rounds, all from the start: with more, the first wave shelled the defence apart). A wave is not on the map before its time (it does not exist in the
 battle yet, so it costs nothing and nobody can see it); the side is not beaten while a wave is still to come. Each
 wave has its own computer commander, who plans its attack from where it comes in. The defenders have a supply point
-150 m behind the village: per squad one can of loose rounds for each kind of rifle and machine-gun round it fires.
+150 m behind the village: per squad one can of loose rounds for each kind of rifle and machine-gun round it fires. The defenders start with one
+loaded magazine or belt per stack and (since balance pass 4) a quarter of their usual loose rounds, so without the
+chain they can refill a little from their own pockets but not for long.
 In this step nobody fetches from it yet (the next steps bring bearers, vehicle runs and deliveries); `--no-resupply`
 (headless and batch) switches every resupply off for comparisons (until balance pass 3 it also switched off a man
 refilling from his own loose rounds; that is `--no-refill` now). `hold-resupply-ru` swaps the
@@ -1385,7 +1387,9 @@ the muzzle is clear and none of its own men on foot is in the way. Where the rou
 moving. The crew picks its own targets when its fire rules allow ("return fire" also answers fire on its
 platoon): an enemy vehicle first (armour-piercing), then men firing now, nearest first — high explosive at their
 feet for a group or a man beyond 400 m, the machine gun for a single man close by; never high explosive close to
-its own men. A cannon shell that strikes a man bursts on him. You can order a vehicle to fire at a point or an
+its own men (since balance pass 4: no own man within the round's danger radius and spread of the point, on any side,
+and none in the gun's line unless it passes well over his head; a target it could not fire at is passed over, and the
+crew says why it holds). A cannon shell that strikes a man bursts on him. You can order a vehicle to fire at a point or an
 enemy marker (with "Gun: AP / HE / machine gun", or leave the choice to the crew), to cease fire (an order to a
 squad does not silence its vehicle; one to the platoon does), and to throw a **smoke screen** (its smoke
 grenades are counted; when they are gone it says so). Debug with a vehicle selected shows where the turret
@@ -1953,6 +1957,37 @@ Both sides now use houses on purpose (owner, 2026-11-14).
   none) and are wounded about a third as often there as outside; the attack on the village wins less often (5 → 3
   in 20 battles; the owner accepted a harder village). The attacker's clearings start late (the assault comes 10–15
   minutes in), so few houses are actually cleared in a battle.
+
+## Balance pass 4 (owner decisions 2026-11-19)
+
+**The defence's hulls start on their posts.** In the mounted battles the defender's tanks and carriers used to start
+behind the position and drive to their hull-down posts in the first seconds, across the attacking vehicles' view.
+Now the scenario asks the defending computer commander, before the battle, where it would put them (it runs the
+defence alone for a few simulated seconds, off screen), and they start there, already hull-down. At its first siting
+the commander leaves a hull that starts on its post where it is unless that spot has become exposed. Building the
+battle takes about half a second longer for this.
+
+**Danger close for bursting rounds.** A vehicle's gunner sits more than a metre above the ground, and the check for
+own men in his line took that for another floor: gunners never saw their own men on foot and their 30 mm shells hit
+them. Now he does. Before each burst of high explosive (cannon shells, the grenade launcher's grenades) no own man may
+be within the round's danger radius of the point aimed at, on any side, plus the round's spread there; the danger
+radius comes from the round's fragments (about 8 m for a 30 mm shell, 15-18 m for a 40 mm or 30 mm grenade, 30-40 m
+for a tank's shell). Own men past the point are also counted, out to 60 m or that radius: rounds that miss go on. A
+gun fires over own men when the line from its muzzle passes well over their heads (1 m plus 3 mm per metre of
+distance; never over men within 20 m of the muzzle or past the point). A crew passes over a target it could not fire
+at and picks another, or holds and says so ("own men in the line", "danger close"); a fire order you give is held the
+same way, and the card tells you why once. Without a laser rangefinder (the BMP-2) the spread is large at range
+(about 70-100 m round a point 500-700 m off), so its high explosive stops once its own men are that close to the enemy.
+In the mounted battles gunners now hit almost none of their own men (before: 11 and 22 men in ten battles).
+
+**Returning fire.** A man who is fired on but sees nobody used to fire only at an enemy he could see, so a defence
+whose attackers lay in smoke or far off could be shot to pieces without firing back. Now a halted man (not pinned,
+not panicking, not down to his last magazine) at whom rounds cracked past in the last 10 s fires at the known place of
+the nearest enemy who has fired in the last 10 s, if it lies within 30 degrees of where the rounds came from, is known
+to within 30 m and is within his weapon's reach: one shot every 3 s, a machine-gun burst every 4 s. He stops 10 s after
+the last round passes him, when the place is older than 20 s, or as soon as he sees an enemy (then he aims). It works
+at night too (the muzzle flashes give the shooter away). Every side does this. Two men given the same spot no longer
+hold each other's fire.
 
 ## Does an attack work?
 

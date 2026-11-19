@@ -45,14 +45,16 @@ function noneKnown(sim: Sim, label: string): void {
 }
 
 describe("mounted-man invariants at run time (M7.2)", () => {
-  for (const [name, seed] of [["platoon-vehicles", 1], ["platoon-ru-vehicles", 2]] as const) {
+  // (Balance pass 4 review: the defending Pumas fire over their own infantry now; in platoon-ru-vehicles s2 they kill
+  // the leading T-90M at 97 s and the BMP-2s move off at about 150 s, dismounting from 180 s: 240 s there.)
+  for (const [name, seed, secs] of [["platoon-vehicles", 1, 180], ["platoon-ru-vehicles", 2, 240]] as const) {
     it(`${name} s${seed}: men aboard sit, ride, never walk, fire, reload or throw, and are never known to the enemy`, () => {
       const sc = getScenario(name);
-      const input = sc.build(data, seed, 180);
+      const input = sc.build(data, seed, secs);
       const sim = createSim(input);
       const ctrls = [commanderController("blue", input), commanderController("red", input)];
       let maxAboard = 0, gotOut = 0, rode = false;
-      for (let i = 0; i < 180 * 60 && !sim.state.ended; i++) {
+      for (let i = 0; i < secs * 60 && !sim.state.ended; i++) {
         for (const c of ctrls) for (const o of c.think(sim.state, sim.state.tick)) submitOrder(sim, o);
         const ev = step(sim);
         gotOut += ev.filter((e) => e.kind === "soldier.dismounted").length;

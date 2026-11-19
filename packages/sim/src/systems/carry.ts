@@ -35,6 +35,8 @@ import { loadKg, requestPosture } from "./body";
 import { coveredFrom, threatOf, unitThreat } from "./decisions";
 import { isCowering } from "./morale";
 import { freePositionNear } from "../positions";
+import { indoorAt } from "../interior-nav";
+import { freePlaceNear } from "./occupy";
 
 /** Code defaults when the data has no `carrying` block (old data sets). */
 const DEFAULTS = { reachM: 2, holdSuppression: 0.3, resumeQuietS: 10, selfDefenceM: 30, massRefKg: 105 };
@@ -228,12 +230,16 @@ export function bearersBack(ctx: SimContext, state: SimState, carriers: readonly
     if (!b0) continue;
     // (M11: into a free fighting position of his side near his leader, where there is one.)
     const fpos = b0.z === 0 ? freePositionNear(ctx, state, u.side, b0.x, b0.y, FP_BACK_M, m) : null;
-    const b = fpos ? { x: fpos.x, y: fpos.y, z: 0 } : b0;
-    if (hypot2(a.x - b.x, a.y - b.y) < (fpos ? 0.3 : 5)) continue;
+    // (Balance pass 4 review: his leader in a house, a free place there near him, never the leader's own spot: two
+    // men on one window place held each other's fire. Outdoors the step-aside rule parts men who end up together.)
+    const bi = fpos ? -1 : indoorAt(ctx, b0.x, b0.y);
+    const inside = bi >= 0 ? freePlaceNear(ctx, state, m, bi, b0.x, b0.y, b0.z) : null;
+    const b = fpos ? { x: fpos.x, y: fpos.y, z: 0 } : inside ?? b0;
+    if (hypot2(a.x - b.x, a.y - b.y) < (fpos || inside ? 0.3 : 5) && Math.abs(a.z - b.z) < 1) continue;
     const leg = routeBetween(ctx, navFor(ctx, "foot").search, a.x, a.y, b.x, b.y, { maxExpansions: 8000, snapCells: 3 }, { sz: a.z, gz: b.z });
     if (!leg) continue;
     mv.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" });
-    mv.formation = null; mv.endPosture = "prone"; mv.endHeading = null;
+    mv.formation = null; mv.endPosture = inside ? inside.posture ?? "crouching" : "prone"; mv.endHeading = inside ? inside.heading : null;
   }
 }
 

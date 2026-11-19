@@ -107,18 +107,24 @@ function centre(fp: readonly number[]): [number, number] {
 
 /** Send the men to their places in building `bi` (ascending id order is the caller's). Returns how many go. */
 export function occupyBuilding(ctx: SimContext, state: SimState, soldiers: readonly EntityId[], bi: number, floor: number | undefined, facing: number | undefined, windowIndex?: number, mode: string = "run"): number {
-  let places = occupyPlaces(ctx, bi, soldiers.length + (windowIndex === undefined ? 0 : 1), floor, facing);
+  // (Balance pass 4 review: never a place another man of his side holds or is going to, a window an order names
+  // included: two men on one window place held each other's fire. The places come from more than he needs.)
+  const taken = soldiers.length > 0 ? placesTaken(state, soldiers[0]!, new Set(soldiers)).filter((q) => indoorAt(ctx, q.x, q.y) === bi) : [];
+  let places = occupyPlaces(ctx, bi, soldiers.length + (windowIndex === undefined ? 0 : 1) + taken.length, floor, facing).filter((q) => !isTaken(taken, q));
   if (windowIndex !== undefined) {
     // M7.5e: the first man to exactly that window; the others to the next places not at it.
     const w = windowPlaces(ctx, bi)[windowIndex];
     if (!w) return 0;
-    places = [w, ...places.filter((q) => q.z !== w.z || hypot2(q.x - w.x, q.y - w.y) >= 1.2)].slice(0, soldiers.length);
+    places = [...(isTaken(taken, w) ? [] : [w]), ...places.filter((q) => q.z !== w.z || hypot2(q.x - w.x, q.y - w.y) >= 1.2)];
   }
+  places = places.slice(0, soldiers.length);
   if (places.length === 0) return 0;
   const { search } = navFor(ctx, "foot");
   let sent = 0;
   soldiers.forEach((s, k) => {
-    const p = places[k % places.length]!;
+    // (More men than places: the rest stay where they are, not doubled up on a place.)
+    const p = places[k];
+    if (!p) return;
     const t = state.transform.get(s), m = state.mover.get(s);
     if (!t || !m) return;
     const leg = routeBetween(ctx, search, t.x, t.y, p.x, p.y, { maxExpansions: 8000, snapCells: 3 }, { sz: t.z, gz: p.z });
@@ -132,6 +138,46 @@ export function occupyBuilding(ctx: SimContext, state: SimState, soldiers: reado
     sent++;
   });
   return sent;
+}
+
+/**
+ * Balance pass 4 review (G, "two men on one window place"): a place in building `bi` for man `id` near (x, y, z) —
+ * a window place or a spot inside on that floor (`occupyPlaces`), none another able man of his side on foot stands
+ * on or is on his way to (within 1.2 m, on that floor); the nearest to (x, y). Null: none. (A bearer back from the
+ * supply point went to his leader's very spot: at a window, two men stood on one place for good.)
+ */
+export function freePlaceNear(ctx: SimContext, state: SimState, id: EntityId, bi: number, x: number, y: number, z: number): { x: number; y: number; z: number; heading: number; posture: Posture | null } | null {
+  const b = ctx.map.buildings[bi]!;
+  const floor = Math.max(0, Math.round(z / b.storeyHeightM));
+  const taken = placesTaken(state, id);
+  let best: { x: number; y: number; z: number; heading: number; posture: Posture | null } | null = null, bd = Infinity;
+  for (const p of occupyPlaces(ctx, bi, 12, floor, undefined)) {
+    if (Math.abs(p.z - floor * b.storeyHeightM) > 0.5 || isTaken(taken, p)) continue;
+    const d = hypot2(p.x - x, p.y - y);
+    if (d < bd) { bd = d; best = { x: p.x, y: p.y, z: p.z, heading: p.heading, posture: p.posture }; }
+  }
+  return best;
+}
+
+/** Where the able men of his side on foot (`id` and `except` left out) stand and are going to. */
+export function placesTaken(state: SimState, id: EntityId, except?: ReadonlySet<EntityId>): { x: number; y: number; z: number }[] {
+  const side = state.identity.get(id)?.side;
+  const taken: { x: number; y: number; z: number }[] = [];
+  // mounted: ok men aboard are skipped (they hold no place)
+  for (const [o, os] of state.soldier.entries()) {
+    if (o === id || except?.has(o) === true || os.mount !== undefined || !isAble(os) || state.identity.get(o)?.side !== side) continue;
+    const t = state.transform.req(o);
+    const w = state.mover.get(o)?.waypoints;
+    const last = w && w.length > 0 ? w[w.length - 1]! : null;
+    taken.push({ x: t.x, y: t.y, z: t.z });
+    if (last) taken.push({ x: last.x, y: last.y, z: last.z ?? t.z });
+  }
+  return taken;
+}
+
+/** Is a place within 1.2 m (on its floor) of one of `taken`? */
+export function isTaken(taken: readonly { x: number; y: number; z: number }[], p: { x: number; y: number; z: number }): boolean {
+  return taken.some((q) => Math.abs(q.z - p.z) < 1.5 && hypot2(q.x - p.x, q.y - p.y) < 1.2);
 }
 
 /**

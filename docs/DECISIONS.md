@@ -9218,3 +9218,8 @@ Owner decisions (binding, all the recommended options). Band for the four platoo
     only with the chain; the German with-chain holds, 65 %, would rise toward the 70 % ceiling) or a lower
     `defenderLooseShare` for the Russian defence only.
   - G rate: 5 of 160 (3.1 %), against 4 of 120 (3.3 %) at 305bad1 and 6 of 120 before G.
+- **Checks (review fixes):** typecheck, lint, data lint (no errors); `npm run golden:update` (all goldens changed from
+  tick 600 for the catalog fingerprint, then hold-resupply-s1 again for the placement fix; `golden/no-interiors`
+  untouched); `npm run check` alone: `npm test` 1,603 passed, 6 skipped; `test:perf` 23 of 24 (bench-vehicles passed;
+  bench-caches 16.8 against 17.8). bench-caches alone, branch and 21eb8a4 alternated three times: each failed once by
+  a few per cent and passed twice (container noise, the base included).

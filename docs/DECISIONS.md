@@ -9259,3 +9259,83 @@ crew whose hull is gone on foot, off-map assets dropped, a unit whose leader is 
 `sectorTerrain`), `chain.ts` (`runChain`), `npm run campaign -- chain --faction de|ru|xf [--battles n]`. Rejected:
 wrecks with their old side (every vehicle count, score and settlement would have needed an exception); the tally from
 events in `runBattle` (lost on a mid-battle save); craters into the grids for this battle's own bursts (goldens).
+
+## 2026-11-19 — M12.0b: scenario kinds and company-size battles (slice 12.0b, plan docs/plans/m12-roster.md 4.2)
+Built: `ScenarioDef.kind` attack, defence-counterattack, meeting, ambush, withdrawal (SPEC 6.9), with `platoon-attack`
+kept exactly as it was (every existing scenario, golden and batch builds the same input; goldens pass unchanged, no
+`golden:update`). `attack` is `platoon-attack` plus the plans and the attacker's break-off exit (tested: the inputs
+differ in nothing else). Each side stands at its start by a stance (holding its objectives, at its map edge, lying in
+wait); defence-counterattack: the defender's reserve platoon (`reservePlatoons`, default 1) comes on at `reserveAtS`
+(default 40 % of the time limit) at its own map edge, mounted when the battle has vehicles, and counter-attacks under a
+commander of its own; meeting: two objectives in the middle held by nobody, both sides attack them from their edges
+(attacker's allotment each, no dug positions); ambush: the attacker moves along the middle of the map to an exit zone
+at the far edge (men and hulls out there saved, 2 points a man, 10 a hull), the defender lies beside the route a
+little past the middle (17 % of the height off it, 110-200 m) with its hulls further along, `ambush` order (D4b) at
+220 m, planned fires on the route; on foot the map is 1200 x 900 and the attacker starts 20 % in (a walk of ~400 m to
+the ambush instead of 800: on a 1600 m map on foot one battle in 40 ran out of time with the column still walking);
+withdrawal: the defender holds its two objectives until `delayUntilS` (default 35 %; `ObjectiveDef.untilS`: the holder
+from then on scores them) and then gets out by an exit zone at its own map edge; the attacker follows up.
+**Sim (only with the new fields; absent, nothing runs):** `rules.exits` (`ExitZone`: a strip, side, points per man and
+hull; `systems/exits.ts`, once a second): an able man of that side on foot in it, or a hull that can drive (ok or
+disarmed, crewed, not towed) with its centre within 10 m of it (`EXIT_HULL_SLACK_M`: a hull cannot reach the very
+edge) leaves the map for good: the man is `evacuated` with `via: "exit"` and parked off the map (every system that
+passes the evacuated by passes him by; `isAble` false, `isOut` true) but he is saved: roster status as he left ("fit"
+or "wounded"), not a man down in the score, `SideScore.saved` / `savedPoints`, `SideResult.saved`; the hull is
+`exited` (`isOffMap`), everyone aboard with it; event `unit.exited`. A man carrying a casualty or carried does not leave
+by himself; prisoners are not led out. A side with an exit and nobody standing on the map, some of it out, ends the
+battle "side-withdrew" (no loser by that; the scores decide; string `aar.reason.side-withdrew`). `ObjectiveDef.untilS`
+freezes the holder. Late units (`arriveS`) now come on with their hulls (`lateHulls`: their crews' vehicles are created
+at arrival, crews seated, riders aboard; before, a late unit with a crew threw): only units with `arriveS` change.
+`ForceInput.plan` (`ForcePlan`: posture, untilS, exit, route, reserve, ambushRangeM, breakOff) is battle input the sim
+never reads. **AI (orders only, `ai/postures.ts`, `POSTURES_AI`, game values low):** `sideCommander` / `planControllers`
+pick each side's commander by its plan (no plan: the platoon commander, so every existing battle is commanded as
+before); `commanderController` takes a `CommanderScope` (`except` units, `attack` even where its side holds the
+objectives) and exposes its phase. Postures: the reserve's own commander attacks when it comes (its orders filtered to
+its own units); ambush (lie in wait, spring, close on the enemy known within 350 m 120 s after it was sprung); transit
+(fire free and `onContact: "push"`, every unit to the exit, sent on when it stands still 20 s or has not moved 10 m in
+60 s); withdraw (the platoon commander's defence until `untilS`, then squads within 250 m of their carrier mount, hulls
+wait up to 60 s, everyone to the exit); follow (the platoon commander's attack until `untilS`, then every unit to the
+nearest enemy its side knows within 500 m, else toward the enemy's exit, 80 m short); **break-off**: the attacking side
+of attack, defence-counterattack, meeting (both) and withdrawal has an exit zone at its own map edge (no points);
+60 s after its platoon commander broke the attack off (phase "withdraw": losses past the faction's tolerance or its
+vehicles lost), the side leaves by it, so a failed attack ends the battle instead of waiting at its start for the rest of
+the time limit (the stalemate the first matrix found: mounted attack, farmland seed 2, Russian attack withdrawn at 120 s,
+no fire from 505 s to 1200 s); a hull that does not get on (a broken track) lets its riders out to walk. Exit strips
+are 15 m wide (game value): wide enough that men whose move ends with the halt drill's cover search stay in it, narrow
+enough that no start position is in one (mortars 2 % in, missile and AGL teams of the new kinds at least 30 m in;
+tested: nobody starts in his side's exit). **Size:** `size: "company"` gives each side three platoons with the
+company's support (on-map mortar section, missile and AGL teams, the tank section, each unless set false); maps grow
+with the force (`scenarioMapSize`: the kind's base size x 1.6 for a company; a new kind with roster forces and no carried
+terrain x sqrt(men / 90), at most x 2); more than one defending platoon stands in rows 25 m behind the defence spots;
+start lines close up when they would not fit. **The company headquarters is not in the data yet** (no faction has a
+company template: 12.1a adds the battalion, company and company-HQ data, moving the catalog fingerprint once);
+`core/campaign.json` caps a battle at three platoons, the company HQ and one of each support element per side.
+`ScenarioDef.platoons`, `reinforcements` (extra platoons per side coming on at times), `reserveAtS`, `delayUntilS`.
+App: `&kind=` and `&size=company` (the enemy commanded by its plan). Tools: scenarios `bench-company`, `counterattack`,
+`meeting`, `ambush`, `withdrawal`; `npm run lab -- kinds`; `phoneperf --query`; `aiRunner` uses `planControllers`.
+**Acceptance (lab kinds, AI against AI, 1,200 s, attacker by seed parity, stalemate = ran to the time limit, no side
+fired in the last third, both sides above half their men able on the map):** on foot, 5 kinds x 4 map kinds (village,
+farmland, woodland, industrial; "flat" is no generated kind) x 10 seeds = 200 battles, 0 stalemates (attack: 25 ran
+to the time, 14 a side broken or wiped out, 1 withdrew; defence-counterattack 36 / 3 / 1; meeting 27 / 11 / 2; ambush:
+39 ended with a side wiped out, median 310 s, 7 men got through; withdrawal: 39 "side-withdrew", 780 men out by the
+exit, every one "fit" or "wounded" in `forcesOut`, median 886 s); medians 45-116x real time.
+With roster forces (each side's template build fed back in as roster records, `rosterForcesOf`; the counter-attack
+reserve then the defender's last platoon): 5 kinds x 4 maps x 3 seeds = 60 battles, 0 stalemates (withdrawal 218 men
+out, all fit or wounded). Mounted: 5 kinds x 4 maps x 2 seeds = 40 battles, 0 stalemates (8 of the 24 attack, counter-attack
+and meeting battles ended "side-withdrew": a side broke off and left by its own edge; ambush 136 men out, withdrawal
+200). Before the break-off and the ambush-on-foot change the matrix found 2 stalemates: an ambush on foot whose column
+was still walking at the time limit (1 of 200 on foot) and the mounted attack above (1 of 40 mounted). **Existing battles unchanged:** goldens and no-interiors goldens pass
+untouched; headless state hashes identical to main for platoon-vehicles (seed 1, 300 s), platoon-ru-vehicles (2),
+hold-resupply (1, 400 s) and assault-group (3). **Speed and the cap:** `bench-company` (33 hulls, 221 men on the map:
+DE 118, RU 103, AI against AI) headless on this container: 14x real time over whole battles (seed 1 1,200 s in 86 s;
+seed 2 922 s in 65 s), 18x over its first 240 s (the floor test, `BENCH_COMPANY_FLOOR_X` 4); so the cap is a company
+per side (`core/campaign.json` `battle`: 3 platoons, the company HQ, one mortar section, one missile team, one AGL team,
+one tank section; `floorX` 4, `measuredX` 14; owner question Q-C, option (a) kept). Phone proxy (`npm run phoneperf --
+--query "kind=attack&size=company" --map farmland`, reports/phoneperf-2026-11-19T18-16-11.md; software GL, report
+only): photo, idle at 1x, 4x CPU throttle: frame p50 98 ms, sim 15.3 ms a frame (the platoon battle on the same map:
+82 ms, 7.1 ms); flat 132 / 20.2 ms (platoon 116 / 11.7); no game time lost in any run; the sim share about doubles
+with a company each. Game values (all low): `SCENARIO_KIND`, `POSTURES_AI`, `EXIT_HULL_SLACK_M`. Rejected: removing a
+man who leaves from the stores (his record would have to be rebuilt; every reference to him would dangle); an exit
+"vehicle" carrying the men off (needs a vehicle type in the data: catalog fingerprint); resuming a broken-off attack
+after a pause (the faction's casualty tolerance said stop; leaving ends the battle and keeps the auto-resolve short);
+an `attack` identical to `platoon-attack` (without the break-off the matrix had a stalemate).

@@ -19,7 +19,7 @@ import type { SimContext } from "./context";
 import { EventSink } from "./events";
 import { newCache, pointForCache } from "./systems/supply";
 import { secondsToTicks, TICK_HZ } from "./ids";
-import { ammoOf } from "./ledger";
+import { ammoOf, chargeOf } from "./ledger";
 import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
 import { OFF_MAP_PARK, parkOffMap } from "./offmap";
@@ -582,6 +582,8 @@ export function arrivalSystem(ctx: SimContext, state: SimState, events: EventSin
     for (let id = first; id < state.nextEntityId; id++) ids.push(id);
     const ammo = ammoOf(ctx.catalog, state, ids);
     for (const k of Object.keys(ammo).sort()) events.emit({ kind: "items.delivered", tick: state.tick, holder: uid, item: k, count: ammo[k]!, ammo: k, rounds: ammo[k]! });
+    // (M12.0b: and the fuel in the tanks of the hulls that come with it.)
+    if (hulls.size > 0) for (const c of chargeOf(ctx.catalog, state, ids)) events.emit({ kind: "items.delivered", tick: state.tick, holder: uid, item: c.item, count: 0, chargeKind: c.kind, amount: c.amount });
   }
 }
 

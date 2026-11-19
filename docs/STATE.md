@@ -1,10 +1,18 @@
 # State — handover note
 
-_Last updated: 2026-11-19 (M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-19 (M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M12.0b built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.2).** Scenario kinds attack
+  (`platoon-attack` unchanged), defence-counterattack (reserve mounted at 40 %), meeting, ambush (to an exit at the far
+  edge), withdrawal (hold until 35 %, out by the own edge); exit zones (`rules.exits`: men out are `evacuated` `via:
+  "exit"`, saved and fit; hulls `exited`; "side-withdrew"), objectives scoring at a time (`untilS`), late units with
+  their hulls; `ForceInput.plan` read by the AI (`ai/postures.ts` `planControllers`: reserve counter-attack, ambush,
+  transit, withdraw, follow, break-off by the own edge); a company per side (`size: "company"`), maps from the force;
+  `bench-company` 14x real time headless (floor test 4x), cap in `core/campaign.json`; `npm run lab -- kinds`: 300
+  battles (foot 200, roster 60, mounted 40) without a stalemate. Company HQ data and the battalion: 12.1a. Next: 12.1a.
 - **M12.0a built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.1).** `BattleInput.damage`
   (holes, craters, vegetation loss, dug positions of earlier battles on the map) and `wrecksIn` (crewless hulls of
   side `WRECK_SIDE`, old side in `wreckIn`); `BattleResult.damageOut` and `service` (per man: seconds under effective

@@ -474,7 +474,10 @@ for the owner's numbers answer after playing, not for more building).
   - 12.0a contract gaps ✅ (2026-11-19): `BattleInput.damage` / `wrecksIn`, `BattleResult.damageOut` / `service`
     (only with `rules.campaignOut`), `ScenarioDef.forces` / `terrain`, campaign package rules (lint, `BattleRunner`),
     `npm run campaign -- chain`.
-  - 12.0b scenario kinds and company-size battles ⬜ · 12.1a battalion data and rules between battles ⬜ · 12.1b
+  - 12.0b scenario kinds and company-size battles ✅ (2026-11-19): attack, defence-counterattack, meeting, ambush,
+    withdrawal; exit zones, objectives scoring at a time, late units with their hulls, the AI's postures; a company per
+    side, `bench-company` 14x, the per-battle cap in `core/campaign.json`; `npm run lab -- kinds` (no stalemates).
+  - 12.1a battalion data and rules between battles ⬜ · 12.1b
     saves ⬜ · 12.2 operations and endless mode ⬜ · 12.3 phone roster interface ⬜ · 12.4 review ⬜
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 

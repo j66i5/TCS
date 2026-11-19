@@ -43,7 +43,7 @@ import { reactiveAdd, tileFor } from "../tiles";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
-import { aimHeightAt, friendInLine, skillFactor } from "./fire";
+import { aimHeightAt, dangerRadiusM, friendInLine, ownMenWithin, skillFactor } from "./fire";
 import { burstCadence, launchShot, pickRound } from "./shot";
 import { launchProjectile } from "./ballistics";
 import { radioFromTarget } from "./orders";
@@ -218,17 +218,21 @@ function targetLive(state: SimState, id: EntityId): boolean {
   return v !== undefined && v.status !== "destroyed" && v.status !== "abandoned";
 }
 
-/** Own men on foot within `r` of the point (no high explosive there). */
-function ownMenNear(state: SimState, side: string, x: number, y: number, r: number): boolean {
-  const r2 = r * r;
-  // mounted: ok men aboard are excluded below
-  for (const [id, s] of state.soldier.entries()) {
-    if (s.mount !== undefined || !s.physiology.alive) continue;
-    if (state.identity.get(id)?.side !== side) continue;
-    const t = state.transform.get(id);
-    if (t && (t.x - x) * (t.x - x) + (t.y - y) * (t.y - y) <= r2) return true;
-  }
-  return false;
+/**
+ * Balance pass 4 (owner 2026-11-19, danger close): how near the point aimed at an own man must not be when this
+ * station weapon fires this feed at `rangeM`: the round's danger radius (`dangerRadiusM`: its fragments and blast)
+ * plus its spread there, one standard deviation of the range error (the laser rangefinder's, else the eye's; the
+ * gunner's skill not counted: the worst case near enough) and two of the weapon's and the sight's angular error.
+ * 0 for a round that does not burst.
+ */
+export function stationDangerM(ctx: SimContext, def: VehicleDef, si: number, wi: number, fi: number, rangeM: number): number {
+  const sn = def.stations[si], wdef = sn?.weapons[wi];
+  const round = wdef ? ctx.catalog.items[wdef.feeds[fi]?.item ?? ""]?.chargeItem : undefined;
+  const dr = round === undefined ? 0 : dangerRadiusM(ctx, round);
+  if (dr <= 0) return 0;
+  const disp = ctx.catalog.weapons[wdef!.weapon]?.dispersionMrad ?? 0;
+  const frac = sn!.rangefinder ? ctx.catalog.behaviour.gunnery.lrfRangeErrorFraction : ctx.catalog.shooting.aim.rangeErrorFraction;
+  return dr + rangeM * (frac + (2 * sqrt(sn!.baseErrorMrad * sn!.baseErrorMrad + disp * disp)) / 1000);
 }
 
 /** The crew's choice of target: score, reasons, nature. */
@@ -317,7 +321,9 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     // (The machine gun at the middle of what the crew sees of him, package A.)
     heightM = nature === "he" ? 0 : aimHeightAt(ctx, best);
     // Never high explosive close to own men on foot: the machine gun, if he is in its reach, else nothing.
-    if (nature === "he" && ownMenNear(state, v.side, best.x, best.y, G.friendlyClearM)) {
+    // (Balance pass 4: at least the high-explosive round's danger radius and spread there, `stationDangerM`.)
+    const he = nature === "he" ? pickFeed(ctx, def, st, si, "he", v) : null;
+    if (nature === "he" && ownMenWithin(state, v.side, best.x, best.y, Math.max(G.friendlyClearM, he ? stationDangerM(ctx, def, si, he.weapon, he.feed, d) : 0))) {
       if (d <= (sn.weapons.find((w) => w.coax)?.engageRangeM ?? 0)) { nature = "mg"; heightM = aimHeightAt(ctx, best); keys.push("why.hold.friends"); }
       else return null;
     }
@@ -375,6 +381,15 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
       if (!f) {
         if (st.task) { st.task = null; emitDecision(events, state, vid, si, st, null, ["why.hold.ammunition"]); }
         continue;
+      }
+      // (Balance pass 4: a bursting round in place of the machine gun or the armour-piercing one, none left, is held
+      // when own men are within its danger radius of the point.)
+      if (f.nature !== pick.nature) {
+        const me = state.transform.req(vid), dz = stationDangerM(ctx, def, si, f.weapon, f.feed, hypot2(pick.x - me.x, pick.y - me.y));
+        if (dz > 0 && ownMenWithin(state, v.side, pick.x, pick.y, Math.max(G.friendlyClearM, dz))) {
+          if (st.task) { st.task = null; emitDecision(events, state, vid, si, st, null, ["why.hold.dangerClose"]); }
+          continue;
+        }
       }
       const changed = !st.task || st.task.contact !== pick.target || st.taskWeapon !== f.weapon || st.taskFeed !== f.feed;
       if (changed) setStationTask(ctx, state, vid, si, pick.x, pick.y, pick.heightM, f.weapon, f.feed, pick.target, true);
@@ -607,7 +622,11 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       }
       if (!task.lineClear || st.laidTick < 0 || tick < w.nextShotTick) continue;
       if (w.burstLeft <= 0) {
-        if (friendInLine(ctx, state, op, task.x, task.y)) { w.nextShotTick = tick + TICK_HZ / 2; continue; }
+        // Own men in the line, past the point within the beaten zone, or (a bursting round, balance pass 4: danger
+        // close) within its danger radius and spread of the point: no burst.
+        const dz = stationDangerM(ctx, def, si, st.taskWeapon, w.feed, hypot2(task.x - t.x, task.y - t.y));
+        if (friendInLine(ctx, state, op, task.x, task.y, Math.max(ctx.catalog.behaviour.gunnery.friendBeyondM ?? 0, dz))
+          || (dz > 0 && ownMenWithin(state, v.side, task.x, task.y, dz))) { w.nextShotTick = tick + TICK_HZ / 2; continue; }
         w.burstLeft = wdef.feedKind === "belt" && wd.sustained ? wd.sustained.burstRounds : 1;
         w.burstIndex = 0;
       }

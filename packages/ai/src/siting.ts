@@ -458,6 +458,9 @@ export interface HullDownOpts {
   ringsM?: readonly number[];
   /** Posts other hulls already hold or go to: no candidate within `altM[0]` of one (balance pass 2 review). */
   avoid?: readonly { x: number; y: number }[];
+  /** Balance pass 4: score this one spot only (where a hull stands), instead of the rings round the anchor (the
+   *  distance term still from the anchor). */
+  at?: { x: number; y: number };
 }
 
 export interface HullDownPost extends OverwatchPost { exposed?: true; score: number }
@@ -481,8 +484,8 @@ export function siteHullDown(ctx: SimContext, anchor: { x: number; y: number }, 
   let mx = 0, my = 0;
   for (const t of tg) { mx += t.x; my += t.y; }
   if (tg.length > 0) { mx /= tg.length; my /= tg.length; } else { mx = anchor.x; my = anchor.y; }
-  const cands: { x: number; y: number }[] = [];
-  for (const r of o.ringsM ?? D.ringsM) {
+  const cands: { x: number; y: number }[] = o.at ? [{ x: o.at.x, y: o.at.y }] : [];
+  for (const r of o.at ? [] : o.ringsM ?? D.ringsM) {
     const n = r === 0 ? 1 : Math.max(8, Math.round((2 * PI * r) / D.stepM));
     for (let k = 0; k < n; k++) {
       const b = (2 * PI * k) / n, x = anchor.x + cos(b) * r, y = anchor.y + sin(b) * r;

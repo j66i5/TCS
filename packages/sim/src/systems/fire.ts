@@ -25,7 +25,7 @@ import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import type { Container } from "../items";
-import { atan2, cos, exp, hypot2, PI, sin, sqrt } from "../math";
+import { atan2, cos, exp, hypot2, PI, pow, sin, sqrt } from "../math";
 import { restWithinReach } from "../nav";
 import { navFor } from "../navctx";
 import { indoorAt } from "../interior-nav";
@@ -214,6 +214,9 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
   if (range < 1e-6) return false;
   const ux = dx / range, uy = dy / range;
   const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
+  // (Balance pass 4: a gunner aboard sits 1.2-1.6 m above the ground (his seat), which the floor test below took for
+  // another floor: a vehicle gunner never saw his own men on foot in his line. Aboard, he fires from ground level.)
+  const selfZ = isMounted(state.soldier.get(id)) && !onRoof(state, id) ? 0 : self.z;
   // (Men aboard a vehicle are behind armour, M7: their hull blocks, `hullInLine`. A man aboard but working outside
   // it (repairing, hooking up, reloading on the roof) is a body like a man on foot: he blocks, balance pass 3 review.)
   for (const [other, ident] of state.identity.entries()) {
@@ -224,7 +227,7 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
     if (os !== undefined && (!os.physiology.alive || os.captive !== null)) continue;
     const o = state.transform.req(other);
     // (A man on another floor is not in the line: the window places of two floors share x, y. Review fixes.)
-    if (Math.abs(o.z - self.z) > FLOOR_APART_M) continue;
+    if (Math.abs(o.z - selfZ) > FLOOR_APART_M) continue;
     // (A man lying down is long: his body reaches about a metre from where he is.)
     const reach = os?.posture === "prone" ? Math.max(BODY_REACH_M, ctx.ballistics.bodyReachM) : BODY_REACH_M;
     const along = (o.x - me.x) * ux + (o.y - me.y) * uy;
@@ -234,6 +237,35 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
     if (across < reach + Math.max(0, along) * sinCone) return true;
   }
   return hullInLine(ctx, state, side, id, self.z, me.x, me.y, ux, uy, range + beyondM, sinCone);
+}
+
+/**
+ * Balance pass 4 (owner 2026-11-19, danger close for bursting rounds): how near the burst of this round a man is in
+ * danger (m): where its fragments, spread evenly over a sphere, strike a body of `danger.presentedAreaM2` with a
+ * chance of `danger.hitChance` (ballistics.json `fragments.danger`), at least the blast's injury radius. 0 for a round
+ * that does not burst.
+ */
+export function dangerRadiusM(ctx: SimContext, ammoId: string): number {
+  const ex = ctx.catalog.ammo[ammoId]?.explosive;
+  if (!ex) return 0;
+  const bal = ctx.catalog.ballistics, dg = bal.fragments.danger;
+  const blast = bal.blast.injuryScaledM * pow(ex.fillingKg, 1 / 3);
+  const frag = dg ? sqrt((ex.fragmentCount * dg.presentedAreaM2) / (4 * PI * dg.hitChance)) : 0;
+  return Math.max(blast, frag);
+}
+
+/** Balance pass 4: an own man of `side` on foot (or out on a hull), alive and not a prisoner, within `r` of the
+ *  point (no bursting round there). */
+export function ownMenWithin(state: SimState, side: string, x: number, y: number, r: number): boolean {
+  const r2 = r * r;
+  for (const [id, ident] of state.identity.entries()) {
+    if (ident.side !== side) continue;
+    const s = state.soldier.get(id);
+    if (s === undefined || !s.physiology.alive || s.captive !== null || (isMounted(s) && !onRoof(state, id))) continue;
+    const t = state.transform.get(id);
+    if (t && (t.x - x) * (t.x - x) + (t.y - y) * (t.y - y) <= r2) return true;
+  }
+  return false;
 }
 
 /**

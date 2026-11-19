@@ -71,9 +71,11 @@ describe("mounted-man invariants at run time (M7.2)", () => {
 
   it("a hull of his side, and the men aboard it, block a comrade's line of fire; wide of it they do not (balance pass 3)", () => {
     const sc = getScenario("platoon-vehicles");
-    const sim = createSim(sc.build(data, 1, 60));
-    const s = sim.state;
     let through = 0, wide = 0;
+    // (Balance pass 4: the defence's hulls start on their posts, spread out: two seeds for enough pairs.)
+    for (const seed of [1, 2]) {
+    const sim = createSim(sc.build(data, seed, 60));
+    const s = sim.state;
     // Defenders: their vehicle crews are aboard behind the objective, the riflemen on foot in front.
     // mounted: ok the test pairs men on foot with men aboard
     const men = [...s.identity.entries()].filter(([, i]) => i.side === "red");
@@ -109,9 +111,10 @@ describe("mounted-man invariants at run time (M7.2)", () => {
       });
       if (clearOf(wx, wy) && !otherHull) { wide++; expect(friendInLine(sim.ctx, s, f, wx, wy), `${f} wide of ${h}`).toBe(false); }
     }
+    step(sim);
+    }
     expect(through).toBeGreaterThan(2);
     expect(wide).toBeGreaterThan(2);
-    step(sim);
   });
 
   it("a gunner aboard does not fire through a hull of his side; his own hull and an enemy hull do not block (balance pass 3)", () => {

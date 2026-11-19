@@ -169,6 +169,9 @@ export interface TankArgs {
    *  crews whose squads are out: sited, moved and relocated as more sections (in pairs, keys "carriers-<k>") in its "hold"
    *  and "counter" stages, fire free to `defenceEngageM`. */
   carrierCrews?: readonly EntityId[];
+  /** Balance pass 4: the hulls (vehicle ids) placed on their hull-down posts at setup (`onPost` in the battle
+   *  input's placements, ai `defenceStartPosts`): at the side's first siting each keeps its spot as its first post. */
+  startPosts?: ReadonlySet<string>;
 }
 
 /** The highest sight of a vehicle type (its turret's eyes) and its hull aim point's height, m. */
@@ -326,14 +329,32 @@ export function tankSections(a: TankArgs): number {
         // (Review fix: a carrier pair keeps off the posts the other sections hold or go to.)
         const own = new Set(crews.map(String));
         const avoid = carriers === true ? Object.entries(mem.tk).filter(([c]) => !own.has(c)).flatMap(([, m]) => m.posts.slice(m.post, m.post + 1).map((p) => ({ x: p[0], y: p[1] }))) : [];
-        const posts = siteHullDown(ctx, plan.anchor, plan.targets, { cls: lead.def.class, turretZ, hullZ, rangeM: T.rangeM, threats, standoffM: T.coverStandoffM, ...(plan.behind ? { behind: plan.behind } : {}), from: { x: lead.x, y: lead.y }, vegMaxM: T.coverMinHeightM, ...(avoid.length > 0 ? { avoid } : {}) });
-        if (posts.length > 0) {
+        const opts = { cls: lead.def.class, turretZ, hullZ, rangeM: T.rangeM, threats, standoffM: T.coverStandoffM, ...(plan.behind ? { behind: plan.behind } : {}), from: { x: lead.x, y: lead.y }, vegMaxM: T.coverMinHeightM, ...(avoid.length > 0 ? { avoid } : {}) };
+        const posts = siteHullDown(ctx, plan.anchor, plan.targets, opts);
+        // Balance pass 4 (owner 2026-11-19): a defence's hull that starts the battle on the hull-down post sited for it
+        // (placed there at setup, `defenceStartPosts`; `startPosts`) keeps it as its first post, unless its spot is now
+        // no post at all (within the standoff of a threat, in a wood): no drive across the enemy's view to another.
+        const first = a.defending && stage === "hold" && mem.tkSited[key] === undefined && (a.startPosts?.size ?? 0) > 0;
+        const kept = new Map<EntityId, (typeof posts)[number]>();
+        if (first) {
+          for (const q of live) {
+            if (!a.startPosts!.has(q.v.vehicleId)) continue;
+            const here = siteHullDown(ctx, plan.anchor, plan.targets, { ...opts, at: { x: q.x, y: q.y } })[0];
+            if (here && here.exposed !== true) kept.set(q.c, here);
+          }
+        }
+        // (The posts the others take keep off the spots kept.)
+        const free = posts.filter((p) => ![...kept.values()].some((h) => hypot2(p.x - h.x, p.y - h.y) < T.samePostM));
+        if (posts.length > 0 || kept.size > 0) {
           let k = 0;
           for (const q of live) {
             const m = mem.tk[String(q.c)]!;
             if (m.pulled) continue;
             // Tank k takes post k; the others follow as its alternates.
-            const mine = posts.map((_, j) => posts[(k + j) % posts.length]!);
+            const list = free.length > 0 ? free : posts;
+            let mine = list.length > 0 ? list.map((_, j) => list[(k + j) % list.length]!) : [];
+            const here = kept.get(q.c);
+            if (here) mine = [here, ...mine];
             m.posts = mine.map((p) => [p.x, p.y, p.facing]);
             m.post = 0; m.stage = stage; m.sent = -1e9; m.shots = 0;
             k++;

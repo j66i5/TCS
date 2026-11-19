@@ -264,7 +264,9 @@ export interface BallisticsDef {
     /** A wall thinner than this (steel-equivalent mm) does not shield a man from blast. */
     shieldSteelMm: number;
   };
-  fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number; clutterHeightM: number; clutterStopPerM: number };
+  fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number; clutterHeightM: number; clutterStopPerM: number;
+    /** Balance pass 4: the danger radius of a bursting round (`dangerRadiusM`, fire.ts). */
+    danger?: { presentedAreaM2: number; hitChance: number } };
   /** M11 hold battle: dug fighting positions (`sim/positions.ts`). */
   fightingPosition?: { halfWidthM: number; depthM: number; exposedM: { standing: number; crouching: number; prone: number }; spacingM: number };
   bounce: { restitution: number; tangentKeep: number; softFactor: number; vegetationFactor: number; softBelowDensityKgM3: number; stopSpeedMps: number };
@@ -544,6 +546,8 @@ export interface BehaviourDef {
     groupRadiusM: number; coaxSingleWithinM: number; vehicleScore: number; firingScore: number;
     lrfRangeErrorFraction: number; refillBelowFraction: number;
     friendlyClearM: number; scanReturnSeconds: number; dischargeAheadM: number;
+    /** Balance pass 4: the beaten zone past the point that own men block a station's fire in (m; absent 0). */
+    friendBeyondM?: number;
     /** Guided missiles (owner 2026-11-13; see the schema). */
     missileBeyondM?: number; missileHaltedMps?: number; missileSightSeconds?: number; missileSeenFloor?: number; missileHitLoseChance?: number;
   };

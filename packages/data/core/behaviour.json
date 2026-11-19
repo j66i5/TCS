@@ -347,6 +347,7 @@
     "lrfRangeErrorFraction": 0.005,
     "refillBelowFraction": 0.25,
     "friendlyClearM": 60,
+    "friendBeyondM": 60,
     "scanReturnSeconds": 20,
     "dischargeAheadM": 35,
     "missileBeyondM": 1000,

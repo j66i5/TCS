@@ -13,9 +13,9 @@ import {
 } from "@tcs/campaign";
 import { battleResultOf, createSim, emptyLogistics, logisticsFromEvents, step, submitOrder, tracerMap, type Order } from "@tcs/sim";
 import { planControllers } from "@tcs/ai";
-import { aiRunner } from "../src/campaign";
-import { loadData, ON_POSTS } from "../src/scenarios";
-import { finishNode, sectorPreview } from "../../app/src/campaign/resolve";
+import { aiRunner } from "../../tools/src/campaign";
+import { loadData, ON_POSTS } from "../../tools/src/scenarios";
+import { finishNode, sectorPreview } from "../src/campaign/resolve";
 
 const data = loadData(true);
 const ENV: FlowEnv = { runner: aiRunner, hooks: ON_POSTS };

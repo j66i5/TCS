@@ -12,13 +12,24 @@ import { buildAppearance, type DataSet } from "@tcs/data";
 import { flatColours, paintRegion, photoInit, PhotoPainter } from "@tcs/render";
 import { buildScenario } from "@tcs/scenario";
 import { runBattle, TICK_HZ, type BattleResult } from "@tcs/sim";
-import type { SectorPreview } from "@tcs/ui";
 
 /** `runBattle` with the AI commander on both sides (by each side's plan); progress every 10 battle seconds. */
 export const appRunner: BattleRunner = (input, opts) => runBattle(input, {
   controllers: planControllers(input),
   ...(opts.onProgress ? { onTick: (sim) => { if (sim.state.tick % (10 * TICK_HZ) === 0) opts.onProgress!(sim.state.tick / TICK_HZ); } } : {}),
 });
+
+/** The sector preview (the shape `@tcs/ui` `drawSectorPreview` draws; kept here so this module needs no ui import:
+ *  the Node tests load it). */
+export interface SectorPreview {
+  w: number; h: number; rgba: Uint8ClampedArray<ArrayBuffer>; widthM: number; heightM: number;
+  buildings: number[][];
+  objectives: { x: number; y: number; r: number; holder: "player" | "enemy" | null }[];
+  exits: { x0: number; y0: number; x1: number; y1: number; own: boolean }[];
+  men: { x: number; y: number }[];
+  hulls: { x: number; y: number }[];
+  attacker: "player" | "enemy";
+}
 
 export interface NodeProgress { which: "main" | "flank"; seconds: number }
 

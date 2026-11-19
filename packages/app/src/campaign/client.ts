@@ -6,8 +6,7 @@
 import type { CampaignRecord } from "@tcs/campaign";
 import type { DataSet } from "@tcs/data";
 import type { BattleResult } from "@tcs/sim";
-import type { SectorPreview } from "@tcs/ui";
-import { finishNode, nodeTotals, sectorPreview, type NodeProgress } from "./resolve";
+import { finishNode, nodeTotals, sectorPreview, type NodeProgress, type SectorPreview } from "./resolve";
 
 export interface ResolveCallbacks {
   onStart(totals: { main: number | null; flank: number | null }): void;

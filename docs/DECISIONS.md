@@ -9650,7 +9650,7 @@ briefing, the played battle's review with its button, the after card of the play
 Fixed from the looking: the progress screen showed no bar until the battles were built (now "Building the battle..."
 with a moving bar), the desktop preview filled the screen (now at most 52 % of the height), a cancelled preview stayed
 "Drawing..." (drawn again), "Headquarters company HQ" twice, the sticky button bar let text through. Node tests
-`tools/test/campaign-views.test.ts` (7): the tree adds up (a new DE battalion all fit, ammunition 1, every hull in
+`app/test/campaign-views.test.ts` (7): the tree adds up (a new DE battalion all fit, ammunition 1, every hull in
 service), the man card and Make leader (squad, refusals, the chosen leader leads the squad in the next battle's input),
 the briefing (proposal, cap, estimate rounded, problems, Change forces), the sector preview in both looks, what changed
 (numbers = the battle summary, lists = the pools; identical from a loaded save), the replenishment card, and a battle

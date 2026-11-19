@@ -9124,3 +9124,7 @@ Owner decisions (binding, all the recommended options). Band for the four platoo
   and fixed (`tools logistics.test`: the man put beside the threatened point, the squad's third, is now one of its
   ammunition bearers on his errand, so the commander rightly leaves him out; the test takes a man with no errand), re-run
   pass.
+- **Timing (F+G and H+E together):** `npm run test:perf` alone: 23 of 24 (bench-vehicles 7.64x against 8x). Then
+  bench-vehicles alone, branch and origin/main 21eb8a4 alternated three times each: passed (>= 8x) every time on both:
+  container noise, no measurable cost (return fire runs only for a man fired on in the last 10 s with no target; the
+  same-spot test is two multiplications per comrade).

@@ -48,6 +48,12 @@ export interface CampaignBattle {
   mapKind: string;
   mapSeed: number;
   attacker: CampaignSide;
+  /** M12.2: the node type and sector; `flank`: a flank battle fought at the same time as the node's main battle (it is
+   *  applied first, without the clock: the main battle's application runs the clock for both, and only the main battle
+   *  counts as a battle of the operation). */
+  node?: string;
+  sector?: number;
+  flank?: boolean;
 }
 
 const STAY: ReadonlySet<SoldierRecord["status"]> = new Set(["fit", "wounded"]);
@@ -162,21 +168,35 @@ export function applyResult(data: DataSet, record0: CampaignRecord, battle: Camp
     const other = side === "player" ? "enemy" : "player";
     for (const p of captives[other]) record.sides[side].pools.prisoners.push({ personId: p.record.personId, given: p.record.given, family: p.record.family, rank: p.record.rank, battle: index });
   }
-  // The clock: the battle and the hours to the next.
+  // The clock: the battle and the hours to the next (a flank battle: the main battle's application runs it).
   const hours = battle.result.durationSeconds / 3600 + rules.clock.hoursBetweenBattles;
-  record.hours += hours;
+  if (!battle.flank) record.hours += hours;
   for (const side of ["player", "enemy"] as const) {
-    record.log.push(...passTime(data, rules, record.sides[side], hours, rules.recovery.rejoinWithinOperation, index, side));
+    if (!battle.flank) record.log.push(...passTime(data, rules, record.sides[side], hours, rules.recovery.rejoinWithinOperation, index, side));
     record.log.push(...appointLeaders(data, record.sides[side], index, side, lost[side]));
   }
   const w = battle.result.winner;
   record.history.push({
     index, operation: record.operation.index, kind: battle.kind, mapKind: battle.mapKind, mapSeed: battle.mapSeed, seed: battle.input.seed,
+    ...(battle.node !== undefined ? { node: battle.node } : {}), ...(battle.sector !== undefined ? { sector: battle.sector } : {}), ...(battle.flank ? { flank: true } : {}),
     playerSide: battle.playerSide, attacker: battle.attacker, winner: w === null ? null : w === sideOf.player ? "player" : "enemy",
     endReason: battle.result.endReason, durationS: battle.result.durationSeconds, men, hulls,
   });
   record.battles++;
-  record.operation.battles++;
+  if (!battle.flank) record.operation.battles++;
+  return record;
+}
+
+/** M12.2: the clock runs `hours` without a battle (a node won without one): men rest, the recovering heal and rejoin,
+ *  the workshop repairs, leaders are appointed where one is missing. */
+export function passHours(data: DataSet, record0: CampaignRecord, hours: number): CampaignRecord {
+  const rules = campaignRules(data);
+  const record = clone(record0);
+  record.hours += hours;
+  for (const side of ["player", "enemy"] as const) {
+    record.log.push(...passTime(data, rules, record.sides[side], hours, rules.recovery.rejoinWithinOperation, record.battles, side));
+    record.log.push(...appointLeaders(data, record.sides[side], record.battles, side));
+  }
   return record;
 }
 

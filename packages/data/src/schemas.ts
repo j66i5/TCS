@@ -1525,12 +1525,44 @@ export const CampaignFile = z.object({
       mortarSections: z.number().int().min(0).max(3), missileTeams: z.number().int().min(0).max(3), aglTeams: z.number().int().min(0).max(3), tankSections: z.number().int().min(0).max(3),
       /** Headless speed floor (multiples of real time) and what the benchmark measured. */
       floorX: Num(1, 100), measuredX: Num(0, 10000),
+      /** M12.2: a campaign battle's time limit (s). */
+      seconds: Num(60, 7200).optional(),
     }).strict(),
     /** M12.1a: the clock between battles: hours from one battle's end to the next battle of an operation, days between
      *  operations (the replenishment); battles of an operation (the chain's), endless mode's replenishment rhythm. */
     clock: z.object({ hoursBetweenBattles: Num(0, 720), daysBetweenOperations: Num(0, 365) }).strict(),
-    operation: z.object({ battles: z.number().int().min(1).max(20) }).strict(),
-    endless: z.object({ replenishEvery: z.number().int().min(1).max(50) }).strict(),
+    /** M12.2: `battles` is also the most battles (nodes) an operation has; `minBattles` the fewest before a failure may
+     *  end it; its line of `sectors` [min, max] connected sector maps (each a `mapKinds` kind, its own seed, the size of
+     *  its first node's kind at company size), the first node drawn from `start`, every further sector's planned node
+     *  from `planned`; each node has a flank battle for a second company with chance `flankChance` (its node from
+     *  `flankNodes`, on a flank sector of its own). */
+    operation: z.object({
+      battles: z.number().int().min(1).max(20),
+      minBattles: z.number().int().min(1).max(20).optional(),
+      sectors: z.tuple([z.number().int().min(1).max(20), z.number().int().min(1).max(20)]).optional(),
+      start: z.array(Id).min(1).optional(),
+      planned: z.array(Id).min(1).optional(),
+      flankNodes: z.array(Id).min(1).optional(),
+      flankChance: Num(0, 1).optional(),
+      mapKinds: z.array(z.enum(["village", "farmland", "woodland", "industrial"])).min(1).optional(),
+    }).strict(),
+    /** M12.2 endless mode: a replenishment every `replenishEvery` battles (nodes); a new sector every `sectorEvery`. */
+    endless: z.object({ replenishEvery: z.number().int().min(1).max(50), sectorEvery: z.number().int().min(1).max(50).optional() }).strict(),
+    /** M12.2: node types (a scenario kind, who attacks, the enemy's commit as a ratio of the player's men, whether the
+     *  enemy brings its company headquarters and support). */
+    nodes: z.record(Id, z.object({
+      kind: z.enum(["attack", "defence-counterattack", "meeting", "ambush", "withdrawal"]),
+      attacker: z.enum(["player", "enemy"]),
+      enemyRatio: Num(0.05, 5),
+      enemySupport: z.boolean(),
+    }).strict()).optional(),
+    /** M12.2: the transition table: per node type and result (the player's win, loss, draw) the next node ("planned":
+     *  the next sector's planned node) and sector ("next": one forward on the line, "same", "back": one back). */
+    transitions: z.record(Id, z.object({
+      win: z.object({ node: Id, sector: z.enum(["next", "same", "back"]) }).strict(),
+      loss: z.object({ node: Id, sector: z.enum(["next", "same", "back"]) }).strict(),
+      draw: z.object({ node: Id, sector: z.enum(["next", "same", "back"]) }).strict(),
+    }).strict()).optional(),
     /** Experience (owner 2026-11-19: a little per battle, more under fire, capped): a man who took part gains `perBattle`
      *  plus `perMinuteUnderFire` per minute under effective fire (`BattleResult.service`), at most `capPerBattle` in one
      *  battle, never above `cap` (a man already above it keeps what he has). */

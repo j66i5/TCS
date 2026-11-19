@@ -7,8 +7,8 @@
  */
 import type { DataSet } from "@tcs/data";
 import { buildCatalog } from "@tcs/data";
-import { canonicalJson, createRng, hashText, newVehicleRecord, type Catalog, type RngState, type SoldierRecord, type UnitInput, type VehicleRecord } from "@tcs/sim";
-import { buildForceWithVehicles, type CarrierClass } from "@tcs/scenario";
+import { canonicalJson, createRng, hashText, newVehicleRecord, type Catalog, type RngState, type SoldierRecord, type TerrainDamage, type UnitInput, type VehicleRecord, type WreckRecord } from "@tcs/sim";
+import { buildForceWithVehicles, type CarrierClass, type MapKind } from "@tcs/scenario";
 
 export const CAMPAIGN_VERSION = 2;
 
@@ -87,6 +87,11 @@ export interface CampaignForce {
 export interface BattleSummary {
   index: number;
   operation: number;
+  /** M12.2: the node type, the sector (id in the operation's sectors), a flank battle (a second company, auto-resolved,
+   *  fought at the same time as the node's main battle). */
+  node?: string;
+  sector?: number;
+  flank?: boolean;
   kind: string;
   mapKind: string;
   mapSeed: number;
@@ -124,12 +129,14 @@ export interface ConsumptionEntry {
 export interface CampaignLogEntry {
   battle: number;
   side: CampaignSide;
-  kind: "leader" | "rejoin" | "unassigned" | "replacement" | "refill" | "hull-repaired" | "hull-replaced" | "replenishment";
+  kind: "leader" | "rejoin" | "unassigned" | "replacement" | "refill" | "hull-repaired" | "hull-replaced" | "replenishment"
+    /** M12.2 flow: an operation began / ended (`how`), a node was won without a battle (the enemy had nothing). */
+    | "operation-start" | "operation-end" | "walkover";
   unitKey?: string;
   personId?: string;
   /** Leader: whom he replaced; how he was chosen ("own": a man of the unit; "sub": a sub-unit's leader moved up). */
   replaced?: string;
-  how?: "own" | "sub";
+  how?: "own" | "sub" | OperationEnd;
   vehicleId?: string;
   count?: number;
 }
@@ -149,6 +156,88 @@ export interface CampaignRecord {
   history: BattleSummary[];
   consumption: ConsumptionEntry[];
   log: CampaignLogEntry[];
+  /** M12.2: a campaign battle's time limit (s; absent: `battle.seconds` of the rules). */
+  battleSeconds?: number;
+  /** M12.2: the operation under way (operations mode) or the endless run (endless mode); absent before the first. */
+  op?: OperationState;
+  /** M12.2: operations finished (operations mode). */
+  operations?: OperationSummary[];
+  /** M12.2: where the campaign's state machine stands (flow.ts). */
+  flow?: FlowState;
+}
+
+/** M12.2: a sector map (its kind, seed and size make the same map every time) and what earlier battles left on it. */
+export interface Sector {
+  id: number;
+  mapKind: MapKind;
+  mapSeed: number;
+  widthM: number;
+  heightM: number;
+  /** Battles fought on it. */
+  battles: number;
+  damage?: TerrainDamage;
+  wrecks?: WreckRecord[];
+  /** A flank sector: the line sector it lies beside. */
+  flankOf?: number;
+}
+
+export type NodeResult = "win" | "loss" | "draw";
+export type OperationEnd = "success" | "failure" | "limit" | "no-force";
+
+/** M12.2: one node of an operation as it went. */
+export interface OperationStep {
+  node: string;
+  /** The sector (id) and its place on the line. */
+  sector: number;
+  pos: number;
+  result: NodeResult;
+  /** The main battle's index in the history (absent: won without a battle). */
+  battle?: number;
+  walkover?: boolean;
+  /** The flank battle: its node, sector, index and result (absent: none this node). */
+  flank?: { node: string; sector: number; battle?: number; result: NodeResult; walkover?: boolean };
+  /** What the table gave (the next node and position), or how the operation ended. */
+  next?: { node: string; pos: number };
+  end?: OperationEnd;
+}
+
+/** M12.2: the operation under way (or the endless run). */
+export interface OperationState {
+  index: number;
+  endless: boolean;
+  /** The line: sector ids in order (operations), and each position's planned node. Endless: the sectors so far. */
+  line: number[];
+  planned: string[];
+  sectors: Sector[];
+  nextSectorId: number;
+  /** The node to fight next: its type, its place on the line, its flank battle (none: undefined). */
+  node: string;
+  pos: number;
+  flank?: { node: string; sector: number };
+  steps: OperationStep[];
+  /** Nodes since the last replenishment (endless). */
+  sinceReplenishment: number;
+  end: OperationEnd | null;
+}
+
+/** M12.2: a finished operation. */
+export interface OperationSummary {
+  index: number;
+  sectors: number;
+  steps: OperationStep[];
+  end: OperationEnd;
+  /** Battles fought (main and flank) and nodes. */
+  battles: number;
+  nodes: number;
+}
+
+/** M12.2: the state machine (flow.ts). */
+export type FlowPhase = "briefing" | "choose" | "battle" | "after-battle" | "replenishment" | "operation-end";
+export interface FlowState {
+  phase: FlowPhase;
+  /** The player's choice (selectable unit keys: a company key is its headquarters) and the flank company's. */
+  choice?: string[];
+  flankChoice?: string[];
 }
 
 export interface NewCampaignOptions {
@@ -158,6 +247,8 @@ export interface NewCampaignOptions {
   carriers?: CarrierClass;
   enemyCarriers?: CarrierClass;
   mode?: CampaignMode;
+  /** M12.2: a battle's time limit (s; default the rules' `battle.seconds`). */
+  battleSeconds?: number;
 }
 
 /** The battalion template of a faction for a carrier class (the other class when it has none). */
@@ -216,6 +307,7 @@ export function newCampaign(data: DataSet, opts: NewCampaignOptions): CampaignRe
       enemy: newForce(data, catalog, opts.enemy, opts.enemyCarriers ?? opts.carriers ?? "tracked", "E", opts.seed * 2 + 2),
     },
     history: [], consumption: [], log: [],
+    ...(opts.battleSeconds !== undefined ? { battleSeconds: opts.battleSeconds } : {}),
   };
 }
 

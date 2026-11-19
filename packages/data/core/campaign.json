@@ -8,17 +8,49 @@
       "aglTeams": 1,
       "tankSections": 1,
       "floorX": 4,
-      "measuredX": 14
+      "measuredX": 14,
+      "seconds": 1200
     },
     "clock": {
       "hoursBetweenBattles": 12,
       "daysBetweenOperations": 7
     },
     "operation": {
-      "battles": 5
+      "battles": 5,
+      "minBattles": 3,
+      "sectors": [
+        3,
+        5
+      ],
+      "start": [
+        "attack",
+        "attack",
+        "meeting",
+        "defend"
+      ],
+      "planned": [
+        "attack",
+        "attack",
+        "meeting",
+        "pursue",
+        "ambush"
+      ],
+      "flankNodes": [
+        "attack",
+        "defend",
+        "meeting"
+      ],
+      "flankChance": 0.3,
+      "mapKinds": [
+        "village",
+        "farmland",
+        "woodland",
+        "industrial"
+      ]
     },
     "endless": {
-      "replenishEvery": 3
+      "replenishEvery": 3,
+      "sectorEvery": 2
     },
     "experience": {
       "perBattle": 0.005,
@@ -43,6 +75,130 @@
     "combatIneffective": 0.5,
     "sources": [],
     "confidence": "low",
-    "note": "M12.0b (plan m12-roster 4.2, owner Q-C option (a)): software values, no source. What one battle commits per side at most: a company's worth, three platoons, its headquarters (company headquarters data come with M12.1a), one mortar section, one missile team, one AGL team and one tank section. Measured with bench-company (a company each, mounted, AI against AI) headless on the build container: measuredX multiples of real time against the floor floorX (DECISIONS M12.0b). M12.1a (plan 4.3, game values, low): 12 h between the battles of an operation and 7 days between operations; an operation of 5 battles (the chain; M12.2 makes them 3-5), endless mode replenished every 3 battles; experience +0.005 per battle and +0.004 per minute under effective fire, at most +0.04 a battle, never above 0.9 (a survivor of a full operation under fire about +0.1-0.2, plan 4.7); fatigue -0.05, shock -0.1, strain -0.01 an hour; an evacuated man without settled days is out 7 days and rejoins when they are up (owner Q-A (a)); a recovered hull without settled days 3 workshop days, lost hulls replaced at replenishment (Q-B (a)); green replacements of the conscript level; combat-ineffective below half the establishment able."
+    "note": "M12.0b (plan m12-roster 4.2, owner Q-C option (a)): software values, no source. What one battle commits per side at most: a company's worth, three platoons, its headquarters (company headquarters data come with M12.1a), one mortar section, one missile team, one AGL team and one tank section. Measured with bench-company (a company each, mounted, AI against AI) headless on the build container: measuredX multiples of real time against the floor floorX (DECISIONS M12.0b). M12.1a (plan 4.3, game values, low): 12 h between the battles of an operation and 7 days between operations; an operation of 5 battles (the chain; M12.2 makes them 3-5), endless mode replenished every 3 battles; experience +0.005 per battle and +0.004 per minute under effective fire, at most +0.04 a battle, never above 0.9 (a survivor of a full operation under fire about +0.1-0.2, plan 4.7); fatigue -0.05, shock -0.1, strain -0.01 an hour; an evacuated man without settled days is out 7 days and rejoins when they are up (owner Q-A (a)); a recovered hull without settled days 3 workshop days, lost hulls replaced at replenishment (Q-B (a)); green replacements of the conscript level; combat-ineffective below half the establishment able. M12.2 (plan 4.5, game values, low): a campaign battle 1200 s; an operation is a line of 3-5 connected sectors (exit edge east to the next sector's west edge; the player is blue, west), at least 3 and at most 5 battles; the first node drawn from `start`, each further sector's planned node from `planned`; a flank battle for a second company with chance 0.3 per node (auto-resolved); node types: attack (the player attacks, the enemy commits 0.7 of the player's men, no HQ or support), defend (the enemy attacks the player's position, the player's last platoon its counter-attack reserve; enemy 1.0 with support), meeting (1.0 with support), ambush (the player lies in wait for an enemy on the move, 0.7), withdraw (the player delays and leaves, the enemy follows, 1.0 with support), pursue (the enemy delays and leaves, the player follows, 0.7); the transition table: a win goes on to the next sector's planned node (a win there at the last sector: success), a loss turns into the enemy's counter-attack (defend) or a withdrawal (back a sector), a draw fights the same sector again; endless mode: a new sector every 2 battles.",
+    "nodes": {
+      "attack": {
+        "kind": "attack",
+        "attacker": "player",
+        "enemyRatio": 0.7,
+        "enemySupport": false
+      },
+      "defend": {
+        "kind": "defence-counterattack",
+        "attacker": "enemy",
+        "enemyRatio": 1.0,
+        "enemySupport": true
+      },
+      "meeting": {
+        "kind": "meeting",
+        "attacker": "player",
+        "enemyRatio": 1.0,
+        "enemySupport": true
+      },
+      "ambush": {
+        "kind": "ambush",
+        "attacker": "enemy",
+        "enemyRatio": 0.7,
+        "enemySupport": false
+      },
+      "withdraw": {
+        "kind": "withdrawal",
+        "attacker": "enemy",
+        "enemyRatio": 1.0,
+        "enemySupport": true
+      },
+      "pursue": {
+        "kind": "withdrawal",
+        "attacker": "player",
+        "enemyRatio": 0.7,
+        "enemySupport": false
+      }
+    },
+    "transitions": {
+      "attack": {
+        "win": {
+          "node": "planned",
+          "sector": "next"
+        },
+        "loss": {
+          "node": "defend",
+          "sector": "same"
+        },
+        "draw": {
+          "node": "attack",
+          "sector": "same"
+        }
+      },
+      "defend": {
+        "win": {
+          "node": "planned",
+          "sector": "next"
+        },
+        "loss": {
+          "node": "withdraw",
+          "sector": "same"
+        },
+        "draw": {
+          "node": "defend",
+          "sector": "same"
+        }
+      },
+      "meeting": {
+        "win": {
+          "node": "planned",
+          "sector": "next"
+        },
+        "loss": {
+          "node": "defend",
+          "sector": "same"
+        },
+        "draw": {
+          "node": "meeting",
+          "sector": "same"
+        }
+      },
+      "ambush": {
+        "win": {
+          "node": "planned",
+          "sector": "next"
+        },
+        "loss": {
+          "node": "withdraw",
+          "sector": "same"
+        },
+        "draw": {
+          "node": "defend",
+          "sector": "same"
+        }
+      },
+      "withdraw": {
+        "win": {
+          "node": "ambush",
+          "sector": "back"
+        },
+        "loss": {
+          "node": "defend",
+          "sector": "back"
+        },
+        "draw": {
+          "node": "defend",
+          "sector": "back"
+        }
+      },
+      "pursue": {
+        "win": {
+          "node": "planned",
+          "sector": "next"
+        },
+        "loss": {
+          "node": "defend",
+          "sector": "same"
+        },
+        "draw": {
+          "node": "attack",
+          "sector": "same"
+        }
+      }
+    }
   }
 }

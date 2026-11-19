@@ -9331,7 +9331,7 @@ DE 118, RU 103, AI against AI) headless on this container: 14x real time over wh
 seed 2 922 s in 65 s), 18x over its first 240 s (the floor test, `BENCH_COMPANY_FLOOR_X` 4); so the cap is a company
 per side (`core/campaign.json` `battle`: 3 platoons, the company HQ, one mortar section, one missile team, one AGL team,
 one tank section; `floorX` 4, `measuredX` 14; owner question Q-C, option (a) kept). Phone proxy (`npm run phoneperf --
---query "kind=attack&size=company" --map farmland`, reports/phoneperf-2026-11-19T18-16-11.md; software GL, report
+--query "kind=attack&size=company" --map farmland`, its report reports/phoneperf-2026-11-19T18-16-11.md is not kept in git: the numbers here; software GL, report
 only): photo, idle at 1x, 4x CPU throttle: frame p50 98 ms, sim 15.3 ms a frame (the platoon battle on the same map:
 82 ms, 7.1 ms); flat 132 / 20.2 ms (platoon 116 / 11.7); no game time lost in any run; the sim share about doubles
 with a company each. Game values (all low): `SCENARIO_KIND`, `POSTURES_AI`, `EXIT_HULL_SLACK_M`. Rejected: removing a

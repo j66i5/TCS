@@ -108,11 +108,17 @@ export interface NodeBattles {
 
 const seedOf = (record: CampaignRecord, which: "main" | "flank") => hashString32(`campaign/${record.seed}/${record.battles}/${which}`);
 
+/** A faction's fighting value per man (M12.4: factions/<id>/campaign.json; 1 without it). */
+export const fightingValue = (data: DataSet, faction: string): number => data.factions[faction]?.campaign?.fightingValue ?? 1;
+/** The player's fighting value per man over the enemy's: the enemy's commit ratio is weighed by it (M12.4). */
+export const valueRatio = (data: DataSet, record: CampaignRecord): number =>
+  fightingValue(data, record.sides.player.faction) / fightingValue(data, record.sides.enemy.faction);
+
 /** The enemy's units for the node's main or flank battle (keys), against the player's committed men. */
 export function enemyFor(data: DataSet, record: CampaignRecord, which: "main" | "flank", playerMen: number, exclude: readonly string[] = []): string[] {
   const o = operationRules(data);
   const nt = o.nodes[which === "main" ? record.op!.node : record.op!.flank!.node]!;
-  return enemyChoice(data, record.sides.enemy, playerMen, nt.enemyRatio, nt.enemySupport, exclude);
+  return enemyChoice(data, record.sides.enemy, playerMen, nt.enemyRatio * valueRatio(data, record), nt.enemySupport, exclude);
 }
 
 /** In "battle": the node's battles, built (pure: the same record gives the same inputs). */

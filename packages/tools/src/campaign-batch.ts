@@ -14,7 +14,7 @@
  */
 import type { DataSet } from "@tcs/data";
 import {
-  autoPlay, membersOf, newCampaign, proposeChoice, nextNode, operationRules, hashRecord, menOf, type BattleRunner, type CampaignMode, type CampaignRecord, type CampaignSide,
+  ableShare, autoPlay, membersOf, newCampaign, proposeChoice, nextNode, operationRules, hashRecord, menOf, type BattleRunner, type CampaignMode, type CampaignRecord, type CampaignSide,
   type OperationStep, type OperationSummary,
 } from "@tcs/campaign";
 import type { CarrierClass } from "@tcs/scenario";
@@ -57,6 +57,19 @@ export interface PartResult {
   /** Per side at the end and after every replenishment / operation: men with units, recovering, dead, experience. */
   snapshots: { afterNode: number; side: CampaignSide; men: number; recovering: number; dead: number; held: number; xp: number[] }[];
   wallS: number;
+  /** M12.4 tuning: per finished operation, the player's survivors' experience gain (men in the battalion at its start
+   *  and at its end), the able share and losses in a row at its end, men back from recovery inside it. */
+  opStats?: OpStat[];
+  /** M12.4: settled recovery days of every player man evacuated (or incapacitated) in a battle. */
+  recoveryDays?: number[];
+  /** M12.4: endless mode, the player's able share just before each replenishment. */
+  ableBeforeReplenish?: number[];
+}
+
+export interface OpStat {
+  index: number; end: string; nodes: number; able: number; lossesInRow: number; rejoined: number;
+  /** Survivors: experience gained over the operation, minutes under effective fire, battles fought (main and flank). */
+  survivors: { gain: number; fireMin: number; battles: number; xp: number }[];
 }
 
 const sum = (r: Record<string, number> | undefined) => Object.values(r ?? {}).reduce((a, b) => a + b, 0);
@@ -98,6 +111,11 @@ export function runCampaignPart(data: DataSet, o: PartOptions, runner: BattleRun
   const stop = (r: CampaignRecord) => (o.mode === "endless" ? nodes >= o.count : (r.operations?.length ?? 0) >= o.count);
   let sinceRepl = 0;
   let lastNode: CampaignRecord | null = null;
+  // M12.4 tuning: the operation's start (experience by person, battles and log length then).
+  res.opStats = []; res.recoveryDays = []; res.ableBeforeReplenish = [];
+  let opStart = { xp: new Map<string, number>(), battles: 0, log: 0 };
+  const markStart = (r: CampaignRecord) => { opStart = { xp: new Map(membersOf(r.sides.player.battalion).map((m) => [m.personId, m.skills["experience"] ?? 0])), battles: r.battles, log: r.log.length }; };
+  markStart(record);
   record = autoPlay(data, record, { runner: timed, hooks: ON_POSTS }, stop, (e) => {
     if (e.kind === "node") {
       nodes++;
@@ -167,11 +185,27 @@ export function runCampaignPart(data: DataSet, o: PartOptions, runner: BattleRun
         craters: sec?.damage?.craters.length ?? 0, holes: sec?.damage?.breaches.length ?? 0, wrecks: sec?.wrecks?.length ?? 0,
       });
       log?.(`${o.faction} s${o.seed} op ${opBefore.index} node ${opBefore.steps.length + 1} ${st.node}@${st.pos} ${st.result}${st.walkover ? " walkover" : ""}${st.flank ? ` [flank ${st.flank.node} ${st.flank.result}]` : ""} -> ${st.end ? `END ${st.end}` : `${st.next!.node}@${st.next!.pos}`}; men ${res.rows.at(-1)!.men.player}/${res.rows.at(-1)!.men.enemy}; ${(main?.durationS ?? 0).toFixed(0)} s, wall ${wall.toFixed(0)}+${flankWall.toFixed(0)} s`);
-      if (st.end) snap(r);
+      {
+        const known = new Set(before.sides.player.pools.recovering.map((p) => p.record.personId));
+        for (const p of r.sides.player.pools.recovering) if (!known.has(p.record.personId)) res.recoveryDays!.push(p.days ?? 0);
+      }
+      if (st.end) {
+        snap(r);
+        const P = r.sides.player;
+        let row = 0;
+        for (let i = op.steps.length - 1; i >= 0 && op.steps[i]!.result === "loss"; i--) row++;
+        const survivors = membersOf(P.battalion).filter((m) => opStart.xp.has(m.personId)).map((m) => {
+          const ent = (P.service[m.personId] ?? []).filter((x) => x.battle >= opStart.battles);
+          return { gain: (m.skills["experience"] ?? 0) - opStart.xp.get(m.personId)!, fireMin: ent.reduce((n, x) => n + x.underFireMin, 0), battles: ent.length, xp: m.skills["experience"] ?? 0 };
+        });
+        res.opStats!.push({ index: opBefore.index, end: st.end, nodes: op.steps.length, able: ableShare(data, P), lossesInRow: row, rejoined: r.log.slice(opStart.log).filter((x) => x.kind === "rejoin" && x.side === "player").length, survivors });
+      }
     } else {
       // A replenishment (endless) or an operation's end (replenished and the next operation).
       enemyAfter = null;
       const r = e.record;
+      if (e.kind !== "operation-end" && lastNode) res.ableBeforeReplenish!.push(ableShare(data, (lastNode as CampaignRecord).sides.player));
+      markStart(r);
       if (e.kind === "operation-end") {
         const s = r.operations!.at(-1)!;
         res.operations.push(s);
@@ -247,6 +281,20 @@ export function batchReport(parts: PartResult[], header: string): string {
     const allSnaps = ps.flatMap((p) => p.snapshots.filter((x) => x.side === "player"));
     out.push("", `Player battalion at the end (per campaign): men ${ends.map((x) => x.men).join(", ")}; recovering ${ends.map((x) => x.recovering).join(", ")} (mean at operation ends ${(allSnaps.reduce((n, x) => n + x.recovering, 0) / Math.max(1, allSnaps.length)).toFixed(1)}); dead ${ends.map((x) => x.dead).join(", ")}; held by the enemy ${ends.map((x) => x.held).join(", ")}.`);
     out.push(`Experience of the player's men at the end: p10 ${quant(xp, 0.1).toFixed(3)}, median ${quant(xp, 0.5).toFixed(3)}, p90 ${quant(xp, 0.9).toFixed(3)}, max ${Math.max(0, ...xp).toFixed(3)}.`);
+    // M12.4 tuning lines.
+    const st = ps.flatMap((p) => p.opStats ?? []);
+    if (st.length > 0) {
+      const full = st.flatMap((o) => o.survivors.filter((x) => x.battles >= o.nodes && x.fireMin >= 1));
+      const g = full.map((x) => x.gain), all = st.flatMap((o) => o.survivors.map((x) => x.gain));
+      out.push(`Experience over an operation: survivors who fought every node and were under fire (${full.length}): gain p10 ${quant(g, 0.1).toFixed(3)}, median ${quant(g, 0.5).toFixed(3)}, p90 ${quant(g, 0.9).toFixed(3)}, max ${Math.max(0, ...g).toFixed(3)}; every survivor (${all.length}) median ${quant(all, 0.5).toFixed(3)}; highest experience ${Math.max(0, ...st.flatMap((o) => o.survivors.map((x) => x.xp))).toFixed(3)}.`);
+      const fails = st.filter((o) => o.end === "failure");
+      const able = st.map((o) => o.able);
+      out.push(`Able share at operation ends: min ${Math.min(...able).toFixed(2)}, p10 ${quant(able, 0.1).toFixed(2)}, median ${quant(able, 0.5).toFixed(2)}; failures ${fails.length}: two losses in a row ${fails.filter((o) => o.lossesInRow >= 2).length}, below the combat-ineffective line only ${fails.filter((o) => o.lossesInRow < 2).length}. Men back from recovery inside operations: ${st.reduce((n, o) => n + o.rejoined, 0)}.`);
+    }
+    const rd = ps.flatMap((p) => p.recoveryDays ?? []);
+    if (rd.length > 0) out.push(`Recovery days of the player's evacuated (${rd.length}): p10 ${quant(rd, 0.1).toFixed(1)}, median ${quant(rd, 0.5).toFixed(1)}, p90 ${quant(rd, 0.9).toFixed(1)}; within 2.5 days ${pct(rd.filter((d) => d <= 2.5).length, rd.length)}, within 7 days ${pct(rd.filter((d) => d <= 7).length, rd.length)}, within 30 days ${pct(rd.filter((d) => d <= 30).length, rd.length)}.`);
+    const ab = ps.flatMap((p) => p.ableBeforeReplenish ?? []);
+    if (ab.length > 0) out.push(`Able share before endless replenishments (${ab.length}): min ${Math.min(...ab).toFixed(2)}, median ${quant(ab, 0.5).toFixed(2)}.`);
     const wall = rows.filter((r) => !r.walkover).map((r) => r.wallS), fw = rows.filter((r) => r.flankMen).map((r) => r.flankWallS);
     const dur = fought.map((r) => r.durationS);
     out.push(`Time per battle: main battles ${dur.length > 0 ? `${quant(dur, 0.5).toFixed(0)} s median battle time, ` : ""}wall median ${quant(wall, 0.5).toFixed(0)} s (max ${Math.max(0, ...wall).toFixed(0)}); flank battles wall median ${quant(fw, 0.5).toFixed(0)} s; whole campaigns ${ps.map((p) => `${(p.wallS / 60).toFixed(0)} min`).join(", ")}.`);

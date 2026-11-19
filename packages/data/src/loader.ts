@@ -19,7 +19,7 @@ import {
   SupplyFile, type SupplyT, PrisonersFile, type PrisonersT, CampaignFile, type CampaignT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
   StringsFile, UnitsFile, VehiclesFile, type VehicleT,
-  CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT,
+  CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT, FactionCampaignFile, type FactionCampaignT,
   type DoctrineT, type FactionManifestT, type ItemT, type MovementModeT, type NamesT, type QualityT, type RankT,
   type RoleT, type UnitTemplateT,
 } from "./schemas";
@@ -49,6 +49,8 @@ export interface FactionPack {
   strings: StringTables;
   /** Look (M7.5; optional file appearance.json): uniform tones and vehicle paint. Not in the catalog. */
   appearance?: FactionAppearanceT;
+  /** The campaign's weighing (M12.4; optional file campaign.json). Not in the catalog. */
+  campaign?: FactionCampaignT;
 }
 
 export interface TerrainData {
@@ -303,6 +305,7 @@ function loadFaction(
   const vehiclesF = files[f("vehicles.json")] === undefined ? { vehicles: [] } : parse(VehiclesFile, f("vehicles.json"), files[f("vehicles.json")], errors);
   if (!ammoF || !weaponsF || !vehiclesF) return null;
   const appearance: FactionAppearanceT | null = files[f("appearance.json")] === undefined ? null : parse(FactionAppearanceFile, f("appearance.json"), files[f("appearance.json")], errors);
+  const campaignF = files[f("campaign.json")] === undefined ? null : parse(FactionCampaignFile, f("campaign.json"), files[f("campaign.json")], errors);
   ammoF.ammunition.forEach((a, i) => {
     if (itemsF.items.some((it) => it.id === a.id)) {
       errors.push({ file: f("ammunition.json"), path: `ammunition[${i}].id`, message: `'${a.id}' is also defined in items.json; ammunition becomes an item automatically`, severity: "error" });
@@ -418,6 +421,7 @@ function loadFaction(
     doctrine,
     strings,
     ...(appearance ? { appearance } : {}),
+    ...(campaignF ? { campaign: campaignF.campaign } : {}),
   };
 
   // Cross references.

@@ -1367,6 +1367,13 @@ export const FactionAppearanceFile = z.object({
   insignia: FactionInsigniaSchema.optional(),
   note: z.string().optional(),
 }).strict();
+/** factions/<id>/campaign.json (M12.4; optional file): how the campaign weighs this faction's men. Not in the catalog:
+ *  battles never read it. `fightingValue`: the relative fighting value of one of its men in the campaign's enemy
+ *  commitment (the enemy commits `enemyRatio x the player's men x player value / enemy value`); 1 without the file. */
+export const FactionCampaignFile = z.object({
+  campaign: withProv({ fightingValue: Num(0.1, 10) }),
+}).strict();
+export type FactionCampaignT = z.infer<typeof FactionCampaignFile>["campaign"];
 /** The flat map palette (M7.5b): one colour per surface, vegetation, roof and floor (keyed by terrain ids). */
 export const CoreAppearanceFile = z.object({
   surfaces: z.record(Id, LookColour),

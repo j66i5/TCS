@@ -15,7 +15,9 @@ type Pt = { x: number; y: number };
 /** One line per own unit on the move (to its destination), or per fire mission (from the caller to the target). */
 export interface IntentLine {
   x0: number; y0: number; x1: number; y1: number;
-  kind: "move" | "fire";
+  /** "assault" (balance pass 5): a hull of a mounted assault to its dismount point or support-by-fire post (`mark`). */
+  kind: "move" | "fire" | "assault";
+  mark?: "dismount" | "post";
   /** The selected unit (or one of its sub-units): drawn bright, along the route still ahead. */
   selected: boolean;
   /** For a selected unit's move: the route points still ahead (the last one is the destination). */
@@ -119,6 +121,17 @@ export function intentLines(view: SimView, side: string, selected: EntityId | nu
     const screen = f.lx !== undefined && f.ly !== undefined ? { x0: f.x - f.lx, y0: f.y - f.ly, x1: f.x + f.lx, y1: f.y + f.ly } : undefined;
     out.push({ x0: from.x, y0: from.y, x1: f.x, y1: f.y, kind: "fire", selected: u !== undefined && sel(u), phase, ...(mine.length > 0 ? { falls: mine } : {}), ...(splashS !== undefined ? { splashS } : {}), ...(screen ? { screen } : {}) });
   }
+  // Balance pass 5: the mounted assault's dismount points and support posts (each hull still going to one).
+  for (const [uid, u] of view.unit.entries()) {
+    if (u.side !== side || !u.mountedAssault) continue;
+    for (const c of u.mountedAssault.carriers) {
+      const t = view.transform.get(c.vehicle);
+      if (!t) continue;
+      const s = sel(uid) || sel(c.crew);
+      if (c.phase === "drive") out.push({ x0: t.x, y0: t.y, x1: c.dx, y1: c.dy, kind: "assault", mark: "dismount", selected: s });
+      else if (c.phase === "support" && c.post) out.push({ x0: t.x, y0: t.y, x1: c.post.x, y1: c.post.y, kind: "assault", mark: "post", selected: s });
+    }
+  }
   for (const p of [...view.inbox, ...view.pendingOrders]) {
     const o = p.order;
     if (o.kind !== "callFire" || o.issuer !== side) continue;
@@ -137,7 +150,7 @@ export const INTENT_CLUTTER = 6;
 export function linesShown(lines: readonly IntentLine[], symbols: boolean, max = INTENT_CLUTTER): IntentLine[] {
   if (!symbols) return [...lines];
   const faint = lines.filter((l) => l.kind === "move" && !l.selected).length;
-  return faint > max ? lines.filter((l) => l.kind === "fire" || l.selected) : [...lines];
+  return faint > max ? lines.filter((l) => l.kind !== "move" || l.selected) : [...lines];
 }
 
 // ---- S8: "last seen" pins

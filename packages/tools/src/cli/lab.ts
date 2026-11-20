@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]|repair [seeds]|batteries [seed] [speedup]|consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-refill] [--no-consolidate]|redistribute [trials]|cache [trials]|resupply [distances, e.g. 200,400]|rearm|prisoners [runs] [--part 1,2,3,4]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|mounted-assault [seeds] [--seconds s] [--scenarios a,b] [--modes player,ai]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]|repair [seeds]|batteries [seed] [speedup]|consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-refill] [--no-consolidate]|redistribute [trials]|cache [trials]|resupply [distances, e.g. 200,400]|rearm|prisoners [runs] [--part 1,2,3,4]` prints the lab tables and writes them to reports/. */
 import { buildCatalog } from "@tcs/data";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,7 @@ import { armourLab, armourLabMarkdown } from "../labs/armour";
 import { antitankLab, antitankLabMarkdown } from "../labs/antitank";
 import { missileLab, missileLabMarkdown } from "../labs/missile";
 import { missileTeamLab, missileTeamLabMarkdown } from "../labs/missile-team";
+import { mountedAssaultLab, mountedAssaultLabMarkdown } from "../labs/mounted-assault";
 import { aglLab, aglLabMarkdown } from "../labs/agl";
 import { houseClearLab, houseClearMarkdown, houseDefendLab, houseDefendMarkdown, houseLeaveLab, houseLeaveMarkdown, houseRocketLab, houseRocketMarkdown } from "../labs/house";
 import { indirectLab, indirectLabMarkdown } from "../labs/indirect";
@@ -128,6 +129,13 @@ const LABS: Record<string, () => string> = {
   smoke: () => `# Smoke lab\n\n## Hand smoke grenades\n\n${handSmokeLabMarkdown(handSmokeLab(loadData()))}\n\n${smokeLabMarkdown(smokeLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,
   agl: () => `# Automatic grenade launcher lab\n\n${aglLabMarkdown(aglLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
+  // Balance pass 5: `lab -- mounted-assault [seeds] [--seconds s] [--scenarios a,b] [--modes player,ai]`.
+  "mounted-assault": () => {
+    const n = Number(process.argv[3] !== undefined && !process.argv[3].startsWith("--") ? process.argv[3] : 3);
+    const sc = (argOf("scenarios") ?? "platoon-vehicles,platoon-ru-vehicles").split(",");
+    const modes = (argOf("modes") ?? "player,ai").split(",") as ("player" | "ai")[];
+    return `# Mounted-assault lab\n\n${mountedAssaultLabMarkdown(mountedAssaultLab(loadData(), n, Number(argOf("seconds") ?? 600), sc, modes))}\n`;
+  },
   "missile-team": () => `# Missile team lab\n\n${missileTeamLabMarkdown(missileTeamLab(loadData(), Number(process.argv[3] ?? 50)))}\n`,
   repair: () => `# Repair lab\n\n## Part A: field repair (M11.7a)\n\n${repairLabMarkdown(repairLab(loadData(true), Number(process.argv[3] ?? 10)))}\n\n## Part B: recovery and towing (M11.7b)\n\n${towLabMarkdown(towLab(loadData(true)))}\n`,
   // M11.6: `lab -- batteries [seed] [speedup]` (the full 3 h night without a speedup).

@@ -27,7 +27,7 @@ import { withDrones } from "./drone";
 import {
   atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
   positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
-  cacheHolds, carrierHitNear, dismountSpot, mountedAssaultDef, supportPost, supportReachM, type VehicleState,
+  cacheHolds, carrierHitNear, dismountSpot, mountedAssaultDef, siteSupportPost, supportPost, supportReachM, type VehicleState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, overwatchBounds, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
@@ -1551,18 +1551,18 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
               if (mem.posted.includes(c)) continue;
               const vid = view.unit.get(c)?.vehicle, v = vehicleOf(c) as VehicleState | undefined, vt = vid === undefined ? undefined : view.transform.get(vid);
               const def = v ? input.catalog.vehicles[v.def] : undefined;
-              if (!v || !vt || !def || v.status !== "ok" || (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length)) continue;
+              // (Not only once it has arrived: a carrier whose squad got out early stops driving on, empty, toward
+              // the enemy, and backs from where it is.)
+              if (!v || !vt || !def || v.status !== "ok" || v.resupply !== undefined) continue;
               if (v.crewReaction === "reverseOut" && tick - v.reactionTick < COMMANDER.reverseOutHoldSeconds * 60) continue;
               mem.posted.push(c);
               const ctx0 = ground();
-              const dObj = hypot2(vt.x - tgt.x, vt.y - tgt.y);
-              const standoffM = Math.max(0, Math.min(MA.postStandoffM, dObj + MA.postBackM - tgt.radiusM - MA.arriveM));
-              const p = supportPost(ctx0, def, {
-                from: { x: vt.x, y: vt.y }, anchor: { x: clamp(vt.x - ux * MA.postBackM, W), y: clamp(vt.y - uy * MA.postBackM, H) },
-                obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM }, reachM: supportReachM(ctx0, def, view.environment.light), ringsM: MA.postRingsM, minSeen: MA.postMinSeen,
-                minObjectiveM: MA.minObjectiveM, standoffM, threats, avoid: holds, behind: { x: vt.x, y: vt.y, ux: -ux, uy: -uy, minM: MA.postMinBackM },
+              const p = siteSupportPost(ctx0, def, {
+                hull: { x: vt.x, y: vt.y }, anchor: { x: clamp(vt.x - ux * MA.postBackM, W), y: clamp(vt.y - uy * MA.postBackM, H) },
+                behind: { x: vt.x, y: vt.y, ux: -ux, uy: -uy, minM: MA.postMinBackM }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM },
+                light: view.environment.light, threats, avoid: holds,
               });
-              if (!p) continue;
+              if (!p) { if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) order(c, { kind: "halt" }); continue; }
               holds.push(p);
               const back = (p.x - vt.x) * ux + (p.y - vt.y) * uy < 0;
               order(c, { kind: "move", waypoints: [back ? { x: p.x, y: p.y, mode: "walk", reverse: true } : { x: p.x, y: p.y, mode: "walk" }], facing: p.facing });

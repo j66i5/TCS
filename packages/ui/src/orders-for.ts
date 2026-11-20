@@ -339,7 +339,9 @@ function vehicleOrders(vehicleClass: "tracked" | "wheeled", modes: Modes, boardi
   const ordered = mid === undefined ? [] : [mid, ...paces.filter((p) => p !== mid)];
   // A vehicle's crew can only let its passengers out (they get in by an order to their own unit).
   // It fires its guns (M7.3) and its smoke dischargers.
-  const out: OrderSet = { modes: ["move", "fire"], halt: true, ceaseFire: true, posture: false, rules: true, paces: ordered, mount: false, dismount: boarding.dismount, discharge: true, nature: true };
+  // (Balance pass 5: Assault: its passengers get out short of the objective and assault it while it supports them by
+  // fire; with nobody aboard, assault by fire from a post short of it.)
+  const out: OrderSet = { modes: ["move", "assault", "fire"], halt: true, ceaseFire: true, posture: false, rules: true, paces: ordered, mount: false, dismount: boarding.dismount, discharge: true, nature: true };
   if (paces[0] !== undefined) { out.paces = [...ordered, "reverse"]; out.reversePace = paces[0]; }
   return out;
 }

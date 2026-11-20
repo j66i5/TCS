@@ -388,7 +388,7 @@ async function main(): Promise<void> {
       overlay.pins = a.lastSeen.pins().map((p) => { const l = ageLabel((sim.state.tick - p.seenTick) / 60); return { ...p, label: strings.t(l.key, l.params) }; });
     } else overlay.pins = null;
     overlay.intents = overlay.debug ? null : linesShown(intentLines(sim.state, playerSide, overlay.selectedUnit, a.rangingBook.falls), renderer.zoomLevel() === LOD_SYMBOLS)
-      .map((l) => (l.splashS !== undefined ? { ...l, label: strings.t("support.splash", { s: l.splashS }) } : l));
+      .map((l) => (l.splashS !== undefined ? { ...l, label: strings.t("support.splash", { s: l.splashS }) } : l.mark !== undefined ? { ...l, label: strings.t(l.mark === "post" ? "map.supportPost" : "map.dismountPoint") } : l));
     a.rangingBook.prune(sim.state.tick);
     // Vehicle debug overlay (M7.3): turret lay, the station's target and reasons, track speeds.
     {

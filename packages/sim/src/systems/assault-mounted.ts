@@ -127,12 +127,13 @@ export function supportPost(ctx: SimContext, def: VehicleDef, o: {
 }
 
 /**
- * How far a hull's guns reach for a support post: its main weapon's engagement range; in the dark (light below
+ * How far a hull's guns reach for a support post: its longest engagement range (no gun: 2 km); in the dark (light below
  * `nightBelowLight`) no farther than the longest night sight of its seats (none: 0).
  */
 export function supportReachM(ctx: SimContext, def: VehicleDef, light: number): number {
   let reach = 0;
   for (const st of def.stations) for (const w of st.weapons) reach = Math.max(reach, w.engageRangeM ?? 0);
+  if (reach <= 0) reach = 2000; // (a hull with no gun of its own: what it sees, by day)
   const P = mountedAssaultDef(ctx);
   if (P === undefined || light >= P.nightBelowLight) return reach;
   let night = 0;
@@ -141,6 +142,39 @@ export function supportReachM(ctx: SimContext, def: VehicleDef, light: number): 
     if (k && k.nightLight > 0) night = Math.max(night, k.maxRangeM ?? reach);
   }
   return Math.min(reach, night);
+}
+
+/**
+ * Where a hull goes to support the assault by fire (the drill's and the AI commander's one rule): round `anchor`
+ * (behind `behind.minM` along the way out when given) a post seeing `postMinSeen` of the objective; none: round where
+ * it stands, no farther forward; none: the same seeing any of it. The stand-off from known enemy men counts up to the
+ * objective's near edge (the enemy on it is what it fires at). In the dark the anchor comes forward until the
+ * objective lies within its night sight (`supportReachM`), never inside `minObjectiveM`. Null: none (it stays). Pure.
+ */
+export function siteSupportPost(ctx: SimContext, def: VehicleDef, o: {
+  hull: { x: number; y: number }; anchor: { x: number; y: number }; behind?: { x: number; y: number; ux: number; uy: number; minM: number };
+  obj: { x: number; y: number; r: number }; light: number; threats: readonly { x: number; y: number }[]; avoid?: readonly { x: number; y: number }[];
+}): { x: number; y: number; facing: number } | null {
+  const P = mountedAssaultDef(ctx);
+  if (P === undefined) return null;
+  const reach = supportReachM(ctx, def, o.light);
+  let anchor = o.anchor, behind = o.behind;
+  const distA = hypot2(anchor.x - o.obj.x, anchor.y - o.obj.y);
+  if (reach > 0 && distA > reach) {
+    const k = Math.max(P.minObjectiveM, reach - o.obj.r);
+    anchor = { x: o.obj.x + ((anchor.x - o.obj.x) * k) / distA, y: o.obj.y + ((anchor.y - o.obj.y) * k) / distA };
+    behind = undefined;
+  }
+  const standoff = (a: { x: number; y: number }) => Math.max(0, Math.min(P.postStandoffM, hypot2(a.x - o.obj.x, a.y - o.obj.y) - o.obj.r - P.arriveM));
+  const base = { from: o.hull, obj: o.obj, reachM: reach, ringsM: P.postRingsM, minSeen: P.postMinSeen, minObjectiveM: P.minObjectiveM, threats: o.threats, ...(o.avoid ? { avoid: o.avoid } : {}) };
+  const p = supportPost(ctx, def, { ...base, anchor, standoffM: standoff(anchor), ...(behind ? { behind } : {}) });
+  if (p) return p;
+  if (anchor !== o.anchor) return null; // (the dark: no fall-back behind it)
+  // Round where it stands, no farther forward than it is.
+  const ux = o.behind ? -o.behind.ux : (o.obj.x - o.hull.x) / (hypot2(o.obj.x - o.hull.x, o.obj.y - o.hull.y) || 1);
+  const uy = o.behind ? -o.behind.uy : (o.obj.y - o.hull.y) / (hypot2(o.obj.x - o.hull.x, o.obj.y - o.hull.y) || 1);
+  const here = { ...base, anchor: o.hull, standoffM: standoff(o.hull), behind: { x: o.hull.x, y: o.hull.y, ux: -ux, uy: -uy, minM: 0 } };
+  return supportPost(ctx, def, here) ?? supportPost(ctx, def, { ...here, minSeen: 0.01 });
 }
 
 // ---------------------------------------------------------------- the order
@@ -309,7 +343,6 @@ function sitePost(ctx: SimContext, state: SimState, events: EventSink, holder: E
   const v = state.vehicle.get(c.vehicle), def = v ? ctx.catalog.vehicles[v.def] : undefined;
   if (!v || !def) { c.post = null; return; }
   const t = state.transform.req(c.vehicle);
-  const reach = supportReachM(ctx, def, state.environment.light);
   const threats = knownEnemies(ctx, state, ma, P, true).map((k) => ({ x: k.x, y: k.y }));
   const avoid = ma.carriers.filter((k) => k !== c && k.post).map((k) => ({ x: k.post!.x, y: k.post!.y }));
   const objR = { x: ma.x, y: ma.y, r: P.objectiveRadiusM };
@@ -327,19 +360,7 @@ function sitePost(ctx: SimContext, state: SimState, events: EventSink, holder: E
     anchor = { x: clampTo(c.dx - ma.ux * P.postBackM, ctx.map.widthM), y: clampTo(c.dy - ma.uy * P.postBackM, ctx.map.heightM) };
     behind = { x: c.dx, y: c.dy, ux: -ma.ux, uy: -ma.uy, minM: P.postMinBackM };
   }
-  const distA = hypot2(anchor.x - ma.x, anchor.y - ma.y);
-  // (Enemy men on the objective itself are what it fires at: the stand-off counts up to its near edge.)
-  const standoffM = Math.max(0, Math.min(P.postStandoffM, distA - P.objectiveRadiusM - P.arriveM));
-  const base = { from: { x: t.x, y: t.y }, obj: objR, reachM: reach, ringsM: P.postRingsM, minSeen: P.postMinSeen, minObjectiveM: P.minObjectiveM, standoffM, threats, avoid };
-  // In the dark a post must lie within its night sight of the objective: the anchor comes forward to it.
-  if (reach > 0 && distA > reach) {
-    const k = Math.max(P.minObjectiveM, reach - P.objectiveRadiusM);
-    anchor = { x: ma.x + ((anchor.x - ma.x) * k) / distA, y: ma.y + ((anchor.y - ma.y) * k) / distA };
-    behind = undefined;
-  }
-  let p = supportPost(ctx, def, { ...base, anchor, ...(behind ? { behind } : {}) });
-  // None behind it: round where it stands (no farther forward than it is).
-  if (!p) p = supportPost(ctx, def, { ...base, anchor: { x: t.x, y: t.y } });
+  const p = siteSupportPost(ctx, def, { hull: { x: t.x, y: t.y }, anchor, ...(behind ? { behind } : {}), obj: objR, light: state.environment.light, threats, avoid });
   c.post = p;
   if (!p) return;
   const back = (p.x - t.x) * ma.ux + (p.y - t.y) * ma.uy < 0 && hypot2(p.x - t.x, p.y - t.y) <= 200;

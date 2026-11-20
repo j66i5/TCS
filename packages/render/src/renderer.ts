@@ -137,7 +137,9 @@ export interface Overlay {
 
 /** A line of the S7 overlay (see Overlay.intents). */
 export interface IntentLineView {
-  x0: number; y0: number; x1: number; y1: number; kind: "move" | "fire"; selected: boolean;
+  x0: number; y0: number; x1: number; y1: number; kind: "move" | "fire" | "assault"; selected: boolean;
+  /** Balance pass 5 (kind "assault"): a dismount point (a square) or a support-by-fire post (a diamond). */
+  mark?: "dismount" | "post";
   route?: readonly { x: number; y: number }[];
   /** A fire mission (S11): its phase and where its ranging rounds fell (oldest first). */
   phase?: "called" | "ranging" | "effect";
@@ -867,6 +869,17 @@ export class BattleRenderer {
       const a0 = a;
       this.inked(g, () => { a = a0; for (const p of l.route ?? [{ x: l.x1, y: l.y1 }]) { const b = worldToScreen(c, p.x, p.y); g.moveTo(a.x, a.y).lineTo(b.x, b.y); a = b; } }, { width: 2, color: INTENT_COLOUR, alpha: 0.9 });
       g.circle(a.x, a.y, 3.5).fill({ color: INTENT_COLOUR, alpha: 0.95 });
+    }
+    // Balance pass 5: a mounted assault's hulls to their dismount points (square) and support posts (diamond).
+    for (const l of lines) {
+      if (l.kind !== "assault") continue;
+      const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
+      const al = l.selected ? 0.95 : 0.55;
+      this.inked(g, () => dashed(g, a.x, a.y, b.x, b.y, 6, 5), { width: l.selected ? 2 : 1.5, color: INTENT_COLOUR, alpha: al });
+      const r = l.selected ? 7 : 5;
+      const shape = () => { if (l.mark === "post") g.poly([b.x, b.y - r, b.x + r, b.y, b.x, b.y + r, b.x - r, b.y]); else g.rect(b.x - r, b.y - r, 2 * r, 2 * r); };
+      this.inked(g, shape, { width: 2, color: INTENT_COLOUR, alpha: al });
+      if (l.label && l.selected) this.request(l.label, b.x, b.y - 18, 4, INTENT_COLOUR, 1, 900 + lines.indexOf(l));
     }
     for (const l of lines) {
       if (l.kind !== "fire") continue;

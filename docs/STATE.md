@@ -13,6 +13,13 @@ DECISIONS.md under its date._
   (bursts 3 m over the point); BMP-2, T-72B3M, T-90M impact only (owner Q8). Fire order `fuse`, the Fire tray's
   "Gun: HE air burst". Lab `npm run lab -- areafire`; screenshots `--scene areafire`. Next: the owner's pause, then
   the measurement (plan section 4).
+- **Balance pass 5, urban assault (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: the mounted
+  assault on built-up objectives").** Owner follow-up: a built-up objective (`isBuiltUp`: a building, or 8 houses /
+  4 % footprint within 120 m) uses the doctrine's `dismount.urbanDistanceM` (DE 150, RU 200 m, low; open 300 / 400);
+  posts may stand 100 m out and must see street points. Early-dismount diagnosis: real hits by the defence's hulls at
+  550-830 m are the main cause (kept, Q13); fixed: jammed drives taken for arrival (sent on again), the men-threat
+  radius above DE's doctrine distance (now dismount distance + 50 m). Lab rows `platoon-vehicles@farmland`,
+  `platoon-ru-vehicles@village`; screenshots `--scene assault-urban`.
 - **Balance pass 5, 3A the mounted assault (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: the
   mounted assault").** Assault to riders, a hull or a platoon with carriers: carriers to dismount points (doctrine
   distance, terrain-aware), squads out into the foot drill, hulls back to support-by-fire posts and fire on the
@@ -650,6 +657,10 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- Balance pass 5, urban assault (low, game choices): DE `dismount.urbanDistanceM` 150 m, RU 200 m; built-up = a
+  building, or 8 buildings / 4 % footprint within 120 m (core/behaviour.json `mountedAssault.urban`); Q13 (hit
+  trigger) in DECISIONS "Balance pass 5: the mounted assault on built-up objectives".
 - M12.3 (2026-11-19): (1) please play two linked battles on your phone (`?campaign=1`: new campaign, Play the first
   battle, back to the campaign, continue to the second) and say what feels wrong; (2) the campaign clock is shown from
   06:00 on day 1 but every battle is fought in daylight: should campaign battles take the clock's time of day (night

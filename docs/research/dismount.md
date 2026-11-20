@@ -65,3 +65,21 @@ dismount than Russian doctrine; 300 m is a game choice inside the 500 m grenadie
 | DE (Puma) | 300 m (closer if the last covered point is closer) | must be out of sight of known enemies; keep moving mounted until such a point | overwatch from covered position ~400–600 m from the objective, support by fire, do not follow |
 
 Owner to correct; replace with manual figures if HDv / Боевой устав text becomes available.
+
+## Built-up areas (balance pass 5, owner 2026-11-20)
+
+Owner: "that distance would be shorter when attacking buildings / urban areas." Search extracts only (2026-11-20);
+no field manual text could be opened and no published dismount distance for a built-up area was found.
+
+| Value | Source | Extract | Confidence |
+|---|---|---|---|
+| Platoon dismounts / gives its last orders at the "letzte Deckung vor dem Feind" just before the village | https://www.bundeswehr.de/de/organisation/heer/aktuelles/urbanes-gefecht-panzergrenadierbataillon33-hameln-bergen-169000 (search summary of Bundeswehr reports on urban combat) | "Kurz vor der Ortschaft gibt der Zugführer letzte Befehle … nutzen dafür die sogenannte 'Letzte Deckung vor dem Feind'" | medium (principle, no distance) |
+| BFVs suppress and obscure while moving to covered dismount points; in an attack on an urban area tanks overwatch the infantry's initial assault until an entry is secured | https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch4.htm ; https://www.globalsecurity.org/military/library/policy/army/accp/in0531/lsn1.htm | (search summaries of FM 3-06.11, 2002, and a mechanized infantry lesson) | medium (principle, no distance) |
+| Russian: the dismount line as close as possible to the forward edge, covered from MG and anti-tank fire (no separate town rule found); safe distance from own artillery 300 m attacking on BMPs | https://vk.ru/@unfair_advantage-motostrelkovyi-vzvod-v-nastuplenii (blog repost of manual text); the 2005 manual rows above | (as above) | low |
+| Enemy fire positions in a town lie on its edge and in depth, often in upper floors and on roofs | https://mil.ee/wp-content/uploads/2024/10/20221210_AK_VF_metoodilised_soovitused_salk_lahingus_linnas_metsas.pdf (Estonian methodical recommendations, search extract) | (search summary) | low |
+
+**Game values (low):** DE `urbanDistanceM` 150 m, RU 200 m: half the open-ground distance each (houses block sight
+and fire, so the last covered spot lies at the houses' edge, not 300-400 m out); RU stays farther out than DE as in the
+open, and inside its 300 m safe distance from own artillery for an attack on BMPs. A built-up objective: a building,
+or 8 buildings (centres) or 4 % footprint within 120 m (core/behaviour.json). Owner to correct; replace with manual
+figures if found.

@@ -1399,7 +1399,13 @@ hull's night sight of the objective (a thermal sight reaches as far as the gun; 
 ("driving to the dismount point", "squads getting out", "supporting by fire"). Any new move, halt or assault order to
 a unit takes it out of the drill. The AI commander's attack uses the same dismount points and support posts (its
 carriers stop and back to a post as soon as their squad is out, instead of driving on empty). Lab: `npm run lab --
-mounted-assault`.
+mounted-assault`. A built-up objective (a building, or a village: 8 houses or 4 % of the ground covered within 120 m)
+gets a shorter dismount distance from the faction's doctrine (DE 150 m, RU 200 m, against 300 / 400 m in the open):
+the houses hide the last stretch, so the carriers drive to the last covered spot at their edge. Their support posts
+may then stand closer (100 m from the objective) and must see into the streets round it. Enemy men known close to a
+riding carrier get its squads out early only when they are nearer than the dismount distance plus 50 m; a hit on the
+carrier or one within 300 m still gets them out at once. A carrier jammed among the others is sent on again twice
+before its squads get out where it stands.
 
 **Area fire and air burst (balance pass 5, the owner's request).** A vehicle crew that has lost sight of enemy men
 does not go quiet at once: under the fire rule "free" it keeps firing at the places its men last knew them. Each

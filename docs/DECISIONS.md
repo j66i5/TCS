@@ -10041,3 +10041,70 @@ to be rerun alone at the end of the pass.
 **Owner questions (open):** Q6 (Puma: KETF only, both, impact only; built: one belt with both settings), Q8 (T-90M
 Ainet; built: impact only), Q9 (area fire for the player's hulls: built as "on under fire free", which his hulls get
 only when he sets it; recommended to keep).
+
+## 2026-11-20 — Balance pass 5: the mounted assault on built-up objectives (owner follow-up)
+
+Owner (2026-11-20, binding): "Keep in mind that that distance would be shorter when attacking buildings / urban
+areas." Built on the mounted assault (entry "Balance pass 5: the mounted assault"), symmetric code, no faction
+literals.
+
+**Built-up objective** (`isBuiltUp`, `builtUpAround`, pure, `systems/assault-mounted.ts`): the assault's target is a
+building, or at least `urban.minBuildings` 8 buildings have their centre within `urban.radiusM` 120 m of the
+objective, or their footprints cover `urban.minShare` 4 % of that circle (`core/behaviour.json`
+`mounting.mountedAssault.urban`; game values, low). Fitted on the generated maps: village objectives have 13-28
+buildings / 4-8 % within 120 m, farmland objectives (a farmstead) 0-6 / at most 2 %, so a farm is open ground.
+
+**Distance** (`dismountDistance`, pure; the drill and the AI commander): the faction doctrine's new
+`dismount.urbanDistanceM` for a built-up objective, else `distanceM` as before. DE 150 m, RU 200 m (game choices,
+low): no published distance for a built-up area was found (search extracts only; docs/research/dismount.md). The
+principle is sourced: the Bundeswehr dismounts at the "letzte Deckung vor dem Feind" just before the village; US FM
+3-06.11 (2002) uses covered dismount points with the armour overwatching until a foothold is won. Half the open-ground
+value for each side keeps RU's dismount farther out than DE's, as in the open. The RU doctrine block keeps confidence
+medium for its sourced 400 m; its note marks the 200 m low.
+
+**The rest of the drill for a built-up objective** (`MountedAssault.urban` set when ordered): the dismount spot is
+still the first one out of sight of the objective's near edges and known enemies, up to 3 x 50 m farther back, and
+now never a point inside a house (open ground too). Support posts may stand `urban.minObjectiveM` 100 m from the
+objective (open 200 m) and `urban.postStandoffM` 200 m off known enemy men (open 300 m), and must also see
+`urban.streetPoints` 6 road points within 120 m of the objective (`streetPoints`: nearest first, 25 m apart) as well
+as the objective's ring: a line into the streets. The AI commander uses the same distance and post values (its ride
+and follow posts).
+
+**Early dismounts (the open issue from 3A, carriers out at 450-740 m).** Diagnosis with the new `reason` on
+`assault.dismounted` (lab column "Why out") and the ammunition of the hit before it, seeds 1-2, 480 s, player mode:
+- **Hits** are the main cause: 14 of 16 DE carriers in the village, 7-12 of 12 RU. Every one was a real
+  anti-armour round: T-90M 3BM60 on a Puma, Puma PMC287 on a BMP-2, at 550-830 m; one hit dismounts every carrier
+  within `hitNearM` 300 m. Not a trigger setting error: the defence's hulls engage the approach, and getting out under
+  tank and cannon fire is what C1 (men killed aboard) asks for. Kept; owner question Q13.
+- **"stopped"** (2 DE, 4 RU): the drive had given up (hulls jammed among each other, `MAX_REPLANS`) and the drill took
+  that for arrival. Fix: such a carrier is sent on to its point again, `driveRetries` 2 times, before its squads get
+  out where it stands (now 1 + 1 left).
+- **Known enemy men** (6 of 16 DE on farmland): `threatMenM` 400 m is more than DE's 300 m doctrine distance, so men
+  seen on the objective's forward edge always turned the ride back before the point. A trigger setting: enemy men now
+  count only within the dismount distance in force + `threatMarginM` 50 m (`threatMenFor`; DE 350 m in the open,
+  200 m in a town; RU 400 / 250 m), drill and AI commander alike. On the lab seeds the farmland DE triggers came from
+  men 200-350 m from the hull, so they stay (4 of 16).
+
+Lab `npm run lab -- mounted-assault 2 --seconds 480` (player mode; `@map` = the same mounted platoon battle on that
+map kind), before (urban values and retries off) / after:
+
+| Scenario | Map | Doctrine m | Dismount m mean, before / after | Why out after | Hit aboard b / a |
+|---|---|---:|---|---|---:|
+| platoon-vehicles (DE attacks) | village, built-up | 300 -> 150 | 627 / 556 | hit 11, threatVehicle 4, stopped 1 | 1 / 17 |
+| platoon-vehicles@farmland | farmland | 300 | 629 / 627 | hit 12, threatMen 4 | 10 / 12 |
+| platoon-ru-vehicles (RU attacks) | farmland | 400 | 565 / 559 | hit 9, stopped 1, point 1, threatMen 1 | 35 / 29 |
+| platoon-ru-vehicles@village | village, built-up | 400 -> 200 | 720 / 719 | hit 12 | 36 / 38 |
+
+AI mode after (both commanders): 542 / 644 / 549 / 665 m. Two seeds decide nothing about men hit aboard (DE village
+1 -> 17 comes with carriers driving on toward a 150 m point under T-90M fire). The urban distance itself is shown by
+the unit test (riders out within 100 +- 50 m of a built-up objective against 200 m in the open) and by
+`--scene assault-urban` (enemy commander off: points at the houses' edge, 153 m). In the platoon battles the defence's
+hulls get the carriers out at 450-750 m before either distance is reached.
+
+Own hits: 2 in DE village player mode (0 before): a Puma crew's own air-burst HE at a target ~500 m off burst on a
+building 49 m in front of the muzzle, next to a man of its platoon. The line check sees no own man in the line to the
+target; a round striking an obstacle near the muzzle is not covered. Not changed here (gunnery); listed for the
+measurement.
+
+Golden replays updated (`npm run golden:update`, 12 changed: catalog fingerprint, the AI's threat cap and urban
+dismount in the village battles); `packages/tools/golden/no-interiors` untouched.

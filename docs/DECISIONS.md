@@ -10012,8 +10012,8 @@ area part: fire free, six men 600 m off lie down in crops after 8 s, 240 s, 4 se
 
 Area part: area bursts (4 runs) Puma 2 (its thermal sight keeps seeing them: seen fire), Leopard 13, BMP-2 11,
 T-90M 12, T-72B3M 11, BTR-82A 5, GTK-GMW 3; the last area burst at a median 96-142 s (the place fades: it stops by
-itself); ready HE left 50-91 % (the reserve holds). Air burst against prone men: the KETF about doubles the men down
-per round at 400-800 m and triples it at 1200 m; DM11's air burst matters mainly at 1200 m (impact HE of 120/125 mm
+itself); ready HE left 50-91 % (the reserve holds). Air burst against prone men: the KETF more than doubles the men down
+per round at 400-800 m (3 to 7) and about quadruples it at 1200 m (2 to 9); DM11's air burst matters mainly at 1200 m (impact HE of 120/125 mm
 already hurts prone men).
 
 **Quick ledger, A/B on the same code** (seeds 1-3, 1200 s, AI both sides; "off" strips `areaFire` and the `airburst`

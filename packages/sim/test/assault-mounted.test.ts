@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  builtUpAround, createSim, dismountDistance, hashState, hypot2, isBuiltUp, loadSim, saveSim, step, streetPoints, submitOrder, threatMenFor,
+  builtUpAround, builtUpEdgeM, createSim, dismountDistance, hashState, hypot2, isBuiltUp, loadSim, saveSim, step, streetPoints, submitOrder, threatMenFor,
   type BattleInput, type Catalog, type EntityId, type MountedAssaultDef, type Sim, type SimEvent, type UnitInput,
 } from "../src/index";
 import { rec, testCatalog, vehicleInput } from "./helpers";
@@ -136,7 +136,11 @@ describe("mounted assault (balance pass 5)", () => {
     run(sim, 8);
     const x0 = sim.state.transform.req(v).x;
     expect(sim.state.unit.req(sq).mountedAssault!.carriers[0]!.phase).toBe("drive");
+    // (Review fix M6: a rifle or machine-gun round on the hull is no reason; a cannon round, rocket or missile is.)
     sim.state.vehicle.req(v).lastHitTick = sim.state.tick;
+    expect(run(sim, 1).some((e) => e.kind === "assault.dismounted")).toBe(false);
+    sim.state.vehicle.req(v).lastHitTick = sim.state.tick;
+    sim.state.vehicle.req(v).lastHeavyHitTick = sim.state.tick;
     const ev = run(sim, 2);
     const out = ev.find((e) => e.kind === "assault.dismounted") as Extract<SimEvent, { kind: "assault.dismounted" }> | undefined;
     expect(out).toBeDefined();
@@ -181,6 +185,68 @@ describe("mounted assault (balance pass 5)", () => {
     const ev = run(sim, 5);
     expect(ev.some((e) => e.kind === "radio" && e.key === "radio.dismountFirst")).toBe(true);
     expect(sim.state.unit.req(sq).mountedAssault).toBeUndefined();
+  });
+
+  it("review fix: an Assault to a platoon on foot with a carrier keeps the drill: the hull supports from a post, it does not drive to the men", () => {
+    const inp = input({ aboard: false });
+    const blue = inp.forces[0]!;
+    const [crew, sq] = blue.units;
+    blue.units = [{ key: "pl", callsign: "Pl", echelon: "platoon", leaderIndex: 0, subunits: [crew!, sq!], members: [{ ...rec("pl.0", [{ type: "mag", count: 3, charge: 30 }]), weapon: "rifle" }] }];
+    blue.placements.push({ personId: "pl.0", x: 20, y: 50, heading: 0 });
+    const sim = createSim(inp);
+    const pl = unitBy(sim, "Pl"), v = vid(sim);
+    order(sim, pl, { kind: "assault", ...OBJ });
+    const ev = run(sim, 30);
+    expect(ev.some((e) => e.kind === "assault.ended")).toBe(false);
+    const ma = sim.state.unit.get(pl)!.mountedAssault;
+    expect(ma).toBeDefined();
+    expect(ma!.squads).toEqual([pl]);
+    const post = ma!.carriers[0]!.post;
+    expect(post).toBeTruthy();
+    expect(hypot2(post!.x - OBJ.x, post!.y - OBJ.y)).toBeGreaterThanOrEqual(MA.minObjectiveM);
+    // (Not the men's place, about (20-50, 20-50): it went forward to its post.)
+    expect(sim.state.transform.req(v).x).toBeGreaterThan(100);
+  });
+
+  it("review fix MH4: hit on the way, the carrier makes for a spot hidden behind a house before its squad gets out", () => {
+    const inp = input();
+    inp.catalog = { ...inp.catalog, behaviour: { ...inp.catalog.behaviour, mounting: { ...inp.catalog.behaviour.mounting, mountedAssault: { ...MA, coverSearchM: 150, coverSeconds: 30 } } } };
+    inp.map.buildings.push({ id: 99, kind: "house", footprint: [140, 110, 160, 110, 160, 150, 140, 150], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, openings: [], roofColour: "#8c4a3b" });
+    const sim = createSim(inp);
+    const sq = unitBy(sim, "Sq"), v = vid(sim);
+    order(sim, sq, { kind: "assault", ...OBJ });
+    run(sim, 60, () => sim.state.transform.req(v).x >= 180);
+    expect(sim.state.unit.req(sq).mountedAssault!.carriers[0]!.phase).toBe("drive");
+    sim.state.vehicle.req(v).lastHeavyHitTick = sim.state.tick;
+    const ev = run(sim, 40, (all) => all.some((e) => e.kind === "assault.dismounted"));
+    const cover = ev.find((e) => e.kind === "assault.cover") as Extract<SimEvent, { kind: "assault.cover" }> | undefined;
+    expect(cover).toBeDefined();
+    expect(cover!.reason).toBe("hit");
+    // Behind the house from the objective (west of it), not forward.
+    expect(cover!.x).toBeLessThan(140);
+    const out = ev.find((e) => e.kind === "assault.dismounted") as Extract<SimEvent, { kind: "assault.dismounted" }> | undefined;
+    expect(out?.reason).toBe("hit");
+    const t = sim.state.transform.req(v);
+    expect(hypot2(t.x - cover!.x, t.y - cover!.y)).toBeLessThan(25);
+  });
+
+  it("review fix H3: a built-up objective deep in a village is dismounted for outside the village's edge on the way in", () => {
+    const inp = input({ houses: true });
+    // A row of houses along the way in, every 30 m from x 250 to 490, just north of it.
+    let id = 50;
+    for (let x = 250; x <= 490; x += 30) inp.map.buildings.push({ id: id++, kind: "house", footprint: [x, 106, x + 10, 106, x + 10, 116, x, 116], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, openings: [], roofColour: "#8c4a3b" });
+    const sim = createSim(inp);
+    const ctx = { ...sim.ctx, catalog: { ...sim.ctx.catalog, behaviour: { ...sim.ctx.catalog.behaviour, mounting: { ...sim.ctx.catalog.behaviour.mounting, mountedAssault: { ...MA, urban: { ...MA.urban!, edgeMarginM: 50, edgeNearM: 30, edgeGapM: 60 } } } } } };
+    const edge = builtUpEdgeM(ctx, OBJ.x, OBJ.y, 1, 0, 30, 60);
+    expect(edge).toBeGreaterThanOrEqual(260);
+    expect(edge).toBeLessThanOrEqual(310);
+    const d = dismountDistance(ctx, "fa", OBJ.x, OBJ.y, undefined, { ux: 1, uy: 0 });
+    expect(d.urban).toBe(true);
+    expect(d.dismountM).toBe(edge + 50);
+    // Without the way in (or the margin): the urban distance as before.
+    expect(dismountDistance(ctx, "fa", OBJ.x, OBJ.y).dismountM).toBe(100);
+    // Coming from the other side (no houses that way beyond the objective's own): the urban distance.
+    expect(dismountDistance(ctx, "fa", OBJ.x, OBJ.y, undefined, { ux: -1, uy: 0 }).dismountM).toBe(100);
   });
 
   it("built-up objectives (owner 2026-11-20): enough houses round the objective, or a building, count; then the urban distance applies", () => {

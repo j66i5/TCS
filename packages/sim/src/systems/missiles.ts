@@ -122,7 +122,7 @@ function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: Ent
       return muzzleWorld(ctx, def, si, g.weapon, t.x, t.y, t.heading, st.azimuth);
     },
     moving: Math.abs(v.drive.speed) > (G.missileHaltedMps ?? 0.3),
-    sightLight: (r) => stationSightLight(ctx, def, si, r),
+    sightLight: (r) => stationSightLight(ctx, def, si, r, g.weapon),
   });
 }
 

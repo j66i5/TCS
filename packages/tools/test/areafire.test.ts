@@ -4,7 +4,7 @@
  * hold it (fire rule, ammunition rule, own men); a programmed fuze saved in flight.
  */
 import { describe, expect, it } from "vitest";
-import { createSim, crewSuspects, hashState, loadSim, saveSim, step, submitOrder, type BattleInput, type EntityId, type Sim, type SimEvent } from "@tcs/sim";
+import { coneReachM, createSim, crewSuspects, hashState, loadSim, saveSim, step, submitOrder, type BattleInput, type EntityId, type Sim, type SimEvent } from "@tcs/sim";
 import { areaFireLab, areaFireLabMarkdown, areaFireLayout } from "../src/labs/areafire";
 import { loadData } from "../src/scenarios";
 
@@ -93,5 +93,20 @@ describe("area fire", () => {
     expect(puma.every((r) => r.rounds > 10)).toBe(true);
     // the BMP-2's 3UOF8 has no air-burst setting (impact only)
     expect(rows.find((r) => r.vehicle === "ru-bmp2" && r.case.startsWith("air burst"))?.extra).toBe("no air-burst setting");
+  });
+
+  it("review fix MH5: an air burst holds for an own man in the pellet cone 100 m past the point; the impact setting does not", () => {
+    const reach = coneReachM(createSim(areaFireLayout(data, "de", "puma-besatzung", "ru", 400, 1, false, 30)).ctx, "de-30x173-he", 1100);
+    expect(reach).toBeGreaterThan(100);
+    expect(reach).toBeLessThan(600);
+    const shots = (fuse: "airburst" | "impact"): number => {
+      const s = setup(areaFireLayout(data, "de", "puma-besatzung", "ru", 400, 1, false, 30, { x: 600, y: 304 }), "hold");
+      submitOrder(s.sim, { tick: 0, issuer: "blue", target: s.crew, kind: "fire", x: 500, y: 300, nature: "he", fuse });
+      let n = 0;
+      for (let k = 0; k < 20 * 60; k++) for (const e of step(s.sim)) if (e.kind === "shot.fired" && e.vehicle === s.vid) n++;
+      return n;
+    };
+    expect(shots("airburst")).toBe(0);
+    expect(shots("impact")).toBeGreaterThan(0);
   });
 });

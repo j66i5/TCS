@@ -516,8 +516,11 @@ export const BehaviourFile = withProv({
       urban: z.object({
         radiusM: Num(1, 1000), minBuildings: z.number().int().min(1).max(1000), minShare: Num(0, 1),
         minObjectiveM: Num(0, 3000), postStandoffM: Num(0, 3000), streetPoints: z.number().int().min(0).max(20),
+        edgeMarginM: Num(0, 1000).optional(), edgeNearM: Num(0, 200).optional(), edgeGapM: Num(0, 500).optional(),
       }).strict().optional(),
       driveRetries: z.number().int().min(0).max(10).optional(), threatMarginM: Num(0, 1000).optional(),
+      coverSearchM: Num(0, 500).optional(), coverSeconds: Num(1, 300).optional(), laneHalfWidthM: Num(0, 1000).optional(),
+      laneBeyondM: Num(0, 1000).optional(), fireHysteresisM: Num(0, 500).optional(), blindFollowM: Num(0, 1000).optional(),
     }).strict().optional(),
   }).strict(),
   /** Vehicle gunnery (M7.3): the same for every side. See BehaviourDef.gunnery. */
@@ -1122,6 +1125,9 @@ export const VehicleWeaponSchema = z.object({
   /** M7.6a: a guided weapon: the crew chooses it against vehicles at or beyond this range (m); default
    *  `behaviour.gunnery.missileBeyondM`. */
   missileBeyondM: Num(0, 10000).optional(),
+  /** Balance pass 5 review (C21): the operator seat's sensor kinds the missile can be guided through (the launcher's
+   *  own sight, e.g. a day-only sight); default: any sensor of that seat. */
+  guideSensors: z.array(Id).min(1).max(8).optional(),
 }).strict();
 /** Component kinds a vehicle's parts may be (M7.4a/b); what each does when damaged is in systems/armour.ts. */
 export const COMPONENT_KINDS = ["engine", "transmission", "track", "wheels", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel"] as const;

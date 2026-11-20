@@ -893,9 +893,11 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
       // Balance pass 5 (F4): which carriers were hit since the last look (a squad gets out when its own one, or one
       // near it, was: `carrierHitNear`).
       const hitVids: EntityId[] = [];
-      for (const c of crews) { const vid = view.unit.get(c)?.vehicle; const v = vid === undefined ? undefined : view.vehicle.get(vid); if (v && v.lastHitTick > (mem.lastHitSeen ?? -1e9)) hitVids.push(vid!); }
+      // (Review fix M6: hits by cannon, rockets and missiles only, `lastHeavyHitTick`; a machine-gun round pinging a hull
+      // 800 m off no longer empties every carrier near it.)
+      for (const c of crews) { const vid = view.unit.get(c)?.vehicle; const v = vid === undefined ? undefined : view.vehicle.get(vid); if (v && (v.lastHeavyHitTick ?? -1e9) > (mem.lastHitSeen ?? -1e9)) hitVids.push(vid!); }
       const hitNear = (vid: EntityId | undefined): boolean => vid !== undefined && carrierHitNear(view, vid, hitVids, COMMANDER.dismountHitNearM);
-      for (const c of crews) mem.lastHitSeen = Math.max(mem.lastHitSeen ?? -1e9, vehicleOf(c)?.lastHitTick ?? -1e9);
+      for (const c of crews) mem.lastHitSeen = Math.max(mem.lastHitSeen ?? -1e9, vehicleOf(c)?.lastHeavyHitTick ?? -1e9);
       // Its own vehicles (a crew that bailed out no longer has one: count the hulls of its side).
       // (M7.6b: the platoons' own hulls: not the tank sections'.)
       const tankVids = tankVehicles(view, ground(), side);
@@ -1139,7 +1141,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
           const holding = squads.filter((sq) => (mem.rallied ?? []).includes(sq) && !view.unit.get(sq)?.drill
             && members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).length >= COMMANDER.fallback.counterMinMen);
           const best = [...fit].sort((a, b) => strength(b) - strength(a) || a - b)[0];
-          if (best !== undefined && (fit.length + holding.length >= 2 || strength(best) >= 0.7)) {
+          // (Review nit: a squad still aboard is not sent into the mounted assault drill by the counter-attack.)
+          if (best !== undefined && riders(view, best).length === 0 && (fit.length + holding.length >= 2 || strength(best) >= 0.7)) {
             order(best, { kind: "assault", x: main.x, y: main.y });
             mem.counterTick = tick;
           }
@@ -1521,7 +1524,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             // (Balance pass 5: the best support-by-fire post round that point, the sim's `supportPost`; none: the point.)
             const MA = mountedAssaultDef(ground()), def = input.catalog.vehicles[v.def];
             let to = { x: px, y: py, facing: atan2(uy, ux) };
-            const urbanT = MA?.urban !== undefined && dismountDistance(ground(), force.faction, tgt.x, tgt.y).urban;
+            const urbanT = MA?.urban !== undefined && dismountDistance(ground(), force.faction, tgt.x, tgt.y, undefined, { ux, uy }).urban;
             const minObjM = urbanT ? MA!.urban!.minObjectiveM : MA?.minObjectiveM ?? 0;
             if (MA !== undefined && def && hypot2(px - tgt.x, py - tgt.y) >= minObjM) {
               const ctx0 = ground();
@@ -1561,7 +1564,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
               const p = siteSupportPost(ctx0, def, {
                 hull: { x: vt.x, y: vt.y }, anchor: { x: clamp(vt.x - ux * MA.postBackM, W), y: clamp(vt.y - uy * MA.postBackM, H) },
                 behind: { x: vt.x, y: vt.y, ux: -ux, uy: -uy, minM: MA.postMinBackM }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM },
-                light: view.environment.light, threats, avoid: holds, ...(dismountDistance(ctx0, force.faction, tgt.x, tgt.y).urban ? { urban: true } : {}),
+                light: view.environment.light, threats, avoid: holds, ...(dismountDistance(ctx0, force.faction, tgt.x, tgt.y, undefined, { ux, uy }).urban ? { urban: true } : {}),
                 extra: all.flatMap((m) => knownMen(m)).filter((k) => k.kind !== "heard" && hypot2(k.x - tgt.x, k.y - tgt.y) <= MA.fireNearObjectiveM).map((k) => ({ x: k.x, y: k.y })),
               });
               if (!p) { if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) order(c, { kind: "halt" }); continue; }
@@ -1669,7 +1672,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
               // The first point far enough from every objective, then up to 100 m farther back for one out of sight
               // (balance pass 5: the sim's `dismountSpot`, shared with the player's mounted assault).
               // (Balance pass 5, owner 2026-11-20: a built-up objective's shorter distance, `dismountDistance`.)
-              const p = dismountSpot(ground(), { tgt, objectives, ux, uy, offM: off, dismountM: dismountDistance(ground(), force.faction, tgt.x, tgt.y).dismountM, behindM: behind, stepM: COMMANDER.dismountStepM, candidates: COMMANDER.dismountCandidates, eyes });
+              const p = dismountSpot(ground(), { tgt, objectives, ux, uy, offM: off, dismountM: dismountDistance(ground(), force.faction, tgt.x, tgt.y, undefined, { ux, uy }).dismountM, behindM: behind, stepM: COMMANDER.dismountStepM, candidates: COMMANDER.dismountCandidates, eyes });
               order(c, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: atan2(uy, ux) });
             });
             toAll({ kind: "rules", fire: "return" });
@@ -1688,7 +1691,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
           // carry a Panzerfaust or an RPG), or an enemy vehicle seen: out at once.
           const crewKnown = crews.flatMap((c) => view.unit.get(c)?.members ?? []).flatMap((m) => known(m));
           // (Balance pass 5: for a built-up objective only men nearer than its dismount distance + a margin.)
-          const MA0 = mountedAssaultDef(ground()), dd0 = dismountDistance(ground(), force.faction, tgt.x, tgt.y);
+          const MA0 = mountedAssaultDef(ground()), dd0 = dismountDistance(ground(), force.faction, tgt.x, tgt.y, undefined, { ux, uy });
           const threatMenM = MA0 ? Math.min(COMMANDER.dismountThreatMenM, threatMenFor(MA0, dd0.dismountM)) : COMMANDER.dismountThreatMenM;
           const atThreat = (vid: EntityId): boolean => {
             const vt = view.transform.get(vid);
@@ -2118,7 +2121,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             const u = view.unit.get(sq);
             const last = mem.lastAssault[String(sq)] ?? -1e9;
             if (!mem.closed!.includes(sq) || mem.clearing?.[String(sq)] !== undefined && !u?.drill) return;
-            if (u && !u.drill && !u.broken && moraleReady(u) && strength(sq) >= 0.5 && tick - last >= COMMANDER.reassaultSeconds * 60 && rested(sq)) {
+            if (u && !u.drill && !u.broken && moraleReady(u) && strength(sq) >= 0.5 && tick - last >= COMMANDER.reassaultSeconds * 60 && rested(sq) && riders(view, sq).length === 0) {
               const off = (i - (assaulters.length - 1) / 2) * 20;
               const hb = nextHouse(sq);
               if (hb >= 0) {

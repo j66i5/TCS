@@ -310,6 +310,7 @@
   "radio.supportPost": "{callsign}: squad out, moving to support by fire.",
   "radio.shiftFire": "{callsign}: shifting fire beyond the objective.",
   "radio.liftFire": "{callsign}: lifting fire, our men are on the objective.",
+  "radio.resumeFire": "{callsign}: our men are back, firing on the objective again.",
   "radio.seatSwap": "{callsign}: crewman down, taking over his seat.",
   "radio.resupplied": "{callsign}: ammunition from the vehicle.",
   "order.mount": "Mount",

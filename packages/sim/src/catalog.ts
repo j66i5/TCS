@@ -405,13 +405,23 @@ export interface MountedAssaultDef {
    *  least `minBuildings` buildings stand (centre) within `radiusM` of it, or their footprints cover `minShare` of
    *  that circle. Then the faction's `dismountUrbanM` applies; support posts may stand `minObjectiveM` from the objective and
    *  `postStandoffM` off known enemy men, and must also see up to `streetPoints` points of the roads round it. */
-  urban?: { radiusM: number; minBuildings: number; minShare: number; minObjectiveM: number; postStandoffM: number; streetPoints: number };
+  urban?: { radiusM: number; minBuildings: number; minShare: number; minObjectiveM: number; postStandoffM: number; streetPoints: number;
+    /** Review fix H3: with the way in known, the dismount point lies at least this far outside the built-up area's
+     *  edge on the way in (`builtUpEdgeM`: buildings within `edgeNearM` of the line, gaps up to `edgeGapM`). Absent: off. */
+    edgeMarginM?: number; edgeNearM?: number; edgeGapM?: number };
   /** Enemy men known within `threatMenM` of a riding carrier get its squads out early, but at most within the dismount
    *  distance in force + this margin (the doctrine accepts riding that close to the enemy's edge). Absent: no cap. */
   threatMarginM?: number;
   /** A carrier whose drive gave up (jammed among the other hulls) is sent on to its dismount point again up to this
    *  many times before its squads get out where it stands. Absent: 0. */
   driveRetries?: number;
+  /** Review fixes (balance pass 5): hit or threatened on the way in, a carrier smokes and makes for a spot hidden from
+   *  the enemy within `coverSearchM` (back or to the side) before its squads get out, at most `coverSeconds`
+   *  (absent: out where it stands); support fire takes enemies in the assault lane, `laneHalfWidthM` either side of
+   *  the squads' way to `laneBeyondM` past the objective (absent: the objective only); shift and lift come back only
+   *  `fireHysteresisM` beyond their distances; a hull with no post that sees anything follows its squads
+   *  `blindFollowM` behind (absent: it stays). */
+  coverSearchM?: number; coverSeconds?: number; laneHalfWidthM?: number; laneBeyondM?: number; fireHysteresisM?: number; blindFollowM?: number;
 }
 
 export interface BehaviourDef {
@@ -1201,6 +1211,9 @@ export interface VehicleDef {
       startLoaded?: boolean;
       /** M7.6a: a guided weapon chosen against vehicles at or beyond this range (m). */
       missileBeyondM?: number;
+      /** Balance pass 5 review (C21): the sensor kinds of its operator's seat the missile can be guided through (its
+       *  own sight); absent: any of them. */
+      guideSensors?: string[];
     }[];
   }[];
   stowed: { item: DefId; count: number; charge?: number }[];

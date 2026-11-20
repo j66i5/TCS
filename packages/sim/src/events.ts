@@ -332,7 +332,10 @@ export type SimEvent =
    *  objective then), its support-by-fire post, and the end of its part (taken: a man of its squads on the objective). */
   | { kind: "assault.dismountPoint"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number }
   | { kind: "assault.dismounted"; tick: number; unit: EntityId; vehicle: EntityId; distM: number; reason: "point" | "stopped" | "late" | "immobile" | "hit" | "threatMen" | "threatVehicle" | "empty" | "near" | "noRoute" }
-  | { kind: "assault.supportPost"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number }
+  | { kind: "assault.supportPost"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number; seen: number }
+  /** Balance pass 5 review (MH4): a carrier hit or threatened on the way in makes for a spot hidden from the enemy
+   *  before its squads get out. */
+  | { kind: "assault.cover"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number; reason: string }
   /** Balance pass 5 (area fire): a station opens a burst at a place enemy men were last known (the point drawn in its
    *  circle), with its fuze's setting. */
   | { kind: "vehicle.areaFire"; tick: number; vehicle: EntityId; station: number; x: number; y: number; nature: "he" | "mg"; fuse: "airburst" | "impact"; weight: number }

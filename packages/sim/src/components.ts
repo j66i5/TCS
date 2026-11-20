@@ -930,7 +930,11 @@ export interface MountedAssaultCarrier {
   squads: EntityId[];
   /** Foot units it lets out with no drill (a platoon's headquarters). */
   others: EntityId[];
-  phase: "drive" | "dismount" | "support" | "done";
+  /** drive, cover (balance pass 5 review, MH4: hit or threatened on the way in, smoke out and into the nearest spot
+   *  hidden from the enemy it knows before the squads get out), dismount, support, done. */
+  phase: "drive" | "cover" | "dismount" | "support" | "done";
+  /** Why it is in cover (the dismount reason it lets them out with). */
+  coverWhy?: string;
   dx: number; dy: number;
   phaseTick: number;
   /** Where it let its squads out: its distance to the objective then, m (-1: not yet). */
@@ -947,6 +951,8 @@ export interface MountedAssaultCarrier {
   fireAt?: EntityId;
   /** Times its drive was sent on again after it gave up short of the dismount point (`driveRetries`). */
   retries?: number;
+  /** The share of the objective's points its post sees (the `assault.supportPost` event; labs). */
+  postSeen?: number;
 }
 
 /** A mounted assault (balance pass 5): the objective, the way in (unit vector), when it was ordered, its hulls and the
@@ -957,6 +963,8 @@ export interface MountedAssault {
   startTick: number;
   /** The objective is built-up (`isBuiltUp`): the urban dismount distance, threat and post values apply. */
   urban?: boolean;
+  /** The dismount distance in force (worked out once when ordered, `dismountDistance`), m. */
+  dismountM?: number;
   carriers: MountedAssaultCarrier[];
   squads: EntityId[];
 }
@@ -1122,6 +1130,9 @@ export interface VehicleState {
   crewReaction: "continue" | "reverseOut" | "bailOut" | null; reactionTick: number;
   reactionWhy: string[];
   lastHitTick: number; lastPenTick: number; hitsThisTick: number;
+  /** Balance pass 5 review (M6): the last hit by an enemy cannon round (20 mm and up), rocket or missile: what gets
+   *  riders out of their carrier (rifle and machine-gun hits do not). Absent: none yet. */
+  lastHeavyHitTick?: number;
   /** Last hit by a rocket or other shaped charge, through or not (M7.4b; since 2026-11-13 no reason by itself to
    *  reverse out: a rocket that bounces off does not drive the crew back). */
   lastShapedHitTick: number;

@@ -146,6 +146,18 @@ describe("balance pass 5: crews' gunnery", () => {
     expect(cmd.sensors!.map((x) => sim.ctx.catalog.spotting.sensors[x.kind]!.maxRangeM)).toContain(400);
   });
 
+  it("review fix C21: the Konkurs is guided through the 9Sh119M1 day sight only; the BTR-82A's night channels as the BMP-2's", () => {
+    const sim = createSim(hulls("puma-besatzung", "bmp2-ekipazh", 1000));
+    const bmp = sim.ctx.catalog.vehicles["ru-bmp2"]!;
+    const wi = bmp.stations[0]!.weapons.findIndex((w) => w.weapon === "ru-9p135m");
+    expect(wi).toBeGreaterThanOrEqual(0);
+    expect(stationSightLight(sim.ctx, bmp, 0, 800)).toBe(0.5);
+    expect(stationSightLight(sim.ctx, bmp, 0, 800, wi)).toBe(0);
+    const ranges = (id: string, station: string) => sim.ctx.catalog.vehicles[id]!.seats.find((x) => x.station === station)!.sensors!.filter((x) => (sim.ctx.catalog.spotting.sensors[x.kind]?.nightLight ?? 0) > 0).map((x) => sim.ctx.catalog.spotting.sensors[x.kind]?.maxRangeM ?? Infinity);
+    expect(Math.max(...ranges("ru-btr82a", "gunner").filter((r) => r !== Infinity))).toBeLessThanOrEqual(900);
+    expect(ranges("ru-btr82a", "commander")).toContain(400);
+  });
+
   it("F9: on a moonless night a BMP-2 does not launch its Konkurs at a Puma 1500 m off; by day it does", () => {
     const launches = (night: boolean): number => {
       const input = hulls("puma-besatzung", "bmp2-ekipazh", 1500);

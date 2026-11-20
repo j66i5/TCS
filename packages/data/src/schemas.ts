@@ -492,6 +492,17 @@ export const BehaviourFile = withProv({
     overwatchBound: z.object({
       idleS: Num(1, 3600), stepM: Num(10, 2000), behindM: Num(0, 2000), minGainM: Num(0, 1000), retryS: Num(1, 3600),
     }).strict().optional(),
+    /** Balance pass 5 (owner 2026-11-20): the mounted assault. See MountedAssaultDef. */
+    mountedAssault: z.object({
+      stepSeconds: Num(0.1, 10), dismountStepM: Num(1, 500), dismountCandidates: z.number().int().min(1).max(20), slotM: Num(0, 500),
+      objectiveRadiusM: Num(0, 500), arriveM: Num(1, 200), threatMenM: Num(0, 3000), threatVehicleM: Num(0, 5000), threatSeenSeconds: Num(0, 600),
+      hitNearM: Num(0, 3000), hitRecentSeconds: Num(0, 600), rideTimeoutSeconds: Num(1, 3600), dismountTimeoutSeconds: Num(1, 600),
+      postBackM: Num(0, 1000), postMinBackM: Num(0, 1000), postRingsM: z.array(Num(0, 1000)).min(1).max(10), postMinSeen: Num(0, 1),
+      postStandoffM: Num(0, 3000), noRidersStandoffM: Num(0, 3000), minObjectiveM: Num(0, 3000),
+      fireEverySeconds: Num(1, 600), fireNearObjectiveM: Num(0, 2000), fireSeenSeconds: Num(0, 600), ownClearM: Num(0, 1000),
+      shiftM: Num(0, 2000), liftM: Num(0, 2000), followReplanM: Num(1, 1000), takenSlackM: Num(0, 500), consolidateM: Num(0, 1000),
+      pickupBackM: Num(0, 500), nightBelowLight: Num(0, 1),
+    }).strict().optional(),
   }).strict(),
   /** Vehicle gunnery (M7.3): the same for every side. See BehaviourDef.gunnery. */
   gunnery: z.object({

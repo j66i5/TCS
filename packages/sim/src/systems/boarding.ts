@@ -432,7 +432,7 @@ export function stepFetchAmmo(ctx: SimContext, state: SimState, events: EventSin
 // ---------------------------------------------------------------- orders
 
 /** Foot units of a subtree (units that do not crew a vehicle), the unit itself first, then ID order. */
-function footUnits(state: SimState, uid: EntityId, own = false): EntityId[] {
+export function footUnits(state: SimState, uid: EntityId, own = false): EntityId[] {
   // (`own`: the unit alone, not its sub-units: a platoon's headquarters, owner 2026-11-15.)
   if (own) return state.unit.get(uid)?.vehicle === undefined && state.unit.has(uid) ? [uid] : [];
   const out: EntityId[] = [];
@@ -468,7 +468,7 @@ function atStation(ctx: SimContext, state: SimState, s: SoldierState): boolean {
 }
 
 /** Passengers (not crew, nor a passenger at a crew station) of a unit's own members who are aboard and could get out on their own. */
-function ridersOf(ctx: SimContext, state: SimState, uid: EntityId): EntityId[] {
+export function ridersOf(ctx: SimContext, state: SimState, uid: EntityId): EntityId[] {
   const u = state.unit.get(uid);
   if (!u || u.vehicle !== undefined) return [];
   return u.members.filter((m) => { const s = state.soldier.get(m); return s?.mount !== undefined && walker(s) && !atStation(ctx, state, s); }).sort((a, b) => a - b);
@@ -513,6 +513,11 @@ function startDismount(state: SimState, uid: EntityId, men: EntityId[], then: Or
   if (thenTarget !== undefined) b.thenTarget = thenTarget;
   setBoarding(state, uid, b);
   return true;
+}
+
+/** Mounted assault (balance pass 5): let one foot unit's riders out, then carry out `then` (or nothing). */
+export function dismountUnit(ctx: SimContext, state: SimState, uid: EntityId, then: OrderBody | null): boolean {
+  return startDismount(state, uid, ridersOf(ctx, state, uid), then, undefined);
 }
 
 /**

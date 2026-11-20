@@ -696,6 +696,10 @@ export interface Unit {
   asset?: OffMapKind;
   /** Getting in or out of a vehicle (M7.2); not a drill. */
   boarding?: Boarding;
+  /** A mounted assault this unit was ordered (balance pass 5, owner 2026-11-20; systems/assault-mounted.ts): its
+   *  carriers drive the squads to their dismount points, let them out for the assault on foot and support them by fire.
+   *  Absent: none. */
+  mountedAssault?: MountedAssault;
   /**
    * The house this unit last left on its own (M7.5e step "leave"): the building's id, when, and why. Its own rules
    * keep it out of that house for `soldier.houseReenterSeconds`. Absent: none.
@@ -905,6 +909,44 @@ export type VehicleStatus = "ok" | "immobilised" | "disarmed" | "abandoned" | "d
 export type { StationKind };
 
 /** Drive state of a vehicle: everything history-dependent the drive model needs (rule 1). */
+/**
+ * One carrier (or hull) of a mounted assault (balance pass 5, systems/assault-mounted.ts). Phases: "drive" to the
+ * dismount point (`dx, dy`; with no squads: the stand-off point it fires from), "dismount" (its squads getting out),
+ * "support" (on or going to its support-by-fire post, firing on the objective), "done" (out of it: lost, or the
+ * assault ended).
+ */
+export interface MountedAssaultCarrier {
+  vehicle: EntityId;
+  crew: EntityId;
+  /** Foot units it carries into the assault (they get the assault drill once out); empty: assault by fire. */
+  squads: EntityId[];
+  /** Foot units it lets out with no drill (a platoon's headquarters). */
+  others: EntityId[];
+  phase: "drive" | "dismount" | "support" | "done";
+  dx: number; dy: number;
+  phaseTick: number;
+  /** Where it let its squads out: its distance to the objective then, m (-1: not yet). */
+  dismountAtM: number;
+  /** Its support-by-fire post (absent: not sited yet; null: none found, it stays where it is). */
+  post?: { x: number; y: number; facing: number } | null;
+  /** Its last fire order on the objective (tick). */
+  fireTick: number;
+  /** Fire shifted (1) or lifted (2) for the squads closing in (said once each). */
+  lifted: number;
+  /** "follow" doctrine: the squads' place it last moved for. */
+  followAt?: [number, number];
+}
+
+/** A mounted assault (balance pass 5): the objective, the way in (unit vector), when it was ordered, its hulls and the
+ *  foot units that assault (riders and those already on foot). */
+export interface MountedAssault {
+  x: number; y: number; building?: number;
+  ux: number; uy: number;
+  startTick: number;
+  carriers: MountedAssaultCarrier[];
+  squads: EntityId[];
+}
+
 export interface DriveState {
   /** Tracked: ground speed of each track (signed m/s, + forward). Body speed and yaw rate follow from them. */
   trackL: number; trackR: number;

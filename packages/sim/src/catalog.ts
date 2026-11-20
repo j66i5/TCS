@@ -373,6 +373,34 @@ export interface ZoneWoundDef {
   severityBase: number; severitySpread: number; fatalAt: number; unconsciousAt: number;
   bleedLps: number; compressible: boolean; airway: boolean; breathing: boolean;
 }
+/**
+ * Mounted assault (balance pass 5; game values, low confidence; systems/assault-mounted.ts). stepSeconds: how often
+ * the drill looks. Drive: each carrier to a dismount point `dismountM` (faction doctrine) short of the objective on
+ * the way in, `slotM` apart across it, up to `dismountCandidates` x `dismountStepM` farther back for one out of sight
+ * of the objective's near edge (`objectiveRadiusM`) and of known enemies; `arriveM` from it counts as there. Out early
+ * on a hit on its own carrier or one within `hitNearM` in the last `hitRecentSeconds`, on enemy men known within
+ * `threatMenM` or an enemy hull seen within `threatVehicleM` (contacts younger than `threatSeenSeconds`), after
+ * `rideTimeoutSeconds`, or already within `dismountM` + `arriveM`. Support: a hull-down post (`siteHullDown`) round a
+ * point `postBackM` behind where it let them out, at least `postMinBackM` farther back, on rings `postRingsM`, its turret
+ * seeing at least `postMinSeen` of the objective's points, `postStandoffM` off known enemy men; none: one round its
+ * place or nearer the objective (never within `minObjectiveM`); none: it stays. No riders: assault by fire from
+ * `noRidersStandoffM`. Every `fireEverySeconds` a fire order at an enemy known (within `fireSeenSeconds`) within
+ * `fireNearObjectiveM` of the objective, none within `ownClearM` of own men on foot; its squads within `shiftM` of the
+ * objective: only beyond its middle (shift), within `liftM`: none (lift). "follow" doctrine: a new post `followM`
+ * behind the squads once they moved `followReplanM`. Taken: a squad's man within `objectiveRadiusM` + `takenSlackM`
+ * when the drills end; the hulls then close to `consolidateM` short of it; failed: to `pickupBackM` behind their squad.
+ * Night (light below `nightBelowLight`): the post's reach is the best night sight's.
+ */
+export interface MountedAssaultDef {
+  stepSeconds: number; dismountStepM: number; dismountCandidates: number; slotM: number; objectiveRadiusM: number; arriveM: number;
+  threatMenM: number; threatVehicleM: number; threatSeenSeconds: number; hitNearM: number; hitRecentSeconds: number;
+  rideTimeoutSeconds: number; dismountTimeoutSeconds: number;
+  postBackM: number; postMinBackM: number; postRingsM: number[]; postMinSeen: number; postStandoffM: number;
+  noRidersStandoffM: number; minObjectiveM: number;
+  fireEverySeconds: number; fireNearObjectiveM: number; fireSeenSeconds: number; ownClearM: number; shiftM: number; liftM: number;
+  followReplanM: number; takenSlackM: number; consolidateM: number; pickupBackM: number; nightBelowLight: number;
+}
+
 export interface BehaviourDef {
   suppression: { nearMissRadiusM: number; perRound: number; energyRefJ: number; blastFactor: number; blastRadiusScale: number; decayPerS: number; max: number; heavyEnergyCap?: number };
   morale: MoraleDef;
@@ -530,6 +558,9 @@ export interface BehaviourDef {
     completeAfterSeconds: number; giveUpSeconds: number; exitFanMinM: number; exitFanMaxM: number;
     remountM: number; holdDismountM: number; resupplyRangeM: number; resupplyReachM: number; resupplyCount: number; seatSwapCheckSeconds: number;
     overwatchBound?: { idleS: number; stepM: number; behindM: number; minGainM: number; retryS: number };
+    /** The mounted assault (balance pass 5, owner 2026-11-20; systems/assault-mounted.ts; absent: an assault order to
+     *  men aboard dismounts them where they are, as before). See `MountedAssaultDef`. */
+    mountedAssault?: MountedAssaultDef;
   };
   /**
    * Vehicle gunnery (M7.3). stepSeconds: how often a crew chooses its target. A crew engages what it has seen

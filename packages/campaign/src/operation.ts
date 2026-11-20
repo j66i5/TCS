@@ -27,7 +27,8 @@ import type { DataSet } from "@tcs/data";
 import { nextU32, nextInt, nextFloat, pick, type BattleResult } from "@tcs/sim";
 import { scenarioMapSize, type MapKind, type ScenarioDef, type ScenarioForces, type ScenarioTerrain } from "@tcs/scenario";
 import { sectorTerrain } from "./carry";
-import { clone, membersOf, unitsOf, type CampaignForce, type CampaignRecord, type NodeResult, type OperationEnd, type OperationState, type Sector } from "./record";
+import { deployableMen } from "./commit";
+import { clone, unitsOf, type CampaignForce, type CampaignRecord, type NodeResult, type OperationEnd, type OperationState, type Sector } from "./record";
 import { campaignRules, type CampaignRules } from "./rules";
 
 const STREAM = "campaign/op";
@@ -185,11 +186,20 @@ export function nodeBattleDef(data: DataSet, record: CampaignRecord, which: "mai
   };
 }
 
-/** Able men of a force against its establishment (the places of every unit's template). */
+/** Able men of a force against its establishment (the places of every unit's template); able: deployable, so crews of
+ *  hulls in the workshop or lost do not count (`deployableMen`). */
 export function ableShare(data: DataSet, f: CampaignForce): number {
   let places = 0;
   for (const u of unitsOf(f.battalion)) places += data.factions[f.faction]?.units[f.establishment[u.key] ?? ""]?.members.length ?? 0;
-  return places === 0 ? 0 : membersOf(f.battalion).length / places;
+  return places === 0 ? 0 : deployableMen(f, f.battalion) / places;
+}
+
+/** Steps an endless run keeps (review M12: older ones are dropped and counted in `stepsDropped`). */
+export const ENDLESS_STEPS_KEPT = 30;
+
+/** Nodes fought in this operation or endless run (its steps, with the dropped ones). */
+export function nodesFought(op: OperationState): number {
+  return (op.stepsDropped ?? 0) + op.steps.length;
 }
 
 /** Losses in a row at the end of the steps. */
@@ -214,7 +224,15 @@ export function advance(data: DataSet, record: CampaignRecord, result: NodeResul
     const t = nextNode(o.transitions, op.node, result, 0, null, () => pick(record.rng, STREAM, o.planned));
     step.next = { node: t.node, pos: op.pos };
     op.node = t.node;
-    if (op.steps.length % o.sectorEvery === 0) {
+    const fought = nodesFought(op);
+    // (Review M12: the endless run keeps only its last `ENDLESS_STEPS_KEPT` steps, so the record does not grow with
+    // them; the count of the dropped ones keeps the sector rhythm.)
+    if (op.steps.length > ENDLESS_STEPS_KEPT) {
+      const k = op.steps.length - ENDLESS_STEPS_KEPT;
+      op.steps.splice(0, k);
+      op.stepsDropped = (op.stepsDropped ?? 0) + k;
+    }
+    if (fought % o.sectorEvery === 0) {
       // A new sector; the old ones are never fought again (dropped, with their flank sectors).
       const s = newSector(data, record, op, t.node);
       op.sectors = op.sectors.filter((x) => x.id === s.id);

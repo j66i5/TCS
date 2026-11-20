@@ -15,10 +15,24 @@ import { campaignRules } from "./rules";
 
 const menIn = (u: UnitInput) => membersOf(u).length;
 
-/** The fittest company of a battalion (most men; ties: the first in order), or null when none has a man. */
+/** Men a unit (with its sub-units) can take into a battle: its members less the crews of hulls not in service (in
+ *  the workshop or lost: they rest, `withHulls`). Every "able" count of the choice goes through this, so a choice never
+ *  promises men the battle leaves out (review M12: a company of idle crews was proposed and its battle had 0 men). */
+export function deployableMen(f: CampaignForce, u: UnitInput): number {
+  return withHulls([u], f.vehicles).units.reduce((n, x) => n + menIn(x), 0);
+}
+
+/** A company with at least one platoon that has deployable men. */
+const canFight = (f: CampaignForce, c: UnitInput) => c.subunits.some((p) => p.echelon === "platoon" && deployableMen(f, p) > 0);
+
+/** The fittest company of a battalion (most deployable men, with an able platoon; ties: the first in order), or null. */
 export function fittestCompany(f: CampaignForce): UnitInput | null {
-  let best: UnitInput | null = null;
-  for (const c of f.battalion.subunits) if (c.echelon === "company" && menIn(c) > 0 && (best === null || menIn(c) > menIn(best))) best = c;
+  let best: UnitInput | null = null, bestMen = 0;
+  for (const c of f.battalion.subunits) {
+    if (c.echelon !== "company" || !canFight(f, c)) continue;
+    const n = deployableMen(f, c);
+    if (best === null || n > bestMen) { best = c; bestMen = n; }
+  }
   return best;
 }
 
@@ -51,7 +65,8 @@ export interface Selectable {
   what: "hq" | "platoon" | "mortarSections" | "aglTeams" | "missileTeams" | "tankSections";
   /** The company (hq, platoon). */
   company?: string;
-  /** Able men (the unit's men with it; for an hq without its platoons). */
+  /** Deployable men (`deployableMen`: the unit's men with it less the crews of hulls not in service; for an hq without
+   *  its platoons). */
   men: number;
 }
 
@@ -65,10 +80,10 @@ export function selectables(data: DataSet, f: CampaignForce): Selectable[] {
   const out: Selectable[] = [];
   for (const c of f.battalion.subunits) {
     if (c.echelon !== "company") continue;
-    out.push({ key: c.key, what: "hq", company: c.key, men: menIn(hqOf(c)) });
-    for (const p of c.subunits) if (p.echelon === "platoon") out.push({ key: p.key, what: "platoon", company: c.key, men: menIn(p) });
+    out.push({ key: c.key, what: "hq", company: c.key, men: deployableMen(f, hqOf(c)) });
+    for (const p of c.subunits) if (p.echelon === "platoon") out.push({ key: p.key, what: "platoon", company: c.key, men: deployableMen(f, p) });
   }
-  for (const s of supportOf(data, f)) out.push({ key: s.unit.key, what: s.kind, men: menIn(s.unit) });
+  for (const s of supportOf(data, f)) out.push({ key: s.unit.key, what: s.kind, men: deployableMen(f, s.unit) });
   return out;
 }
 
@@ -78,17 +93,18 @@ export function selectables(data: DataSet, f: CampaignForce): Selectable[] {
 export function proposeChoice(data: DataSet, f: CampaignForce, exclude: readonly string[] = []): string[] {
   const cap = campaignRules(data).battle;
   const ex = new Set(exclude);
-  let company: UnitInput | null = null;
+  let company: UnitInput | null = null, companyMen = 0;
   for (const c of f.battalion.subunits) {
-    if (c.echelon !== "company" || ex.has(c.key) || c.subunits.some((p) => ex.has(p.key))) continue;
-    if (menIn(c) > 0 && (company === null || menIn(c) > menIn(company))) company = c;
+    if (c.echelon !== "company" || ex.has(c.key) || c.subunits.some((p) => ex.has(p.key)) || !canFight(f, c)) continue;
+    const n = deployableMen(f, c);
+    if (company === null || n > companyMen) { company = c; companyMen = n; }
   }
   if (!company) return [];
   const keys: string[] = [];
-  if (cap.companyHq && menIn(hqOf(company)) > 0) keys.push(company.key);
-  keys.push(...company.subunits.filter((s) => s.echelon === "platoon" && menIn(s) > 0).slice(0, cap.platoons).map((p) => p.key));
+  if (cap.companyHq && deployableMen(f, hqOf(company)) > 0) keys.push(company.key);
+  keys.push(...company.subunits.filter((s) => s.echelon === "platoon" && deployableMen(f, s) > 0).slice(0, cap.platoons).map((p) => p.key));
   const left = { mortarSections: cap.mortarSections, aglTeams: cap.aglTeams, missileTeams: cap.missileTeams, tankSections: cap.tankSections };
-  for (const s of supportOf(data, f)) if (!ex.has(s.unit.key) && left[s.kind] > 0 && menIn(s.unit) > 0) { left[s.kind]--; keys.push(s.unit.key); }
+  for (const s of supportOf(data, f)) if (!ex.has(s.unit.key) && left[s.kind] > 0 && deployableMen(f, s.unit) > 0) { left[s.kind]--; keys.push(s.unit.key); }
   return keys;
 }
 
@@ -129,27 +145,42 @@ export function enemyChoice(data: DataSet, f: CampaignForce, against: number, ra
   return keys;
 }
 
+/** A problem with a choice, as a string-table key and its parameters (review M12, rule 12: the UI says it through
+ *  `Strings.t("cmp.problem.<key>")`; `text` is the plain-English form for logs, tests and errors). `unit`: a unit key;
+ *  `what`: a selectable kind ("platoon", "hq", "mortarSections", ...); `vehicle`: a hull id. */
+export interface CommitProblem {
+  key: "unknown" | "twice" | "elsewhere" | "noMen" | "cap" | "noPlatoon" | "squadNoCarrier" | "carrierNoSquad";
+  params: { unit?: string; what?: string; n?: number; max?: number; vehicle?: string };
+  text: string;
+}
+
+/** Problems with a choice as plain-English lines (empty: it may fight); `commitProblems` has them for the screen. */
+export function validateCommit(data: DataSet, f: CampaignForce, keys: readonly string[], exclude: readonly string[] = []): string[] {
+  return commitProblems(data, f, keys, exclude).map((x) => x.text);
+}
+
 /** Problems with a choice (empty: it may fight): unknown or doubled keys, more than the cap, no able platoon, a unit
  *  without men, a carrier committed without the squads it carries or a squad without its carrier in service. */
-export function validateCommit(data: DataSet, f: CampaignForce, keys: readonly string[], exclude: readonly string[] = []): string[] {
+export function commitProblems(data: DataSet, f: CampaignForce, keys: readonly string[], exclude: readonly string[] = []): CommitProblem[] {
   const cap = campaignRules(data).battle;
-  const p: string[] = [];
+  const p: CommitProblem[] = [];
+  const say = (key: CommitProblem["key"], params: CommitProblem["params"], text: string) => { p.push({ key, params, text }); };
   const all = new Map(selectables(data, f).map((s) => [s.key, s]));
   const seen = new Set<string>();
   const count = { hq: 0, platoon: 0, mortarSections: 0, aglTeams: 0, missileTeams: 0, tankSections: 0 };
   for (const k of keys) {
     const s = all.get(k);
-    if (!s) { p.push(`not selectable: ${k}`); continue; }
-    if (seen.has(k)) { p.push(`twice: ${k}`); continue; }
-    if (exclude.includes(k)) p.push(`committed elsewhere: ${k}`);
+    if (!s) { say("unknown", { unit: k }, `not selectable: ${k}`); continue; }
+    if (seen.has(k)) { say("twice", { unit: k }, `twice: ${k}`); continue; }
+    if (exclude.includes(k)) say("elsewhere", { unit: k }, `committed elsewhere: ${k}`);
     seen.add(k);
-    if (s.men === 0) p.push(`no men: ${k}`);
+    if (s.men === 0) say("noMen", { unit: k }, `no men: ${k}`);
     count[s.what]++;
   }
-  if (count.platoon > cap.platoons) p.push(`platoons ${count.platoon} > ${cap.platoons}`);
-  if (count.hq > (cap.companyHq ? 1 : 0)) p.push(`company headquarters ${count.hq} > ${cap.companyHq ? 1 : 0}`);
-  for (const k of ["mortarSections", "aglTeams", "missileTeams", "tankSections"] as const) if (count[k] > cap[k]) p.push(`${k} ${count[k]} > ${cap[k]}`);
-  if (![...seen].some((k) => all.get(k)!.what === "platoon" && all.get(k)!.men > 0)) p.push("no able platoon");
+  if (count.platoon > cap.platoons) say("cap", { what: "platoon", n: count.platoon, max: cap.platoons }, `platoons ${count.platoon} > ${cap.platoons}`);
+  if (count.hq > (cap.companyHq ? 1 : 0)) say("cap", { what: "hq", n: count.hq, max: cap.companyHq ? 1 : 0 }, `company headquarters ${count.hq} > ${cap.companyHq ? 1 : 0}`);
+  for (const k of ["mortarSections", "aglTeams", "missileTeams", "tankSections"] as const) if (count[k] > cap[k]) say("cap", { what: k, n: count[k], max: cap[k] }, `${k} ${count[k]} > ${cap[k]}`);
+  if (![...seen].some((k) => all.get(k)!.what === "platoon" && all.get(k)!.men > 0)) say("noPlatoon", {}, "no able platoon");
   // Carriers and their squads go together (a committed hull's carried squads are committed; a committed squad's
   // carrier, when in service, is committed).
   const units = unitsInChoice(f, [...seen]);
@@ -161,8 +192,8 @@ export function validateCommit(data: DataSet, f: CampaignForce, keys: readonly s
     if (u.carrierId === undefined || !service.has(u.carrierId) || u.members.length === 0) continue;
     const crew = crewOf.get(u.carrierId);
     if (crew === undefined) continue;
-    if (inUnits.has(u.key) && !inUnits.has(crew)) p.push(`squad ${u.key} without its carrier ${u.carrierId}`);
-    if (inUnits.has(crew) && !inUnits.has(u.key)) p.push(`carrier ${u.carrierId} without its squad ${u.key}`);
+    if (inUnits.has(u.key) && !inUnits.has(crew)) say("squadNoCarrier", { unit: u.key, vehicle: u.carrierId }, `squad ${u.key} without its carrier ${u.carrierId}`);
+    if (inUnits.has(crew) && !inUnits.has(u.key)) say("carrierNoSquad", { unit: u.key, vehicle: u.carrierId }, `carrier ${u.carrierId} without its squad ${u.key}`);
   }
   return p;
 }

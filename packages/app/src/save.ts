@@ -3,6 +3,7 @@
  * same URL rebuilds the same battle), together with the battle record so far (the review covers the whole battle).
  * M12.1b (plan Q-E (a)): a campaign battle (`?campaign=<slot>`) keeps this one mid-battle save, tagged with its
  * campaign slot; it loads only into a battle of the same slot (and a plain battle's save only outside a campaign).
+ * Review M12: and only into the battle of the same campaign record (`setCampaignKey`, the record's hash).
  */
 import { createSim, loadGame, readRecord, saveGame, ticksToSeconds, type BattleInput, type BattleRecord, type Controller, type SaveGame, type Sim } from "@tcs/sim";
 import type { App } from "./app";
@@ -15,9 +16,17 @@ export function campaignSlotOf(search: string): string | null {
   return v === null || v === "" ? null : v;
 }
 
-/** Does a stored mid-battle save belong to this battle's campaign slot (both null: not a campaign battle)? */
-export function saveMatchesSlot(blob: { campaignSlot?: string | null }, slot: string | null): boolean {
-  return (blob.campaignSlot ?? null) === slot;
+/** Review M12: the hash of the campaign record the battle on this page is fought for (null: not a campaign battle).
+ *  main.ts sets it; the mid-battle save carries it and loads only into a battle of the same record (a slot alone
+ *  matched an old save of an earlier node on the same sector). */
+let campaignKey: string | null = null;
+export function setCampaignKey(k: string | null): void { campaignKey = k; }
+
+/** Does a stored mid-battle save belong to this battle's campaign slot (both null: not a campaign battle) and, in a
+ *  campaign battle, to the same campaign record (`key`; review M12)? */
+export function saveMatchesSlot(blob: { campaignSlot?: string | null; campaignKey?: string | null }, slot: string | null, key: string | null = null): boolean {
+  if ((blob.campaignSlot ?? null) !== slot) return false;
+  return slot === null || (blob.campaignKey ?? null) === key;
 }
 
 /** The campaign slot the stored mid-battle save belongs to (null: a plain battle, or none stored). */
@@ -34,9 +43,9 @@ export function loadOrCreate(input: BattleInput, ai: Controller[], load: boolean
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
-      const blob = JSON.parse(raw) as { save: SaveGame; record?: unknown; campaignSlot?: string | null };
-      // (A campaign battle's save loads only into its slot's battle.)
-      if (!saveMatchesSlot(blob, campaignSlotOf(location.search))) return { sim: createSim(input), record: null, failed: true };
+      const blob = JSON.parse(raw) as { save: SaveGame; record?: unknown; campaignSlot?: string | null; campaignKey?: string | null };
+      // (A campaign battle's save loads only into its slot's battle of the same record.)
+      if (!saveMatchesSlot(blob, campaignSlotOf(location.search), campaignKey)) return { sim: createSim(input), record: null, failed: true };
       // (A record from before D2, or another version: the review starts at the load.)
       return { sim: loadGame(input, blob.save, ai), record: readRecord(blob.record), failed: false };
     }
@@ -47,7 +56,7 @@ export function loadOrCreate(input: BattleInput, ai: Controller[], load: boolean
 export function saveNow(a: App): void {
   const t = ticksToSeconds(a.sim.state.tick);
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ url: location.search, campaignSlot: campaignSlotOf(location.search), save: saveGame(a.sim, a.ai), record: a.record }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ url: location.search, campaignSlot: campaignSlotOf(location.search), ...(campaignKey !== null ? { campaignKey } : {}), save: saveGame(a.sim, a.ai), record: a.record }));
     a.hud.radio(a.strings.t("app.saved"), t, "#d8e0c8");
   } catch { a.hud.radio(a.strings.t("app.saveFailed"), t, "#ffb4b4"); }
 }

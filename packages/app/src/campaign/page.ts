@@ -11,13 +11,13 @@
  * (default from the clock); `&fixtures=1` lists the fixture faction; `&look=photo|flat`.
  */
 import {
-  AUTO_SLOT, afterBattleView, battalionView, briefingView, chooseForces, confirmForces, FlowError, makeLeader, manView, newCampaign, phaseOf, proceed,
+  AUTO_SLOT, afterBattleView, LeaderError, nodesFought, battalionView, briefingView, chooseForces, confirmForces, FlowError, makeLeader, manView, newCampaign, phaseOf, proceed,
   replenishmentView, reviseForces, setChoice, startFlow, unitsOf, type CampaignRecord, type FlowPhase,
 } from "@tcs/campaign";
 import type { DataSet, Strings } from "@tcs/data";
 import type { BattleResult } from "@tcs/sim";
 import { createCampaignUi, drawSectorPreview, type CampaignLook, type CampaignScreen, type CmpHeader, type CmpMember, type CmpSlot } from "@tcs/ui";
-import { browserCampaignStore, downloadText, exportFileName, pickFileText, validSlotName, type CampaignStore } from "../campaign-store";
+import { browserCampaignStore, downloadText, exportFileName, pendingMatches, pickFileText, validSlotName, type CampaignStore } from "../campaign-store";
 import { CampaignWorker, CancelledError } from "./client";
 
 const LOOK_KEY = "tcs.ui.look";
@@ -94,7 +94,7 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
       try {
         const l = await store.importText(text);
         message = { text: t("cmp.msg.imported", { slot: l.save.slotName }) + warnings(l.warnings.length, l.repairs.length) };
-      } catch (e) { message = { text: t("cmp.msg.importFailed", { why: e instanceof Error ? e.message : String(e) }), bad: true }; }
+      } catch (e) { console.warn("import", e); message = { text: t("cmp.msg.importFailed"), bad: true }; }
       await showHome();
     }),
     onSingleBattle: () => { location.search = ""; },
@@ -105,7 +105,10 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
     onMan: (pid) => { push(); show({ kind: "man", personId: pid }); },
     onMakeLeader: (pid) => void guard(async () => {
       if (!record) return;
-      try { await commit(makeLeader(data, record, pid)); message = { text: t("cmp.msg.leader") }; } catch (e) { message = { text: e instanceof Error ? e.message : String(e), bad: true }; }
+      try { await commit(makeLeader(data, record, pid)); message = { text: t("cmp.msg.leader") }; } catch (e) {
+        if (!(e instanceof LeaderError)) throw e;
+        message = { text: t(`cmp.leaderRefused.${e.key}`), bad: true };
+      }
       show({ kind: "man", personId: pid });
     }),
     onToggleChoice: (key) => void guard(async () => {
@@ -130,7 +133,10 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
     }),
     onAuto: () => void guard(async () => {
       if (!record || !(await confirm_())) return;
-      await autoResolve(null);
+      // (A played battle's result for this very record still waiting, e.g. its apply was cancelled: applied, not
+      // fought again.)
+      const pend = await store.pending();
+      await autoResolve(pendingMatches(pend, hashOf(record)) ? JSON.parse(pend.result) as BattleResult : null);
     }),
     onRevise: () => void guard(async () => { if (record && phaseOf(record) === "battle") { await commit(reviseForces(record)); showFlow(); } }),
     onProceed: () => void guard(async () => {
@@ -170,7 +176,8 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
     if (busy) return;
     busy = true;
     try { await f(); } catch (e) {
-      if (!(e instanceof CancelledError)) { message = { text: e instanceof FlowError ? `${e.message}: ${e.problems.join(", ")}` : e instanceof Error ? e.message : String(e), bad: true }; console.error(e); }
+      // (Review M12, rule 12: the player sees string-table text; the error's own English goes to the console.)
+      if (!(e instanceof CancelledError)) { message = { text: t(e instanceof FlowError ? "cmp.msg.flowError" : "cmp.msg.error"), bad: true }; console.error(e, e instanceof FlowError ? e.problems : ""); }
       if (screen === "progress") showFlow(); else rerender();
     } finally { busy = false; }
   }
@@ -218,6 +225,8 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
       onProgress: (p) => { const i = which.indexOf(p.which); if (i >= 0) { bars[i]!.seconds = p.seconds; ui.progress(bars); } },
     });
     await commit(r);
+    // (Only now is a played result used up: cleared after the record moved on, review M12.)
+    if (played) await store.clearPending();
     preview = null;
     showFlow();
   }
@@ -290,7 +299,7 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
     if (ph === "choose" || ph === "battle") {
       const b = briefingView(data, record);
       screen = "briefing";
-      const key = `${record.battles}/${record.op?.steps.length}/${record.op?.node}/${look}`;
+      const key = `${record.battles}/${record.op ? nodesFought(record.op) : 0}/${record.op?.node}/${look}`;
       if (!preview || preview.key !== key) {
         preview = { key, canvas: null };
         const rec = record;
@@ -322,10 +331,14 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
       const pend = await store.pending();
       const l = await store.load(AUTO_SLOT);
       record = l.save.record;
-      if (pend && phaseOf(record) === "battle" && pend.battles === record.battles) {
-        await store.clearPending();
-        await autoResolve(JSON.parse(pend.result) as BattleResult);
-      } else showFlow();
+      // (Review M12: applied only to the record it was fought for, by hash; a result for another record (the forces
+      // changed, another save loaded, another tab) is dropped with a message. It is cleared only once applied, so a
+      // cancelled or interrupted apply keeps it: Auto-resolve on the briefing then applies it.)
+      if (phaseOf(record) === "battle" && pendingMatches(pend, hashOf(record))) await autoResolve(JSON.parse(pend.result) as BattleResult);
+      else {
+        if (pend) { await store.clearPending(); message = { text: t("cmp.msg.staleResult"), bad: true }; }
+        showFlow();
+      }
     });
     history.replaceState(null, "", `?campaign=1&look=${look}`);
   } else await showHome();

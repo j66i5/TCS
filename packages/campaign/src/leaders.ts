@@ -65,14 +65,19 @@ export function appointLeaders(data: DataSet, f: CampaignForce, battle: number, 
   return log;
 }
 
+/** Why "Make leader" was refused (review M12, rule 12: the UI says it through `cmp.leaderRefused.<key>`). */
+export class LeaderError extends Error {
+  constructor(readonly key: "committed" | "notInUnit" | "alreadyLeads" | "medic", message: string) { super(message); this.name = "LeaderError"; }
+}
+
 /**
  * M12.3 "Make leader" (owner 2026-11-19: leaders are appointed automatically, the player can change them): the man
- * becomes his unit's leader (the old leader stays in the unit). Refused (an Error) when he is not in a unit of the
+ * becomes his unit's leader (the old leader stays in the unit). Refused (a `LeaderError`) when he is not in a unit of the
  * player's battalion, already leads it, is medical personnel, or the forces of a battle are already confirmed (phase
  * "battle": the battle is built from the record). Logged as a leader entry with `how: "player"`. Pure: a new record.
  */
 export function makeLeader(data: DataSet, record0: CampaignRecord, personId: string): CampaignRecord {
-  if (record0.flow?.phase === "battle") throw new Error("the forces are committed: leaders change after the battle");
+  if (record0.flow?.phase === "battle") throw new LeaderError("committed", "the forces are committed: leaders change after the battle");
   const record = JSON.parse(JSON.stringify(record0)) as CampaignRecord;
   const f = record.sides.player;
   const walk = (u: UnitInput): UnitInput | null => {
@@ -81,10 +86,10 @@ export function makeLeader(data: DataSet, record0: CampaignRecord, personId: str
     return null;
   };
   const u = walk(f.battalion);
-  if (!u) throw new Error(`${personId} is not in a unit of the battalion`);
+  if (!u) throw new LeaderError("notInUnit", `${personId} is not in a unit of the battalion`);
   const i = u.members.findIndex((m) => m.personId === personId);
-  if (u.leaderIndex === i) throw new Error(`${personId} already leads ${u.key}`);
-  if (!canLead(data, f.faction, u.members[i]!)) throw new Error(`${personId} is medical personnel and cannot lead`);
+  if (u.leaderIndex === i) throw new LeaderError("alreadyLeads", `${personId} already leads ${u.key}`);
+  if (!canLead(data, f.faction, u.members[i]!)) throw new LeaderError("medic", `${personId} is medical personnel and cannot lead`);
   const old = u.leaderIndex >= 0 ? u.members[u.leaderIndex]?.personId : undefined;
   u.leaderIndex = i;
   record.log.push({ battle: record.battles, side: "player", kind: "leader", unitKey: u.key, personId, how: "player", ...(old !== undefined ? { replaced: old } : {}) });

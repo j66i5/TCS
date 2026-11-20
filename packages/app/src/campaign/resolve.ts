@@ -12,6 +12,7 @@ import { buildAppearance, type DataSet } from "@tcs/data";
 import { flatColours, paintRegion, photoInit, PhotoPainter } from "@tcs/render";
 import { buildScenario } from "@tcs/scenario";
 import { runBattle, TICK_HZ, type BattleResult } from "@tcs/sim";
+import { CAMPAIGN_HOOKS } from "./hooks";
 
 /** `runBattle` with the AI commander on both sides (by each side's plan); progress every 10 battle seconds. */
 export const appRunner: BattleRunner = (input, opts) => runBattle(input, {
@@ -43,9 +44,9 @@ export function nodeTotals(nb: NodeBattles): { main: number | null; flank: numbe
  * the played battle's result applied. `onStart` sees the built battles first (the progress bars).
  */
 export function finishNode(data: DataSet, record: CampaignRecord, played: BattleResult | null, onProgress: (p: NodeProgress) => void, onStart?: (nb: NodeBattles) => void, runner: BattleRunner = appRunner): CampaignRecord {
-  const nb = battleInputs(data, record);
+  const nb = battleInputs(data, record, CAMPAIGN_HOOKS);
   onStart?.(nb);
-  return finishBattle(data, record, { runner, onProgress: (which, seconds) => onProgress({ which, seconds }) }, played ?? "auto", nb);
+  return finishBattle(data, record, { runner, hooks: CAMPAIGN_HOOKS, onProgress: (which, seconds) => onProgress({ which, seconds }) }, played ?? "auto", nb);
 }
 
 /** The briefing's sector preview (see the file comment); null when the node's battle cannot be built (no enemy). */
@@ -57,7 +58,7 @@ export function sectorPreview(data: DataSet, record: CampaignRecord, look: "phot
   const ek = enemyFor(data, record, "main", menOf(pf.units));
   if (ek.length === 0) return null;
   const ef = commitOf(data, e, ek);
-  const input = buildScenario(data, nodeBattleDef(data, record, "main", [pf, ef]));
+  const input = buildScenario(data, nodeBattleDef(data, record, "main", [pf, ef]), CAMPAIGN_HOOKS);
   const map = input.map;
   const ppm = Math.min(0.5, maxPx / map.widthM);
   const app = buildAppearance(data, [p.faction, e.faction]);

@@ -14,7 +14,7 @@
  */
 import type { DataSet } from "@tcs/data";
 import {
-  ableShare, autoPlay, membersOf, newCampaign, proposeChoice, nextNode, operationRules, hashRecord, menOf, type BattleRunner, type CampaignMode, type CampaignRecord, type CampaignSide,
+  ableShare, autoPlay, nodesFought, membersOf, newCampaign, proposeChoice, nextNode, operationRules, hashRecord, menOf, type BattleRunner, type CampaignMode, type CampaignRecord, type CampaignSide,
   type OperationStep, type OperationSummary,
 } from "@tcs/campaign";
 import type { CarrierClass } from "@tcs/scenario";
@@ -177,7 +177,7 @@ export function runCampaignPart(data: DataSet, o: PartOptions, runner: BattleRun
       const sec = r.op!.sectors.find((x) => x.id === st.sector);
       const mf = e.battles.main?.def.forces, ff = e.battles.flank?.def.forces;
       res.rows.push({
-        op: opBefore.index, node: opBefore.steps.length + 1, type: st.node, kind: rules.nodes[st.node]!.kind, pos: st.pos, sector: st.sector, result: st.result, walkover: st.walkover === true,
+        op: opBefore.index, node: nodesFought(opBefore) + 1, type: st.node, kind: rules.nodes[st.node]!.kind, pos: st.pos, sector: st.sector, result: st.result, walkover: st.walkover === true,
         flank: st.flank ? `${st.flank.node} ${st.flank.result}${st.flank.walkover ? " (walkover)" : ""}` : null,
         next: st.end ? `end ${st.end}` : `${st.next!.node}@${st.next!.pos}`,
         men: { player: mf ? menOf(mf[0]!.units) : 0, enemy: mf ? menOf(mf[1]!.units) : 0 }, flankMen: ff ? { player: menOf(ff[0]!.units), enemy: menOf(ff[1]!.units) } : null,

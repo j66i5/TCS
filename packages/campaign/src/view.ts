@@ -19,7 +19,7 @@ import type { DataSet } from "@tcs/data";
 import { newVehicleRecord, type SoldierRecord, type UnitInput, type VehicleRecord } from "@tcs/sim";
 import { loadOf, standardSlot } from "./between";
 import { menOf } from "./carry";
-import { commitOf, proposeChoice, selectables, validateCommit, type Selectable } from "./commit";
+import { commitOf, commitProblems, proposeChoice, selectables, type CommitProblem, type Selectable } from "./commit";
 import { enemyFor } from "./flow";
 import { canLead } from "./leaders";
 import { addHull, addMan, emptyHoldings } from "./holdings";
@@ -197,7 +197,8 @@ export interface BriefingView {
   selectables: (Selectable & { callsign: string; hulls: number })[];
   choice: string[];
   proposed: string[];
-  problems: string[];
+  /** As string-table keys (`cmp.problem.<key>`) with their parameters (review M12, rule 12). */
+  problems: CommitProblem[];
   cap: { platoons: number; companyHq: boolean; mortarSections: number; missileTeams: number; aglTeams: number; tankSections: number };
   /** The committed men and hulls, and the enemy's estimated strength against them (rounded: the player does not know it). */
   own: { men: number; hulls: number };
@@ -246,7 +247,7 @@ export function briefingView(data: DataSet, record: CampaignRecord): BriefingVie
     flank: op.flank ? { node: op.flank.node, kind: o.nodes[op.flank.node]!.kind } : null,
     hours: record.hours, seconds: record.battleSeconds ?? o.seconds,
     selectables: selectables(data, p).map((x) => ({ ...x, callsign: units.get(x.key)?.callsign ?? x.key, hulls: crews(x.key) })),
-    choice, proposed, problems: validateCommit(data, p, choice),
+    choice, proposed, problems: commitProblems(data, p, choice),
     cap: { platoons: cap.platoons, companyHq: cap.companyHq, mortarSections: cap.mortarSections, missileTeams: cap.missileTeams, aglTeams: cap.aglTeams, tankSections: cap.tankSections },
     own: { men: own.men, hulls: own.hulls.length },
     enemy: { men: roughly(en.men), platoons: en.platoons, hulls: [...byName].map(([nameKey, count]) => ({ nameKey, count })).sort((a, b) => b.count - a.count || (a.nameKey < b.nameKey ? -1 : 1)) },
@@ -330,7 +331,8 @@ export function afterBattleView(data: DataSet, record: CampaignRecord): AfterBat
   }
   gains.sort((a, b) => b.xp! - a.xp! || (a.personId < b.personId ? -1 : 1));
   const logs = (kind: CampaignLogEntry["kind"]) => record.log.filter((l) => l.side === "player" && l.kind === kind && (inStep(l.battle) || (idx.length === 0 && l.battle === record.battles)));
-  const leaders = logs("leader").flatMap((l) => {
+  // (The player's own appointments ("Make leader") are not news after the battle: only the automatic ones, review M12.)
+  const leaders = logs("leader").filter((l) => l.how !== "player").flatMap((l) => {
     const f = findMan(record, "player", l.personId!);
     if (!f) return [];
     const old = l.replaced !== undefined ? findMan(record, "player", l.replaced) : null;

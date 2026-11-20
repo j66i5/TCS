@@ -82,7 +82,9 @@ export function confirmForces(data: DataSet, record0: CampaignRecord): CampaignR
   const choice = record.flow!.choice ?? [];
   const problems = validateCommit(data, record.sides.player, choice);
   if (problems.length > 0) throw new FlowError("the choice cannot fight", problems);
-  const flankChoice = record.op!.flank ? proposeChoice(data, record.sides.player, choice) : [];
+  // (The flank company must itself be able to fight; none that can: no flank battle this node.)
+  const flank0 = record.op!.flank ? proposeChoice(data, record.sides.player, choice) : [];
+  const flankChoice = flank0.length > 0 && validateCommit(data, record.sides.player, flank0, choice).length === 0 ? flank0 : [];
   record.flow = { phase: "battle", choice, ...(flankChoice.length > 0 ? { flankChoice } : {}) };
   return record;
 }
@@ -138,11 +140,16 @@ export function battleInputs(data: DataSet, record: CampaignRecord, hooks: Scena
     return { which, def, input, sector: sectorOf(op, which).id, node: which === "main" ? op.node : op.flank!.node, playerKeys, enemyKeys };
   };
   const choice = record.flow!.choice ?? [];
+  // (A choice confirmed in this record is valid; a damaged or edited save may hold one that is not: refused here, so
+  // no battle is built with a quietly smaller force or a side of 0 men.)
+  const problems = validateCommit(data, p, choice);
+  if (problems.length > 0) throw new FlowError("the confirmed choice cannot fight", problems);
   const pMen = menOf(commitOf(data, p, choice).units);
   const ek = enemyFor(data, record, "main", pMen);
   if (ek.length === 0) return { main: null, flank: null, flankWalkover: false };
   const main = build("main", choice, ek);
-  const fc = record.flow!.flankChoice ?? [];
+  const fc0 = record.flow!.flankChoice ?? [];
+  const fc = fc0.length > 0 && validateCommit(data, p, fc0, choice).length === 0 ? fc0 : [];
   if (!op.flank || fc.length === 0) return { main, flank: null, flankWalkover: false };
   const fek = enemyFor(data, record, "flank", menOf(commitOf(data, p, fc).units), ek);
   if (fek.length === 0) return { main, flank: null, flankWalkover: true };

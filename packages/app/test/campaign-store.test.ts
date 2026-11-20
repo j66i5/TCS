@@ -72,6 +72,10 @@ describe("M12.1b campaign store", () => {
     expect(saveMatchesSlot({}, null)).toBe(true);
     expect(saveMatchesSlot({ campaignSlot: null }, null)).toBe(true);
     expect(saveMatchesSlot({ campaignSlot: "alpha" }, "alpha")).toBe(true);
+    // (Review M12: a campaign battle's save also names the record it was fought for.)
+    expect(saveMatchesSlot({ campaignSlot: "alpha", campaignKey: "h1" }, "alpha", "h1")).toBe(true);
+    expect(saveMatchesSlot({ campaignSlot: "alpha", campaignKey: "h1" }, "alpha", "h2")).toBe(false);
+    expect(saveMatchesSlot({ campaignSlot: "alpha" }, "alpha", "h2")).toBe(false);
     expect(saveMatchesSlot({ campaignSlot: "alpha" }, null)).toBe(false);
     expect(saveMatchesSlot({}, "alpha")).toBe(false);
     expect(saveMatchesSlot({ campaignSlot: "alpha" }, "beta")).toBe(false);

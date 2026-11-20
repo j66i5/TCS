@@ -115,7 +115,7 @@ export function applyResult(data: DataSet, record0: CampaignRecord, battle: Camp
       for (const m of o.members) {
         men[side].in++;
         const r = clone(m);
-        if (STAY.has(r.status)) { stay.push(r); men[side].able++; continue; }
+        if (STAY.has(r.status)) { walkingWounded(rules, r); stay.push(r); men[side].able++; continue; }
         const p: PoolMan = { record: r, unitKey: o.key, battle: index };
         if (r.status === "evacuated" || r.status === "incapacitated") { p.days = r.recoveryDays ?? rules.recovery.defaultDays; f.pools.recovering.push(p); men[side].evacuated++; }
         else if (r.status === "killed") { f.pools.dead.push(p); addMan(catalog, writtenOff, r); men[side].killed++; }
@@ -154,7 +154,8 @@ export function applyResult(data: DataSet, record0: CampaignRecord, battle: Camp
     for (const m of all) {
       const s = service[m.personId];
       if (!s) continue;
-      const xp = gainXp(rules, m, s.underFireS);
+      // (Experience only for men still with the battalion or recovering: the dead, missing and captured gain none.)
+      const xp = STAY.has(m.status) || m.status === "evacuated" || m.status === "incapacitated" ? gainXp(rules, m, s.underFireS) : 0;
       (f.service[m.personId] ??= []).push({
         battle: index, underFireMin: s.underFireS / 60, contactMin: s.contactS / 60, rounds: s.roundsFired, wounds: s.wounds,
         peakShock: s.peakShock, peakStrain: s.peakStrain, strainAfter: m.strain ?? 0, xp, status: m.status,
@@ -228,6 +229,18 @@ function rest(rules: CampaignRules, m: SoldierRecord, hours: number): void {
   }
 }
 
+/**
+ * Review M12: a man who comes out "wounded" without recovery days (bruises under body armour only, which the battle's
+ * medical settlement skips; or wounded and out by an exit zone, never handed to care) would never heal (`rest` counts
+ * days down). Bruises only: healed now (fit). Other wounds: `recovery.walkingWoundedDays` (he stays with his unit and
+ * heals when they are up, as a walking wounded man the battle gave days to).
+ */
+function walkingWounded(rules: CampaignRules, m: SoldierRecord): void {
+  if (m.status !== "wounded" || m.recoveryDays !== undefined) return;
+  if (m.wounds.every((w) => w.mechanism === "blunt")) { heal(m); return; }
+  m.recoveryDays = rules.recovery.walkingWoundedDays ?? 3;
+}
+
 function heal(m: SoldierRecord): void {
   m.wounds = [];
   delete m.physiology;
@@ -299,7 +312,7 @@ function replacement(data: DataSet, record: CampaignRecord, f: CampaignForce, sl
   const given = pick(rng, stream("names"), female && pack.names.givenFemale.length > 0 ? pack.names.givenFemale : pack.names.given);
   const family = pick(rng, stream("names"), pack.names.family) + (female ? pack.names.familyFemaleSuffix : "");
   const skills: Record<string, number> = {};
-  for (const [k, d] of Object.entries(q.skills).sort()) skills[k] = clamp(d.mean + d.sd * nextNormal(rng, stream("skills")), 0, 1);
+  for (const [k, d] of Object.entries(q.skills).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) skills[k] = clamp(d.mean + d.sd * nextNormal(rng, stream("skills")), 0, 1);
   return {
     personId: `${f.keyPrefix}#${f.nextPersonId++}`, given, family, rank: slot.rank, role: slot.role,
     ...(slot.weapon === undefined ? {} : { weapon: slot.weapon }),
@@ -337,6 +350,8 @@ export function replenish(data: DataSet, record0: CampaignRecord): CampaignRecor
         log.push({ battle, side, kind: "replacement", unitKey: u.key, personId: m.personId });
       }
     }
+    // (Review M12: anyone still wounded with days up or none set is healed; the 7 days have passed.)
+    for (const u of unitsOf(f.battalion)) for (const m of u.members) if (m.status === "wounded" && (m.recoveryDays ?? 0) <= 0) heal(m);
     // Loads to the standard (delivered: after minus before).
     for (const u of unitsOf(f.battalion)) for (const m of u.members) {
       const slot = standardSlot(data, f, u.key, m.role);
@@ -353,6 +368,15 @@ export function replenish(data: DataSet, record0: CampaignRecord): CampaignRecor
       v.load = fresh_.load;
       delete v.ready; delete v.components; delete v.capturedBy; delete v.recovery;
       v.status = "ok";
+      addHull(catalog, delivered, v);
+    }
+    // (Review M12: hulls still in the workshop are refilled too, their repair goes on: they come back with the standard
+    // load, not what they held when hit, owner 2026-11-19 "refilled to the standard load at replenishment".)
+    for (const w of f.workshop) {
+      const v = w.record;
+      addHull(catalog, delivered, v, -1);
+      v.load = newVehicleRecord(catalog, v.type, v.vehicleId).load;
+      delete v.ready;
       addHull(catalog, delivered, v);
     }
     if (rules.repair.replaceLost) {

@@ -31,7 +31,7 @@ import { carriersParam, defaultTanksApply, tanksParam } from "./params";
 import { endPlan, fetchAmmo, forUnit, goPlan, issue, issueAi, now, resupply, sendBearers, setFormation, takeKit, undoPlanPoint } from "./orders";
 import { refreshTiles, showCard, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
-import { loadOrCreate, reloadSaved, saveNow } from "./save";
+import { loadOrCreate, reloadSaved, saveNow, setCampaignKey } from "./save";
 import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
 import { attachFloors, sightView, updatePins } from "./view";
 
@@ -61,8 +61,9 @@ async function main(): Promise<void> {
   }
   let campaign: CampaignBattle | null = null;
   if (campaignParam !== null) {
-    try { campaign = await loadCampaignBattle(data, campaignParam); } catch (e) {
-      hudRoot.textContent = `${strings.t("cmp.msg.noBattle")} ${e instanceof Error ? e.message : String(e)}`;
+    try { campaign = await loadCampaignBattle(data, campaignParam); setCampaignKey(campaign.recordHash); } catch (e) {
+      console.warn("campaign battle", e);
+      hudRoot.textContent = strings.t("cmp.msg.noBattle");
       hudRoot.style.pointerEvents = "auto";
       const back = document.createElement("a");
       back.href = "?campaign=1"; back.textContent = ` ${strings.t("cmp.title.home")}`; back.style.color = "#f5d061";

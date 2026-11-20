@@ -34,11 +34,13 @@ export interface CmpMan {
 }
 export interface CmpStep { node: string; result: string; walkover?: boolean; flank?: { node: string; result: string; walkover?: boolean }; end?: string }
 export interface CmpSelectable { key: string; what: string; company?: string; men: number; callsign: string; hulls: number }
+/** A problem with the choice (campaign `CommitProblem`): a `cmp.problem.<key>` string and its parameters. */
+export interface CmpProblem { key: string; params: { unit?: string; what?: string; n?: number; max?: number; vehicle?: string } }
 export interface CmpBriefing {
   operation: number; endless: boolean; node: string; kind: string; attacker: "player" | "enemy"; pos: number; lineLength: number;
   sector: { id: number; mapKind: string; widthM: number; heightM: number; battles: number; wrecks: number; craters: number };
   flank: { node: string; kind: string } | null; hours: number; seconds: number;
-  selectables: CmpSelectable[]; choice: string[]; proposed: string[]; problems: string[];
+  selectables: CmpSelectable[]; choice: string[]; proposed: string[]; problems: CmpProblem[];
   cap: { platoons: number; companyHq: boolean; mortarSections: number; missileTeams: number; aglTeams: number; tankSections: number };
   own: { men: number; hulls: number }; enemy: { men: number; platoons: number; hulls: { nameKey: string; count: number }[] };
   steps: CmpStep[]; ableShare: number;
@@ -399,7 +401,7 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
     body.append(section(t("cmp.brief.situation"),
       h("div", "cmp-kv", h("span", "", t("cmp.brief.sector")), h("b", "", t("cmp.brief.sectorV", { map: t(`map.${b.sector.mapKind}`), w: (b.sector.widthM / 1000).toFixed(1), h: (b.sector.heightM / 1000).toFixed(1) }))),
       b.sector.battles > 0 ? h("div", "cmp-kv", h("span", "", t("cmp.brief.foughtHere")), h("b", "", t("cmp.brief.foughtV", { n: b.sector.battles, wrecks: b.sector.wrecks, craters: b.sector.craters }))) : null,
-      h("div", "cmp-kv", h("span", "", t("cmp.brief.attacker")), h("b", "", t(`cmp.brief.attacker.${b.attacker}`))),
+      h("div", "cmp-kv", h("span", "", t("cmp.brief.attacker")), h("b", "", t(b.kind === "meeting" ? "cmp.brief.attacker.both" : `cmp.brief.attacker.${b.attacker}`))),
       h("div", "cmp-kv", h("span", "", t("cmp.brief.time")), h("b", "", t("cmp.brief.timeV", { day: c.day, time: `${c.hh}:${c.mm}`, min: Math.round(b.seconds / 60) }))),
       h("div", "cmp-kv", h("span", "", t("cmp.brief.enemy")), h("b", "", t("cmp.brief.enemyV", { men: b.enemy.men, platoons: b.enemy.platoons }))),
       b.enemy.hulls.length > 0 ? h("div", "cmp-note", b.enemy.hulls.map((x) => `${x.count} × ${hullName(x.nameKey, sc.enemy)}`).join(", ")) : null,
@@ -430,25 +432,24 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
       forces.append(row);
     }
     forces.append(h("div", "cmp-total", t("cmp.brief.total", { men: b.own.men, hulls: b.own.hulls, able: pct(b.ableShare) })));
-    if (b.problems.length > 0) forces.append(h("div", "cmp-msg bad", b.problems.map((p) => problemText(p)).join(" · ")));
+    if (b.problems.length > 0) forces.append(h("div", "cmp-msg bad", b.problems.map((p) => problemText(p, b.selectables)).join(" · ")));
     body.append(forces);
     const bar = choose
-      ? actions(btn(t("cmp.brief.proposedBtn"), "", cb.onProposed, { act: "proposed" }), btn(t("cmp.brief.battalion"), "", cb.onBattalion, { act: "battalion" }),
+      ? actions(btn(t("cmp.after.save"), "", cb.onHome, { act: "home" }), btn(t("cmp.brief.proposedBtn"), "", cb.onProposed, { act: "proposed" }), btn(t("cmp.brief.battalion"), "", cb.onBattalion, { act: "battalion" }),
         btn(t("cmp.brief.auto"), "", cb.onAuto, { act: "auto" }), btn(t("cmp.brief.play"), "primary", cb.onPlay, { act: "play" }))
       : sc.phase === "battle"
-      ? actions(btn(t("cmp.brief.revise"), "", cb.onRevise, { act: "revise" }), btn(t("cmp.brief.auto"), "", cb.onAuto, { act: "auto" }), btn(t("cmp.brief.play"), "primary", cb.onPlay, { act: "play" }))
-      : actions(btn(t("cmp.brief.battalion"), "", cb.onBattalion, { act: "battalion" }), btn(t("cmp.brief.choose"), "primary", cb.onProceed, { act: "choose" }));
+      ? actions(btn(t("cmp.after.save"), "", cb.onHome, { act: "home" }), btn(t("cmp.brief.revise"), "", cb.onRevise, { act: "revise" }), btn(t("cmp.brief.auto"), "", cb.onAuto, { act: "auto" }), btn(t("cmp.brief.play"), "primary", cb.onPlay, { act: "play" }))
+      : actions(btn(t("cmp.after.save"), "", cb.onHome, { act: "home" }), btn(t("cmp.brief.battalion"), "", cb.onBattalion, { act: "battalion" }), btn(t("cmp.brief.choose"), "primary", cb.onProceed, { act: "choose" }));
     bar.classList.add("sticky");
     body.append(bar);
     void hd;
     return body;
   };
-  /** A `validateCommit` problem in words (its shapes: "no able platoon", "platoons 4 > 3", "twice: P/1/2", ...). */
-  const problemText = (p: string) => {
-    const pats: [RegExp, string][] = [[/^no able platoon/, "noPlatoon"], [/^no men: /, "noMen"], [/^twice: /, "twice"], [/^not selectable: /, "unknown"], [/^committed elsewhere: /, "elsewhere"],
-      [/^squad .* without its carrier/, "squadNoCarrier"], [/^carrier .* without its squad/, "carrierNoSquad"], [/ > \d+$/, "cap"]];
-    for (const [re, k] of pats) if (re.test(p)) return t(`cmp.problem.${k}`, { what: p });
-    return p;
+  /** A choice's problem in words (review M12, rule 12: from its string-table key and parameters, `commitProblems`). */
+  const problemText = (p: CmpProblem, sel: readonly CmpSelectable[]) => {
+    const unit = p.params.unit !== undefined ? sel.find((x) => x.key === p.params.unit)?.callsign ?? p.params.unit : "";
+    const what = p.params.what !== undefined ? t(`cmp.what.${p.params.what}`) : unit;
+    return t(`cmp.problem.${p.key}`, { what, unit, n: p.params.n ?? 0, max: p.params.max ?? 0 });
   };
 
   // -------------------------------------------------------------------------------------------- after a battle
@@ -518,7 +519,7 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
       for (const x of r.hullsRepaired) hs.append(h("div", "cmp-row", h("span", "nm", hullName(x.nameKey, f)), h("span", "dim", ` · ${x.vehicleId}`), h("span", "val", t("cmp.repl.repaired"))));
       body.append(hs);
     }
-    const bar = actions(btn(t("cmp.brief.battalion"), "", cb.onBattalion, { act: "battalion" }), btn(t("cmp.after.continue"), "primary", cb.onProceed, { act: "proceed" }));
+    const bar = actions(btn(t("cmp.after.save"), "", cb.onHome, { act: "home" }), btn(t("cmp.brief.battalion"), "", cb.onBattalion, { act: "battalion" }), btn(t("cmp.after.continue"), "primary", cb.onProceed, { act: "proceed" }));
     bar.classList.add("sticky");
     body.append(bar);
     return body;

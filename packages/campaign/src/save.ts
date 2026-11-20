@@ -10,14 +10,16 @@
  *   shape (fatal errors refuse the save) -> ID repair (duplicate or missing person ids and hull ids renamed, leaders'
  *   indexes and crews' / carried units' hull links checked, `nextPersonId` and `nextHullSerial` raised past every id
  *   in use) -> the fingerprint compared with the data (a mismatch warns, the save still loads: the data changed, the
- *   records still name the same items).
+ *   records still name the same items). Review M12: so is `rulesFingerprint` (the campaign rules and the factions'
+ *   campaign blocks, outside the catalog): "rules-changed"; and the operation's node types must still exist.
  * - Export (`exportSave`) is canonical JSON (sorted keys): the same save always gives the same bytes, and a valid
  *   save imports without a change, so export -> import -> export is byte-identical.
  */
 import type { DataSet } from "@tcs/data";
-import { canonicalJson, type SoldierRecord } from "@tcs/sim";
+import { canonicalJson, hashString32, type SoldierRecord } from "@tcs/sim";
 import { appointLeaders } from "./leaders";
-import { CAMPAIGN_VERSION, campaignCatalog, clone, unitsOf, type CampaignForce, type CampaignRecord, type CampaignSide, type PoolMan } from "./record";
+import { operationRules } from "./operation";
+import { CAMPAIGN_VERSION, campaignCatalog, clone, unitsOf, type CampaignForce, type CampaignRecord, type CampaignSide, type FlowPhase, type PoolMan } from "./record";
 
 export interface CampaignSave {
   version: number;
@@ -28,6 +30,16 @@ export interface CampaignSave {
   savedAt: string;
   /** Catalog fingerprint of the campaign's factions at saving ("" when unknown: a migrated version-1 save). */
   fingerprint: string;
+  /** Review M12: fingerprint of the campaign rules (`core/campaign.json`) and the two factions' campaign blocks
+   *  (`factions/<id>/campaign.json`), which the catalog fingerprint leaves out (absent: an older save, no check). */
+  rulesFingerprint?: string;
+}
+
+/** The campaign rules' fingerprint for a record's factions (see `CampaignSave.rulesFingerprint`). */
+export function rulesFingerprint(data: DataSet, record: Pick<CampaignRecord, "sides">): string {
+  const f = (id: string) => data.factions[id]?.campaign ?? null;
+  const text = canonicalJson({ rules: data.campaign ?? null, player: f(record.sides.player.faction), enemy: f(record.sides.enemy.faction) });
+  return (hashString32(text) >>> 0).toString(16).padStart(8, "0");
 }
 
 /** The automatic slot written after every battle. */
@@ -58,7 +70,7 @@ export class SaveError extends Error {
 
 /** A save of a record (deep copy: later changes to the record do not reach the save). */
 export function makeSave(data: DataSet, record: CampaignRecord, slotName: string, savedAt: string): CampaignSave {
-  return { version: CAMPAIGN_VERSION, record: clone(record), slotName, savedAt, fingerprint: campaignCatalog(data, record).fingerprint };
+  return { version: CAMPAIGN_VERSION, record: clone(record), slotName, savedAt, fingerprint: campaignCatalog(data, record).fingerprint, rulesFingerprint: rulesFingerprint(data, record) };
 }
 
 /** The save as text (canonical JSON: the same save always gives the same bytes). */
@@ -156,8 +168,30 @@ export function validateSave(data: DataSet, json: Json): string[] {
     (Array.isArray(f["vehicles"]) ? f["vehicles"] as unknown[] : []).forEach((v, i) => need(isObj(v) && typeof v["type"] === "string" && Array.isArray(v["load"]), `${at}.vehicles[${i}]`));
     (Array.isArray(f["workshop"]) ? f["workshop"] as unknown[] : []).forEach((v, i) => need(isObj(v) && isObj(v["record"]), `${at}.workshop[${i}]`));
   }
+  // Review M12: the operation's node types must exist in the rules (a save made before a node type was renamed or
+  // removed would otherwise throw later, in the middle of the flow); the phase must be one the flow knows.
+  const o = r["op"];
+  if (o !== undefined) {
+    if (!isObj(o)) p.push("record.op");
+    else {
+      const nodes = data.campaign?.campaign.nodes ? operationRules(data).nodes : {};
+      const known = (n: unknown) => typeof n === "string" && nodes[n] !== undefined;
+      need(known(o["node"]), `record.op.node '${String(o["node"])}' is not a node type of the rules`);
+      if (o["flank"] !== undefined) need(isObj(o["flank"]) && known(o["flank"]["node"]), "record.op.flank.node is not a node type of the rules");
+      if (need(Array.isArray(o["planned"]), "record.op.planned")) (o["planned"] as unknown[]).forEach((n, i) => need(known(n), `record.op.planned[${i}] '${String(n)}' is not a node type of the rules`));
+      need(Array.isArray(o["steps"]) && Array.isArray(o["line"]) && Array.isArray(o["sectors"]), "record.op.steps/line/sectors");
+    }
+  }
+  const fl = r["flow"];
+  if (fl !== undefined) {
+    need(isObj(fl) && typeof fl["phase"] === "string" && FLOW_PHASES.includes(fl["phase"] as FlowPhase), "record.flow.phase");
+    if (isObj(fl)) for (const k of ["choice", "flankChoice"]) if (fl[k] !== undefined) need(Array.isArray(fl[k]) && (fl[k] as unknown[]).every((x) => typeof x === "string"), `record.flow.${k}`);
+    need(o !== undefined, "record.flow without record.op");
+  }
   return p;
 }
+
+const FLOW_PHASES: readonly FlowPhase[] = ["briefing", "choose", "battle", "after-battle", "replenishment", "operation-end"];
 
 // ----------------------------------------------------------------------------------------------------------- ID repair
 
@@ -175,7 +209,9 @@ function serialOf(id: string, sep: string): number {
  * side; the first holder of an id keeps it, later holders and men without one get a new `${keyPrefix}#n` (n past every serial in use). Hulls: in service, then the workshop; a duplicate gets
  * `${base}~n`, and the crews that named the duplicated id are shared out over the copies in roster order. Links to a
  * hull the force does not have at all (not in service, workshop or lost) are dropped; leaders' indexes out of range
- * are cleared and the leader rule (`appointLeaders`) appoints one.
+ * are cleared and the leader rule (`appointLeaders`) appoints one. A renamed man's service history (`f.service`, keyed
+ * by person id) is not moved: it stays with the first holder of the id, and the renamed man starts a new one (the
+ * history cannot tell two holders of one id apart; review M12).
  */
 export function repairIds(data: DataSet, record: CampaignRecord): SaveRepair[] {
   const repairs: SaveRepair[] = [];
@@ -288,5 +324,6 @@ export function readSave(data: DataSet, input: string | unknown): LoadedSave {
   const warnings: string[] = [];
   const fp = campaignCatalog(data, save.record).fingerprint;
   if (save.fingerprint !== "" && save.fingerprint !== fp) warnings.push("data-changed");
+  if (save.rulesFingerprint !== undefined && save.rulesFingerprint !== rulesFingerprint(data, save.record)) warnings.push("rules-changed");
   return { save, fromVersion, warnings, repairs };
 }

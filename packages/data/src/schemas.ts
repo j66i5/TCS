@@ -1578,10 +1578,11 @@ export const CampaignFile = z.object({
      *  battle, never above `cap` (a man already above it keeps what he has). */
     experience: z.object({ perBattle: Num(0, 1), perMinuteUnderFire: Num(0, 1), capPerBattle: Num(0, 1), cap: Num(0, 1) }).strict(),
     /** Recovery per hour between battles: fatigue, shock (stress) and strain down by these, to 0; water back to full.
-     *  `defaultDays`: recovery days of an evacuated man the battle gave none. `rejoinWithinOperation` (owner Q-A (a)): a
+     *  `defaultDays`: recovery days of an evacuated man the battle gave none; `walkingWoundedDays` (review M12; default 3): of a
+     *  walking wounded man it gave none. `rejoinWithinOperation` (owner Q-A (a)): a
      *  recovered man rejoins at the first battle after his days are up, inside an operation too (false: only at a
      *  replenishment). */
-    recovery: z.object({ fatiguePerHour: Num(0, 1), shockPerHour: Num(0, 1), strainPerHour: Num(0, 1), defaultDays: Num(0, 365), rejoinWithinOperation: z.boolean() }).strict(),
+    recovery: z.object({ fatiguePerHour: Num(0, 1), shockPerHour: Num(0, 1), strainPerHour: Num(0, 1), defaultDays: Num(0, 365), walkingWoundedDays: Num(0, 365).optional(), rejoinWithinOperation: z.boolean() }).strict(),
     /** Hulls: workshop days of a recovered hull the battle gave none; `replaceLost` (owner Q-B (a)): destroyed and captured
      *  hulls are replaced at a replenishment. */
     repair: z.object({ defaultDays: Num(0, 365), replaceLost: z.boolean() }).strict(),

@@ -101,7 +101,7 @@ describe("M12.3 views: the briefing and the choice", () => {
     expect(b.lineLength).toBe(r.op!.line.length);
     // Nothing chosen: a problem; a carrier-less squad split from its platoon is not selectable (platoons whole).
     const none = setChoice(data, r, []);
-    expect(briefingView(data, none.record).problems).toContain("no able platoon");
+    expect(briefingView(data, none.record).problems.map((x) => x.key)).toContain("noPlatoon");
     // Change forces: battle -> choose, the choice kept.
     const c = confirmForces(data, r);
     expect(phaseOf(c)).toBe("battle");

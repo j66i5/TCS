@@ -5,25 +5,31 @@
  * with the logistics gathered from the events) goes to the store's pending slot and the campaign page applies it
  * (`?campaign=1&finish=1`), the flank battle auto-resolved there.
  */
-import { battleInputs, phaseOf, type CampaignRecord } from "@tcs/campaign";
+import { battleInputs, hashRecord, phaseOf, type CampaignRecord } from "@tcs/campaign";
 import type { DataSet } from "@tcs/data";
 import type { BattleInput, BattleResult } from "@tcs/sim";
 import { browserCampaignStore } from "../campaign-store";
+import { CAMPAIGN_HOOKS } from "./hooks";
 
-export interface CampaignBattle { slot: string; record: CampaignRecord; input: BattleInput }
+export interface CampaignBattle {
+  slot: string; record: CampaignRecord; input: BattleInput;
+  /** `hashRecord` of the record the battle is fought for (review M12): its result and its mid-battle save belong to
+   *  that record only. */
+  recordHash: string;
+}
 
 /** The battle to play, or an Error saying why there is none. */
 export async function loadCampaignBattle(data: DataSet, slot: string): Promise<CampaignBattle> {
   const l = await browserCampaignStore(data).load(slot);
   const record = l.save.record;
   if (phaseOf(record) !== "battle") throw new Error(`the campaign in slot '${slot}' has no battle ready (phase ${phaseOf(record) ?? "none"})`);
-  const nb = battleInputs(data, record);
+  const nb = battleInputs(data, record, CAMPAIGN_HOOKS);
   if (!nb.main) throw new Error("the enemy has nothing to commit: the node is won without a battle (auto-resolve it)");
-  return { slot, record, input: nb.main.input };
+  return { slot, record, input: nb.main.input, recordHash: hashRecord(record) };
 }
 
 /** Hand the played battle's result to the campaign page and go there. */
 export async function returnToCampaign(data: DataSet, b: CampaignBattle, result: BattleResult, look: string): Promise<void> {
-  await browserCampaignStore(data).putPending(b.record.battles, JSON.stringify(result));
+  await browserCampaignStore(data).putPending(b.record.battles, b.recordHash, JSON.stringify(result));
   location.search = `?campaign=1&finish=1&look=${encodeURIComponent(look)}`;
 }

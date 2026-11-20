@@ -55,6 +55,9 @@ if (cmd === "chain") {
   if (fromText !== null) {
     const loaded = readSave(data, fromText);
     start = loaded.save.record;
+    // (Review M12: a save of the operations flow (M12.2+, `flow` set) belongs to `autoPlay` / the app; the 12.1a chain
+    // ignores the operation and would mix the two models.)
+    if (start.flow !== undefined) { console.error(`${args["from"]}: a save of the operations flow (phase ${start.flow.phase}); the chain only continues chain saves`); process.exit(2); }
     console.log(`From ${args["from"]}: version ${loaded.fromVersion}, slot '${loaded.save.slotName}', ${start.battles} battles fought; record hash ${hashRecord(start)}`);
     for (const w of loaded.warnings) console.log(`  warning: ${w}`);
     for (const r of loaded.repairs) console.log(`  repaired: ${r.side} ${r.kind} ${r.where}${r.from !== undefined ? ` ${r.from}` : ""}${r.to !== undefined ? ` -> ${r.to}` : ""}`);

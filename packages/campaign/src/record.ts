@@ -215,6 +215,8 @@ export interface OperationState {
   pos: number;
   flank?: { node: string; sector: number };
   steps: OperationStep[];
+  /** Review M12 (endless): steps dropped from the front of `steps` (the run keeps its last 30; absent: none). */
+  stepsDropped?: number;
   /** Nodes since the last replenishment (endless). */
   sinceReplenishment: number;
   end: OperationEnd | null;

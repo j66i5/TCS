@@ -9854,6 +9854,30 @@ Checks 2026-11-20: typecheck, lint, data lint clean; `npm run build` ok; `npm te
 commander-clear replay, campaign-views replenishment; none touches the menu) and all 24 tests of those 3 files pass
 run alone. `test:perf` not run (the machine was busy; no sim, AI or render code changed).
 
+**Review fixes** (two independent reviews, UI and code). Fixed:
+- A campaign battle's result could be lost through the new Menu buttons (it reaches the campaign only through
+  `returnToCampaign`): a campaign battle's review has no "Main menu" (only "Back to the campaign"), and the bar's Menu
+  in an ended campaign battle hands the result to the campaign first; while it runs it asks, as any battle (leaving
+  then is like closing the tab: the campaign offers the battle again).
+- The battle bar clipped its buttons on a phone in landscape (780 x 360 with a 6-digit menu seed: "Contours", "Save",
+  "Debug", "Menu" cut, the map button on two lines): bar buttons no longer shrink (`flex-shrink: 0; white-space:
+  nowrap`), so the bar overflows and `fitBar` puts the rare ones behind "⋯". Measured again at 780 / 900 / 1024 /
+  1280 px with seeds 1 and 627716: nothing clipped.
+- "Start a new campaign" is disabled until the automatic slot has been read (`campaignKnown`), so it can never
+  replace a campaign without asking on a slow phone.
+- The menu always opens on its first screen and clears a restored mode history entry (the first "‹" after the
+  browser's Back from a battle was a no-op).
+- Wording: the quick battle no longer says "for a village" (four maps); "Play again" for the sandbox no longer starts
+  with "More". The look toggle in the menu and campaign bars is 44 px high.
+- The default factions are pinned by a test (`["de", "ru"]`): a new faction folder sorting first would change every
+  link without `factions=`, so that has to be a deliberate change with an entry here. The default quick battle is
+  now compared with the old bare-URL battle by full state hash.
+Not changed: the browser's Back from the menu to a battle URL rebuilds that battle from tick 0 without a question,
+as every URL always did (a running battle is only kept by Save). `npm run e2e:menu` stays a local command, not a CI
+job (as `e2e:campaign`).
+Checks after the fixes: typecheck, lint, build clean; `npm test` 203 files, 1707 passed, 6 skipped (none timed out);
+`menu.test.ts` 37; `npm run e2e:menu` 9 checks and `npm run e2e:campaign` 12 checks pass; `--scene menu` looked at again.
+
 **Open owner questions** (multiple choice, recommended first): (1) the bare link opens the menu (built) / the
 battle as before with a menu button; (2) tanks Standard / Both / None (built) / a plain on-off; (3) "Play again"
 keeps the seed (built) / a new seed each time; (4) time of day as four presets (built) / any clock time and the moon;

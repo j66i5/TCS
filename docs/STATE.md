@@ -20,6 +20,10 @@ DECISIONS.md under its date._
   `npm run e2e:menu` (Playwright flow, 10 checks) and `npm run screenshot -- --scene menu` (360x780, 780x360, desktop,
   both looks) pass and were looked at. Checks: typecheck, lint, data lint, build clean; `npm test` 1703 passed, 3
   timed out under a busy machine and pass alone; test:perf not run (no sim code changed). Owner questions: see that entry.
+  Review fixes (UI and code reviews): a campaign battle's result can no longer be lost through Menu (its review has
+  no Main menu; the bar's Menu in an ended campaign battle goes back to the campaign), the battle bar collapses into
+  "⋯" instead of clipping in phone landscape, "Start a new campaign" waits for the slot read, the menu always opens on
+  its first screen, wording, a 44 px look toggle, default factions pinned by a test.
 - **M12 review fixes (2026-11-20, branch `claude/m12`; DECISIONS "M12 review fixes").** Three independent reviews
   (rules, behaviour, code). Fixed: `deployableMen` (crews of workshop or lost hulls are not counted anywhere the choice
   is made, `ableShare` too; a flank company that cannot fight drops the flank battle; `battleInputs` re-validates the

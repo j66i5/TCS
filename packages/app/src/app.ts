@@ -52,7 +52,7 @@ export interface App {
   pace: string;
   orderMode: OrderMode;
   /** Gun and round of the next fire order to a vehicle (M7.3; null = the crew chooses). */
-  nature: "ap" | "he" | "mg" | null;
+  nature: "ap" | "he" | "ab" | "mg" | null;
   plan: Plan | null;
   dragHandle: Handle | null;
   dragGapM: number;

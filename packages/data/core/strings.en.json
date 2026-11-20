@@ -330,6 +330,7 @@
   "order.nature.auto": "Gun: crew's choice",
   "order.nature.ap": "Gun: AP",
   "order.nature.he": "Gun: HE",
+  "order.nature.ab": "Gun: HE air burst",
   "order.nature.mg": "Machine gun",
   "why.target.ordered": "target ordered",
   "why.target.vehicle": "enemy vehicle first",

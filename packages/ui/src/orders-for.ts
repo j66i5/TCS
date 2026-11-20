@@ -10,7 +10,9 @@ import type { OrderMode } from "./hud";
 import { supplySourceNear } from "./supply";
 import { prisonerSummary } from "./prisoners";
 
-export type Nature = "ap" | "he" | "mg";
+/** A vehicle gun's round: armour-piercing, high explosive (impact), high explosive set to air burst (balance pass 5:
+ *  only where the round has the setting), the machine gun. */
+export type Nature = "ap" | "he" | "ab" | "mg";
 
 export interface OrderSet {
   /** Nothing selected (M7.5a): the bar shows the foot orders, every button disabled. */
@@ -211,9 +213,13 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
       }
       const cannon = catalog.weapons[w.weapon]?.type === "autocannon" || !w.coax;
       if (!cannon) { set.add("mg"); return; }
-      for (const f of w.feeds) { const r = catalog.items[f.item]?.chargeItem; set.add(r !== undefined && catalog.ammo[r]?.explosive !== undefined ? "he" : "ap"); }
+      for (const f of w.feeds) {
+        const r = catalog.items[f.item]?.chargeItem;
+        set.add(r !== undefined && catalog.ammo[r]?.explosive !== undefined ? "he" : "ap");
+        if (r !== undefined && catalog.ammo[r]?.airburst !== undefined) set.add("ab"); // (balance pass 5)
+      }
     }));
-    out.natures = (["ap", "he", "mg"] as const).filter((n) => set.has(n));
+    out.natures = (["ap", "he", "ab", "mg"] as const).filter((n) => set.has(n));
     recoverable(view, catalog, u.side, veh, out);
     return out;
   }

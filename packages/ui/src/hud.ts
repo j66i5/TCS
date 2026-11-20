@@ -82,7 +82,7 @@ export interface HudCallbacks {
   /** M11.9b: "Call MP" (the platoon's prisoners). */
   onCallMp?(): void;
   onReleaseGuard?(): void;
-  onNature(nature: "ap" | "he" | "mg" | null): void;
+  onNature(nature: Nature | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
   onPace(mode: string): void;

@@ -12,7 +12,7 @@ import {
   planToOrder, playerOrder, shapeOf, slotSpan, turnFormation, undoPoint, unitCapabilities, type Eye, type LosLine, type Plan, type PlanKind,
 } from "@tcs/ui";
 import type { App, Pt } from "./app";
-import { activeMoveOf, hqMode, inMap, markerFor, unitCentre, unitMen, unitPlaces, selectedMen, slotsOf, vehicleClassOf } from "./units";
+import { activeMoveOf, hqMode, inMap, markerFor, unitCentre, unitMen, unitPlaces, selectedMen, slotsOf, vehicleClassOf, hasAirburst } from "./units";
 
 /** Rounds per fire support mission from the pop-up (the ranging rounds come on top, from the same stock); a smoke
  *  screen (M8.6) 6 rounds. */
@@ -220,7 +220,11 @@ export function fireAtPoint(a: App, w: Pt): void {
   if (!near && hits.length > 0) { a.hud.radio(a.strings.t("order.surrenderedTarget"), ticksToSeconds(a.sim.state.tick), "#ffb4b4"); return; }
   // (A vehicle crew: with the gun and round chosen, else the crew's choice, M7.3.)
   // (Anti-tank, M7.4a: the best-placed man with a Panzerfaust or RPG fires one round at it.)
-  const nat = a.orderMode === "antitank" ? { nature: "at" as const } : vehicleClassOf(a, uid) !== null && a.nature !== null ? { nature: a.nature } : {};
+  // (Balance pass 5: "air burst" is high explosive with the fuze set to burst; plain HE from a hull that has the
+  // setting is the impact setting.)
+  const nat = a.orderMode === "antitank" ? { nature: "at" as const }
+    : vehicleClassOf(a, uid) !== null && a.nature !== null ? (a.nature === "ab" ? { nature: "he" as const, fuse: "airburst" as const } : a.nature === "he" && hasAirburst(a, uid) ? { nature: "he" as const, fuse: "impact" as const } : { nature: a.nature })
+    : {};
   const pt = near ? { x: near.k.x, y: near.k.y } : w;
   // D3: no sight line from any of his men (or his hull) to the point: warn at once (the radio's "Roger" then the
   // men's "no line of fire" read as a contradiction). The order still goes: the men may move or the sight clear.

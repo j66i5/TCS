@@ -333,7 +333,8 @@
       "noRidersStandoffM": 250, "minObjectiveM": 200,
       "fireEverySeconds": 20, "fireNearObjectiveM": 120, "fireSeenSeconds": 60, "ownClearM": 80, "shiftM": 200, "liftM": 100,
       "followReplanM": 40, "takenSlackM": 40, "consolidateM": 60, "pickupBackM": 20, "nightBelowLight": 0.3,
-      "urban": { "radiusM": 120, "minBuildings": 8, "minShare": 0.04, "threatMarginM": 50, "minObjectiveM": 100, "postStandoffM": 200, "streetPoints": 6 },
+      "threatMarginM": 50,
+      "urban": { "radiusM": 120, "minBuildings": 8, "minShare": 0.04, "minObjectiveM": 100, "postStandoffM": 200, "streetPoints": 6 },
       "driveRetries": 2
     }
   },

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  createSim, hashState, hypot2, loadSim, saveSim, step, submitOrder,
+  builtUpAround, createSim, dismountDistance, hashState, hypot2, isBuiltUp, loadSim, saveSim, step, streetPoints, submitOrder, threatMenFor,
   type BattleInput, type Catalog, type EntityId, type MountedAssaultDef, type Sim, type SimEvent, type UnitInput,
 } from "../src/index";
 import { rec, testCatalog, vehicleInput } from "./helpers";
@@ -16,6 +16,8 @@ const MA: MountedAssaultDef = {
   postBackM: 60, postMinBackM: 20, postRingsM: [0, 40, 80], postMinSeen: 0.25, postStandoffM: 300, noRidersStandoffM: 250, minObjectiveM: 150,
   fireEverySeconds: 20, fireNearObjectiveM: 120, fireSeenSeconds: 60, ownClearM: 80, shiftM: 200, liftM: 100,
   followReplanM: 40, takenSlackM: 40, consolidateM: 60, pickupBackM: 20, nightBelowLight: 0.3,
+  urban: { radiusM: 120, minBuildings: 8, minShare: 0.04, minObjectiveM: 60, postStandoffM: 200, streetPoints: 6 },
+  driveRetries: 2, threatMarginM: 50,
 };
 
 /** The test tank with six passenger seats; the mounted-assault block; faction "fa" dismounts 200 m short. */
@@ -23,7 +25,7 @@ function catalog(withBlock = true): Catalog {
   const base = testCatalog.vehicles["tank"]!;
   return {
     ...testCatalog,
-    factions: { ...testCatalog.factions, fa: { ...testCatalog.factions["fa"]!, dismountM: 200, afterDismount: { kind: "overwatch", followM: 150 } } },
+    factions: { ...testCatalog.factions, fa: { ...testCatalog.factions["fa"]!, dismountM: 200, dismountUrbanM: 100, afterDismount: { kind: "overwatch", followM: 150 } } },
     behaviour: { ...testCatalog.behaviour, mounting: { ...testCatalog.behaviour.mounting, ...(withBlock ? { mountedAssault: MA } : {}) } },
     vehicles: {
       tank: {
@@ -38,9 +40,10 @@ function catalog(withBlock = true): Catalog {
 }
 
 /** The tank at (50, 100) facing east with squad "sq" (4 men) aboard; the red man far off at (590, 190). */
-function input(o: { withBlock?: boolean; aboard?: boolean } = {}): BattleInput {
+function input(o: { withBlock?: boolean; aboard?: boolean; houses?: boolean } = {}): BattleInput {
   const inp = vehicleInput(1, 600);
   inp.catalog = catalog(o.withBlock ?? true);
+  if (o.houses === true) addHouses(inp);
   const sq: UnitInput = {
     key: "sq", callsign: "Sq", echelon: "squad", leaderIndex: 0, subunits: [], carrierId: "v1",
     members: Array.from({ length: 4 }, (_, i) => ({ ...rec(`sq.${i}`, [{ type: "mag", count: 3, charge: 30 }]), weapon: "rifle" })),
@@ -49,6 +52,14 @@ function input(o: { withBlock?: boolean; aboard?: boolean } = {}): BattleInput {
   blue.units.push(sq);
   blue.placements.push(...sq.members.map((m, i) => ((o.aboard ?? true) ? { personId: m.personId, x: 50, y: 100, heading: 0, mountedIn: "v1" } : { personId: m.personId, x: 20, y: 20 + 4 * i, heading: 0 })));
   return inp;
+}
+
+/** Ten 10 x 10 m houses in two rows north and south of the way in round the objective (520, 100): built-up. */
+function addHouses(inp: BattleInput): void {
+  let id = 1;
+  for (const y of [30, 160]) for (const x of [460, 490, 520, 550, 580]) {
+    inp.map.buildings.push({ id: id++, kind: "house", footprint: [x, y, x + 10, y, x + 10, y + 10, x, y + 10], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, openings: [], roofColour: "#8c4a3b" });
+  }
 }
 
 const unitBy = (sim: Sim, callsign: string): EntityId => [...sim.state.unit.entries()].find(([, u]) => u.callsign === callsign)![0];
@@ -170,5 +181,61 @@ describe("mounted assault (balance pass 5)", () => {
     const ev = run(sim, 5);
     expect(ev.some((e) => e.kind === "radio" && e.key === "radio.dismountFirst")).toBe(true);
     expect(sim.state.unit.req(sq).mountedAssault).toBeUndefined();
+  });
+
+  it("built-up objectives (owner 2026-11-20): enough houses round the objective, or a building, count; then the urban distance applies", () => {
+    const open = createSim(input()), town = createSim(input({ houses: true }));
+    const ctxOpen = open.ctx;
+    const ctxTown = town.ctx;
+    expect(builtUpAround(ctxOpen, OBJ.x, OBJ.y, 120)).toEqual({ buildings: 0, share: 0 });
+    const b = builtUpAround(ctxTown, OBJ.x, OBJ.y, 120);
+    expect(b.buildings).toBe(10);
+    expect(b.share).toBeCloseTo(1000 / (Math.PI * 120 * 120), 4);
+    expect(isBuiltUp(ctxOpen, OBJ.x, OBJ.y)).toBe(false);
+    expect(isBuiltUp(ctxTown, OBJ.x, OBJ.y)).toBe(true);
+    // Far from the houses: open ground again.
+    expect(isBuiltUp(ctxTown, 100, 100)).toBe(false);
+    // An objective that is a building is built-up whatever stands round it.
+    expect(isBuiltUp(ctxOpen, OBJ.x, OBJ.y, 3)).toBe(true);
+    expect(dismountDistance(ctxOpen, "fa", OBJ.x, OBJ.y)).toEqual({ dismountM: 200, urban: false });
+    expect(dismountDistance(ctxTown, "fa", OBJ.x, OBJ.y)).toEqual({ dismountM: 100, urban: true });
+    // Without the urban values nothing is built-up.
+    const noUrban = { ...ctxTown, catalog: { ...ctxTown.catalog, behaviour: { ...ctxTown.catalog.behaviour, mounting: { ...ctxTown.catalog.behaviour.mounting, mountedAssault: { ...MA, urban: undefined } as unknown as MountedAssaultDef } } } };
+    expect(isBuiltUp(noUrban, OBJ.x, OBJ.y)).toBe(false);
+    // The threat cap: the distance in force + the margin, never beyond threatMenM.
+    expect(threatMenFor(MA, 200)).toBe(250);
+    expect(threatMenFor(MA, 400)).toBe(400);
+    expect(threatMenFor({ ...MA, threatMarginM: undefined } as unknown as MountedAssaultDef, 100)).toBe(400);
+  });
+
+  it("street points: road points round the objective, spread out, nearest first", () => {
+    const inp = input();
+    inp.map.roads.push({ id: 1, points: [300, 100, 600, 100], widthM: 6, surface: inp.map.surfacePalette[0]! });
+    const sim = createSim(inp);
+    const pts = streetPoints(sim.ctx, OBJ.x, OBJ.y, 120, 6);
+    expect(pts.length).toBeGreaterThan(2);
+    expect(pts.length).toBeLessThanOrEqual(6);
+    for (const p of pts) { expect(p.y).toBe(100); expect(hypot2(p.x - OBJ.x, p.y - OBJ.y)).toBeLessThanOrEqual(120); }
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) expect(hypot2(pts[i]!.x - pts[j]!.x, pts[i]!.y - pts[j]!.y)).toBeGreaterThanOrEqual(25);
+  });
+
+  it("a built-up objective: the riders get out at the shorter urban distance, the hull's post may stand closer", () => {
+    const run1 = (houses: boolean) => {
+      const sim = createSim(input({ houses }));
+      const sq = unitBy(sim, "Sq");
+      order(sim, sq, { kind: "assault", ...OBJ });
+      const ev = run(sim, 150, (all) => all.some((e) => e.kind === "assault.supportPost"));
+      const out = ev.find((e) => e.kind === "assault.dismounted") as Extract<SimEvent, { kind: "assault.dismounted" }> | undefined;
+      return { sim, sq, out, ma: sim.state.unit.get(sq)!.mountedAssault };
+    };
+    const open = run1(false), town = run1(true);
+    expect(open.out!.reason).toBe("point");
+    expect(town.out!.reason).toBe("point");
+    expect(town.ma!.urban).toBe(true);
+    expect(open.ma!.urban).toBeUndefined();
+    expect(open.out!.distM).toBeGreaterThan(150);
+    expect(town.out!.distM).toBeGreaterThan(100 - 30);
+    expect(town.out!.distM).toBeLessThan(100 + 50);
+    expect(town.out!.distM).toBeLessThan(open.out!.distM - 50);
   });
 });

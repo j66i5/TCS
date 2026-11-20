@@ -403,10 +403,12 @@ export interface MountedAssaultDef {
   followReplanM: number; takenSlackM: number; consolidateM: number; pickupBackM: number; nightBelowLight: number;
   /** Balance pass 5, urban objectives (owner 2026-11-20): an objective is BUILT-UP when it is a building, or when at
    *  least `minBuildings` buildings stand (centre) within `radiusM` of it, or their footprints cover `minShare` of
-   *  that circle. Then the faction's `dismountUrbanM` applies; enemy men count as a threat for an early dismount only
-   *  within that distance + `threatMarginM`; support posts may stand `minObjectiveM` from the objective and
+   *  that circle. Then the faction's `dismountUrbanM` applies; support posts may stand `minObjectiveM` from the objective and
    *  `postStandoffM` off known enemy men, and must also see up to `streetPoints` points of the roads round it. */
-  urban?: { radiusM: number; minBuildings: number; minShare: number; threatMarginM: number; minObjectiveM: number; postStandoffM: number; streetPoints: number };
+  urban?: { radiusM: number; minBuildings: number; minShare: number; minObjectiveM: number; postStandoffM: number; streetPoints: number };
+  /** Enemy men known within `threatMenM` of a riding carrier get its squads out early, but at most within the dismount
+   *  distance in force + this margin (the doctrine accepts riding that close to the enemy's edge). Absent: no cap. */
+  threatMarginM?: number;
   /** A carrier whose drive gave up (jammed among the other hulls) is sent on to its dismount point again up to this
    *  many times before its squads get out where it stands. Absent: 0. */
   driveRetries?: number;

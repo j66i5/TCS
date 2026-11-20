@@ -1045,16 +1045,20 @@ async function assaultScenes(page: Page, name: string, errors: string[], shots: 
  * attacking mounted (blue, village). A Puma selected: the order bar offers Assault. The platoon given Assault on the
  * main objective: the dismount points (squares) a few seconds later, the squads out at a dismount point, the hulls on
  * their support-by-fire posts (diamonds) and one of them firing on the objective. Photo and flat looks.
+ * `--scene assault-urban` (owner 2026-11-20: "that distance would be shorter when attacking buildings / urban
+ * areas"): the same in the village with the enemy's commander off (`ai=0`, its crews still fire on their own), so the
+ * carriers reach their urban dismount points at the houses' edge; file prefix `assault-urban`.
  */
-async function mountedAssaultScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+async function mountedAssaultScenes(page: Page, name: string, errors: string[], shots: string[], urban = false): Promise<void> {
+  const prefix = urban ? "assault-urban" : "assault-mounted";
   const shot = async (label: string) => {
     await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
     await page.waitForTimeout(400);
-    const p = `${outDir}/assault-mounted-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+    const p = `${outDir}/${prefix}-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
   };
   const info: object[] = [];
   for (const look of ["photo", "flat"] as const) {
-    await page.goto(`http://localhost:${port}/?scenario=platoon&side=blue&attacker=blue&seed=${seed}&look=${look}&map=${args["map"] ?? "village"}`);
+    await page.goto(`http://localhost:${port}/?scenario=platoon&side=blue&attacker=blue&seed=${seed}&look=${look}&map=${args["map"] ?? "village"}${urban ? "&ai=0" : ""}`);
     await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
     await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
       const [vid, crew] = t.vehicles()[0]; t.select(crew); const p = s.transform.get(vid); t.focus(p.x + 40, p.y, 200); t.stepTicks(1);`) as () => void);
@@ -1070,7 +1074,7 @@ async function mountedAssaultScenes(page: Page, name: string, errors: string[], 
       for (let i = 0; i < 60 * 240; i += 30) { t.stepTicks(30); const ma = s.unit.get(plat).mountedAssault; if (!ma || ma.carriers.some((c) => c.phase === "dismount" && s.tick - c.phaseTick > 60 * 5)) break; }
       const ma = s.unit.get(plat).mountedAssault; const c = ma ? ma.carriers.find((k) => k.phase === "dismount") ?? ma.carriers[0] : null;
       const p = c ? s.transform.get(c.vehicle) : null; if (p) t.focus(p.x, p.y, 180); t.stepTicks(1);
-      return { tick: s.tick, phases: ma ? ma.carriers.map((k) => k.phase + '@' + Math.round(Math.hypot(s.transform.get(k.vehicle).x - ma.x, s.transform.get(k.vehicle).y - ma.y))) : [] };`) as () => object);
+      return { tick: s.tick, urban: ma ? ma.urban === true : null, points: ma ? ma.carriers.map((k) => Math.round(Math.hypot(k.dx - ma.x, k.dy - ma.y))) : [], phases: ma ? ma.carriers.map((k) => k.phase + '@' + Math.round(Math.hypot(s.transform.get(k.vehicle).x - ma.x, s.transform.get(k.vehicle).y - ma.y))) : [] };`) as () => object);
     await shot(`${look}-2-dismounted`);
     const post = await page.evaluate(new Function(`const plat = ${plat}; const t = globalThis.__tcs; const s = t.sim.state;
       t.select(plat); t.stepTicks(60 * 25);
@@ -1087,7 +1091,7 @@ async function mountedAssaultScenes(page: Page, name: string, errors: string[], 
     await shot(`${look}-4-firing`);
     info.push({ look, out, post, fire });
   }
-  console.log(`${name}: assault-mounted scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+  console.log(`${name}: ${prefix} scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**
@@ -2397,7 +2401,7 @@ try {
     if (args["scene"] === "recovery") { await recoveryScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks") { await tankScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
-    if (args["scene"] === "assault-mounted") { await mountedAssaultScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "assault-mounted" || args["scene"] === "assault-urban") { await mountedAssaultScenes(page, name, errors, shots, args["scene"] === "assault-urban"); await page.close(); continue; }
     if (args["scene"] === "areafire") { await areaFireScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "wheeled") { await wheeledScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "assault") { await assaultScenes(page, name, errors, shots); await page.close(); continue; }
@@ -2541,7 +2545,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "prisoners" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "assault-mounted" || args["scene"] === "areafire" || args["scene"] === "wheeled" || args["scene"] === "assault" || args["scene"] === "campaign" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "prisoners" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "assault-mounted" || args["scene"] === "assault-urban" || args["scene"] === "areafire" || args["scene"] === "wheeled" || args["scene"] === "assault" || args["scene"] === "campaign" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

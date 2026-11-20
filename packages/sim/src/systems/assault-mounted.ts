@@ -112,11 +112,11 @@ export function dismountDistance(ctx: SimContext, faction: string, x: number, y:
   return { dismountM: urban ? Math.min(open, f?.dismountUrbanM ?? open) : open, urban };
 }
 
-/** Enemy men known this close to a carrier make its squads get out early: `threatMenM`, for a built-up objective at
- *  most its dismount distance + `urban.threatMarginM` (the houses hide the men; out at once only for those nearer
- *  than the point it is driving to). */
-export function threatMenFor(P: MountedAssaultDef, urban: boolean, dismountM: number): number {
-  return urban && P.urban ? Math.min(P.threatMenM, dismountM + P.urban.threatMarginM) : P.threatMenM;
+/** Enemy men known this close to a carrier make its squads get out early: `threatMenM`, at most the dismount distance
+ *  in force (open or built-up) + `threatMarginM` (balance pass 5: the doctrine rides to that distance from the enemy's
+ *  edge, so men seen on the objective must not turn every ride back at `threatMenM`). */
+export function threatMenFor(P: MountedAssaultDef, dismountM: number): number {
+  return P.threatMarginM !== undefined ? Math.min(P.threatMenM, dismountM + P.threatMarginM) : P.threatMenM;
 }
 
 /** Up to `n` points of the roads within `r` of (x, y), nearest first: the streets a support post must see into. */
@@ -589,7 +589,7 @@ function stepAssault(ctx: SimContext, state: SimState, events: EventSink, holder
   const hit: EntityId[] = [];
   for (const [vid, v] of state.vehicle.entries()) if (!isOffMap(v) && v.side === u.side && state.tick - v.lastHitTick <= hitTicks) hit.push(vid);
   const { follow, dismountM } = doctrineOf(ctx, u, ma);
-  const threatMen = threatMenFor(P, ma.urban === true, dismountM);
+  const threatMen = threatMenFor(P, dismountM);
   for (const c of ma.carriers) {
     if (c.phase === "done") continue;
     const v = state.vehicle.get(c.vehicle)!;

@@ -1689,7 +1689,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
           const crewKnown = crews.flatMap((c) => view.unit.get(c)?.members ?? []).flatMap((m) => known(m));
           // (Balance pass 5: for a built-up objective only men nearer than its dismount distance + a margin.)
           const MA0 = mountedAssaultDef(ground()), dd0 = dismountDistance(ground(), force.faction, tgt.x, tgt.y);
-          const threatMenM = MA0 ? Math.min(COMMANDER.dismountThreatMenM, threatMenFor(MA0, dd0.urban, dd0.dismountM)) : COMMANDER.dismountThreatMenM;
+          const threatMenM = MA0 ? Math.min(COMMANDER.dismountThreatMenM, threatMenFor(MA0, dd0.dismountM)) : COMMANDER.dismountThreatMenM;
           const atThreat = (vid: EntityId): boolean => {
             const vt = view.transform.get(vid);
             if (!vt) return false;

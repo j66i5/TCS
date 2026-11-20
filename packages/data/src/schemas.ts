@@ -514,6 +514,14 @@ export const BehaviourFile = withProv({
      *  `missileHitLoseChance` when his own hull is struck by an enemy round or burst (12.7 mm and up). */
     missileBeyondM: Num(0, 10000).optional(), missileHaltedMps: Num(0, 10).optional(), missileSightSeconds: Num(0.02, 5).optional(),
     missileSeenFloor: Num(0, 1).optional(), missileHitLoseChance: Num(0, 1).optional(),
+    /** Balance pass 5 (F1): a crew that chooses its missile while its hull moves halts it for `missileHoldSeconds`
+     *  to launch (and keeps it halted while it guides a wire- or beam-guided missile); not a hull under a player's
+     *  move order. Absent: no halt (the missile waits for a halt the route gives). */
+    missileHoldSeconds: Num(0, 60).optional(),
+    /** Balance pass 5 (F5): fire distribution. A target an own missile is already guided onto scores
+     *  `guidedTargetFactor` times as far; a hull penetrated within `recentPenSeconds` `penetratedTargetFactor` times.
+     *  Absent: 1 (no spreading). */
+    guidedTargetFactor: Num(1, 100).optional(), penetratedTargetFactor: Num(1, 100).optional(), recentPenSeconds: Num(0, 600).optional(),
   }).strict(),
   /** Shoulder-fired anti-tank weapons (M7.4a). See BehaviourDef.antitank. */
   antitank: z.object({

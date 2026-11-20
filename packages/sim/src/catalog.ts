@@ -554,6 +554,8 @@ export interface BehaviourDef {
     overClearM?: number; overPerM?: number; overNearM?: number;
     /** Guided missiles (owner 2026-11-13; see the schema). */
     missileBeyondM?: number; missileHaltedMps?: number; missileSightSeconds?: number; missileSeenFloor?: number; missileHitLoseChance?: number;
+    /** Balance pass 5 (F1, F5; see the schema). */
+    missileHoldSeconds?: number; guidedTargetFactor?: number; penetratedTargetFactor?: number; recentPenSeconds?: number;
   };
   /**
    * Shoulder-fired anti-tank weapons (M7.4a, owner Q19/Q20). atRuleDefault: a unit's standing rule unless set;

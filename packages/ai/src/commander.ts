@@ -27,7 +27,7 @@ import { withDrones } from "./drone";
 import {
   atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
   positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
-  cacheHolds,
+  cacheHolds, carrierHitNear,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, overwatchBounds, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
@@ -92,6 +92,9 @@ export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new 
   // vehicle seen this close; a crew reversing out is left to it this long (its hold, behaviour crew.reverseHoldSeconds);
   // vehicles reverse this far on withdrawal.
   dismountThreatMenM: 400, dismountThreatVehicleM: 600, reverseOutHoldSeconds: 15, withdrawReverseM: 80,
+  // Balance pass 5 (F4, game value, low): a hit on a carrier calls out the squads riding in it and in the side's
+  // carriers within this of it, not the whole side.
+  dismountHitNearM: 300,
   // The infantry attack (balance pass 2026-11-13, game values, low confidence; docs/research/inf-assault.md; the
   // pass also moved supportM 300 -> 330, sneakM 200 -> 50 and heEverySeconds 90 -> 45):
   // - axis (on foot): the way in is turned about the objective by up to `axisMaxDeg` so that the support line keeps
@@ -877,7 +880,11 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
       };
       // Vehicles (M7.2): the polled state the plan lists (§12): status, arrival, hits since the last look.
       const vehicleOf = (c: EntityId) => { const vid = view.unit.get(c)?.vehicle; return vid === undefined ? undefined : view.vehicle.get(vid); };
-      const hitNow = crews.some((c) => (vehicleOf(c)?.lastHitTick ?? -1e9) > (mem.lastHitSeen ?? -1e9));
+      // Balance pass 5 (F4): which carriers were hit since the last look (a squad gets out when its own one, or one
+      // near it, was: `carrierHitNear`).
+      const hitVids: EntityId[] = [];
+      for (const c of crews) { const vid = view.unit.get(c)?.vehicle; const v = vid === undefined ? undefined : view.vehicle.get(vid); if (v && v.lastHitTick > (mem.lastHitSeen ?? -1e9)) hitVids.push(vid!); }
+      const hitNear = (vid: EntityId | undefined): boolean => vid !== undefined && carrierHitNear(view, vid, hitVids, COMMANDER.dismountHitNearM);
       for (const c of crews) mem.lastHitSeen = Math.max(mem.lastHitSeen ?? -1e9, vehicleOf(c)?.lastHitTick ?? -1e9);
       // Its own vehicles (a crew that bailed out no longer has one: count the hulls of its side).
       // (M7.6b: the platoons' own hulls: not the tank sections'.)
@@ -1651,14 +1658,14 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             const vid = view.unit.get(sq)?.carrier;
             const v = vid === undefined ? undefined : view.vehicle.get(vid);
             const there = v === undefined || v.drive.arrived || v.drive.routeIdx >= v.drive.route.length || v.status !== "ok";
-            if (riders(view, sq).length > 0 && !(there || hitNow || late || (vid !== undefined && atThreat(vid)))) return;
+            if (riders(view, sq).length > 0 && !(there || hitNear(vid) || late || (vid !== undefined && atThreat(vid)))) return;
             advance(sq, i);
             mem.out!.push(sq);
           });
           const hqIn = hq.filter((m) => (view.soldier.get(m) as SoldierState | undefined)?.mount !== undefined);
           const hqV = tops.length > 0 ? view.unit.get(tops[0]![0])?.carrier : undefined;
           const hv = hqV === undefined ? undefined : view.vehicle.get(hqV);
-          if (hqIn.length > 0 && !mem.out.includes(-1) && (hv === undefined || hv.drive.arrived || hitNow || late || (hqV !== undefined && atThreat(hqV)))) {
+          if (hqIn.length > 0 && !mem.out.includes(-1) && (hv === undefined || hv.drive.arrived || hitNear(hqV) || late || (hqV !== undefined && atThreat(hqV)))) {
             for (const m of hqIn) order(m, { kind: "move", waypoints: [{ x: supportAt().x - ux * 30, y: supportAt().y - uy * 30, mode: hqUnderFire() ? "run" : "walk" }] });
             mem.out.push(-1);
           }

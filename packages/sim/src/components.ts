@@ -923,6 +923,9 @@ export interface DriveState {
   endHeading: number | null;
   arrived: boolean;
   holdForDismount: boolean;
+  /** Balance pass 5 (F1): halted for the crew's own missile launch and guidance until this tick (route kept). Absent
+   *  normally. */
+  fireHoldUntilTick?: number;
   /** Consecutive ticks the hull was blocked; re-plans since the order. */
   stuckTicks: number; replans: number;
   /** Getting clear after striking something (M7.1c): a small move held until `untilTick`. Absent normally. */

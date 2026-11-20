@@ -723,6 +723,7 @@ function reverseOut(ctx: SimContext, state: SimState, events: EventSink, vid: En
   const C = ctx.catalog.behaviour.crew;
   const t = state.transform.req(vid);
   v.crewReaction = "reverseOut"; v.reactionTick = state.tick; v.reactionWhy = why;
+  delete v.drive.fireHoldUntilTick; // (balance pass 5: no missile halt while it backs away)
   events.emit({ kind: "vehicle.reaction", tick: state.tick, vehicle: vid, reaction: "reverseOut", keys: [...why] });
   // Smoke between it and the threat: the turret is laid toward it at its own rate (a damaged drive is slow) and
   // the salvo goes off along the turret wherever it points when it is due (the dischargers fire ahead of it).

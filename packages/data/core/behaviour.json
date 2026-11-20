@@ -357,7 +357,11 @@
     "missileHaltedMps": 0.3,
     "missileSightSeconds": 0.1,
     "missileSeenFloor": 0.2,
-    "missileHitLoseChance": 0.5
+    "missileHitLoseChance": 0.5,
+    "missileHoldSeconds": 5,
+    "guidedTargetFactor": 3,
+    "penetratedTargetFactor": 1.5,
+    "recentPenSeconds": 10
   },
   "antitank": {
     "atRuleDefault": "vehicles",

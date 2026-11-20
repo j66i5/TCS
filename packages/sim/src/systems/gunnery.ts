@@ -235,16 +235,38 @@ export function stationDangerM(ctx: SimContext, def: VehicleDef, si: number, wi:
   return dr + rangeM * (frac + (2 * sqrt(sn!.baseErrorMrad * sn!.baseErrorMrad + disp * disp)) / 1000);
 }
 
+/** Why a crew holds its fire at the targets it has (the first such reason is shown). */
+type HoldWhy = "why.hold.friends" | "why.hold.dangerClose" | "why.hold.noPierce";
+
+/**
+ * Balance pass 5 (F5): the enemy hulls an own missile is being guided onto now (a station's or a team's), or null.
+ * Few hulls and teams: a scan per decision.
+ */
+export function guidedTargets(state: SimState, side: string): EntityId[] | null {
+  let out: EntityId[] | null = null;
+  for (const [, ov] of state.vehicle.entries()) {
+    if (ov.side !== side) continue;
+    for (const st of ov.stations) if (st.guide && st.guide.target >= 0) (out ??= []).push(st.guide.target);
+  }
+  for (const [, u] of state.unit.entries()) {
+    const g = u.missileTeam?.guide;
+    if (g && g.target >= 0 && u.side === side) (out ??= []).push(g.target);
+  }
+  return out;
+}
+
 /** The crew's choice of target: score, reasons, nature. */
 function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState, def: VehicleDef, crew: Unit, si: number):
-  { target: EntityId; x: number; y: number; heightM: number; nature: Nature; keys: string[] } | "why.hold.friends" | "why.hold.dangerClose" | null {
+  { target: EntityId; x: number; y: number; heightM: number; nature: Nature; keys: string[] } | HoldWhy | null {
   const G = ctx.catalog.behaviour.gunnery, tick = state.tick;
   const me = state.transform.req(vid);
   const sn = def.stations[si]!;
   // The guns' reach; a missile ready on its launcher, halted, reaches further at vehicles (owner 2026-11-13).
   let reach = 0;
   for (const w of sn.weapons) if (!guidedRound(ctx.catalog, w)) reach = Math.max(reach, w.engageRangeM);
-  const msl = missileReady(ctx, v, def, si);
+  // (Balance pass 5, F1: also while it moves, when the crew may halt for it: `missileHoldSeconds`, not under a
+  // player's move order.)
+  const msl = missileReady(ctx, v, def, si, G.missileHoldSeconds !== undefined && v.playerHold !== true);
   let mReach = msl ? Math.min(sn.weapons[msl.weapon]!.engageRangeM, msl.g.maxRangeM) : 0;
   if (crew.maxEngageM > 0) { reach = Math.min(reach, crew.maxEngageM); mReach = Math.min(mReach, crew.maxEngageM); }
   // (An ambush laid, D4b: the crew holds its fire to its range until it is sprung.)
@@ -268,6 +290,10 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     }
   }
   const scored: { target: EntityId; x: number; y: number; z?: number; posture?: Posture; kind: Contact["kind"]; score: number; vehicle: boolean; firing: boolean }[] = [];
+  // Balance pass 5 (F5): fire spread over the enemy's hulls: one an own missile is already guided onto, or one just
+  // penetrated, counts as farther.
+  const guided = guidedTargets(state, v.side);
+  const gF = G.guidedTargetFactor ?? 1, pF = G.penetratedTargetFactor ?? 1, penT = secondsToTicks(G.recentPenSeconds ?? 0);
   for (const [target, c] of [...cands.entries()].sort((a, b) => a[0] - b[0])) {
     if (!targetLive(state, target)) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
@@ -277,14 +303,20 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     const firing = isVeh
       ? state.vehicle.get(target)!.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= 3 * TICK_HZ))
       : ew !== undefined && tick - ew.lastShotTick <= 3 * TICK_HZ;
-    scored.push({ target, x: c.x, y: c.y, kind: c.kind, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
+    let spread = 1;
+    if (isVeh) {
+      if (guided !== null && guided.includes(target)) spread *= gF;
+      const tv = state.vehicle.get(target)!;
+      if (penT > 0 && tick - tv.lastPenTick <= penT) spread *= pF;
+    }
+    scored.push({ target, x: c.x, y: c.y, kind: c.kind, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1) * spread, vehicle: isVeh, firing });
   }
   scored.sort((a, b) => a.score - b.score || a.target - b.target);
   // The best one the gun can reach from where the vehicle stands (a few lines of fire tried, best first), and fire at
   // it not held for own men (balance pass 4 review, H2: before, the crew kept a target its gun could never fire at).
   const st = v.stations[si]!;
   const op = stationOperator(state, v, def, si);
-  let held: "why.hold.friends" | "why.hold.dangerClose" | null = null;
+  let held: HoldWhy | null = null;
   for (const cnd of scored.slice(0, 4)) {
     const [mx, my, mz] = muzzleWorld(ctx, def, si, 0, me.x, me.y, me.heading, st.azimuth);
     // M7.6b: at a vehicle, the lowest of its aim points the line clears (hull, else the turret over a crest).
@@ -315,7 +347,7 @@ function natureFor(
   cands: ReadonlyMap<EntityId, { x: number; y: number }>,
   best: { target: EntityId; x: number; y: number; z?: number; posture?: Posture; kind: Contact["kind"]; vehicle: boolean; firing: boolean },
   bestAp: number, reach: number, mReach: number, msl: ReturnType<typeof missileReady>,
-): { heightM: number; nature: Nature; keys: string[] } | "why.hold.dangerClose" {
+): { heightM: number; nature: Nature; keys: string[] } | "why.hold.dangerClose" | "why.hold.noPierce" {
   const G = ctx.catalog.behaviour.gunnery;
   const sn = def.stations[si]!;
   const keys: string[] = [best.vehicle ? "why.target.vehicle" : best.firing ? "why.target.firing" : "why.target.nearest"];
@@ -331,6 +363,9 @@ function natureFor(
     // armour-piercing round does not (the face's plate and the tiles it expects there).
     const far = d > reach || (msl !== null && d >= (sn.weapons[msl.weapon]!.missileBeyondM ?? G.missileBeyondM ?? 1000));
     if (msl && d >= msl.g.minRangeM && d <= mReach && (far || (!apCanPierce(ctx, state, def, si, t.x, t.y, best.target, zone) && missileCanPierce(ctx, state, def, si, msl.weapon, t.x, t.y, best.target, zone))) && missileSeesTarget(ctx, state, vid, v, def, si, msl.weapon, best.target)) { nature = "atgm"; keys.push(far ? "why.nature.missileFar" : "why.nature.missileArmour"); }
+    // Balance pass 5 (F1): no armour-piercing at a face it cannot get through (a stopped round does nothing and the
+    // shots show the hull): another target, else hold.
+    else if (!apCouldPierce(ctx, state, def, si, t.x, t.y, best.target, zone)) return "why.hold.noPierce";
     else { nature = "ap"; keys.push("why.nature.vehicle"); }
   }
   else {
@@ -429,6 +464,10 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
       if (changed) setStationTask(ctx, state, vid, si, pick.x, pick.y, pick.heightM, f.weapon, f.feed, pick.target, true);
       else { st.task!.x = pick.x; st.task!.y = pick.y; st.task!.reasonTick = tick; if (state.vehicle.has(pick.target)) st.task!.heightM = pick.heightM; }
       if (f.nature !== pick.nature) pick.keys.push("why.nature.substitute");
+      // Balance pass 5 (F1): its own missile chosen on the move: the hull halts for the launch (its route kept).
+      if (f.nature === "atgm" && G.missileHoldSeconds !== undefined && v.playerHold !== true && Math.abs(v.drive.speed) > (G.missileHaltedMps ?? 0.3)) {
+        v.drive.fireHoldUntilTick = Math.max(v.drive.fireHoldUntilTick ?? 0, tick + secondsToTicks(G.missileHoldSeconds));
+      }
       emitDecision(events, state, vid, si, st, f.nature, pick.keys);
     }
   }
@@ -769,9 +808,10 @@ function missileSeesTarget(ctx: SimContext, state: SimState, vid: EntityId, v: V
 }
 
 /** A missile on this station's launcher, ready to fire now: halted, nothing in flight, the launcher working. */
-function missileReady(ctx: SimContext, v: VehicleState, def: VehicleDef, si: number): { weapon: number; g: NonNullable<AmmoDef["guided"]> } | null {
+function missileReady(ctx: SimContext, v: VehicleState, def: VehicleDef, si: number, moving = false): { weapon: number; g: NonNullable<AmmoDef["guided"]> } | null {
   const st = v.stations[si]!, sn = def.stations[si]!;
-  if (st.guide || Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3)) return null;
+  // (`moving`: balance pass 5, F1: the crew may halt for it, so its speed now does not matter.)
+  if (st.guide || (!moving && Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3))) return null;
   for (let wi = 0; wi < sn.weapons.length; wi++) {
     const gr = guidedRound(ctx.catalog, sn.weapons[wi]);
     if (!gr || (st.weapons[wi]?.feeds[0]?.rounds ?? 0) <= 0 || weaponOut(ctx, v, def, si, wi)) continue;
@@ -788,10 +828,11 @@ function missileReady(ctx: SimContext, v: VehicleState, def: VehicleDef, si: num
  * trigger (`penMm`, `heavy`: the round judged; left out, one that sets it off), as the hit does. No random draw.
  * null: no plate data (assume it gets through).
  */
-export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: number, y: number, kind: "kinetic" | "shaped" | "tandem", penMm = Infinity, heavy = true, zone: "hull" | "turret" = "hull"): number | null {
+export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: number, y: number, kind: "kinetic" | "shaped" | "tandem", penMm = Infinity, heavy = true, zone: "hull" | "turret" = "hull", top = false, bare = false): number | null {
   const tv = state.vehicle.get(target), tt = state.transform.get(target);
   const rt = tv ? ctx.ballistics.vehicleRT[tv.def] : undefined;
   if (!tv || !tt || !rt) return null;
+  if (top) return roofNeed(ctx, state, target, tv.def, rt, kind, penMm, heavy);
   const bearing = atan2(y - tt.y, x - tt.x);
   const faceAt = (h: number): number => { const rel = Math.abs(wrapAngle(bearing - h)); return rel < PI / 4 ? 0 : rel > (3 * PI) / 4 ? 2 : 1; };
   // M7.6b: the part aimed at; a turret face without a plate of its own is judged by the hull's. The turret's face is
@@ -804,7 +845,7 @@ export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: 
   if (!p) return null;
   let need = (p.thicknessMm * (kind === "kinetic" ? p.kPerMm : p.sPerMm)) / Math.max(p.cosS, ctx.catalog.ballistics.armour.losFloorCos);
   const tdef = ctx.catalog.vehicles[tv.def];
-  const tile = tdef?.armour?.tiles ? tileFor(tdef, part, face === 0 ? "front" : face === 2 ? "rear" : "side") : undefined;
+  const tile = tdef?.armour?.tiles && !bare ? tileFor(tdef, part, face === 0 ? "front" : face === 2 ? "rear" : "side") : undefined;
   if (tile) {
     const left = vehicleItems(state, target, tile.item);
     if (left > 0) {
@@ -821,10 +862,49 @@ export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: 
 }
 
 /**
+ * Balance pass 5 (F2): what it takes to get through a hull's roof from above (a top-attack missile's dive): the
+ * stronger of the hull's and the turret's top plates (struck square on), each with the reactive tile it expects
+ * there, as `faceNeed` counts one. null: no roof plate (assume it gets through).
+ */
+function roofNeed(ctx: SimContext, state: SimState, target: EntityId, defId: string, rt: { plates: readonly ({ thicknessMm: number; kPerMm: number; sPerMm: number } | null)[] }, kind: "kinetic" | "shaped" | "tandem", penMm: number, heavy: boolean): number | null {
+  const tdef = ctx.catalog.vehicles[defId];
+  let worst: number | null = null;
+  for (const part of ["hull", "turret"] as const) {
+    const p = rt.plates[(part === "turret" ? 4 : 0) + 3];
+    if (!p) continue;
+    let need = p.thicknessMm * (kind === "kinetic" ? p.kPerMm : p.sPerMm);
+    const tile = tdef?.armour?.tiles ? tileFor(tdef, part, "top") : undefined;
+    const left = tile ? vehicleItems(state, target, tile.item) : 0;
+    if (tile && left > 0) {
+      if (tile.factor !== undefined) { if (kind !== "kinetic") need *= tile.factor; }
+      else {
+        const r = ctx.catalog.items[tile.item]?.reactive;
+        const sets = kind !== "kinetic" || (heavy && penMm >= (r?.triggerSteelMm ?? 0));
+        if (r && sets && tile.coverage !== undefined && tile.fitted > 0) need += tile.coverage * Math.min(1, left / tile.fitted) * reactiveAdd(r, kind);
+      }
+    }
+    worst = worst === null ? need : Math.max(worst, need);
+  }
+  return worst;
+}
+
+/**
  * The crew's judgement whether its armour-piercing round gets through the face the enemy vehicle shows it (hull,
  * struck level, with the tiles it expects there): the round's published penetration against `faceNeed`.
  */
-function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId, zone: "hull" | "turret" = "hull"): boolean {
+function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId, zone: "hull" | "turret" = "hull", noApPasses = false): boolean {
+  return apPierce(ctx, state, def, si, x, y, target, zone, noApPasses, false);
+}
+
+/**
+ * Balance pass 5 (F1): could the armour-piercing round get through that face at all: the plate alone, without the
+ * tile it expects (a tile does not cover the whole face). False: no chance, and the crew holds that fire.
+ */
+function apCouldPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId, zone: "hull" | "turret"): boolean {
+  return apPierce(ctx, state, def, si, x, y, target, zone, true, true);
+}
+
+function apPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId, zone: "hull" | "turret", noApPasses: boolean, bare: boolean): boolean {
   let pen = 0, heavy = false;
   for (const w of def.stations[si]!.weapons) {
     if (guidedRound(ctx.catalog, w)) continue;
@@ -834,7 +914,9 @@ function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: numb
       if (am && am.explosive === undefined && am.penetration.steelMm > pen) { pen = am.penetration.steelMm; heavy = am.diameterM >= 0.0125; }
     }
   }
-  const need = faceNeed(ctx, state, target, x, y, "kinetic", pen, heavy, zone);
+  // (`noApPasses`: a station with no armour-piercing round is not judged here: it fires what it has, as before.)
+  if (pen <= 0 && noApPasses) return true;
+  const need = faceNeed(ctx, state, target, x, y, "kinetic", pen, heavy, zone, false, bare);
   return need === null || pen >= need;
 }
 
@@ -843,7 +925,8 @@ function missileCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si:
   const gr = guidedRound(ctx.catalog, def.stations[si]!.weapons[wi]);
   const am = gr ? ctx.catalog.ammo[gr.ammo] : undefined;
   if (!am) return true;
-  const need = faceNeed(ctx, state, target, x, y, am.kind === "tandem-shaped-charge" ? "tandem" : "shaped", Infinity, true, zone);
+  // (Balance pass 5, F2: a top-attack missile is judged against the roof it dives onto, not the face it is fired at.)
+  const need = faceNeed(ctx, state, target, x, y, am.kind === "tandem-shaped-charge" ? "tandem" : "shaped", Infinity, true, zone, am.guided?.topAttack !== undefined);
   return need === null || am.penetration.steelMm >= need;
 }
 
@@ -891,6 +974,12 @@ function fireMissile(
   st.guide = { ammo: gr.ammo, weapon: wi, gunner: op, launchTick: tick, target: tv, errH: 0, errV: 0, checkTick: -1, ax: task.x, ay: task.y, az: tz };
   const kind = ctx.catalog.ammo[gr.ammo]?.guidance;
   if (kind !== undefined && kind !== "command-wire") st.guide.kind = kind;
+  // Balance pass 5 (F1): the crew's own missile, wire- or beam-guided: the hull stays halted while it flies (its time
+  // of flight at cruise speed, and a second), unless the player drives it.
+  const holdS = ctx.catalog.behaviour.gunnery.missileHoldSeconds;
+  if (task.self && holdS !== undefined && v.playerHold !== true && !fireAndForget(kind)) {
+    v.drive.fireHoldUntilTick = Math.max(v.drive.fireHoldUntilTick ?? 0, tick + secondsToTicks(range / Math.max(1, gr.g.cruiseMps) + 1));
+  }
   // Launch warning (M9.3a): the target's crew notices the launch — a laser warner against a beam-riding missile, or
   // an able crewman who has the launcher in sight — and fires its smoke toward it a moment later (missiles.ts).
   if (tv >= 0 && launchNoticed(ctx, state, tv, vid, kind)) st.guide.warnTick = tick + Math.max(1, secondsToTicks(ctx.catalog.behaviour.crew.launchReactionSeconds));

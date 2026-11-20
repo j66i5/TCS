@@ -353,6 +353,7 @@
   "why.hold.ammunition": "no rounds",
   "why.hold.friends": "own men near: machine gun only",
   "why.hold.dangerClose": "own men near the point: holding fire",
+  "why.hold.noPierce": "the gun cannot get through that armour: holding fire",
   "why.lay.slewing": "turret slewing",
   "why.lay.laid": "laid for {seconds} s",
   "debug.vehicle.turret": "turret {az} deg (ordered {cmd} deg), {lay}",

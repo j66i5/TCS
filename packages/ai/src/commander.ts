@@ -27,7 +27,7 @@ import { withDrones } from "./drone";
 import {
   atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
   positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
-  cacheHolds, carrierHitNear, dismountSpot, mountedAssaultDef, siteSupportPost, supportPost, supportReachM, type VehicleState,
+  cacheHolds, carrierHitNear, dismountDistance, dismountSpot, mountedAssaultDef, threatMenFor, siteSupportPost, supportPost, supportReachM, type VehicleState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, overwatchBounds, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
@@ -324,9 +324,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
   const startPosts = new Set((force.vehiclePlacements ?? []).filter((p) => p.onPost === true).map((p) => p.vehicleId));
   let mem: Memory = { phase: "start", phaseTick: 0, target: 0, lastFire: -1e9, lastAssault: {}, pulledBack: [], counterTick: -1e9 };
   const every = COMMANDER.stepSeconds * 60;
-  // Where the attacker gets out (M7.2, owner Q22): this far short of the objective, from its faction's doctrine;
-  // without one, the plan's formula from the willingness to dismount.
-  const dismountM = input.catalog.factions[force.faction]?.dismountM ?? 300 + (1 - (doctrine["willingnessToDismount"] ?? 0.5)) * 500;
+  // Where the attacker gets out (M7.2, owner Q22): its faction's doctrine distance short of the objective (shorter for
+  // a built-up one, balance pass 5), the sim's `dismountDistance`, worked out per objective where it is needed.
   const M = input.catalog.behaviour.mounting;
   // Its own view of the ground for sight lines and back-blast checks [C58], kept up with the view (M7 review).
   const groundOf = viewGround(input);
@@ -1522,11 +1521,13 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             // (Balance pass 5: the best support-by-fire post round that point, the sim's `supportPost`; none: the point.)
             const MA = mountedAssaultDef(ground()), def = input.catalog.vehicles[v.def];
             let to = { x: px, y: py, facing: atan2(uy, ux) };
-            if (MA !== undefined && def && hypot2(px - tgt.x, py - tgt.y) >= MA.minObjectiveM) {
+            const urbanT = MA?.urban !== undefined && dismountDistance(ground(), force.faction, tgt.x, tgt.y).urban;
+            const minObjM = urbanT ? MA!.urban!.minObjectiveM : MA?.minObjectiveM ?? 0;
+            if (MA !== undefined && def && hypot2(px - tgt.x, py - tgt.y) >= minObjM) {
               const ctx0 = ground();
               const threats = all.flatMap((m) => knownMen(m)).filter((k) => k.kind !== "heard" && tick - k.tick <= MA.threatSeenSeconds * 60).map((k) => ({ x: k.x, y: k.y }));
-              const standoffM = Math.max(0, Math.min(MA.postStandoffM, hypot2(px - tgt.x, py - tgt.y) - tgt.radiusM - MA.arriveM));
-              const q = supportPost(ctx0, def, { from: { x: vt.x, y: vt.y }, anchor: { x: px, y: py }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM }, reachM: supportReachM(ctx0, def, view.environment.light), ringsM: MA.postRingsM, minSeen: MA.postMinSeen, minObjectiveM: MA.minObjectiveM, standoffM, threats });
+              const standoffM = Math.max(0, Math.min(urbanT ? MA.urban!.postStandoffM : MA.postStandoffM, hypot2(px - tgt.x, py - tgt.y) - tgt.radiusM - MA.arriveM));
+              const q = supportPost(ctx0, def, { from: { x: vt.x, y: vt.y }, anchor: { x: px, y: py }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM }, reachM: supportReachM(ctx0, def, view.environment.light), ringsM: MA.postRingsM, minSeen: MA.postMinSeen, minObjectiveM: minObjM, standoffM, threats });
               if (q) to = q;
             }
             order(c, { kind: "move", waypoints: [{ x: to.x, y: to.y, mode: "walk" }], facing: to.facing });
@@ -1560,7 +1561,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
               const p = siteSupportPost(ctx0, def, {
                 hull: { x: vt.x, y: vt.y }, anchor: { x: clamp(vt.x - ux * MA.postBackM, W), y: clamp(vt.y - uy * MA.postBackM, H) },
                 behind: { x: vt.x, y: vt.y, ux: -ux, uy: -uy, minM: MA.postMinBackM }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM },
-                light: view.environment.light, threats, avoid: holds,
+                light: view.environment.light, threats, avoid: holds, ...(dismountDistance(ctx0, force.faction, tgt.x, tgt.y).urban ? { urban: true } : {}),
                 extra: all.flatMap((m) => knownMen(m)).filter((k) => k.kind !== "heard" && hypot2(k.x - tgt.x, k.y - tgt.y) <= MA.fireNearObjectiveM).map((k) => ({ x: k.x, y: k.y })),
               });
               if (!p) { if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) order(c, { kind: "halt" }); continue; }
@@ -1667,7 +1668,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
               const behind = hqV ? 40 : 0;
               // The first point far enough from every objective, then up to 100 m farther back for one out of sight
               // (balance pass 5: the sim's `dismountSpot`, shared with the player's mounted assault).
-              const p = dismountSpot(ground(), { tgt, objectives, ux, uy, offM: off, dismountM, behindM: behind, stepM: COMMANDER.dismountStepM, candidates: COMMANDER.dismountCandidates, eyes });
+              // (Balance pass 5, owner 2026-11-20: a built-up objective's shorter distance, `dismountDistance`.)
+              const p = dismountSpot(ground(), { tgt, objectives, ux, uy, offM: off, dismountM: dismountDistance(ground(), force.faction, tgt.x, tgt.y).dismountM, behindM: behind, stepM: COMMANDER.dismountStepM, candidates: COMMANDER.dismountCandidates, eyes });
               order(c, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: atan2(uy, ux) });
             });
             toAll({ kind: "rules", fire: "return" });
@@ -1685,11 +1687,14 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
           // An anti-tank threat (M7.4b, plan §12): enemy men its crews know close to the carrier (any of them may
           // carry a Panzerfaust or an RPG), or an enemy vehicle seen: out at once.
           const crewKnown = crews.flatMap((c) => view.unit.get(c)?.members ?? []).flatMap((m) => known(m));
+          // (Balance pass 5: for a built-up objective only men nearer than its dismount distance + a margin.)
+          const MA0 = mountedAssaultDef(ground()), dd0 = dismountDistance(ground(), force.faction, tgt.x, tgt.y);
+          const threatMenM = MA0 ? Math.min(COMMANDER.dismountThreatMenM, threatMenFor(MA0, dd0.urban, dd0.dismountM)) : COMMANDER.dismountThreatMenM;
           const atThreat = (vid: EntityId): boolean => {
             const vt = view.transform.get(vid);
             if (!vt) return false;
             return crewKnown.some((c) => c.wreck !== true && tick - c.tick <= 60 * 60 && c.kind !== "heard"
-              && hypot2(c.x - vt.x, c.y - vt.y) <= (c.cls === "vehicle" ? (c.kind === "seen" ? COMMANDER.dismountThreatVehicleM : 0) : COMMANDER.dismountThreatMenM));
+              && hypot2(c.x - vt.x, c.y - vt.y) <= (c.cls === "vehicle" ? (c.kind === "seen" ? COMMANDER.dismountThreatVehicleM : 0) : threatMenM));
           };
           // Out when its vehicle has arrived, at once when a vehicle was hit, or after the ride has taken too long:
           // the squad is ordered to its support-line position and gets out first (Q12).

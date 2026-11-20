@@ -401,6 +401,15 @@ export interface MountedAssaultDef {
   noRidersStandoffM: number; minObjectiveM: number;
   fireEverySeconds: number; fireNearObjectiveM: number; fireSeenSeconds: number; ownClearM: number; shiftM: number; liftM: number;
   followReplanM: number; takenSlackM: number; consolidateM: number; pickupBackM: number; nightBelowLight: number;
+  /** Balance pass 5, urban objectives (owner 2026-11-20): an objective is BUILT-UP when it is a building, or when at
+   *  least `minBuildings` buildings stand (centre) within `radiusM` of it, or their footprints cover `minShare` of
+   *  that circle. Then the faction's `dismountUrbanM` applies; enemy men count as a threat for an early dismount only
+   *  within that distance + `threatMarginM`; support posts may stand `minObjectiveM` from the objective and
+   *  `postStandoffM` off known enemy men, and must also see up to `streetPoints` points of the roads round it. */
+  urban?: { radiusM: number; minBuildings: number; minShare: number; threatMarginM: number; minObjectiveM: number; postStandoffM: number; streetPoints: number };
+  /** A carrier whose drive gave up (jammed among the other hulls) is sent on to its dismount point again up to this
+   *  many times before its squads get out where it stands. Absent: 0. */
+  driveRetries?: number;
 }
 
 export interface BehaviourDef {
@@ -920,6 +929,8 @@ export interface FactionDef {
   /** Where the AI gets its men out of their vehicles (M7.2, owner Q22: per side, from doctrine research): this far
    *  short of the objective, at a point out of sight of the enemy if there is one. Absent: no doctrine given. */
   dismountM?: number;
+  /** Balance pass 5: the dismount distance for a built-up objective (`MountedAssaultDef.urban`). Absent: `dismountM`. */
+  dismountUrbanM?: number;
   /** After the squads are out (M7.3): vehicles stay in overwatch, or follow the squads `followM` behind. */
   afterDismount?: { kind: "overwatch" | "follow"; followM: number };
   /** The identity tag every man carries (owner request 2026-11-15): `perMan` of `item` each, `taken` of them taken

@@ -513,6 +513,11 @@ export const BehaviourFile = withProv({
       fireEverySeconds: Num(1, 600), fireNearObjectiveM: Num(0, 2000), fireSeenSeconds: Num(0, 600), ownClearM: Num(0, 1000),
       shiftM: Num(0, 2000), liftM: Num(0, 2000), followReplanM: Num(1, 1000), takenSlackM: Num(0, 500), consolidateM: Num(0, 1000),
       pickupBackM: Num(0, 500), nightBelowLight: Num(0, 1),
+      urban: z.object({
+        radiusM: Num(1, 1000), minBuildings: z.number().int().min(1).max(1000), minShare: Num(0, 1), threatMarginM: Num(0, 1000),
+        minObjectiveM: Num(0, 3000), postStandoffM: Num(0, 3000), streetPoints: z.number().int().min(0).max(20),
+      }).strict().optional(),
+      driveRetries: z.number().int().min(0).max(10).optional(),
     }).strict().optional(),
   }).strict(),
   /** Vehicle gunnery (M7.3): the same for every side. See BehaviourDef.gunnery. */
@@ -1321,6 +1326,10 @@ export const DoctrineFile = withProv({
    *  out of sight of the enemy where possible. Sourced per faction (docs/research/dismount.md). */
   dismount: withProv({
     distanceM: Num(0, 5000),
+    /** Balance pass 5 (owner 2026-11-20: "that distance would be shorter when attacking buildings / urban areas"):
+     *  the dismount distance when the objective is a building or lies in a built-up area (the last covered spot at
+     *  the houses' edge). Absent: `distanceM` everywhere. */
+    urbanDistanceM: Num(0, 5000).optional(),
     /** After the squads are out (M7.3): the vehicles stay in overwatch where they dropped them, or follow the
      *  squads this far behind, supporting them by fire. Default overwatch. */
     afterward: z.enum(["overwatch", "follow"]).optional(), followM: Num(0, 2000).optional(),

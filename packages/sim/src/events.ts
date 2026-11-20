@@ -331,7 +331,7 @@ export type SimEvent =
   /** Mounted assault (balance pass 5): a carrier's dismount point, where it let its squads out (its distance to the
    *  objective then), its support-by-fire post, and the end of its part (taken: a man of its squads on the objective). */
   | { kind: "assault.dismountPoint"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number }
-  | { kind: "assault.dismounted"; tick: number; unit: EntityId; vehicle: EntityId; distM: number }
+  | { kind: "assault.dismounted"; tick: number; unit: EntityId; vehicle: EntityId; distM: number; reason: "point" | "stopped" | "late" | "immobile" | "hit" | "threatMen" | "threatVehicle" | "empty" | "near" | "noRoute" }
   | { kind: "assault.supportPost"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number }
   /** Balance pass 5 (area fire): a station opens a burst at a place enemy men were last known (the point drawn in its
    *  circle), with its fuze's setting. */

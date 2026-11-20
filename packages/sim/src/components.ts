@@ -945,6 +945,8 @@ export interface MountedAssaultCarrier {
   followAt?: [number, number];
   /** The enemy it was last put on (each hull its own target first). */
   fireAt?: EntityId;
+  /** Times its drive was sent on again after it gave up short of the dismount point (`driveRetries`). */
+  retries?: number;
 }
 
 /** A mounted assault (balance pass 5): the objective, the way in (unit vector), when it was ordered, its hulls and the
@@ -953,6 +955,8 @@ export interface MountedAssault {
   x: number; y: number; building?: number;
   ux: number; uy: number;
   startTick: number;
+  /** The objective is built-up (`isBuiltUp`): the urban dismount distance, threat and post values apply. */
+  urban?: boolean;
   carriers: MountedAssaultCarrier[];
   squads: EntityId[];
 }

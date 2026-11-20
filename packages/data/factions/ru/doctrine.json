@@ -68,12 +68,15 @@
   },
   "dismount": {
     "distanceM": 400,
+    "urbanDistanceM": 200,
     "sources": [
       "https://studfile.net/preview/6159989/page:10/",
-      "https://base.garant.ru/72245250/a496d02287c1e8a2f8df9041972293a4/"
+      "https://base.garant.ru/72245250/a496d02287c1e8a2f8df9041972293a4/",
+      "https://vk.ru/@unfair_advantage-motostrelkovyi-vzvod-v-nastuplenii",
+      "https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch4.htm"
     ],
     "confidence": "medium",
-    "note": "Owner Q22 (M7.2): sourced per side. Russian combat manual (2005, part 3, 'Attack'): the dismount line as close as possible to the enemy forward edge, covered from his machine guns and anti-tank weapons; study notes give 'up to 400 m'. Search extracts only (docs/research/dismount.md). M7.3: afterwards the BMPs follow the dismounted chain about 150 m behind it and support it by fire (study notes and a teaching text: 100-200 m behind the chain, from cover to cover; docs/research/dismount.md, low).",
+    "note": "Owner Q22 (M7.2): sourced per side. Russian combat manual (2005, part 3, 'Attack'): the dismount line as close as possible to the enemy forward edge, covered from his machine guns and anti-tank weapons; study notes give 'up to 400 m'. Search extracts only (docs/research/dismount.md). M7.3: afterwards the BMPs follow the dismounted chain about 150 m behind it and support it by fire (study notes and a teaching text: 100-200 m behind the chain, from cover to cover; docs/research/dismount.md, low). Balance pass 5 (owner 2026-11-20): urbanDistanceM 200 for a built-up objective. The 2005 manual's rule (as close as possible to the forward edge, covered from MG and anti-tank fire) is the same in a town; no published figure for a built-up area was found (search extracts only). 200 m is a game choice, low: half the open-ground 400 m, keeping RU's dismount farther out than DE's as in the open; inside the 300 m safe distance from own artillery for an attack on BMPs. docs/research/dismount.md.",
     "afterward": "follow",
     "followM": 150
   },

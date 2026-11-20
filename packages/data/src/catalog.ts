@@ -24,6 +24,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     if (pack.doctrine.identityTag) { const g = pack.doctrine.identityTag; factions[fid]!.identityTag = { item: g.item, perMan: g.perMan, taken: g.taken }; }
     if (pack.doctrine.dismount) {
       factions[fid]!.dismountM = pack.doctrine.dismount.distanceM;
+      if (pack.doctrine.dismount.urbanDistanceM !== undefined) factions[fid]!.dismountUrbanM = pack.doctrine.dismount.urbanDistanceM;
       if (pack.doctrine.dismount.afterward !== undefined) factions[fid]!.afterDismount = { kind: pack.doctrine.dismount.afterward, followM: pack.doctrine.dismount.followM ?? 150 };
     }
     for (const it of Object.values(pack.items)) {

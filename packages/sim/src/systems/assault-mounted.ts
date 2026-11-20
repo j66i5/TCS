@@ -40,7 +40,7 @@ import { carrierHitNear } from "../mount";
 import type { Order, OrderBody, Waypoint } from "../orders";
 import { siteHullDown } from "../hulldown";
 import type { SimState } from "../state";
-import { heightAt } from "../terrain";
+import { buildingAt, heightAt } from "../terrain";
 import { indoorAt } from "../interior-nav";
 import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
@@ -65,6 +65,82 @@ export function hiddenFrom(ctx: SimContext, ox: number, oy: number, x: number, y
 
 function clampTo(v: number, max: number): number { return Math.min(Math.max(v, 5), max - 5); }
 
+// ---------------------------------------------------------------- built-up objectives (pure)
+
+/** Area (m2) and centroid of a footprint polygon (flat x, y list). */
+function footprintArea(f: readonly number[]): { a: number; cx: number; cy: number } {
+  let a = 0, cx = 0, cy = 0;
+  const n = f.length / 2;
+  for (let i = 0; i < n; i++) {
+    const x0 = f[2 * i]!, y0 = f[2 * i + 1]!, x1 = f[(2 * ((i + 1) % n))]!, y1 = f[(2 * ((i + 1) % n)) + 1]!;
+    const cr = x0 * y1 - x1 * y0;
+    a += cr; cx += (x0 + x1) * cr; cy += (y0 + y1) * cr;
+  }
+  if (Math.abs(a) < 1e-9) { let sx = 0, sy = 0; for (let i = 0; i < n; i++) { sx += f[2 * i]!; sy += f[2 * i + 1]!; } return { a: 0, cx: sx / Math.max(1, n), cy: sy / Math.max(1, n) }; }
+  return { a: Math.abs(a) / 2, cx: cx / (3 * a), cy: cy / (3 * a) };
+}
+
+/** Buildings round (x, y): how many have their centre within `radiusM`, and the share of that circle their
+ *  footprints cover (each counted whole by its centre). Pure. */
+export function builtUpAround(ctx: SimContext, x: number, y: number, radiusM: number): { buildings: number; share: number } {
+  let n = 0, area = 0;
+  for (const b of ctx.map.buildings) {
+    const f = footprintArea(b.footprint);
+    if (hypot2(f.cx - x, f.cy - y) > radiusM) continue;
+    n++; area += f.a;
+  }
+  return { buildings: n, share: area / (PI * radiusM * radiusM) };
+}
+
+/** Is an assault objective BUILT-UP (balance pass 5, owner 2026-11-20): a building, or enough houses round it
+ *  (`MountedAssaultDef.urban`)? Without the urban values: never. Pure. */
+export function isBuiltUp(ctx: SimContext, x: number, y: number, building?: number): boolean {
+  const U = mountedAssaultDef(ctx)?.urban;
+  if (!U) return false;
+  if (building !== undefined) return true;
+  const b = builtUpAround(ctx, x, y, U.radiusM);
+  return b.buildings >= U.minBuildings || b.share >= U.minShare;
+}
+
+/** The faction's dismount distance for an objective at (x, y) (its doctrine `dismountM`, or `dismountUrbanM` when the
+ *  objective is built-up; without a doctrine the willingness formula), and whether it is built-up. Pure; the AI
+ *  commander uses it too. */
+export function dismountDistance(ctx: SimContext, faction: string, x: number, y: number, building?: number): { dismountM: number; urban: boolean } {
+  const f = ctx.catalog.factions[faction];
+  const open = f?.dismountM ?? 300 + (1 - (f?.doctrine["willingnessToDismount"] ?? 0.5)) * 500;
+  const urban = isBuiltUp(ctx, x, y, building);
+  return { dismountM: urban ? Math.min(open, f?.dismountUrbanM ?? open) : open, urban };
+}
+
+/** Enemy men known this close to a carrier make its squads get out early: `threatMenM`, for a built-up objective at
+ *  most its dismount distance + `urban.threatMarginM` (the houses hide the men; out at once only for those nearer
+ *  than the point it is driving to). */
+export function threatMenFor(P: MountedAssaultDef, urban: boolean, dismountM: number): number {
+  return urban && P.urban ? Math.min(P.threatMenM, dismountM + P.urban.threatMarginM) : P.threatMenM;
+}
+
+/** Up to `n` points of the roads within `r` of (x, y), nearest first: the streets a support post must see into. */
+export function streetPoints(ctx: SimContext, x: number, y: number, r: number, n: number): { x: number; y: number }[] {
+  const out: { x: number; y: number; d: number }[] = [];
+  for (const rd of ctx.map.roads) {
+    const p = rd.points;
+    for (let i = 0; i + 3 < p.length; i += 2) {
+      // Points along the segment every 20 m.
+      const ax = p[i]!, ay = p[i + 1]!, bx = p[i + 2]!, by = p[i + 3]!;
+      const L = hypot2(bx - ax, by - ay), k = Math.max(1, Math.ceil(L / 20));
+      for (let j = 0; j < k; j++) {
+        const qx = ax + ((bx - ax) * j) / k, qy = ay + ((by - ay) * j) / k, d = hypot2(qx - x, qy - y);
+        if (d <= r && d > 10) out.push({ x: qx, y: qy, d });
+      }
+    }
+  }
+  out.sort((a, b) => a.d - b.d || a.x - b.x || a.y - b.y);
+  // Spread them: skip points within 25 m of one already taken.
+  const pick: { x: number; y: number }[] = [];
+  for (const q of out) { if (pick.length >= n) break; if (pick.every((s) => hypot2(s.x - q.x, s.y - q.y) >= 25)) pick.push({ x: q.x, y: q.y }); }
+  return pick;
+}
+
 /**
  * A carrier's DISMOUNT POINT (M7.2, moved here from the AI commander in balance pass 5): along the way in (unit
  * vector u, toward the objective `tgt`), `offM` across it (its slot), at `dismountM` (+ `behindM`) short of the
@@ -81,8 +157,12 @@ export function dismountSpot(ctx: SimContext, o: {
   const far = (p: { x: number; y: number }) => o.objectives.every((q) => hypot2(q.x - p.x, q.y - p.y) >= o.dismountM);
   let k0 = 0;
   while (k0 < 20 && !far(at(o.dismountM + behind + k0 * o.stepM))) k0++;
+  // (Balance pass 5, urban: never a point inside a house; the first such point farther back instead.)
+  const inHouse = (p: { x: number; y: number }) => buildingAt(ctx.map, p.x, p.y) !== null;
+  while (k0 < 20 && inHouse(at(o.dismountM + behind + k0 * o.stepM))) k0++;
   for (let k = k0; k < k0 + o.candidates; k++) {
     const p = at(o.dismountM + behind + k * o.stepM);
+    if (inHouse(p)) continue;
     if (o.eyes.every((e) => hiddenFrom(ctx, e.x, e.y, p.x, p.y))) return { ...p, hidden: true };
   }
   return { ...at(o.dismountM + behind + k0 * o.stepM), hidden: false };
@@ -117,9 +197,11 @@ export function supportPost(ctx: SimContext, def: VehicleDef, o: {
   behind?: { x: number; y: number; ux: number; uy: number; minM: number };
   /** Enemies known on or near the objective: points to see as well (in a village its middle is often hidden). */
   extra?: readonly { x: number; y: number }[];
+  /** A built-up objective's street points (`streetPoints`): to see as well. */
+  streets?: readonly { x: number; y: number }[];
 }): { x: number; y: number; facing: number } | null {
   const { turretZ, hullZ } = hullHeights(def);
-  const targets = [...objectiveRing(ctx, o.obj.x, o.obj.y, o.obj.r), ...(o.extra ?? []).slice(0, 7)];
+  const targets = [...objectiveRing(ctx, o.obj.x, o.obj.y, o.obj.r), ...(o.extra ?? []).slice(0, 7), ...(o.streets ?? [])];
   const posts = siteHullDown(ctx, o.anchor, targets, {
     cls: def.class, turretZ, hullZ, rangeM: [0, Math.max(1, o.reachM)], threats: o.threats, standoffM: o.standoffM,
     from: o.from, vegMaxM: 1.8, ringsM: o.ringsM, ...(o.behind ? { behind: o.behind } : {}), ...(o.avoid && o.avoid.length > 0 ? { avoid: o.avoid } : {}),
@@ -163,9 +245,15 @@ export function siteSupportPost(ctx: SimContext, def: VehicleDef, o: {
   obj: { x: number; y: number; r: number }; light: number; threats: readonly { x: number; y: number }[]; avoid?: readonly { x: number; y: number }[];
   /** Known enemies near the objective (seen as well as the objective's points). */
   extra?: readonly { x: number; y: number }[];
+  /** A built-up objective (balance pass 5): posts may stand closer (`urban.minObjectiveM`, `urban.postStandoffM`) and
+   *  must also see into its streets (road points round it count as objective points). */
+  urban?: boolean;
 }): { x: number; y: number; facing: number } | null {
-  const P = mountedAssaultDef(ctx);
-  if (P === undefined) return null;
+  const P0 = mountedAssaultDef(ctx);
+  if (P0 === undefined) return null;
+  const U = o.urban === true ? P0.urban : undefined;
+  const P = U ? { ...P0, minObjectiveM: U.minObjectiveM, postStandoffM: U.postStandoffM } : P0;
+  const streets = U && U.streetPoints > 0 ? streetPoints(ctx, o.obj.x, o.obj.y, U.radiusM, U.streetPoints) : [];
   const reach = supportReachM(ctx, def, o.light);
   let anchor = o.anchor, behind = o.behind;
   const distA = hypot2(anchor.x - o.obj.x, anchor.y - o.obj.y);
@@ -175,7 +263,7 @@ export function siteSupportPost(ctx: SimContext, def: VehicleDef, o: {
     behind = undefined;
   }
   const standoff = (a: { x: number; y: number }) => Math.max(0, Math.min(P.postStandoffM, hypot2(a.x - o.obj.x, a.y - o.obj.y) - o.obj.r - P.arriveM));
-  const base = { from: o.hull, obj: o.obj, reachM: reach, ringsM: P.postRingsM, minSeen: P.postMinSeen, minObjectiveM: P.minObjectiveM, threats: o.threats, ...(o.avoid ? { avoid: o.avoid } : {}), ...(o.extra ? { extra: o.extra } : {}) };
+  const base = { from: o.hull, obj: o.obj, reachM: reach, ringsM: P.postRingsM, minSeen: P.postMinSeen, minObjectiveM: P.minObjectiveM, threats: o.threats, ...(o.avoid ? { avoid: o.avoid } : {}), ...(o.extra ? { extra: o.extra } : {}), ...(streets.length > 0 ? { streets } : {}) };
   const p = supportPost(ctx, def, { ...base, anchor, standoffM: standoff(anchor), ...(behind ? { behind } : {}) });
   if (p) return p;
   if (anchor !== o.anchor) return null; // (the dark: no fall-back behind it)
@@ -197,10 +285,10 @@ export function siteSupportPost(ctx: SimContext, def: VehicleDef, o: {
 
 // ---------------------------------------------------------------- the order
 
-function doctrineOf(ctx: SimContext, u: Unit): { dismountM: number; follow: number } {
+function doctrineOf(ctx: SimContext, u: Unit, ma: { x: number; y: number; building?: number }): { dismountM: number; urban: boolean; follow: number } {
   const f = ctx.catalog.factions[u.faction];
-  const dismountM = f?.dismountM ?? 300 + (1 - (f?.doctrine["willingnessToDismount"] ?? 0.5)) * 500;
-  return { dismountM, follow: f?.afterDismount?.kind === "follow" ? f.afterDismount.followM : 0 };
+  const d = dismountDistance(ctx, u.faction, ma.x, ma.y, ma.building);
+  return { ...d, follow: f?.afterDismount?.kind === "follow" ? f.afterDismount.followM : 0 };
 }
 
 /** Crew units under a unit (not the unit itself), ID order. */
@@ -301,7 +389,8 @@ export function startMountedAssault(ctx: SimContext, state: SimState, events: Ev
   if (order.building !== undefined) ma.building = order.building;
   u.mountedAssault = ma;
   // Dismount points, each hull its own slot across the way in; the hulls with riders only.
-  const { dismountM } = doctrineOf(ctx, u);
+  const { dismountM, urban } = doctrineOf(ctx, u, ma);
+  if (urban) ma.urban = true;
   const eyes = [...objectiveRing(ctx, order.x, order.y, P.objectiveRadiusM).slice(1).filter((p) => (p.x - order.x) * ux + (p.y - order.y) * uy < 0), ...knownEnemies(ctx, state, ma, P).slice(0, 4)];
   const withRiders = carriers.filter((c) => c.squads.length + c.others.length > 0);
   withRiders.forEach((c, i) => {
@@ -312,9 +401,9 @@ export function startMountedAssault(ctx: SimContext, state: SimState, events: Ev
     c.dx = p.x; c.dy = p.y;
     events.emit({ kind: "assault.dismountPoint", tick: state.tick, unit: T, vehicle: c.vehicle, x: p.x, y: p.y });
     // Already within the distance: out here.
-    if (here <= dismountM + P.arriveM) { startDismount(ctx, state, events, T, ma, c); return; }
+    if (here <= dismountM + P.arriveM) { startDismount(ctx, state, events, T, ma, c, "near"); return; }
     const r = vehicleMove(ctx, state, c.vehicle, [{ x: p.x, y: p.y, mode: "run" }], atan2(uy, ux));
-    if (r !== true) startDismount(ctx, state, events, T, ma, c);
+    if (r !== true) startDismount(ctx, state, events, T, ma, c, "noRoute");
   });
   // No riders: assault by fire from a post `noRidersStandoffM` out.
   for (const c of carriers) if (c.squads.length + c.others.length === 0) { c.phase = "support"; c.phaseTick = state.tick; sitePost(ctx, state, events, T, ma, c, true); }
@@ -342,7 +431,10 @@ function knownEnemies(ctx: SimContext, state: SimState, ma: MountedAssault, P: M
 }
 
 /** Let a carrier's squads out (each with the assault drill to follow) and its other men with none. */
-function startDismount(ctx: SimContext, state: SimState, events: EventSink, holder: EntityId, ma: MountedAssault, c: MountedAssaultCarrier): void {
+/** Why a carrier let its squads out (the `assault.dismounted` event; labs). */
+export type DismountReason = "point" | "stopped" | "late" | "immobile" | "hit" | "threatMen" | "threatVehicle" | "empty" | "near" | "noRoute";
+
+function startDismount(ctx: SimContext, state: SimState, events: EventSink, holder: EntityId, ma: MountedAssault, c: MountedAssaultCarrier, reason: DismountReason): void {
   vehicleHalt(state, c.vehicle);
   const then: OrderBody = { kind: "assault", x: ma.x, y: ma.y, ...(ma.building !== undefined ? { building: ma.building } : {}) };
   let any = false;
@@ -352,7 +444,7 @@ function startDismount(ctx: SimContext, state: SimState, events: EventSink, hold
   c.dismountAtM = hypot2(t.x - ma.x, t.y - ma.y);
   c.dx = t.x; c.dy = t.y;
   c.phase = "dismount"; c.phaseTick = state.tick;
-  if (any) events.emit({ kind: "assault.dismounted", tick: state.tick, unit: holder, vehicle: c.vehicle, distM: Math.round(c.dismountAtM) });
+  if (any) events.emit({ kind: "assault.dismounted", tick: state.tick, unit: holder, vehicle: c.vehicle, distM: Math.round(c.dismountAtM), reason });
 }
 
 /** Site (and drive to) a carrier's support post. `noRiders`: assault by fire, anchored `noRidersStandoffM` out. */
@@ -379,7 +471,7 @@ function sitePost(ctx: SimContext, state: SimState, events: EventSink, holder: E
     behind = { x: c.dx, y: c.dy, ux: -ma.ux, uy: -ma.uy, minM: P.postMinBackM };
   }
   const extra = knownEnemies(ctx, state, ma, P).filter((k) => hypot2(k.x - ma.x, k.y - ma.y) <= P.fireNearObjectiveM).map((k) => ({ x: k.x, y: k.y }));
-  const p = siteSupportPost(ctx, def, { hull: { x: t.x, y: t.y }, anchor, ...(behind ? { behind } : {}), obj: objR, light: state.environment.light, threats, avoid, extra });
+  const p = siteSupportPost(ctx, def, { hull: { x: t.x, y: t.y }, anchor, ...(behind ? { behind } : {}), obj: objR, light: state.environment.light, threats, avoid, extra, ...(ma.urban === true ? { urban: true } : {}) });
   c.post = p;
   if (!p) return;
   const back = (p.x - t.x) * ma.ux + (p.y - t.y) * ma.uy < 0 && hypot2(p.x - t.x, p.y - t.y) <= 200;
@@ -410,16 +502,16 @@ function aboard(ctx: SimContext, state: SimState, c: MountedAssaultCarrier): boo
 
 /** Is an anti-tank threat known to the crew close to its hull: enemy men within `threatMenM`, a hull seen within
  *  `threatVehicleM` (contacts younger than `threatSeenSeconds`)? */
-function atThreat(state: SimState, P: MountedAssaultDef, c: MountedAssaultCarrier): boolean {
+function atThreat(state: SimState, P: MountedAssaultDef, c: MountedAssaultCarrier, threatMenM: number): "threatMen" | "threatVehicle" | null {
   const t = state.transform.get(c.vehicle);
-  if (!t) return false;
+  if (!t) return null;
   const maxAge = secondsToTicks(P.threatSeenSeconds);
   for (const m of state.unit.get(c.crew)?.members ?? []) for (const k of state.soldier.get(m)?.contacts ?? []) {
     if (k.wreck === true || k.down === true || k.surrendered === true || k.kind === "heard" || state.tick - k.tick > maxAge) continue;
-    const r = k.cls === "vehicle" ? (k.kind === "seen" ? P.threatVehicleM : 0) : P.threatMenM;
-    if (hypot2(k.x - t.x, k.y - t.y) <= r) return true;
+    const r = k.cls === "vehicle" ? (k.kind === "seen" ? P.threatVehicleM : 0) : threatMenM;
+    if (hypot2(k.x - t.x, k.y - t.y) <= r) return k.cls === "vehicle" ? "threatVehicle" : "threatMen";
   }
-  return false;
+  return null;
 }
 
 /** Men of the assault's squads on foot and able: where they are. */
@@ -496,7 +588,8 @@ function stepAssault(ctx: SimContext, state: SimState, events: EventSink, holder
   const hitTicks = secondsToTicks(P.hitRecentSeconds);
   const hit: EntityId[] = [];
   for (const [vid, v] of state.vehicle.entries()) if (!isOffMap(v) && v.side === u.side && state.tick - v.lastHitTick <= hitTicks) hit.push(vid);
-  const { follow } = doctrineOf(ctx, u);
+  const { follow, dismountM } = doctrineOf(ctx, u, ma);
+  const threatMen = threatMenFor(P, ma.urban === true, dismountM);
   for (const c of ma.carriers) {
     if (c.phase === "done") continue;
     const v = state.vehicle.get(c.vehicle)!;
@@ -507,9 +600,16 @@ function stepAssault(ctx: SimContext, state: SimState, events: EventSink, holder
     }
     const t = state.transform.req(c.vehicle);
     if (c.phase === "drive") {
-      const there = hypot2(t.x - c.dx, t.y - c.dy) <= P.arriveM || v.drive.arrived || v.drive.routeIdx >= v.drive.route.length;
+      const atPoint = hypot2(t.x - c.dx, t.y - c.dy) <= P.arriveM, there = atPoint || v.drive.arrived || v.drive.routeIdx >= v.drive.route.length;
       const late = state.tick - ma.startTick >= secondsToTicks(P.rideTimeoutSeconds);
-      if (there || late || v.status !== "ok" || carrierHitNear(state, c.vehicle, hit, P.hitNearM) || atThreat(state, P, c) || !aboard(ctx, state, c)) startDismount(ctx, state, events, holder, ma, c);
+      const why: DismountReason | null = there ? (atPoint ? "point" : "stopped") : late ? "late" : v.status !== "ok" ? "immobile" : carrierHitNear(state, c.vehicle, hit, P.hitNearM) ? "hit"
+        : atThreat(state, P, c, threatMen) ?? (!aboard(ctx, state, c) ? "empty" : null);
+      // A drive that gave up short of the point (jammed among the other hulls): sent on again, `driveRetries` times.
+      if (why === "stopped" && (c.retries ?? 0) < (P.driveRetries ?? 0)) {
+        c.retries = (c.retries ?? 0) + 1;
+        if (vehicleMove(ctx, state, c.vehicle, [{ x: c.dx, y: c.dy, mode: "run" }], atan2(ma.uy, ma.ux)) === true) continue;
+      }
+      if (why !== null) startDismount(ctx, state, events, holder, ma, c, why);
       continue;
     }
     if (c.phase === "dismount") {

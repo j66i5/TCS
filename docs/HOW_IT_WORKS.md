@@ -2015,8 +2015,9 @@ both run the same simulation, so a played battle and an auto-resolved one count 
 **The enemy** has its own battalion that remembers its losses. For each battle it commits platoons by the battle
 type's ratio of your committed men (0.5 for an attack or a pursuit you make, 0.7 for an ambush, 1.0 for its own
 attacks, meetings and your withdrawals), weighed by how good a man of each side is in a fight
-(`factions/<id>/campaign.json` `fightingValue`: Germany 3, Russia and xf 1); against a better side it may also bring
-up to twice a company's worth. That weight is a game value, measured from batches of operations played by the
+(`factions/<id>/campaign.json` `fightingValue`: Germany 3, Russia and xf 1), but never more than a company's worth,
+which is what a phone can run (a node with one and a half companies and a flank battle took 18 minutes to auto-resolve
+on the phone proxy). That weight is a game value, measured from batches of operations played by the
 computer on both sides. With the same faction on both sides an operation succeeds a bit more than half the time
 (58 %). Between Germany and Russia it does not work yet: Germany won every operation and Russia none, even when
 Germany sent only one Puma platoon, because in the battles themselves a Puma platoon beats a BMP-2 company; that needs

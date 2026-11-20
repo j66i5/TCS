@@ -1,10 +1,29 @@
 # State — handover note
 
-_Last updated: 2026-11-19 (M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-20 (M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M12.4 built, M12 complete (2026-11-20, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.7).** Faction
+  `fightingValue` (`factions/<id>/campaign.json`, outside the catalog; DE 3.0, RU and xf 1.0) weighs the enemy's
+  commitment and can shrink its caps (`battle.enemyCapScale` 1.0: never past a company; 2.0 made a node take 18.5 min
+  to auto-resolve on the phone proxy); operations are lines of 3 sectors (3-5 battles);
+  experience +0.015 a battle, +0.04 a minute under effective fire, at most 0.05 a battle (a full operation under fire
+  +0.11-0.17, re-weighed on recorded minutes); recovery days, combat-ineffective line 0.5 and full replenishment kept.
+  Batches (1200 s, AI both sides): xf vs xf 7 of 12 operations (58 %); DE as player 8 of 8, RU 0 of 8: one Puma
+  platoon beats a BMP-2 company, so no commit ratio closes the gap (a mounted-battle balance pass, owner question).
+  Every 12.2 check clean (152 nodes). `npm run phoneperf -- --campaign N` times auto-resolve on the phone proxy.
+  HOW_IT_WORKS campaign section, SPEC 9.3 note (battalion). Open owner questions: see "M12 open questions" below.
+  Owner acceptance pending: two linked battles on his phone (`?campaign=1`).
+- **M12 open questions (asked as multiple choice, recommended first):** Q-A recovered men rejoin inside an operation
+  (built: yes) · Q-B lost hulls replaced at replenishment (built: yes) · Q-C one company's worth a battle (built: yes) ·
+  Q-D ammunition inside an operation: only in-battle deliveries from the battle's own stock (built: (a)) · Q-E the
+  mid-battle save tied to its slot (built: (a)) · DE/RU balance pass on the mounted battle · recovery days scaled for
+  the game or kept · the same company proposed again or the fittest (rotation) · night battles from the campaign
+  clock · a lost flank battle turning a main win into a draw · leaving a played battle early · battle's own craters
+  slow movement · confirm the low-confidence values (`core/campaign.json`, `CRATER_NAV`, effective fire = suppression
+  >= 0.1, `SCENARIO_KIND`) · saves: fingerprint mismatch only warns, one auto slot, full service history.
 - **M12.3 built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.6).** `?campaign=1` opens the
   campaign page (`app/src/campaign/page.ts`): home (new campaign: faction, carriers, operations / endless; continue;
   slots load / save / rename / delete / export; import), battalion tree, man card ("Make leader"), briefing (sector

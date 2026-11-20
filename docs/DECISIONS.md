@@ -9686,8 +9686,8 @@ the player, DE's minimum commitment (one Puma platoon with the company HQ: 27-39
 (93-110 men in BMP-2s): RU won 11 of 32 nodes (defend 6-6, attack 3-7, meeting 2-3), and in its lost defences lost 37,
 53 and 107 men killed against 8, 17 and 8. With DE as the player, RU commitments of up to 194 men (caps doubled) lost
 28 of 31 nodes; RU lost 1737 killed against DE's 178. No commit ratio can close that: the RU side cannot go below one
-platoon, and above two companies a battle breaks the phone cap (Q-C). The values are kept at iteration 3 (DE 3.0,
-caps x2) because they are the strongest correction that stays within the cap; closing the gap needs a balance pass on
+platoon, and a bigger RU commitment breaks the phone budget (below). DE 3.0 is kept as the strongest correction that
+stays within one company's worth (caps back to x1, below); closing the gap needs a balance pass on
 the mounted battle (Puma against BMP-2: optics, 30 mm against the BMP-2's armour, the AI's use of the BMP-2's ATGM),
 an owner question. xf vs xf (the same faction on both sides) shows the campaign rules themselves: with lines of 3
 sectors 58 %; with lines of 4, 17 % (attacks almost never succeed in 1200 s: xf attack 0-0-16, defend 27-0-0, so an
@@ -9715,4 +9715,23 @@ in a row first, which happens before the line is crossed).
 **Replenishment size: kept** at the full establishment and the standard load (the owner's answer); every
 replenishment in every batch brought both battalions back to 340 / 298 / 107 men and replaced the lost hulls.
 
-**Phone proxy** (`npm run phoneperf -- --campaign 2 --battle-seconds 1200`): see the line below.
+**Phone proxy** (`npm run phoneperf -- --campaign 2 --battle-seconds 1200`, Pixel 7 emulation, CPU throttle 4x, the
+worker's work on the throttled main thread, DE vs RU, iteration-3 values, load 1.0-1.4 on 4 cores; report only):
+
+| node | throttle | wall s | battles (battle s, men both sides) | battle s per wall s |
+|---:|---:|---:|---|---:|
+| 1 | 4x | 1113 | flank 1200 s, 189 men; main 1200 s, 292 men | 2.2 |
+| 2 | 4x | 165 | main 677 s, 172 men | 4.1 |
+| 3 | 1x | 13 | main 516 s, 119 men | 38.8 |
+
+The first node (RU committing about one and a half companies under caps x2, plus a flank battle) took 18.5 minutes to
+auto-resolve on the phone proxy. **So `battle.enemyCapScale` goes back to 1.0**: the enemy's caps may shrink against a
+better player (RU as the player still meets one DE platoon) but never grow past one company's worth (Q-C option (a)).
+DE as the player only meets fewer RU men than in iteration 3, where it already won 8 of 8, so its result cannot fall
+into the band; not re-run. A company-sized node with a flank battle remains several minutes on a phone at 4x (2-4 battle
+seconds per wall second): the progress bars and Cancel of 12.3 carry it; a shorter campaign battle (owner question,
+1200 s now) would cut it in proportion.
+
+**Kept values** (all low confidence, game values): DE `fightingValue` 3.0, RU and xf 1.0; `enemyCapScale` 1.0; node
+ratios attack / pursue 0.5, ambush 0.7, defend / meeting / withdraw 1.0; lines of 3 sectors; experience +0.015 / +0.04 a
+minute / 0.05 a battle / cap 0.9; combat-ineffective 0.5; full replenishment. No sim change: goldens untouched.

@@ -496,7 +496,7 @@ for the owner's numbers answer after playing, not for more building).
     "Make leader"; briefing with the sector preview, enemy estimate and the choice; auto-resolve in a Web Worker with
     cancel; a played battle back to the campaign through the review; what changed; replenishment), both looks, views
     in `campaign/src/view.ts`, `npm run e2e:campaign` (Playwright) and `npm run screenshot -- --scene campaign`.
-  - 12.4 review and tuning ✅ (2026-11-20): faction `fightingValue` and scaled enemy caps, lines of 3 sectors,
+  - 12.4 review and tuning ✅ (2026-11-20): faction `fightingValue` (enemy caps only shrink: a battle never passes a company's worth), lines of 3 sectors,
     experience +0.015 a battle / +0.04 a minute under fire / at most 0.05 (a full operation under fire +0.11-0.17),
     recovery days, combat-ineffective line and replenishment kept; batches: xf vs xf 58 % success, DE 100 %, RU 0 %
     (the Puma / BMP-2 gap is in the mounted battle: a balance pass, owner question); phone proxy auto-resolve timed;

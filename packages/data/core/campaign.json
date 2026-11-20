@@ -10,7 +10,7 @@
       "floorX": 4,
       "measuredX": 14,
       "seconds": 1200,
-      "enemyCapScale": 2.0
+      "enemyCapScale": 1.0
     },
     "clock": {
       "hoursBetweenBattles": 12,

@@ -21,7 +21,7 @@
       "minBattles": 3,
       "sectors": [
         3,
-        4
+        3
       ],
       "start": [
         "attack",
@@ -54,9 +54,9 @@
       "sectorEvery": 2
     },
     "experience": {
-      "perBattle": 0.01,
-      "perMinuteUnderFire": 0.008,
-      "capPerBattle": 0.04,
+      "perBattle": 0.015,
+      "perMinuteUnderFire": 0.04,
+      "capPerBattle": 0.05,
       "cap": 0.9
     },
     "recovery": {

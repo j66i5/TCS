@@ -130,7 +130,9 @@ describe("M12.3 views: the briefing and the choice", () => {
 
 describe("M12.3 views: after a battle, replenishment, the played battle", () => {
   it("what changed: the battle's numbers match its summary, lists from the pools, and the same view from a loaded save", () => {
-    const { after } = firstNode();
+    // (Balance pass 5: seed 21 -> 23. With F1 a fixture hull no longer fires at a face its round cannot get through,
+    // and in seed 21's 90 s the player's side fired nothing; seed 23 has rounds fired to list.)
+    const { after } = firstNode({ ...XF, seed: 23 });
     expect(phaseOf(after)).toBe("after-battle");
     const a = afterBattleView(data, after);
     const main = a.battles.find((x) => !x.flank)!;

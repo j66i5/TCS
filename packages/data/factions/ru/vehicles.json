@@ -131,6 +131,18 @@
               "sideFactor": 1,
               "rearFactor": 1,
               "follows": "own"
+            },
+            {
+              "kind": "vehicle-night-short",
+              "pos": [
+                0.1,
+                0.45,
+                2.6
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
             }
           ]
         },
@@ -158,7 +170,7 @@
               "follows": "station"
             },
             {
-              "kind": "vehicle-night-ir",
+              "kind": "vehicle-night-gen1",
               "pos": [
                 0.6,
                 -0.45,
@@ -369,14 +381,17 @@
               "switchSeconds": 0,
               "engageRangeM": 4000,
               "feedKind": "single",
-              "roundLoadSeconds": 1
+              "roundLoadSeconds": 1,
+              "guideSensors": [
+                "vehicle-day"
+              ]
             }
           ],
           "sources": [
             "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
           ],
           "confidence": "low",
-          "note": "Traverse 360 deg in 10.28 s, elevation -5 to +74 deg through 74 deg in 12.33 s, two-plane stabiliser 2E36-1 (published); errors and tolerance are game values. M7.3: 2A42 with both belts ready (160 AP, 340 HE: the published 500) and the PKT (250 ready, 7 belts stowed: the published 2000); owner Q17: ready belts refilled from stowage in battle, halted, about 90 s. Owner 2026-11-13 (\"Yes, add the ATGM\"): the 9P135M launcher on the turret roof with one 9M113M missile on it (three more stowed: four in all, published); the gunner guides it (SACLOS) and puts the next one on in 40 s, halted.",
+          "note": "Traverse 360 deg in 10.28 s, elevation -5 to +74 deg through 74 deg in 12.33 s, two-plane stabiliser 2E36-1 (published); errors and tolerance are game values. M7.3: 2A42 with both belts ready (160 AP, 340 HE: the published 500) and the PKT (250 ready, 7 belts stowed: the published 2000); owner Q17: ready belts refilled from stowage in battle, halted, about 90 s. Owner 2026-11-13 (\"Yes, add the ATGM\"): the 9P135M launcher on the turret roof with one 9M113M missile on it (three more stowed: four in all, published); the gunner guides it (SACLOS) and puts the next one on in 40 s, halted. Balance pass 5 (F9, low; search extracts: Battlefront forum on the BPK-2-42, weaponsandwarfare.com and redstar.gr on the BPK-3-42, Frag Out! magazine on the TKN-3B): the gunner's BPK-2-42 night channel (image intensifier, IR searchlight) sees to about 850 m (vehicle-night-gen1; it was vehicle-night-ir, 3000 m); the commander's TKN-3B gets its night channel, below about 400 m (vehicle-night-short). Balance pass 5 review (C21, low): the 9M113M is guided through the 9Sh119M1 sight beside the launcher, a day sight (plan balance-5 C21, search extracts), so `guideSensors` [vehicle-day]: no Konkurs guidance through the BPK-2-42 night channel.",
           "refillSeconds": 90
         }
       ],
@@ -2587,7 +2602,7 @@
               ],
               "feeds": [
                 {
-                  "item": "ru-125-3bm42-round",
+                  "item": "ru-125-3bm60-round",
                   "ready": {
                     "count": 12,
                     "charge": 1
@@ -2655,15 +2670,17 @@
           "sources": [
             "https://armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-72b3m-t-72b4-main-battle-tank-technical-data-sheet-specifications-pictures-video-12003163",
             "https://forum.warthunder.com/t/why-does-the-t-72b3-have-a-reload-rate-of-7-1/96843?page=16",
-            "https://www.armyrecognition.com/9cy8"
+            "https://www.armyrecognition.com/9cy8",
+            "https://development.weaponsystems.net/system/1410-T-72B3",
+            "https://en.wikipedia.org/wiki/125%C3%97139mm"
           ],
           "confidence": "low",
-          "note": "Two-plane stabilised turret with Sosna-U (thermal, laser rangefinder, published; one source says 1PN96MT-02 on the B3 family). The carousel's 22 rounds (ready: 12 3BM42, 9 3OF26 and one 9M119M, game split); 8 3BM42, 7 3OF26 and 3 missiles more (40 in all, low). The autoloader takes 7.5 s a round (low: 'likely about 8 s'); a round is in the breech at the start. The commander has a day sight only. Other values as the T-90M's (game values)."
+          "note": "Two-plane stabilised turret with Sosna-U (thermal, laser rangefinder, published; one source says 1PN96MT-02 on the B3 family). The carousel's 22 rounds (ready: 12 3BM60, 9 3OF26 and one 9M119M, game split); 8 3BM60, 7 3OF26 and 3 missiles more (40 in all, low). Balance pass 5 (F10, low; search extracts: Army Recognition T-72B3M data sheet, weaponsystems.net T-72B3, the 125 mm ammunition and 2A46 reference pages): the B3's 2A46M-5 comes with a modified autoloader that takes the long Svinets rods (3BM59 / 3BM60), so the carousel round is the 3BM60 as on the T-90M (it was the 3BM42 Mango of the old carousel; one forum post disagrees). The autoloader takes 7.5 s a round (low: 'likely about 8 s'); a round is in the breech at the start. The commander has a day sight only. Other values as the T-90M's (game values)."
         }
       ],
       "stowed": [
         {
-          "item": "ru-125-3bm42-round",
+          "item": "ru-125-3bm60-round",
           "count": 8,
           "charge": 1
         },
@@ -3360,7 +3377,7 @@
               "follows": "own"
             },
             {
-              "kind": "vehicle-night-ir",
+              "kind": "vehicle-night-short",
               "pos": [
                 2.3,
                 -0.45,
@@ -3397,7 +3414,7 @@
               "follows": "station"
             },
             {
-              "kind": "vehicle-night-ir",
+              "kind": "vehicle-night-gen1",
               "pos": [
                 1.4,
                 0.3,
@@ -3656,7 +3673,7 @@
         "https://www.globalsecurity.org/military/world/russia/btr-80-specs.htm"
       ],
       "confidence": "medium",
-      "note": "BTR-82A eight-wheeled armoured personnel carrier (M7.6c, slice 41) on the BTR-80 chassis: crew of three (commander, gunner, driver) and seven dismounts (army-technology, ROE, Army Recognition; search extracts only). Infantry stowage as the BMP-2's (game value, low). M7.6d: four SVD magazines stowed for the squad's marksman (game value, low). M11.1: also cans of loose rounds for the squad (1 x ru-545-tin, 1 x ru-762r-tin): what is really carried is not sourced (low).",
+      "note": "BTR-82A eight-wheeled armoured personnel carrier (M7.6c, slice 41) on the BTR-80 chassis: crew of three (commander, gunner, driver) and seven dismounts (army-technology, ROE, Army Recognition; search extracts only). Balance pass 5 review (low; the same correction as the BMP-2's, plan balance-5 C19): the gunner's TKN-4GA-02 combined sight has an image-intensifier night channel, about 850 m (vehicle-night-gen1), the commander's TKN-3 one below about 400 m (vehicle-night-short); both were vehicle-night-ir, 3000 m, which no source gives. Sources conflict: some batches (and the BTR-82AM / later deliveries) are said to carry a thermal channel; kept an image intensifier until a firmer source, listed in STATE. Infantry stowage as the BMP-2's (game value, low). M7.6d: four SVD magazines stowed for the squad's marksman (game value, low). M11.1: also cans of loose rounds for the squad (1 x ru-545-tin, 1 x ru-762r-tin): what is really carried is not sourced (low).",
       "dischargers": {
         "item": "ru-81mm-smoke",
         "perSalvo": 6,

@@ -32,12 +32,12 @@ import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
 import { registerActionHandler, startAction } from "../actions";
 import { ROOF_ACTION } from "../mount";
-import { atan2, exp, sin, sqrt, wrapAngle } from "../math";
+import { atan2, exp, sin, sqrt, wrapAngle, hypot2 } from "../math";
 import { vehicleItems } from "../mount";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { skillFactor } from "./fire";
-import { canFight, dischargeSmoke, fireAndForget, guidedRound, missileAimPoint, missileSees, muzzleWorld, stationOperator } from "./gunnery";
+import { canFight, dischargeSmoke, fireAndForget, guidedRound, missileAimPoint, missileSees, muzzleWorld, stationOperator, stationSightLight } from "./gunnery";
 import { radioFromTarget } from "./orders";
 import { smokePhysics, smokeTransmission } from "../smoke";
 import { sight } from "../los";
@@ -86,6 +86,8 @@ interface GuideHost {
   lost(): string | null;
   origin(): [number, number, number];
   moving: boolean;
+  /** Balance pass 5 (F9): the light his sight gives at a range (a station's); absent: no light test (a team). */
+  sightLight?: (rangeM: number) => number;
 }
 
 function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef, si: number): void {
@@ -120,6 +122,7 @@ function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: Ent
       return muzzleWorld(ctx, def, si, g.weapon, t.x, t.y, t.heading, st.azimuth);
     },
     moving: Math.abs(v.drive.speed) > (G.missileHaltedMps ?? 0.3),
+    sightLight: (r) => stationSightLight(ctx, def, si, r, g.weapon),
   });
 }
 
@@ -201,7 +204,7 @@ function guideCore(ctx: SimContext, state: SimState, events: EventSink, g: Missi
   if (g.checkTick < 0 || tick - g.checkTick >= every) {
     const first = g.checkTick < 0;
     g.checkTick = tick;
-    if (!missileSees(ctx, state, h.ignore, g.target, sx, sy, sz, ax, ay, az)) { lose("missile.lost.unseen"); return; }
+    if (!missileSees(ctx, state, h.ignore, g.target, sx, sy, sz, ax, ay, az, h.sightLight?.(hypot2(ax - sx, ay - sy)))) { lose("missile.lost.unseen"); return; }
     if (first) {
       // His error when the missile leaves (then it wanders).
       const sd = trackSd(ctx, h.moving, s.skills["marksmanship"] ?? 0.5, s.impair.aim, gd.trackErrorMrad);

@@ -71,6 +71,9 @@ function frames(G: VehicleGrid, j: number): void {
  * the struck part's frame (f forward, r right, u up), striking face `face` on side `rSign` (+1 right, -1 left).
  * Pure: used by the hit resolution and the armour lab.
  */
+/** Balance pass 5 review (M6): a round at least this wide (m) is a cannon round, rocket or shell for the riders. */
+const HEAVY_HIT_DIAMETER_M = 0.019;
+
 export function plateNeed(p: PlateRT | null, face: number, rSign: number, df: number, dr: number, du: number, losFloorCos: number): { needK: number; needS: number; cosInc: number; sinCrit: number } {
   if (!p) return { needK: 0, needS: 0, cosInc: 1, sinCrit: 0 };
   let nf = 0, nr = 0, nu = 1;
@@ -308,7 +311,11 @@ export function resolveVehicleHit(
   // under-fire stamp; M7 review): friendly fire still does its damage, but the AI and drills do not react to it.
   const os = state.identity.get(owner)?.side;
   const enemy = os === undefined || os !== v.side;
-  if (enemy) v.lastHitTick = tick;
+  if (enemy) {
+    v.lastHitTick = tick;
+    // (Review fix M6: a cannon round, a rocket or a missile, not a rifle or machine-gun round, gets riders out.)
+    if ((adef.diameterM >= HEAVY_HIT_DIAMETER_M && adef.kind !== "fragment") || adef.guidance !== "unguided") v.lastHeavyHitTick = tick;
+  }
   const dmg: Damage = { components: [], fire: false, cookOff: false, pen: false, fireAmmo: false };
   const wasImmobilised = v.status === "immobilised";
   const zone = part === 1 ? "turret" : "hull";
@@ -723,6 +730,7 @@ function reverseOut(ctx: SimContext, state: SimState, events: EventSink, vid: En
   const C = ctx.catalog.behaviour.crew;
   const t = state.transform.req(vid);
   v.crewReaction = "reverseOut"; v.reactionTick = state.tick; v.reactionWhy = why;
+  delete v.drive.fireHoldUntilTick; // (balance pass 5: no missile halt while it backs away)
   events.emit({ kind: "vehicle.reaction", tick: state.tick, vehicle: vid, reaction: "reverseOut", keys: [...why] });
   // Smoke between it and the threat: the turret is laid toward it at its own rate (a damaged drive is slow) and
   // the salvo goes off along the turret wherever it points when it is due (the dischargers fire ahead of it).

@@ -296,6 +296,8 @@ export interface AmmoDef {
   guided?: { cruiseMps: number; accelMps2: number; turnRateDegS: number; minRangeM: number; maxRangeM: number; trackErrorMrad: number; trackTauS: number; lookaheadS: number; lostKickMrad: number;
     /** M9.3a: top attack (climb above the aim point, dive within diveAtM) and the seeker through smoke. */
     topAttack?: { climbM: number; diveAtM: number; launchElevationDeg: number }; seekerSmokeFactor?: number };
+  /** Area fire (balance pass 5): a programmable fuze's air-burst setting (see the schema). */
+  airburst?: { aimHeightM: number; standoffM: number; cone?: { halfAngleDeg: number; count: number; fragmentAmmo: DefId; velocityFraction: [number, number]; fillingKg: number } };
   /** Kinetic rounds against armour (M7.4a): ricochet threshold factor (default 1). */
   ricochetFactor?: number;
   /** Fragments thrown inside a hull it penetrates (M7.4a, owner Q11). */
@@ -373,6 +375,55 @@ export interface ZoneWoundDef {
   severityBase: number; severitySpread: number; fatalAt: number; unconsciousAt: number;
   bleedLps: number; compressible: boolean; airway: boolean; breathing: boolean;
 }
+/**
+ * Mounted assault (balance pass 5; game values, low confidence; systems/assault-mounted.ts). stepSeconds: how often
+ * the drill looks. Drive: each carrier to a dismount point `dismountM` (faction doctrine) short of the objective on
+ * the way in, `slotM` apart across it, up to `dismountCandidates` x `dismountStepM` farther back for one out of sight
+ * of the objective's near edge (`objectiveRadiusM`) and of known enemies; `arriveM` from it counts as there. Out early
+ * on a hit on its own carrier or one within `hitNearM` in the last `hitRecentSeconds`, on enemy men known within
+ * `threatMenM` or an enemy hull seen within `threatVehicleM` (contacts younger than `threatSeenSeconds`), after
+ * `rideTimeoutSeconds`, or already within `dismountM` + `arriveM`. Support: a hull-down post (`siteHullDown`) round a
+ * point `postBackM` behind where it let them out, at least `postMinBackM` farther back, on rings `postRingsM`, its turret
+ * seeing at least `postMinSeen` of the objective's points, `postStandoffM` off known enemy men; none: one round its
+ * place or nearer the objective (never within `minObjectiveM`); none: it stays. No riders: assault by fire from
+ * `noRidersStandoffM`. Every `fireEverySeconds` a fire order at an enemy known (within `fireSeenSeconds`) within
+ * `fireNearObjectiveM` of the objective, none within `ownClearM` of own men on foot; its squads within `shiftM` of the
+ * objective: only beyond its middle (shift), within `liftM`: none (lift). "follow" doctrine: a new post `followM`
+ * behind the squads once they moved `followReplanM`. Taken: a squad's man within `objectiveRadiusM` + `takenSlackM`
+ * when the drills end; the hulls then close to `consolidateM` short of it; failed: to `pickupBackM` behind their squad.
+ * Night (light below `nightBelowLight`): the post's reach is the best night sight's.
+ */
+export interface MountedAssaultDef {
+  stepSeconds: number; dismountStepM: number; dismountCandidates: number; slotM: number; objectiveRadiusM: number; arriveM: number;
+  threatMenM: number; threatVehicleM: number; threatSeenSeconds: number; hitNearM: number; hitRecentSeconds: number;
+  rideTimeoutSeconds: number; dismountTimeoutSeconds: number;
+  postBackM: number; postMinBackM: number; postRingsM: number[]; postMinSeen: number; postStandoffM: number;
+  noRidersStandoffM: number; minObjectiveM: number;
+  fireEverySeconds: number; fireNearObjectiveM: number; fireSeenSeconds: number; ownClearM: number; shiftM: number; liftM: number;
+  followReplanM: number; takenSlackM: number; consolidateM: number; pickupBackM: number; nightBelowLight: number;
+  /** Balance pass 5, urban objectives (owner 2026-11-20): an objective is BUILT-UP when it is a building, or when at
+   *  least `minBuildings` buildings stand (centre) within `radiusM` of it, or their footprints cover `minShare` of
+   *  that circle. Then the faction's `dismountUrbanM` applies; support posts may stand `minObjectiveM` from the objective and
+   *  `postStandoffM` off known enemy men, and must also see up to `streetPoints` points of the roads round it. */
+  urban?: { radiusM: number; minBuildings: number; minShare: number; minObjectiveM: number; postStandoffM: number; streetPoints: number;
+    /** Review fix H3: with the way in known, the dismount point lies at least this far outside the built-up area's
+     *  edge on the way in (`builtUpEdgeM`: buildings within `edgeNearM` of the line, gaps up to `edgeGapM`). Absent: off. */
+    edgeMarginM?: number; edgeNearM?: number; edgeGapM?: number };
+  /** Enemy men known within `threatMenM` of a riding carrier get its squads out early, but at most within the dismount
+   *  distance in force + this margin (the doctrine accepts riding that close to the enemy's edge). Absent: no cap. */
+  threatMarginM?: number;
+  /** A carrier whose drive gave up (jammed among the other hulls) is sent on to its dismount point again up to this
+   *  many times before its squads get out where it stands. Absent: 0. */
+  driveRetries?: number;
+  /** Review fixes (balance pass 5): hit or threatened on the way in, a carrier smokes and makes for a spot hidden from
+   *  the enemy within `coverSearchM` (back or to the side) before its squads get out, at most `coverSeconds`
+   *  (absent: out where it stands); support fire takes enemies in the assault lane, `laneHalfWidthM` either side of
+   *  the squads' way to `laneBeyondM` past the objective (absent: the objective only); shift and lift come back only
+   *  `fireHysteresisM` beyond their distances; a hull with no post that sees anything follows its squads
+   *  `blindFollowM` behind (absent: it stays). */
+  coverSearchM?: number; coverSeconds?: number; laneHalfWidthM?: number; laneBeyondM?: number; fireHysteresisM?: number; blindFollowM?: number;
+}
+
 export interface BehaviourDef {
   suppression: { nearMissRadiusM: number; perRound: number; energyRefJ: number; blastFactor: number; blastRadiusScale: number; decayPerS: number; max: number; heavyEnergyCap?: number };
   morale: MoraleDef;
@@ -530,6 +581,9 @@ export interface BehaviourDef {
     completeAfterSeconds: number; giveUpSeconds: number; exitFanMinM: number; exitFanMaxM: number;
     remountM: number; holdDismountM: number; resupplyRangeM: number; resupplyReachM: number; resupplyCount: number; seatSwapCheckSeconds: number;
     overwatchBound?: { idleS: number; stepM: number; behindM: number; minGainM: number; retryS: number };
+    /** The mounted assault (balance pass 5, owner 2026-11-20; systems/assault-mounted.ts; absent: an assault order to
+     *  men aboard dismounts them where they are, as before). See `MountedAssaultDef`. */
+    mountedAssault?: MountedAssaultDef;
   };
   /**
    * Vehicle gunnery (M7.3). stepSeconds: how often a crew chooses its target. A crew engages what it has seen
@@ -554,6 +608,11 @@ export interface BehaviourDef {
     overClearM?: number; overPerM?: number; overNearM?: number;
     /** Guided missiles (owner 2026-11-13; see the schema). */
     missileBeyondM?: number; missileHaltedMps?: number; missileSightSeconds?: number; missileSeenFloor?: number; missileHitLoseChance?: number;
+    /** Balance pass 5 (F1, F5; see the schema). */
+    missileHoldSeconds?: number; guidedTargetFactor?: number; penetratedTargetFactor?: number; recentPenSeconds?: number; missileNightFloor?: number;
+    /** Balance pass 5: area fire at places men were last known (see the schema). Absent: none. */
+    areaFire?: { maxAgeSeconds: number; halfLifeSeconds: number; firingWeight: number; minWeight: number; minRadiusM: number; maxRadiusM: number;
+      everySeconds: number; minEverySeconds: number; mainGunEverySeconds: number; mainGunMinWeight: number; reserveFraction: number };
   };
   /**
    * Shoulder-fired anti-tank weapons (M7.4a, owner Q19/Q20). atRuleDefault: a unit's standing rule unless set;
@@ -882,6 +941,8 @@ export interface FactionDef {
   /** Where the AI gets its men out of their vehicles (M7.2, owner Q22: per side, from doctrine research): this far
    *  short of the objective, at a point out of sight of the enemy if there is one. Absent: no doctrine given. */
   dismountM?: number;
+  /** Balance pass 5: the dismount distance for a built-up objective (`MountedAssaultDef.urban`). Absent: `dismountM`. */
+  dismountUrbanM?: number;
   /** After the squads are out (M7.3): vehicles stay in overwatch, or follow the squads `followM` behind. */
   afterDismount?: { kind: "overwatch" | "follow"; followM: number };
   /** The identity tag every man carries (owner request 2026-11-15): `perMan` of `item` each, `taken` of them taken
@@ -1150,6 +1211,9 @@ export interface VehicleDef {
       startLoaded?: boolean;
       /** M7.6a: a guided weapon chosen against vehicles at or beyond this range (m). */
       missileBeyondM?: number;
+      /** Balance pass 5 review (C21): the sensor kinds of its operator's seat the missile can be guided through (its
+       *  own sight); absent: any of them. */
+      guideSensors?: string[];
     }[];
   }[];
   stowed: { item: DefId; count: number; charge?: number }[];

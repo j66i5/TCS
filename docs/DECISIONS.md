@@ -9792,6 +9792,540 @@ Every finding was checked against the code; the real ones are fixed, three are l
   memory on the phone.
 - Folding old service history and consumption entries (behaviour 6): the owner's open save-size question.
 
+## 2026-11-20 — Balance pass 5: Germany against Russia (mounted battle; plan docs/plans/balance-5.md)
+
+**Owner answers recorded (2026-11-20, all already built that way, no change):** wounded keep their real recovery
+times (no campaign scaling); the fittest company is proposed (companies rotate); crews of lost or workshop hulls rest.
+Owner: "Balance pass next" — this pass; the campaign `fightingValue` is set once, after the owner's two features
+(mounted assault, area fire with HE / air burst) are built and measured (plan section 4). Nothing here changes the
+campaign values.
+
+**Bug-fix list (plan section 2), symmetric code, both sides:**
+- **F0 (check, no change).** The sensors duel's "7 Konkurs hits, 0 through" at 1000 m: every Konkurs was lost when
+  the Puma's 30 mm struck the BMP-2 first (`missile.lost.struck` / `.launcher`); the hits counted were 3UBR8 stopped by
+  the Puma's front. No armour or fuse error.
+- **F1 (C5, C6).** A crew may choose its station's missile while its hull moves (`missileReady(..., moving)`); the
+  hull then halts for `gunnery.missileHoldSeconds` 5 s (new `DriveState.fireHoldUntilTick`, route kept) and stays
+  halted while it guides a wire- or beam-guided missile of its own (time of flight + 1 s). Not a hull under a
+  player's move order (`playerHold`); cleared on reverse-out and on a player's move. A crew no longer fires
+  armour-piercing at a face it has no chance to get through (the plate alone, without the reactive tile, beats its
+  best AP round; `apCouldPierce`): it takes another target, else holds (`why.hold.noPierce`). Stopped kinetic rounds
+  do no harm in the model and the shots show the hull (firingFactor 15). Stations with no AP round are not judged.
+- **F2 (C8).** A top-attack missile (Spike LR, `guided.topAttack`) is judged against the roof it dives onto
+  (`faceNeed(..., top)`: the stronger of the hull's and turret's top plates with their tiles), not the face it is
+  fired at. Pumas now take the Spike to a T-90M's or T-72B3M's front.
+- **F3 (C10).** A hull counts as firing for the spotting signature and heat for at least `VEHICLE_SCAN_EVERY` scans
+  (4 s) after a shot, not 2 s (half the crews' looks for vehicles missed a single shot), and for the whole flight of a
+  wire- or beam-guided missile its gunner guides (`vehicleShowsFiring`). The night gun flash keeps the shot's own 2 s.
+  F3b (a missile task on a precise reported hull contact) already existed: `chooseTarget` takes reported contacts
+  within `reportedErrorM` and the missile needs the gunner's own sight of the hull.
+- **F4 (C4).** The AI commander dismounts a squad on a hit to its own carrier or a carrier within `dismountHitNearM`
+  300 m of it (`carrierHitNear`, sim/mount.ts, pure, for the mounted-assault drill later), not the whole side on any
+  hit anywhere. Arrival, anti-tank threat and the ride timeout are unchanged.
+- **F5 (C9).** Fire spread: a hull an own missile is being guided onto scores `guidedTargetFactor` 3 times as far, a
+  hull penetrated within `recentPenSeconds` 10 s `penetratedTargetFactor` 1.5 times (`guidedTargets`).
+- **F6 (C11).** A missile team set up on its post that has launched nothing for `mtRepostSeconds` 90 s moves on to
+  its next post (as the AGL teams do). Its fire at hulls the side reports was already there (the commander's
+  ordered shots); the BP4 "no shot" loop is not reopened.
+- **F7 (C12).** An attacker's tank that has fired nothing on its post for `TANKS.idleRelocateSeconds` 60 s takes
+  its next post (another view over the targets).
+- **F8 (C13).** Not built as a siting change: F1 already keeps hulls that cannot pierce a front from engaging it
+  (the RU ambush's 172 front AP hits came from this). Posts scored by side aspect stay a candidate if the measurement
+  shows ambushes still open on fronts.
+- **F9 (C19-C21; game values, low; search extracts only).** New sensor kinds `vehicle-night-gen1` (850 m: the BMP-2
+  gunner's BPK-2-42, about 400-650 m passive, 800-900 m with its IR searchlight) and `vehicle-night-short` (400 m: the
+  BMP-2 commander's TKN-3B night channel, which he lacked). `vehicle-night-ir` (3000 m) stays on the BTR-82A: sources
+  conflict (some give its sight about 3 km). Missile guidance from a station needs the light, or the best sight of the
+  gunner's seat that reaches the range, at `gunnery.missileNightFloor` 0.3 or more (`stationSightLight`): a day sight
+  in the dark guides nothing. Teams on foot are unchanged. No campaign effect (its battles are by day).
+- **F10 (C16-C18).** T-72B3M carousel round 3BM42 -> 3BM60 (low; Army Recognition, weaponsystems.net, the 125 mm
+  ammunition and 2A46 reference pages: the B3's 2A46M-5 comes with an autoloader modified for the Svinets rods; one
+  forum post disagrees). Relikt on the T-90M's hull side against 30 mm APFSDS: no source beyond game forums, kept.
+  PG-7VL 300 m (manufacturer's sighting range) against PzF3 400 m halted / 300 m moving: both as published, kept.
+
+**Kept as real gaps (answered later by `fightingValue`):** C1 (PMC287 through every BMP-2 face), C2 (Puma fire
+control and HE at range), C3 (no thermal sight on the BMP-2), C14 (meetings open beyond RU's reach), C15 (2A42
+reach), C22 (Leopard's size), C24 (infantry optics).
+
+**Quick ledger, 6 seeds each, 1200 s, day** (`<scratchpad>/bal5/ledger.mts`; seeds 4-6 of the "after" run already had
+F9 / F10 data loaded; light 1, so F9 does not act):
+
+| | platoon-vehicles (DE attacks) before | after F1-F4 | platoon-ru-vehicles (RU attacks) before | after |
+|---|---|---|---|---|
+| attacker wins | 5 of 6 | 5 of 6 | 3 of 6 (2 DE, 1 draw) | 3 of 6 (3 DE) |
+| RU / DE casualties | 179 / 82 | 191 / 78 | 71 / 82 | 101 / 92 |
+| Puma APFSDS hits on tanks (stopped) | 526 (487) on T-90M | 27 (5) | 41 (38) on T-72B3M | 9 (2) |
+| BMP-2 AP hits on Pumas (stopped) | 44 (41) | 0 | 3 (2) | 4 (0) |
+| Spike launches | 0 | 8 (5 T-90M destroyed) | 0 | 3 (3 T-72B3M destroyed) |
+| Konkurs / Metis-M launches | 3 / 2 | 4 / 5 | 0 / 2 | 1 / 2 |
+
+The wasted fire is gone on both sides; the Spike is now used where it belongs; RU still launches its Konkurs rarely
+(the BMP-2s die to the Pumas' first rounds at 550-750 m). The 20-run acceptance batches and the campaign come after
+the owner's features (plan section 4).
+
+**Golden replays:** updated (`npm run golden:update`) for these intended changes (new behaviour values and sensor
+kinds change the catalog fingerprint; crews' target choice, missile halts, the firing window and the commander's
+dismount change replays with vehicles). `packages/tools/golden/no-interiors` untouched.
+
+## 2026-11-20 — Balance pass 5: the mounted assault (owner's feature 3A; plan docs/plans/balance-5.md section 3A)
+
+**Owner request (2026-11-20, his words):** "Make assault work for vehicles as well. If infantry are riding, the
+vehicles will stop a sensible distance from the objective, let infantry dismount, fall back slightly to provide
+support for the infantry that goes the final stretch." Built before the final measuring (owner's order of work).
+Area fire with HE / air burst (3B) is the next step, not in this entry.
+
+**Design (symmetric code, `sim/src/systems/assault-mounted.ts`, state `Unit.mountedAssault`, plain data):**
+- No new order kind. `assault {x, y, building?}` takes the mounted form when its target is a foot unit with riders,
+  a crew (its passengers' squads; none aboard: assault by fire), or a platoon on foot with carriers (its foot drill as
+  before, the carriers support it). Never after a dismount: the squad's own `then` order is the ordinary foot drill.
+  A crew may now take Assault (`orderApplies`), only with the data block present.
+- Per carrier: **drive** to its dismount point (`dismountSpot`, moved here from the AI commander unchanged: the
+  faction's doctrine `dismountM` short of the objective on the way in, `slotM` 60 m apart, up to `dismountCandidates`
+  3 x `dismountStepM` 50 m farther back for a spot out of sight of the objective's near edge and known enemies);
+  **dismount** there, or earlier on a hit on it or a carrier within `hitNearM` 300 m (last `hitRecentSeconds` 10 s;
+  `carrierHitNear`, F4), enemy men its crew knows within `threatMenM` 400 m or a hull seen within `threatVehicleM`
+  600 m (the AI commander's thresholds), an immobilised hull, or `rideTimeoutSeconds` 300 s; the squads then take the
+  ordinary assault drill to (x, y). **Support**: the hull backs (reverse leg, never its side to the objective) to a
+  post from `siteSupportPost`: the hull-down scoring of `siteHullDown` (moved to `sim/src/hulldown.ts` so the drill and
+  the AI share it) round a point `postBackM` 60 m behind where it let them out, at least `postMinBackM` 20 m back,
+  rings `postRingsM` 0/40/80 m, its sight seeing at least `postMinSeen` 0.25 of the objective's nine points (and the
+  enemies known near it), `postStandoffM` 300 m off known enemy men (counted to the objective's near edge), never
+  within `minObjectiveM` 200 m of the objective; none: round where it stands, then up to three `postBackM` steps
+  farther back; none sees anything: `postBackM` straight back. From the post (not while it backs there: review of an
+  own hit in the lab) every `fireEverySeconds` 20 s a fire order at an enemy known within `fireNearObjectiveM` 120 m
+  of the objective that its gun has a line to (`stationLineTo`, the gunnery's own line test), none within `ownClearM`
+  80 m of own men; squads within `shiftM` 200 m: only beyond the objective's middle ("radio.shiftFire"); within
+  `liftM` 100 m: none, its ordered tasks end ("radio.liftFire"). Doctrine `afterward` per faction: "follow" (RU)
+  re-sites `followM` behind the squads once they moved `followReplanM` 40 m; "overwatch" (DE) stays. **Done**: the
+  squads' drills over: a man on the objective (`takenSlackM` 40 m): the hulls close to `consolidateM` 60 m short of
+  it; else to `pickupBackM` 20 m behind their squads.
+- **No riders** (a tank, an empty carrier): assault by fire from a post at `noRidersStandoffM` 250 m on the way in
+  (never nearer than it stands); it never drives onto the objective without infantry (plan Q7 (a), the recommended
+  answer, built pending the owner).
+- **Night**: a post's reach is the main gun's `engageRangeM`, in the dark (light below `nightBelowLight` 0.3) no
+  farther than its seats' longest night sight (`supportReachM`: Puma thermal = the gun's 2000 m; BMP-2 image
+  intensifier 850 m); the anchor comes forward until the objective lies within it, never inside `minObjectiveM`; a
+  hull with no night sight finds no post and stays.
+- **Leaving it**: move, halt, assault, withdraw, occupy, mount, dismount and defendArc orders take the units they
+  reach out of the drill (`leaveMountedAssault`); the unit ordered ends it.
+- **AI commander** (one code path for the siting): its ride uses the sim's `dismountSpot` (same points as before),
+  and once a squad is out its carrier (DE "overwatch") stops driving on and backs to a `siteSupportPost` post (once;
+  then the balance pass 3 bounds); RU "follow" carriers take the best `supportPost` round each follow point. The
+  commander keeps its own platoon attack (base of fire, recon, fires, assault by squads); its carriers are not put
+  in the drill.
+- **Interface**: Assault on a hull's bar; the card's state line shows the hull's part ("driving to the dismount
+  point", "squads getting out", "supporting by fire"); the map shows a dashed line from each hull to its dismount
+  point (square) or support post (diamond), labelled when selected (intent kind "assault"). Events
+  `assault.dismountPoint`, `assault.dismounted` (distance), `assault.supportPost`, `assault.ended` (taken).
+- All values are game values (low confidence), in `core/behaviour.json` `mounting.mountedAssault`; the dismount
+  distances are each faction's doctrine (docs/research/dismount.md).
+
+**Lab** (`npm run lab -- mounted-assault 2 --seconds 900`, seeds 1-2, day; "player" = the attacker's top units given
+Assault at the start while riding, the defender's commander as usual; "ai" = both commanders):
+
+| Scenario | Mode | Carriers | Dismount m (mean, min-max; doctrine) | Hit aboard | Posts | Post m | Fell back m | Rounds | Own hits | Taken |
+|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| platoon-vehicles (DE) | player | 16 | 627 (491-740; 300) | 7 | 15 | 674 | 45 | 1172 | 0 | 0 |
+| platoon-vehicles (DE) | ai | 14 | 547 (454-736; 300) | 18 | - | - | 37 | 1470 | 1 | 2 |
+| platoon-ru-vehicles (RU) | player | 12 | 565 (449-639; 400) | 37 | 15 | 647 | 37 | 258 | 0 | 0 |
+| platoon-ru-vehicles (RU) | ai | 11 | 549 (503-715; 400) | 28 | - | - | 117 | 810 | 0 | 0 |
+
+Every carrier gets out early in these battles: the defence's posts lie 200-300 m in front of the objective point, so
+the crews know enemy men within 400 m (or a carrier near them is hit) at 450-740 m: the squads get out there, out of
+rocket reach, as the threat rule intends. Before this step the AI's DE carriers then drove on empty to their planned
+point (fell back 6 m on a first run, -38 m on another); now they stop and back (+37 m). The player's form loses fewer
+men aboard for DE (7 against 18) and more for RU (37 against 28: its carriers drive in at once, while the AI waits for
+its missile team and tanks to be on post first). The player's assault takes no objective in 900 s: it is one order
+with no preparatory fires, recon or base of fire (the commander's plan does those). Own hits: an earlier run had one
+in the player's form, a 30 mm fragment from a hull that fired while it backed to its post (the line is checked once a
+second and swings with the hull): the drill's fire now waits until the hull is on its post, and the player's form had
+none since. The one in AI mode is not the drill's (the commander's own fire orders); not traced further.
+
+**Golden replays:** updated (`npm run golden:update`) for this intended change (the new behaviour block and strings
+change the catalog fingerprint; the AI's carriers back to support posts). `packages/tools/golden/no-interiors`
+untouched.
+
+## 2026-11-20 — Balance pass 5: area fire and air burst (owner's feature 3B; plan docs/plans/balance-5.md section 3B)
+
+**Owner request (2026-11-20, his words):** "Make vehicles fire more near areas where they believe enemy infantry is,
+even if they don't see them anymore. For this, they can use HE / airburst munitions, as they do in real life." Built
+after the fix list and the mounted assault, before the final measuring (owner's order of work).
+
+**Design (symmetric code, `sim/src/systems/gunnery.ts`; game values in `core/behaviour.json` `gunnery.areaFire`,
+low, the same for every side):**
+- **Places, not memory.** `crewSuspects(ctx, state, crew)` derives the places from the crew's own contacts each time
+  it is needed (nothing new is stored): each enemy man's freshest contact (seen or reported, not known down or given
+  up, at most `maxAgeSeconds` 120 s old = the contacts' own memory, its error within `maxRadiusM`), merged within
+  `gunnery.groupRadiusM` 15 m; weight per man 0.5^(age / `halfLifeSeconds` 45 s), x `firingWeight` 2 if he was
+  firing at or after the moment last seen; places below `minWeight` 0.4 are let go (one man unseen for about a
+  minute); circle = the men's spread plus their position error, `minRadiusM` 8 to `maxRadiusM` 40 m.
+- **When.** Only when `chooseTarget` finds nothing live (seen and reported targets always first), under fire "free"
+  (the crew's governing unit), not with ammunition "conserve", not while an ambush is laid, within the unit's range
+  rule; never at a place a crewman knows protected men at; own men kept the round's danger radius and spread, at
+  least `friendlyClearM` 60 m, clear of the whole circle, none in the line (`stationHeld`); a line from the muzzle
+  into the place (cover within its circle is what it fires into).
+- **How much.** High explosive first, else the coaxial machine gun within its reach. A cannon: one burst every
+  `everySeconds` 20 s / weight, at least `minEverySeconds` 6 s; a main gun (single rounds): only at a weight of
+  `mainGunMinWeight` 3, one round every `mainGunEverySeconds` 45 s. A ready feed fires at a place only while it holds
+  more than `reserveFraction` 0.5 of its capacity ("max": no reserve). Each burst at a random point of the circle
+  (stream "areaFire", created on first use). The station task carries `area` and `fuse`; event `vehicle.areaFire`
+  per burst (review, ledger); why keys `why.target.suspected`, `why.nature.airburst`.
+- **The mounted assault.** A support post with no enemy known on the objective fires at the objective itself the same
+  way (`areaFireOrder`, an ordered task: weight 1, the objective's radius; the far half once the squads are within
+  `shiftM`; none with own men within `ownClearM` + radius).
+- **The programmed fuze (ammo data `airburst`, fuse "programmable").** Fired with it, the round is aimed `aimHeightM`
+  over the point and its fuze is set at the muzzle to burst `standoffM` short of the range the crew believes (laser
+  or eye: its range error goes into the burst point); it still bursts on anything it strikes first. The projectile
+  pool has `burstTick` (0 = none; saved only when a live row has one: states without air bursts hash as before).
+  With `cone` (KETF) the burst throws its payload forward round the flight path (`ejectCone` in explosions.ts:
+  `count` sub-projectiles within `halfAngleDeg`, at `velocityFraction` of the round's speed, an ejection charge's
+  blast and suppression only); without, the round bursts as usual in the air (fragments all round). An air burst is
+  set only for a point at least 30 m beyond the stand-off. The crew's own choice: air burst at men in the open (seen
+  ones too) and at places; impact at a building, a hull, or an ordered point within 15 m of a known enemy hull.
+- **Player.** `fire` orders take `fuse?: "airburst" | "impact"` ("airburst" from a hull without the setting:
+  `radio.noAirburst`); the Fire tray's gun choice cycles through "Gun: HE air burst" on a hull that has it (plain
+  "Gun: HE" is then the impact setting). Automatic area fire follows the fire rule: the player's hulls start on
+  "return" (`decisions.defaultFireRule`), so they do it once he sets "free" (owner Q9 below).
+
+**Data (add-data-entry; search extracts only, pages not opened):**
+- Puma `de-30x173-he`: fuse "programmable", `airburst` {aimHeightM 1, standoffM 15, cone 10 deg, 162 x
+  `de-30-ketf-pellet`, 95-100 % speed, 0.5 g charge}. Rheinmetall data sheets ABM KETF 30x173 PMC308 (Bundeswehr
+  DM21): 162 cylindrical tungsten-alloy sub-projectiles of 1.24 g (201 g payload), 0.5 g ejection charge, fuze
+  programmed inductively at the muzzle, 1100 m/s, ~830 g round, dismounted troops among its targets. Pellet count and
+  mass medium in the note; aim height, stand-off, cone, pellet drag and penetration game values (entry stays low).
+  One belt with two settings is a simplification (the real belt holds KETF; owner Q6 open).
+- Leopard 2A7V `de-120-dm11`: fuse "programmable", `airburst` {aimHeightM 3, standoffM 0}: DM11's point detonation,
+  delay and air burst modes (Rheinmetall IDEX 2013: ahead of and above the target, out to 5000 m; esut.de 2021: first
+  fired from a Leopard 2A7V; Aviation Week / defence24: programming kit); burst height a game value (low).
+- Unchanged, impact only: BMP-2 3UOF8, T-72B3M and T-90M 3OF26 (Ainet / Telnik on the T-90M is owner Q8: thin
+  sources, not added), BTR-82A, GTK Boxer and its GMW.
+
+**Lab `npm run lab -- areafire 4`** (flat field; fuse part: ordered HE at six prone men 3 m apart, 30 s, 4 seeds;
+area part: fire free, six men 600 m off lie down in crops after 8 s, 240 s, 4 seeds):
+
+| hull | 400 m impact / air burst (hit, down) | 800 m | 1200 m |
+|---|---|---|---|
+| Puma (133 rounds) | 10, 3 / 8, 7 | 6, 3 / 8, 7 | 3, 2 / 12, 9 |
+| Leopard 2A7V (16 rounds) | 20, 12 / 24, 13 | 14, 7 / 13, 7 | 11, 5 / 17, 12 |
+| BMP-2 (192 rounds, impact only) | 12, 6 | 6, 5 | 7, 4 |
+| T-90M / T-72B3M (12 rounds, impact only) | 19, 11 | 13-14, 1-2 | 11, 3 |
+
+Area part: area bursts (4 runs) Puma 2 (its thermal sight keeps seeing them: seen fire), Leopard 13, BMP-2 11,
+T-90M 12, T-72B3M 11, BTR-82A 5, GTK-GMW 3; the last area burst at a median 96-142 s (the place fades: it stops by
+itself); ready HE left 50-91 % (the reserve holds). Air burst against prone men: the KETF more than doubles the men down
+per round at 400-800 m (3 to 7) and about quadruples it at 1200 m (2 to 9); DM11's air burst matters mainly at 1200 m (impact HE of 120/125 mm
+already hurts prone men).
+
+**Quick ledger, A/B on the same code** (seeds 1-3, 1200 s, AI both sides; "off" strips `areaFire` and the `airburst`
+settings from the catalog):
+
+| | platoon-vehicles on / off | platoon-ru-vehicles on / off |
+|---|---|---|
+| attacker wins | 2 / 3 | 3 / 2 |
+| area bursts | Puma 49 HE air burst + 18 MG, BMP-2 8, T-90M 4 MG | BMP-2 30, T-72B3M 10 MG, Puma 10 |
+| RU casualties to Puma HE / KETF | 72 (573 HE rounds) / 38 (952) | 16 (51) / 32 (555) |
+| casualties to own fire | 6 / 6 | 0 / 3 |
+
+Three seeds decide nothing about wins; what shows: Pumas kill RU dismounts with fewer HE rounds (KETF), the BMP-2s
+and T-72B3Ms fire more at places when they attack, no rise in own-fire casualties. Expected (plan, C2): DE gains,
+answered by `fightingValue` after the measurement.
+
+**Performance:** bench-vehicles A/B in one process, alternating (`benchab.mts`, medians of 4): 60 s 9.3x on / 8.6x
+off, 300 s 10.2x / 10.1x: no measurable cost. The timing tests themselves were below their floors on this shared
+machine for every bench, the infantry-only spotting bench too (7.0-7.6x), so they say nothing about this change;
+to be rerun alone at the end of the pass.
+
+**Goldens:** `npm run golden:update`: 12 changed (catalog fingerprint; crews' air bursts and area fire);
+`packages/tools/golden/no-interiors` untouched.
+
+**Owner questions (open):** Q6 (Puma: KETF only, both, impact only; built: one belt with both settings), Q8 (T-90M
+Ainet; built: impact only), Q9 (area fire for the player's hulls: built as "on under fire free", which his hulls get
+only when he sets it; recommended to keep). (Review fix, realism review: Q6 and Q8 were listed with the built option
+as the recommended one; the plan's recommendations stand: Q6 (a) KETF only, Q8 (a) Ainet for the T-90M. See the entry
+"Balance pass 5: review fixes".)
+
+## 2026-11-20 — Balance pass 5: the mounted assault on built-up objectives (owner follow-up)
+
+Owner (2026-11-20, binding): "Keep in mind that that distance would be shorter when attacking buildings / urban
+areas." Built on the mounted assault (entry "Balance pass 5: the mounted assault"), symmetric code, no faction
+literals.
+
+**Built-up objective** (`isBuiltUp`, `builtUpAround`, pure, `systems/assault-mounted.ts`): the assault's target is a
+building, or at least `urban.minBuildings` 8 buildings have their centre within `urban.radiusM` 120 m of the
+objective, or their footprints cover `urban.minShare` 4 % of that circle (`core/behaviour.json`
+`mounting.mountedAssault.urban`; game values, low). Fitted on the generated maps: village objectives have 13-28
+buildings / 4-8 % within 120 m, farmland objectives (a farmstead) 0-6 / at most 2 %, so a farm is open ground.
+
+**Distance** (`dismountDistance`, pure; the drill and the AI commander): the faction doctrine's new
+`dismount.urbanDistanceM` for a built-up objective, else `distanceM` as before. DE 150 m, RU 200 m (game choices,
+low): no published distance for a built-up area was found (search extracts only; docs/research/dismount.md). The
+principle is sourced: the Bundeswehr dismounts at the "letzte Deckung vor dem Feind" just before the village; US FM
+3-06.11 (2002) uses covered dismount points with the armour overwatching until a foothold is won. Half the open-ground
+value for each side keeps RU's dismount farther out than DE's, as in the open. The RU doctrine block keeps confidence
+medium for its sourced 400 m; its note marks the 200 m low.
+
+**The rest of the drill for a built-up objective** (`MountedAssault.urban` set when ordered): the dismount spot is
+still the first one out of sight of the objective's near edges and known enemies, up to 3 x 50 m farther back, and
+now never a point inside a house (open ground too). Support posts may stand `urban.minObjectiveM` 100 m from the
+objective (open 200 m) and `urban.postStandoffM` 200 m off known enemy men (open 300 m), and must also see
+`urban.streetPoints` 6 road points within 120 m of the objective (`streetPoints`: nearest first, 25 m apart) as well
+as the objective's ring: a line into the streets. The AI commander uses the same distance and post values (its ride
+and follow posts).
+
+**Early dismounts (the open issue from 3A, carriers out at 450-740 m).** Diagnosis with the new `reason` on
+`assault.dismounted` (lab column "Why out") and the ammunition of the hit before it, seeds 1-2, 480 s, player mode:
+- **Hits** are the main cause: 14 of 16 DE carriers in the village, 7-12 of 12 RU. Every one was a real
+  anti-armour round: T-90M 3BM60 on a Puma, Puma PMC287 on a BMP-2, at 550-830 m; one hit dismounts every carrier
+  within `hitNearM` 300 m. Not a trigger setting error: the defence's hulls engage the approach, and getting out under
+  tank and cannon fire is what C1 (men killed aboard) asks for. Kept; owner question Q13.
+- **"stopped"** (2 DE, 4 RU): the drive had given up (hulls jammed among each other, `MAX_REPLANS`) and the drill took
+  that for arrival. Fix: such a carrier is sent on to its point again, `driveRetries` 2 times, before its squads get
+  out where it stands (now 1 + 1 left).
+- **Known enemy men** (6 of 16 DE on farmland): `threatMenM` 400 m is more than DE's 300 m doctrine distance, so men
+  seen on the objective's forward edge always turned the ride back before the point. A trigger setting: enemy men now
+  count only within the dismount distance in force + `threatMarginM` 50 m (`threatMenFor`; DE 350 m in the open,
+  200 m in a town; RU 400 / 250 m), drill and AI commander alike. On the lab seeds the farmland DE triggers came from
+  men 200-350 m from the hull, so they stay (4 of 16).
+
+Lab `npm run lab -- mounted-assault 2 --seconds 480` (player mode; `@map` = the same mounted platoon battle on that
+map kind), before (urban values and retries off) / after:
+
+| Scenario | Map | Doctrine m | Dismount m mean, before / after | Why out after | Hit aboard b / a |
+|---|---|---:|---|---|---:|
+| platoon-vehicles (DE attacks) | village, built-up | 300 -> 150 | 627 / 556 | hit 11, threatVehicle 4, stopped 1 | 1 / 17 |
+| platoon-vehicles@farmland | farmland | 300 | 629 / 627 | hit 12, threatMen 4 | 10 / 12 |
+| platoon-ru-vehicles (RU attacks) | farmland | 400 | 565 / 559 | hit 9, stopped 1, point 1, threatMen 1 | 35 / 29 |
+| platoon-ru-vehicles@village | village, built-up | 400 -> 200 | 720 / 719 | hit 12 | 36 / 38 |
+
+AI mode after (both commanders): 542 / 644 / 549 / 665 m. Two seeds decide nothing about men hit aboard (DE village
+1 -> 17 comes with carriers driving on toward a 150 m point under T-90M fire). The urban distance itself is shown by
+the unit test (riders out within 100 +- 50 m of a built-up objective against 200 m in the open) and by
+`--scene assault-urban` (enemy commander off: points at the houses' edge, 153 m). In the platoon battles the defence's
+hulls get the carriers out at 450-750 m before either distance is reached.
+
+Own hits: 2 in DE village player mode (0 before): a Puma crew's own air-burst HE at a target ~500 m off burst on a
+building 49 m in front of the muzzle, next to a man of its platoon. The line check sees no own man in the line to the
+target; a round striking an obstacle short of the point was not covered (it failed the real-data test
+`mounted-assault.test.ts`, own hits must be 0). Fixed in `stationHeld`: for a bursting round, when an own man is
+within its danger radius of the line at all, the line from the muzzle is traced (`sight`) and a wall, roof or ground
+it strikes short of the point is checked for own men within that radius like the point itself
+("why.hold.dangerClose"). Headless bench-vehicles 120 s: 14.3-15.4 s wall time with the check, 14.6 s without
+(noise; the timing tests run alone at the end of the pass).
+
+Golden replays updated (`npm run golden:update`, 12 changed: catalog fingerprint, the AI's threat cap and urban
+dismount in the village battles, the burst-short check); `packages/tools/golden/no-interiors` untouched.
+
+## 2026-11-20 — Balance pass 5: the measurement and the campaign values (plan docs/plans/balance-5.md section 4)
+
+After the fix list (F0-F10), the mounted assault (3A, with the owner's shorter distance for built-up objectives) and
+area fire with air burst (3B). One heavy process at a time on the shared 4 cores; batches by day unless marked. No code
+or data changed in this step: the numbers below are of commit 3fc73bd.
+
+**Platoon battles** (`npm run batch -- --scenario <s> --runs 20 --seconds 1200`, seeds 1-20; attacker wins;
+casualties attacker / defender; hulls lost attacker / defender). "main" = balance pass 4 after its review fixes, the
+numbers M12.4 quoted for main d4bb676:
+
+| scenario | main | **balance pass 5** |
+|---|---|---|
+| platoon-vehicles (DE attacks in 8 Pumas; RU: 3 BMP-2, 2 T-90M, Metis-M) | 13; 20.2 / 27.35; hulls 1.85 / 4.10 | **15; 18.1 / 30.1; hulls 1.30 / 4.55**; time 8, eliminated 11, broken 1 |
+| platoon-ru-vehicles (RU attacks in 6 BMP-2 + 2 T-72B3M; DE: 4 Pumas) | 8; 25.7 / 15.85; hulls 2.80 / 2.15 | **9; 29.0 / 17.2; hulls 3.30 / 2.10**; time 10, broken 5, eliminated 5 |
+| platoon (on foot) | 7; 18.6 / 11.1 | **7; 18.6 / 11.1** (identical) |
+| platoon-ru (on foot) | 7; 20.55 / 7.95 | **7; 20.55 / 7.95** (identical) |
+| hold-resupply / hold-resupply-ru | (balance pass 4) | **unchanged**: seed 2, 3600 s, the whole event stream equals main's line for line (no armed hulls; only the state hash differs, by the catalog) |
+
+- platoon-ru-vehicles is in the band (6-14 of 20). platoon-vehicles is one battle above it (15; main 13, a difference
+  within the noise of 20 seeds, standard error about 2 battles). It is not bug-driven: the ledger (seeds 1-3) has
+  every RU loss from real weapons with nothing wasted. RU casualties: KETF air-burst pellets 58 (517 m median), Puma
+  APFSDS through BMP-2s 31 (all aboard), coax 12, Spike 3; impact HE now 1 (KETF replaced it). Hull kills over 20
+  battles: BMP-2 by Puma 58, T-90M by Puma 33 (Spike top attack and 30 mm on the hull side), Puma by T-90M 21, by
+  BMP-2 3. These are the kept gaps C1, C2, C3 and the KETF round (owner Q6), all real.
+- In RU's attack, the T-72B3M (now firing 3BM60, F10) kills the Pumas (38 of 42 Puma losses) and the BMP-2's impact HE
+  is RU's best weapon against men (27 of 62 DE casualties, ledger seeds 1-3).
+- Guided missile launches by red (Konkurs and the Metis-M team together; review fix: not Konkurs alone) went from almost none (diagnosis: 3 Konkurs in 18 platoon battles) to 0.9 per battle in platoon-vehicles
+  (0.3 in platoon-ru-vehicles, where most BMP-2s are hit before they halt). In the campaign the BMP-2s now kill Pumas
+  with it (RU-player operation 300/0: 12 launches, 9 hits, 3 Pumas destroyed).
+- Own fire: no casualty to an own vehicle gun in the six ledger battles (one unattributed burn, as on main).
+- Area fire (ledger seeds 1-3, bursts per battle): Pumas 4-21 air bursts, BMP-2s 6-14 impact HE bursts when
+  attacking, tanks' coax 1-8.
+
+**Report only (10 runs, 1200 s):**
+
+| scenario | balance pass 5 | earlier reference |
+|---|---|---|
+| platoon-vehicles-tanks-both | DE attacker 9 of 10; 9.7 / 33.6; hulls 0.8 / 5.0 | - |
+| platoon-vehicles-wheeled (GTK attack v BTR) | 2; 27.5 / 19.8; hulls 1.0 / 2.2 | M7.6c review: 0; 33.1 / 20.5 |
+| platoon-ru-vehicles-wheeled (BTR attack v GTK) | 3; 25.1 / 20.6; hulls 0.9 / 2.6 | M7.6c review: 2; 23.1 / 30.1 |
+| platoon-vehicles at 23:00, moon 0 | 9; 12.4 / 33.1 | - |
+| platoon-ru-vehicles at 23:00, moon 0 | 3; 31.0 / 15.3 | - |
+
+No regression in the wheeled carriers. At night the Puma's thermal sight against the BMP-2's image intensifier (now
+850 m, F9) is a real gap; campaign battles are by day.
+
+**Campaign** (`npm run campaign -- batch --faction de,ru --operations 8 --campaigns 2 --seed 3 --jobs 2 --seconds
+1200`, seeds 300 and 301, the M12.4 protocol; xf: `--faction xf --enemy xf --operations 12 --seed 4`; current
+values DE 3.0, RU 1.0, xf 1.0, `enemyCapScale` 1.0; all acceptance checks clean):
+
+| | M12.4 (iteration 3, RU caps x2) | **balance pass 5 (caps x1)** |
+|---|---|---|
+| DE as player | 8 of 8; killed DE 178 / RU 1737 | **8 of 8**; nodes won 24 of 25; killed DE 166 / RU 1427; enemy men per main battle mean 82 (one company at most) |
+| RU as player | 0 of 8; nodes won 11 of 32 | **0 of 8**; nodes won 8 of 27 (attack 2-5, defend 2-5, meeting 2-3, withdraw 2-4, ambush 0-2); killed RU 1238 / DE 232; enemy men per main battle 33-39 (one Puma platoon + company HQ) |
+| xf vs xf | 7 of 12 (58 %) | **6 of 12 (50 %)**; failure 1, limit 5 |
+
+DE as player: ambush 4-0-0, attack 9-0-0, defend 3-0-0, meeting 3-0-1, pursue 5-0-0 (win-draw-loss); no failures. RU as player: failures 8 (two losses in a
+row 5, below the combat-ineffective line 3); able share at operation ends median 0.35. Wall time per main battle:
+DE v RU median 67 s, RU v DE 63 s, xf 31 s (two campaigns at a time).
+
+Ledger of RU-player operation 300/0 (4 battles; `<scratchpad>/bal5/final/camp`): RU casualties 170, of them KETF
+pellets 89 (median 513 m), Puma APFSDS 34 (33 aboard BMP-2s), coax 29; DE casualties 51, of them Konkurs 14, BMP-2 HE
+10, T-72B3M APFSDS 8, BMP-2 AP 7. Puma APFSDS: 97 hits on BMP-2s, 92 through. The company battle is the platoon
+battle's gap at three to one in men: no bug found.
+
+**Campaign values: kept (DE 3.0, RU 1.0, xf 1.0; `enemyCapScale` 1.0).** `fightingValue` acts only through the enemy's
+commitment, and it is at its bounds on both sides:
+- RU as player: DE already commits its floor (one platoon with the company headquarters: 33-39 men; `enemyChoice`
+  always takes one platoon, and the caps scaled by 1/3 leave no support). A higher DE value changes nothing; a lower
+  one makes DE commit more.
+- DE as player: RU already commits its cap (one company, 84-110 men). A higher DE value changes nothing (the caps are
+  held at `enemyCapScale` 1.0 for the phone budget, M12.4); a lower one makes RU commit less.
+So no value of `fightingValue` brings either side into 30-70 %; the files stay as they are (their notes are part of
+`rulesFingerprint`, so not even the note is touched). xf vs xf (the campaign rules alone) stays in the band (50 %).
+What would close it lies outside `fightingValue`: owner Q2 (DE as player against a capped enemy) and the new Q16 (RU as
+player against DE's floor).
+
+**Owner questions open after this pass** (recommended first): Q1-Q5 (plan section 5, unchanged), Q6-Q15 (built as
+the recommended option, see the three entries above), and:
+- **Q16. RU as player loses every operation, because DE's smallest commitment (one Puma platoon with the company HQ)
+  beats a motor rifle company:** (a) accept and record it: the Puma platoon's real advantage (KETF air burst, thermal
+  sights, APFSDS through every BMP-2 face); RU is the harder campaign; (b) let the enemy commit less than a platoon
+  when its value is far above the player's (a section or half platoon, no company HQ); (c) give RU-as-player
+  operations an easier node table (more defend nodes, fewer attacks).
+
+## 2026-11-20 — Balance pass 5: review fixes (four independent reviews: realism, tactics, behaviour, code)
+
+Branch `claude/balance-5`, after merging origin/main (the start menu; conflicts in DECISIONS, STATE and the screenshot
+scene list only; the map-label change in `app/src/main.ts` is kept). Owner's note on the urban distance ("that
+distance would be shorter when attacking buildings / urban areas"): built in the urban step (DE 150 m, RU 200 m against
+300 / 400 m); this step measures it the way the doctrine sources do, see H3.
+
+**Fixed (sim, ai):**
+- **Code 1 (confirmed): Assault to a platoon on foot with carriers ended at once** and sent the carriers to the men:
+  the platoon, which carries the foot drill, is now what the drill waits on and whose men (its sub-units' too) it
+  follows. Test added.
+- **Code 2 / L8 (fratricide window): shift and lift** are checked every drill step (0.5 s), before the 20 s interval and
+  the "on its post" gate, with 30 m of hysteresis (`fireHysteresisM`) before fire comes back ("radio.resumeFire"); on lift
+  and when a hull's part ends or it leaves the drill the area fire the drill gave it is dropped. Each area burst's point is
+  drawn first and that point is checked for own men (`stationHeld`), not the circle's middle.
+- **MH5: KETF cone.** An air burst with a forward pellet cone holds when an own man is in the cone from the burst point
+  (`standoffM` short of the aim) out to the pellets' injuring reach (`coneReachM`: v(s) = v0 e^(-ks), energy down to
+  80 J: about 180 m past the burst for the 1.24 g, 4.5 mm pellet at 1100 m/s), with 3 m margin; in every place `stationHeld` is used
+  (crew targets, area fire, ordered area fire, each burst). Test: an own man 100 m past the point holds the air burst,
+  not the impact setting.
+- **M6 / behaviour 3: rifle hits no longer get riders out.** `VehicleState.lastHeavyHitTick` (a round of 19 mm or more,
+  not a fragment, or a guided round) drives the drill's and the AI commander's dismount trigger; `lastHitTick` is
+  unchanged for everything else.
+- **MH4: early dismount in the open.** A carrier hit (or seeing an enemy hull) fires its smoke; hit or threatened, it
+  makes for the nearest spot within `coverSearchM` 150 m back or to the side hidden from the enemy its men know (none
+  known: the objective's near edge), at most `coverSeconds` 30 s, then lets them out (`assault.cover` event). No spot:
+  out where it stands, as before.
+- **H3 / behaviour 1: the urban dismount point deep in a village.** `dismountDistance` takes the way in: for a built-up
+  objective the dismount point is at least `urban.edgeMarginM` 50 m outside the built-up edge on the way in
+  (`builtUpEdgeM`: walking out from the objective, buildings within 30 m of the line, gaps up to 60 m), the last cover
+  before the houses, when that is farther out than the urban distance. The urban distance (150 / 200 m) still applies to
+  an objective at the village's edge or a single building. The AI commander uses the same function.
+- **H1: blind support posts.** The post search tries the hull-down search's full rings (to 250 m) before falling back;
+  no more blind post 60 m straight back (all 8 in the tactics trace saw 0 of 9 objective points): a hull with no post
+  that sees anything follows its squads `blindFollowM` 150 m behind; the `assault.supportPost` event carries `seen`
+  (lab column "posts seeing none"). A post it finds no route to is passed over for the next (three tries; the
+  "no route" radio lines in the trace).
+- **H2: support fire only within 120 m of the objective.** It now takes known enemies in the assault lane (from the
+  squads to `laneBeyondM` 120 m past the objective, `laneHalfWidthM` 150 m either side), the nearest the squads first;
+  posts must see them too. Lift stops fire on the objective, not at a flank position well clear of own men.
+- **L7: failed assault.** The hulls wait where they let the squads out (sited out of sight) and the squads withdraw to
+  them, instead of the hulls driving up among the squads.
+- **L9: taken** also needs no enemy man known on the objective.
+- **Behaviour 4 / code nit: area fire's firing weight** uses only shots within 3 s of when the man was last seen or
+  reported (no shots the crew never saw).
+- **Code 3:** Assault to a platoon headquarters alone (`own`) while it rides is its own assault (was: got out and
+  did nothing). **Nits:** a disarmed hull is no longer "immobile"; a hull taken into the drill forgets an old
+  `returnTo` (playerHold is not set: the drill's hulls react like any crew, recorded here); the RU follow posts use
+  the urban minimum distance; the AI's counter-attack and re-assault are not given to squads still aboard; the dismount
+  distance is worked out once per drill (`MountedAssault.dismountM`) and building shapes and village edges are cached
+  per map (pure).
+
+**Fixed (data, add-data-entry; low):**
+- **Realism 3 (C21): the Konkurs at night.** New `guideSensors` on a station weapon (the seat's sensors it can be guided
+  through); the BMP-2's 9P135M: [vehicle-day] (the 9Sh119M1 is a day sight, plan C21); `stationSightLight` takes the
+  weapon. Before, the gunner's new BPK-2-42 night channel let it guide to 850 m.
+- **Realism 4: BTR-82A night sights** 3000 m image intensifier (no source) -> gunner `vehicle-night-gen1` (850 m),
+  commander `vehicle-night-short` (400 m), as the BMP-2; conflict noted (thermal on some later batches), in STATE.
+
+**Not changed, with reasons:**
+- **Realism 1 (Puma belt) and 2 (T-90M Ainet):** owner questions; the earlier entries listed the built option as
+  recommended. Restored: Q6 recommended (a) KETF only (the impact HE stand-in removed; impact = the pellets released on
+  striking), built (b) both settings; Q8 recommended (a) Ainet air burst for the T-90M (low), built impact only. Not
+  built without the owner: Q6 changes the main killer of RU men; for Q8 the T-72B3M shares the 3OF26 round, so it needs
+  a separate T-90M round entry.
+- Realism 6 (RU doctrine block confidence): left "medium" with the 200 m listed as low in its note and in STATE.
+- `guidedTargets` once per pass (code nit, perf): measured within noise before; not changed.
+
+**Tests:** `sim/test/assault-mounted.test.ts` (+3: platoon on foot with a carrier, cover before an early dismount, the
+village edge; the hit test now needs a heavy hit), `tools/test/areafire.test.ts` (+1, KETF cone), `balance5.test.ts`
+(+1, Konkurs day sight and the BTR-82A). Updated for changed battles (premises, not loosened checks): `defence-posts`
+(a hull that has fired or been hit may relocate), `overwatch-bound` (the moment a bound is possible; fixture seed 3, as
+seed 2 now ends at 654 s), `scenario-mounted` (heavy hit).
+
+**Goldens:** `npm run golden:update`: 12 changed (catalog fingerprint; the drill and AI changes);
+`packages/tools/golden/no-interiors` untouched.
+
+**Mounted-assault lab after the fixes** (`npm run lab -- mounted-assault 2 --seconds 480`, seeds 1-2, by day; before:
+the urban step's table):
+
+| Scenario | Mode | Dismount m, mean (doctrine in force) | Why out | Cover first | Hit aboard | Posts (seeing none) | Rounds | Own hits |
+|---|---|---|---|---:|---:|---|---:|---:|
+| platoon-vehicles (village) | player | 633 (590: the village edge + 50; was 556, hit 11 of 16) | point 13, hit 3 | 2 | 10 | 11 (0) | 354 | 0 |
+| platoon-vehicles (village) | ai | 728 | - | 0 | 10 | - | 453 | 0 |
+| platoon-ru-vehicles (farmland) | player | 513 (400) | stopped 6, threatMen 5, point 1 | 1 | 36 | 5 (0) | 404 | 0 |
+| platoon-ru-vehicles (farmland) | ai | 549 | - | 0 | 13 | - | 774 | 1 |
+
+In the village the carriers now let their squads out at the village's edge (13 of 16 at their point) instead of being
+hit at 550-830 m while riding in towards a point 150 m from the objective inside the village. RU's carriers in the open
+still get out early (known enemy men, jammed drives); 36 men hit aboard (was 37). The one own hit in AI mode is the
+commander's fire, as before. No objective was taken in 480 s in either mode (as before).
+
+**Platoon batches** (20 seeds x 1200 s, by day; before = the measurement entry):
+
+| Scenario | Before | After |
+|---|---|---|
+| platoon-vehicles (DE attacks) | 15 attacker wins; casualties 18.1 / 30.1; hulls lost 1.30 / 4.55 | **16**; 19.7 / 29.9; 1.85 / 4.10 |
+| platoon-ru-vehicles (RU attacks) | 9; 29.0 / 17.2; 3.30 / 2.10 | **7**; 30.85 / 17.95; 3.45 / 2.25 |
+
+platoon-ru-vehicles stays in the band (6-14); platoon-vehicles is two above it (noise of 20 seeds is about +-2; the
+causes are the kept real gaps C1-C3 and KETF, see the measurement entry). Guided missiles per battle (all launchers,
+the Metis-M team included): red 0.7 in platoon-vehicles, 0.5 in platoon-ru-vehicles. (Behaviour review 2: the
+measurement entry's "0.9 Konkurs per battle" was the batch's count of every red guided missile, the Metis-M team's
+included; the ledger of seeds 1-3 had 1 Konkurs in 3 battles. The batch report does not split them.)
+
+**Campaign values:** not re-measured. The conclusion of the measurement entry does not rest on battle results:
+`fightingValue` is at its bounds both ways (DE at its one-platoon floor with RU as player, RU at its one-company cap with
+DE as player), and these fixes moved the platoon battles by one or two wins each. DE 3.0, RU 1.0, xf 1.0 kept.
+
+**Checks:** typecheck, lint, data lint (low-confidence warnings only), `npm test` 207 files, 1741 passed, 6 skipped
+(`npm run check`, run alone). `npm run test:perf` alone: 23 of 25; the spotting bench (304 men, 7.77x) and
+bench-vehicles (7.95x) missed the 8x floor. Run against origin/main's sim (d4bb676) interleaved, same machine, the
+same two benches: main 6.40-6.95x, branch 6.52-7.08x (other agents loaded the machine by then): no regression from the
+branch; the floors want a quiet machine.
+
+**New owner questions** (recommended first):
+- **Q17. A village objective far inside the village:** (a) dismount at the last cover before the village's edge
+  (edge + 50 m, then clear through on foot; built: in platoon-vehicles that is about 590 m from the objective); (b)
+  ride on to the urban distance from the objective (150 / 200 m) along the streets, as before this fix; (c) the edge
+  rule, but never farther out than the open-ground distance (300 / 400 m).
+- **Q18. A failed assault:** (a) the hulls wait where they let the squads out and the squads withdraw to them (built);
+  (b) the hulls drive up to the squads to pick them up (before); (c) everyone stays where they are and waits for
+  orders.
+- Q6 and Q8 restated with the plan's recommendations (above); Q13 now reads: a hit by a cannon round, rocket or missile
+  (no longer rifle fire) on a carrier or one within 300 m gets the squads out, after a dash to cover where there is one.
+
 ## 2026-11-20 — Start menu (owner request: "Make a starting menu with the different game modes to choose from")
 
 Branch `claude/start-menu`. No sim, AI, scenario or catalog change: goldens untouched (strings are outside the catalog

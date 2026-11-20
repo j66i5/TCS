@@ -47,7 +47,23 @@ describe("overwatch carriers bound forward (balance pass 3)", () => {
   it("platoon-vehicles seed 2: idle Pumas get posts ahead of where they stand, behind the foremost man by behindM, off known enemy men", () => {
     const input = getScenario("platoon-vehicles").build(data, 2, 600);
     const r = start(input);
-    run(r, 300);
+    // (Balance pass 5 review fixes: the carriers now let their squads out at the village's edge, farther out: run until
+    // the foremost man is far enough ahead of a carrier for a bound, at most 600 s.)
+    const B0 = input.catalog.behaviour.mounting.overwatchBound!, main0 = input.rules.objectives[0]!;
+    run(r, 600, (x) => {
+      if (x.sim.state.tick < 300 * 60 || x.sim.state.tick % 600 !== 0) return false;
+      const cs = carrierCrews(x.sim, "blue").filter((c) => x.sim.state.vehicle.req(x.sim.state.unit.get(c)!.vehicle!).status === "ok");
+      if (cs.length < 3) return false;
+      const ts = cs.map((c) => x.sim.state.transform.req(x.sim.state.unit.get(c)!.vehicle!));
+      const mx = ts.reduce((a, t) => a + t.x, 0) / ts.length, my = ts.reduce((a, t) => a + t.y, 0) / ts.length;
+      const L = hypot2(main0.x - mx, main0.y - my), ux = (main0.x - mx) / L, uy = (main0.y - my) / L;
+      const foot = ownFoot(x.sim, "blue");
+      const shot = (c: EntityId) => x.sim.state.vehicle.req(x.sim.state.unit.get(c)!.vehicle!).stations.reduce((m, st) => Math.max(m, ...st.weapons.map((w) => w.lastShotTick)), -1e9);
+      const mem: TanksMemory = { obBound: Object.fromEntries(cs.map((c) => [String(c), { since: -1e9, shot: shot(c), tried: -1e9 }])) };
+      let n = 0;
+      overwatchBounds({ view: x.sim.state, tick: x.sim.state.tick, side: "blue", ctx: x.sim.ctx, objectives: input.rules.objectives, mem, order: () => { n++; }, ux, uy, target: 0, crews: cs, ownFoot: foot, bound: B0, reverseHoldSeconds: 10 });
+      return n > 0;
+    });
     const B = input.catalog.behaviour.mounting.overwatchBound!;
     expect(B).toBeDefined();
     const sim = r.sim, tick = sim.state.tick;
@@ -61,7 +77,9 @@ describe("overwatch carriers bound forward (balance pass 3)", () => {
     const foot = ownFoot(sim, "blue");
     const front = foot.reduce((m, f) => Math.max(m, f.x * ux + f.y * uy), -Infinity);
     // Every crew idle since long ago.
-    const mem: TanksMemory = { obBound: Object.fromEntries(crews.map((c) => [String(c), { since: -1e9, shot: -1e9, tried: -1e9 }])) };
+    // (Its last shot as already seen: crews keep firing longer since area fire, balance pass 5; the geometry is tested here.)
+    const shotOf = (c: EntityId) => sim.state.vehicle.req(sim.state.unit.get(c)!.vehicle!).stations.reduce((m, st) => Math.max(m, ...st.weapons.map((w) => w.lastShotTick)), -1e9);
+    const mem: TanksMemory = { obBound: Object.fromEntries(crews.map((c) => [String(c), { since: -1e9, shot: shotOf(c), tried: -1e9 }])) };
     const orders: { target: EntityId; body: Record<string, unknown> }[] = [];
     overwatchBounds({ view: sim.state, tick, side: "blue", ctx: sim.ctx, objectives: input.rules.objectives, mem, order: (target, body) => orders.push({ target, body }), ux, uy, target: 0, crews, ownFoot: foot, bound: B, reverseHoldSeconds: 10 });
     expect(orders.length).toBeGreaterThan(0);
@@ -144,8 +162,8 @@ describe("overwatch carriers bound forward (balance pass 3)", () => {
 
   it("the fixture faction (rule 8): its carriers in overwatch bound too, with no fixture ids in code", () => {
     const fx = loadData(true);
-    const input = buildScenario(fx, { kind: "platoon-attack", seed: 2, mapKind: "village", factions: ["xf", "de"], attacker: "blue", vehicles: true, timeLimitSeconds: 900 });
-    // (Seed 2: in seed 1 the defence breaks at 375 s, before any carrier has been idle long enough.)
+    const input = buildScenario(fx, { kind: "platoon-attack", seed: 3, mapKind: "village", factions: ["xf", "de"], attacker: "blue", vehicles: true, timeLimitSeconds: 900 });
+    // (Seed 3: in seed 1 the defence breaks at 375 s; since the balance pass 5 review fixes (squads out at the village edge) seed 2 breaks at 654 s before a bound.)
     const r = start(input);
     // (A bound: a move order to an xf carrier crew in the think that set its `since`, review fix: not only an attempt.)
     const bound = (x: Run) => Object.entries((x.ctrls[0]!.saveState!() as TanksMemory).obBound ?? {})

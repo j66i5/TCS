@@ -62,6 +62,15 @@ export function vehicleClassOf(a: App, uid: EntityId | null): "tracked" | "wheel
   return v ? a.input.catalog.vehicles[v.def]?.class ?? null : null;
 }
 
+/** Balance pass 5: does this crew unit's hull carry a round with an air-burst setting? */
+export function hasAirburst(a: App, uid: EntityId | null): boolean {
+  const vid = uid === null ? undefined : a.sim.state.unit.get(uid)?.vehicle;
+  const v = vid === undefined ? undefined : a.sim.state.vehicle.get(vid);
+  const def = v ? a.input.catalog.vehicles[v.def] : undefined;
+  const cat = a.input.catalog;
+  return def !== undefined && def.stations.some((st) => st.weapons.some((w) => w.feeds.some((f) => { const r = cat.items[f.item]?.chargeItem; return r !== undefined && cat.ammo[r]?.airburst !== undefined; })));
+}
+
 /** The formation marker (a move only: an assault or withdrawal ends spread round its point). */
 export function markerFor(a: App, p: Plan | null) {
   return p && p.kind === "move" ? markerGeometry(p, slotsOf(a, p.formation), Math.max(1, unitMen(a).length), a.doctrineSpacing, HANDLE_PX / a.renderer.camera.scale) : null;

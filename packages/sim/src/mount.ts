@@ -109,3 +109,21 @@ export function compCondition(v: VehicleState, def: VehicleDef, kind: ComponentK
   for (let k = 0; k < comps.length; k++) if (comps[k]!.kind === kind) { const x = v.comp[k] ?? 1; if (x < c) c = x; }
   return c;
 }
+
+/**
+ * Balance pass 5 (F4): do hits on carriers call a squad riding in `vid` out? Its own carrier was hit, or another of
+ * its side's carriers within `nearM` of it (the fire is on this part of the column). `hit`: the side's carriers hit
+ * since the last look. Pure: the AI commander uses it now, the mounted assault drill later. (A whole side no longer
+ * gets out because one carrier 1.5 km away was struck.)
+ */
+export function carrierHitNear(state: SimState | SimView, vid: EntityId, hit: readonly EntityId[], nearM: number): boolean {
+  if (hit.length === 0) return false;
+  if (hit.includes(vid)) return true;
+  const t = state.transform.get(vid);
+  if (!t) return false;
+  for (const h of hit) {
+    const ht = state.transform.get(h);
+    if (ht && (ht.x - t.x) * (ht.x - t.x) + (ht.y - t.y) * (ht.y - t.y) <= nearM * nearM) return true;
+  }
+  return false;
+}

@@ -40,10 +40,16 @@ describe("the defence's hulls start on their posts (balance pass 4)", () => {
     const start = new Map<number, { x: number; y: number }>();
     for (const [vid, v] of sim.state.vehicle.entries()) if (v.side === "red" && !isOffMap(v)) start.set(vid, { ...sim.state.transform.req(vid) });
     let most = 0;
+    // (Balance pass 5 review fixes: a hull that has fired or been hit may relocate (tanks.ts `shotsPerPost`, a hit):
+    // only the hulls not yet in the fight are held to their posts.)
+    const engaged = new Set<number>();
     for (let i = 0; i < 45 * 60; i++) {
       for (const c of ctrls) for (const o of c.think(sim.state, sim.state.tick)) submitOrder(sim, o);
-      step(sim);
-      for (const [vid, p] of start) { const t = sim.state.transform.req(vid); most = Math.max(most, hypot2(t.x - p.x, t.y - p.y)); }
+      for (const e of step(sim)) {
+        if (e.kind === "shot.fired" && e.vehicle !== undefined && start.has(e.vehicle)) engaged.add(e.vehicle);
+        if (e.kind === "vehicle.hit" && start.has(e.vehicle)) engaged.add(e.vehicle);
+      }
+      for (const [vid, p] of start) { if (engaged.has(vid)) continue; const t = sim.state.transform.req(vid); most = Math.max(most, hypot2(t.x - p.x, t.y - p.y)); }
     }
     expect(most).toBeLessThan(5);
   });

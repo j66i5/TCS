@@ -5,6 +5,44 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 5, review fixes (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: review fixes").**
+  origin/main (start menu) merged. Four reviews' findings fixed: platoon-on-foot Assault kept its drill; shift/lift
+  every step and each area burst's own point checked; KETF pellet cone holds for own men to ~180 m; riders get out only
+  on cannon / rocket / missile hits, after a dash to cover with smoke; a village objective is dismounted for at the
+  village's edge (+50 m); no blind support posts (follow instead), support fire on the whole assault lane; failed
+  assault falls back to the hulls; Konkurs guided through its day sight only; BTR-82A night sights as the BMP-2's.
+  Batches: platoon-vehicles 16 of 20, platoon-ru-vehicles 7 of 20; campaign values kept. Open: Q6, Q8 restated, new
+  Q17, Q18; timing tests run alone at the end of the pass.
+- **Balance pass 5, the measurement (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: the
+  measurement and the campaign values").** 20 seeds x 1200 s: platoon-vehicles 15 of 20 attacker wins (main 13; one
+  above the band, real gaps C1-C3 and KETF, no bug found), platoon-ru-vehicles 9 (main 8); the infantry platoon
+  battles and the hold battle are unchanged. Campaign (seeds 300/301): DE as player 8 of 8, RU as player 0 of 8, xf
+  6 of 12. `fightingValue` kept (DE 3.0, RU 1.0): it is at its bounds both ways (DE at its one-platoon floor, RU at
+  its one-company cap). Open: Q2 and the new Q16 (RU as player against DE's floor), Q1-Q15. Pass done apart from the
+  owner's answers, the timing tests run alone and a pull request.
+- **Balance pass 5, 3B area fire and air burst (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5:
+  area fire and air burst").** Crews with no live target under fire "free" fire at the places their men last knew
+  enemy men (`crewSuspects`, weight halving every 45 s, half of each ready belt kept, 60 m / danger radius clear of
+  own men); the mounted assault's support posts fire at the objective that way when nobody is known there. Programmed
+  air-burst fuzes as ammo data: Puma 30 mm KETF (PMC308 / DM21: 162 x 1.24 g pellets thrown forward), Leopard DM11
+  (bursts 3 m over the point); BMP-2, T-72B3M, T-90M impact only (owner Q8). Fire order `fuse`, the Fire tray's
+  "Gun: HE air burst". Lab `npm run lab -- areafire`; screenshots `--scene areafire`. Next: the owner's pause, then
+  the measurement (plan section 4).
+- **Balance pass 5, urban assault (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: the mounted
+  assault on built-up objectives").** Owner follow-up: a built-up objective (`isBuiltUp`: a building, or 8 houses /
+  4 % footprint within 120 m) uses the doctrine's `dismount.urbanDistanceM` (DE 150, RU 200 m, low; open 300 / 400);
+  posts may stand 100 m out and must see street points. Early-dismount diagnosis: real hits by the defence's hulls at
+  550-830 m are the main cause (kept, Q13); fixed: jammed drives taken for arrival (sent on again), the men-threat
+  radius above DE's doctrine distance (now dismount distance + 50 m). Lab rows `platoon-vehicles@farmland`,
+  `platoon-ru-vehicles@village`; screenshots `--scene assault-urban`.
+- **Balance pass 5, 3A the mounted assault (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: the
+  mounted assault").** Assault to riders, a hull or a platoon with carriers: carriers to dismount points (doctrine
+  distance, terrain-aware), squads out into the foot drill, hulls back to support-by-fire posts and fire on the
+  objective (shift, lift), close up when taken; no riders: assault by fire from ~250 m. `systems/assault-mounted.ts`;
+  `dismountSpot` / `siteSupportPost` shared with the AI commander (its carriers now stop and back once their squad is
+  out). UI: Assault on a hull's bar, card phase, map markers. Lab `npm run lab -- mounted-assault`; screenshots
+  `--scene assault-mounted`. Next in the pass: 3B area fire (HE / air burst), then the measurement (plan section 4).
+  Earlier the same day: the fix list F0-F10 (DECISIONS "Balance pass 5: Germany against Russia").
 - **Folding sub-units (2026-11-20, branch `claude/collapsible-units`; owner request; DECISIONS "Folding sub-units").**
   In the battle's unit list every unit with sub-units (a platoon) has a fold button (under its tile on the slim
   strip, at its right in the open list; >= 32 px): it hides the platoon's HQ, drone, squads and vehicles without
@@ -661,6 +699,22 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- Balance pass 5, measurement: Q2 (DE as player wins 8 of 8 with RU at its one-company cap) and Q16 (RU as player
+  loses 8 of 8 against DE's smallest commitment, one Puma platoon + HQ; `fightingValue` cannot move either) in
+  DECISIONS "Balance pass 5: the measurement and the campaign values".
+
+- Balance pass 5, low-confidence data to confirm (review, add-data-entry step 5): the KETF pellet's diameter, drag and
+  penetration, its aim height 1 m, 15 m stand-off and 10 deg cone; DM11's burst height 3 m; `vehicle-night-gen1` 850 m
+  and `vehicle-night-short` 400 m (BMP-2, and since the review the BTR-82A: sources conflict on a thermal channel on
+  later batches); the BMP-2's Konkurs guided through its day sight only (`guideSensors`); the T-72B3M's 3BM60 (one
+  source disagrees); the review fixes' game values (`mountedAssault` cover, lane, hysteresis, blind follow, urban edge
+  margin 50 m). Owner questions Q6 (recommended: KETF only; built: both settings), Q8 (recommended: Ainet for the
+  T-90M; built: impact only), Q9 (area fire for the player's hulls), Q13-Q17: DECISIONS "Balance pass 5: area fire
+  and air burst" and "Balance pass 5: review fixes".
+- Balance pass 5, urban assault (low, game choices): DE `dismount.urbanDistanceM` 150 m, RU 200 m; built-up = a
+  building, or 8 buildings / 4 % footprint within 120 m (core/behaviour.json `mountedAssault.urban`); Q13 (hit
+  trigger) in DECISIONS "Balance pass 5: the mounted assault on built-up objectives".
 - M12.3 (2026-11-19): (1) please play two linked battles on your phone (`?campaign=1`: new campaign, Play the first
   battle, back to the campaign, continue to the second) and say what feels wrong; (2) the campaign clock is shown from
   06:00 on day 1 but every battle is fought in daylight: should campaign battles take the clock's time of day (night

@@ -73,7 +73,12 @@ export function notePointFire(ctx: SimContext, state: SimState, x: number, y: nu
   }
 }
 
-export function detonate(ctx: SimContext, state: SimState, events: EventSink, x: number, y: number, z: number, ammoIdx: number, owner: EntityId): void {
+/**
+ * A round goes off at (x, y, z). `dir` (balance pass 5, area fire): set off in flight by its programmed (air-burst)
+ * fuze, flying with this velocity: a round with an air-burst cone (`airburst.cone`, KETF) ejects its payload forward
+ * along it instead of bursting; one without bursts as usual, in the air.
+ */
+export function detonate(ctx: SimContext, state: SimState, events: EventSink, x: number, y: number, z: number, ammoIdx: number, owner: EntityId, dir?: readonly [number, number, number]): void {
   const ammoId = ctx.catalog.ammoIds[ammoIdx]!;
   const def = ctx.catalog.ammo[ammoId];
   // A hand smoke grenade (D1): its fuse has run, it smokes where it lies (no blast, no fragments).
@@ -85,6 +90,8 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   }
   const ex = def?.explosive;
   if (!ex) return;
+  const cone = dir !== undefined ? def!.airburst?.cone : undefined;
+  if (cone !== undefined) { ejectCone(ctx, state, events, x, y, z, ammoId, owner, dir!, cone); return; }
   const bal = ctx.catalog.ballistics, BL = bal.blast, map = ctx.map;
   const cube = pow(ex.fillingKg, 1 / 3);
   const severeR = BL.severeScaledM * cube, injuryR = BL.injuryScaledM * cube, stunR = BL.stunScaledM * cube;
@@ -135,7 +142,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   // Thousands of fragments per burst: write straight into the pool with local aliases (see CLAUDE.md, hot loops).
   reserveProjectiles(P, n);
   const st = rngStream(state.rng, Streams.fragments), rnd = streamFloat, C = cos, S = sin, Q = sqrt, TWO_PI = 2 * PI;
-  const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AM = P.ammo, OW = P.owner, BT = P.bornTick, tick = state.tick, span = hi - lo;
+  const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AM = P.ammo, OW = P.owner, BT = P.bornTick, BU = P.burstTick, tick = state.tick, span = hi - lo;
   let i = P.count;
   for (let k = 0; k < n; k++, i++) {
     const az = TWO_PI * rnd(st);
@@ -143,7 +150,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     const vh = (v0 + dv * rnd(st));
     const ce = Q(1 - se * se) * vh;
     X[i] = x; Y[i] = y; Z[i] = z; VX[i] = ce * C(az); VY[i] = ce * S(az); VZ[i] = vh * se;
-    AM[i] = fragIdx; OW[i] = owner; BT[i] = tick;
+    AM[i] = fragIdx; OW[i] = owner; BT[i] = tick; BU[i] = 0;
   }
   P.count = i;
 
@@ -186,4 +193,47 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     bx0 = Math.min(bx0, px - width); by0 = Math.min(by0, py - width); bx1 = Math.max(bx1, px + width); by1 = Math.max(by1, py + width);
   }
   if (breached) syncTerrainDamage(ctx, state, [bx0, by0, bx1, by1]);
+}
+
+/**
+ * Balance pass 5 (area fire): a KETF-type round's payload ejected by its timed fuze: `cone.count` sub-projectiles fly
+ * on along `dir` within `cone.halfAngleDeg` of it (even over the cone's solid angle) at `cone.velocityFraction` of
+ * the round's speed; the small ejection charge (`cone.fillingKg`) only adds its blast and a burst's suppression.
+ */
+function ejectCone(
+  ctx: SimContext, state: SimState, events: EventSink, x: number, y: number, z: number, ammoId: string, owner: EntityId,
+  dir: readonly [number, number, number], cone: NonNullable<NonNullable<SimContext["catalog"]["ammo"][string]["airburst"]>["cone"]>,
+): void {
+  const BL = ctx.catalog.ballistics.blast;
+  const cube = pow(Math.max(cone.fillingKg, 1e-6), 1 / 3);
+  const stunR = BL.stunScaledM * cube;
+  events.emit({ kind: "explosion", tick: state.tick, x, y, z, ammo: ammoId, owner, stunRadiusM: stunR });
+  suppressByBurst(ctx, state, x, y, Math.max(stunR, ctx.catalog.ballistics.fragments.airburstAboveM), state.identity.get(owner)?.side);
+  notePointFire(ctx, state, x, y);
+  const sp = sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+  if (!(sp > 1e-6)) return;
+  // An orthonormal frame round the flight path: u along it, a and b across.
+  const ux = dir[0] / sp, uy = dir[1] / sp, uz = dir[2] / sp;
+  let ax: number, ay: number, az: number;
+  if (Math.abs(uz) < 0.9) { ax = -uy; ay = ux; az = 0; } else { ax = 0; ay = -uz; az = uy; }
+  const al = sqrt(ax * ax + ay * ay + az * az); ax /= al; ay /= al; az /= al;
+  const bx = uy * az - uz * ay, by = uz * ax - ux * az, bz = ux * ay - uy * ax;
+  const cMin = cos((cone.halfAngleDeg * PI) / 180);
+  const n = Math.min(ctx.catalog.ballistics.fragments.maxPerBurst, cone.count);
+  const P = state.projectiles;
+  reserveProjectiles(P, n);
+  const fragIdx = ammoIndexOf(ctx.catalog, cone.fragmentAmmo);
+  const st = rngStream(state.rng, Streams.fragments), rnd = streamFloat, C = cos, S = sin, Q = sqrt, TWO_PI = 2 * PI;
+  const f0 = cone.velocityFraction[0], df = cone.velocityFraction[1] - f0;
+  const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AM = P.ammo, OW = P.owner, BT = P.bornTick, BU = P.burstTick, tick = state.tick;
+  let i = P.count;
+  for (let k = 0; k < n; k++, i++) {
+    const ct = 1 - (1 - cMin) * rnd(st), stt = Q(Math.max(0, 1 - ct * ct)), ph = TWO_PI * rnd(st);
+    const v = sp * (f0 + df * rnd(st));
+    const ca = stt * C(ph), cb = stt * S(ph);
+    X[i] = x; Y[i] = y; Z[i] = z;
+    VX[i] = v * (ct * ux + ca * ax + cb * bx); VY[i] = v * (ct * uy + ca * ay + cb * by); VZ[i] = v * (ct * uz + ca * az + cb * bz);
+    AM[i] = fragIdx; OW[i] = owner; BT[i] = tick; BU[i] = 0;
+  }
+  P.count = i;
 }

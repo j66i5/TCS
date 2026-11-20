@@ -68,12 +68,15 @@
   },
   "dismount": {
     "distanceM": 300,
+    "urbanDistanceM": 150,
     "sources": [
       "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-bindeglied-infanterie-panzertruppe",
-      "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-grabenkampf"
+      "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-grabenkampf",
+      "https://www.bundeswehr.de/de/organisation/heer/aktuelles/urbanes-gefecht-panzergrenadierbataillon33-hameln-bergen-169000",
+      "https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch4.htm"
     ],
     "confidence": "low",
-    "note": "Owner Q22 (M7.2): sourced per side. Bundeswehr principle 'mounted as long as possible, dismounted as briefly as possible', dismount where the enemy cannot observe; no published distance, so 300 m is a game choice inside the 500 m grenadier-tank spacing (docs/research/dismount.md). M7.3: afterwards the Pumas stay where they dropped the squads and support them by fire from there (overwatch; Bundeswehr articles: the IFVs engage from a covered position; docs/research/dismount.md, low).",
+    "note": "Owner Q22 (M7.2): sourced per side. Bundeswehr principle 'mounted as long as possible, dismounted as briefly as possible', dismount where the enemy cannot observe; no published distance, so 300 m is a game choice inside the 500 m grenadier-tank spacing (docs/research/dismount.md). M7.3: afterwards the Pumas stay where they dropped the squads and support them by fire from there (overwatch; Bundeswehr articles: the IFVs engage from a covered position; docs/research/dismount.md, low). Balance pass 5 (owner 2026-11-20: 'that distance would be shorter when attacking buildings / urban areas'): urbanDistanceM 150 for a built-up objective. Bundeswehr reports describe the platoon dismounting at the 'letzte Deckung vor dem Feind' just before the village (search extract, medium for the principle); US FM 3-06.11 (2002): covered dismount points, armour overwatches the infantry's first assault until a foothold is secured. No published figure: 150 m is a game choice (half the open-ground 300 m: houses block sight and fire, the hull can use the last covered spot at their edge), low. docs/research/dismount.md.",
     "afterward": "overwatch"
   },
   "artillery": {

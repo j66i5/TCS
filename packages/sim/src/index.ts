@@ -88,7 +88,7 @@ export { unitSoldiers } from "./systems/orders";
 export { loadKg, postureChangeSeconds, requestPosture, thirstAimFactor, thirstShare } from "./systems/body";
 export * from "./expenditure";
 export * from "./review";
-export { canFight, faceNeed, gunneryAllowed, missileAimPoint, muzzleWorld, setStationTask, stationDangerM, stationOperator, visibleAimIndex, weaponOut } from "./systems/gunnery";
+export { canFight, faceNeed, gunneryAllowed, missileAimPoint, muzzleWorld, setStationTask, stationDangerM, stationOperator, visibleAimIndex, weaponOut, crewSuspects, airburstOf, areaFireOrder, coneReachM, stationSightLight, type Suspect } from "./systems/gunnery";
 export { throughSmoke, vehicleSize } from "./systems/spotting";
 export { engineRangeM } from "./systems/contacts";
 export { environmentAt, lightAt, parseTimeOfDay } from "./light";
@@ -99,3 +99,5 @@ export { aimErrorFactor, fireRateFactor, isCowering, leaderNear, moraleKicks, mo
 export * from "./ledger";
 export { REFILL_ACTION, refillChoice } from "./systems/refill";
 export { inPosition, positionAt, rimHeight, rimStops, positionsSystem } from "./positions";
+export * from "./hulldown";
+export { builtUpAround, builtUpEdgeM, dismountDistance, dismountSpot, hiddenFrom, hullHeights, isBuiltUp, mountedAssaultDef, objectiveRing, siteSupportPost, streetPoints, supportPost, supportReachM, threatMenFor, type DismountReason } from "./systems/assault-mounted";

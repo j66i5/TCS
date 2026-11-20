@@ -46,8 +46,13 @@ export function launchProjectile(
 const DET: number[] = [];
 let detCount = 0;
 function queueBurst(x: number, y: number, z: number, ammo: number, owner: number): void {
-  const o = detCount++ * 5;
-  DET[o] = x; DET[o + 1] = y; DET[o + 2] = z; DET[o + 3] = ammo; DET[o + 4] = owner;
+  const o = detCount++ * 9;
+  DET[o] = x; DET[o + 1] = y; DET[o + 2] = z; DET[o + 3] = ammo; DET[o + 4] = owner; DET[o + 5] = 0;
+}
+/** Balance pass 5 (area fire): a burst set off in flight by its programmed fuze, with the round's velocity. */
+function queueTimedBurst(x: number, y: number, z: number, ammo: number, owner: number, vx: number, vy: number, vz: number): void {
+  const o = detCount++ * 9;
+  DET[o] = x; DET[o + 1] = y; DET[o + 2] = z; DET[o + 3] = ammo; DET[o + 4] = owner; DET[o + 5] = 1; DET[o + 6] = vx; DET[o + 7] = vy; DET[o + 8] = vz;
 }
 
 /**
@@ -123,7 +128,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const invBm = 1 / bm, near = B.near, NW = NEAR_WALL, NS = NEAR_SOLDIER, NV = NEAR_VEHICLE, VG = B.vehicles, hullAt = hullEntry, stoppedHit = addStoppedHit;
   const sm = index.bucketM, scols = index.bcols, srows = index.brows, sbuckets = index.buckets, segs = index.segments, segInfo = B.seg, ibuckets = index.interiorBuckets, NI = NEAR_INTERIOR;
   const tick = state.tick, rng = state.rng;
-  const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick;
+  const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick, BURST = P.burstTick;
   const ammoRT = B.ammo, maxAge = B.maxAgeTicks;
 
   // ---- soldiers this tick, bucketed, so only bullets passing close to someone test against bodies
@@ -194,6 +199,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     if (am.explosive) {
       // A time fuse runs out wherever the grenade is: in the air or lying on the ground.
       if (am.fuseTicks > 0 && tick - BORN[i]! >= am.fuseTicks) { queueBurst(X[i]!, Y[i]!, Z[i]!, AMMO[i]!, P.owner[i]!); remove(P, i); continue; }
+      // (Balance pass 5: a programmed air-burst fuze set at the muzzle.)
+      const bt = BURST[i]!;
+      if (bt > 0 && tick >= bt) { queueTimedBurst(X[i]!, Y[i]!, Z[i]!, AMMO[i]!, P.owner[i]!, vx, vy, vz); remove(P, i); continue; }
       if (vx === 0 && vy === 0 && vz === 0) { i++; continue; } // lying where it landed
       // A rocket (M7.4a): it bursts by itself after its time; its motor pushes it along its path while it burns
       // (the same arithmetic as flight.ts flightStep).
@@ -806,8 +814,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   }
   // Bursts happen after the loop: they add fragments to the pool (never add projectiles inside the loop).
   for (let q = 0; q < detCount; q++) {
-    const o = q * 5;
-    burst(ctx, state, events, DET[o]!, DET[o + 1]!, DET[o + 2]!, DET[o + 3]!, DET[o + 4]!);
+    const o = q * 9;
+    if (DET[o + 5] === 1) burst(ctx, state, events, DET[o]!, DET[o + 1]!, DET[o + 2]!, DET[o + 3]!, DET[o + 4]!, [DET[o + 6]!, DET[o + 7]!, DET[o + 8]!]);
+    else burst(ctx, state, events, DET[o]!, DET[o + 1]!, DET[o + 2]!, DET[o + 3]!, DET[o + 4]!);
   }
   detCount = 0;
 }

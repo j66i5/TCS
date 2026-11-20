@@ -456,7 +456,10 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
     if (d.escape && state.tick < d.escape.untilTick && d.routeIdx < d.route.length) { CMD.speed = d.escape.speed; CMD.yawRate = d.escape.yawRate; CMD.curvature = d.escape.yawRate / Math.max(0.5, Math.abs(d.escape.speed)); }
     else if (d.escape) delete d.escape;
     // Men getting in or out (M7.2): it holds where it is; its route is kept for afterwards.
-    if (!can || d.holdForDismount) { CMD.speed = 0; CMD.yawRate = 0; CMD.curvature = 0; }
+    // (Balance pass 5, F1: halted for the crew's own missile, launch and guidance.)
+    if (d.fireHoldUntilTick !== undefined && state.tick >= d.fireHoldUntilTick) delete d.fireHoldUntilTick;
+    const fireHold = d.fireHoldUntilTick !== undefined;
+    if (!can || d.holdForDismount || fireHold) { CMD.speed = 0; CMD.yawRate = 0; CMD.curvature = 0; }
     // Look ahead: other hulls and own men who cannot get out of the way stop it; men who can step aside.
     const hold = can && Math.abs(CMD.speed) > 0.05 ? corridor(ctx, state, vid, v, def, t.x, t.y, t.heading, CMD.speed) : null;
     if (hold !== null) {
@@ -513,7 +516,7 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
     }
     // Stuck: no 0.5 m of progress in 3 s while it should be driving: plan again; after three, give up.
     // (Progress is the way still to go getting shorter: progressX holds the shortest so far, progressY unused.)
-    const driving = can && !d.holdForDismount && !d.arrived && d.routeIdx < d.route.length && d.yieldTo === null;
+    const driving = can && !d.holdForDismount && !fireHold && !d.arrived && d.routeIdx < d.route.length && d.yieldTo === null;
     const togo = driving ? routeLeft(d, t.x, t.y) : 0;
     if (!driving || togo < d.progressX - 0.5) { d.progressX = togo; d.progressY = 0; d.progressTick = state.tick; }
     else if (!replanned && state.tick - d.progressTick >= secondsToTicks(STUCK_S)) {
@@ -784,7 +787,7 @@ export function noteVehicleOrder(state: SimState, vid: EntityId, order: Order): 
   const v = state.vehicle.get(vid);
   if (!v) return;
   delete v.returnTo;
-  if (order.player === true) v.playerHold = true; else delete v.playerHold;
+  if (order.player === true) { v.playerHold = true; delete v.drive.fireHoldUntilTick; } else delete v.playerHold;
 }
 
 export function vehicleOrder(ctx: SimContext, state: SimState, order: Order, vid: EntityId): OrderResult {

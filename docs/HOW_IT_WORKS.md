@@ -1377,6 +1377,61 @@ vehicle stops, the ramp opens and the men get out one at a time, landing a few m
 a squad aboard any other order (move, assault, fire ...) and it gets out first, then does it. A man who runs out
 of magazines walks over to a stopped vehicle of his side nearby and takes three from its stowage.
 
+**Assault with the vehicles (balance pass 5, owner 2026-11-20).** Give **Assault** to a squad or platoon that is
+riding, or to a hull, and the vehicles do the drive in. Each carrier goes to its own **dismount point** short of the
+objective: the side's doctrine distance (Germans 300 m, Russians 400 m, from the research on each army's drills),
+on the way in, 60 m apart across it, and if a spot up to 100 m farther back is out of sight of the objective's near
+edge and of the enemy its men know, that one. The map shows each point as a small square at the end of a dashed
+line. The squads get out there, or earlier if their carrier (or one within 300 m) is hit, if the crew knows enemy
+men within 400 m or sees an enemy hull within 600 m, or after five minutes; then they assault on foot as any squad
+does: rushes by halves, the last stretch together. The empty carrier **falls back a little** to a support-by-fire
+post (a diamond on the map): a spot about 20-140 m behind where it let them out from which its sight sees at least a
+quarter of the objective, preferably one where only its turret shows, not within 300 m of enemy men it knows (rocket reach) and
+never within 200 m of the objective. From there it fires every 20 s at the enemy its side knows on the objective (only
+those its gun has a line to, never near its own men); when its squads get within 200 m it shifts its fire to the far
+half, within 100 m it lifts it altogether, and says so on the radio. Russian carriers then follow their squads about
+150 m behind, post to post; German ones stay on their post (each side's doctrine). When the squads are done: if one
+of them stands on the objective, the vehicles close up to 60 m short of it; if not, they go to their squads to pick
+them up. A hull with nobody aboard (a tank, an empty carrier) **assaults by fire**: it goes to a post about 250 m out
+and fires on the objective, but never drives onto it without infantry. At night the post must lie within the
+hull's night sight of the objective (a thermal sight reaches as far as the gun; the BMP-2's image intensifier about
+850 m), so a hull without a good night sight moves closer, never inside 200 m. The card shows the hull's part
+("driving to the dismount point", "squads getting out", "supporting by fire"). Any new move, halt or assault order to
+a unit takes it out of the drill. The AI commander's attack uses the same dismount points and support posts (its
+carriers stop and back to a post as soon as their squad is out, instead of driving on empty). Lab: `npm run lab --
+mounted-assault`. A built-up objective (a building, or a village: 8 houses or 4 % of the ground covered within 120 m)
+gets a shorter dismount distance from the faction's doctrine (DE 150 m, RU 200 m, against 300 / 400 m in the open):
+the houses hide the last stretch, so the carriers drive to the last covered spot at their edge. Their support posts
+may then stand closer (100 m from the objective) and must see into the streets round it. Enemy men known close to a
+riding carrier get its squads out early only when they are nearer than the dismount distance plus 50 m; a hit on the
+carrier or one within 300 m still gets them out at once. A carrier jammed among the others is sent on again twice
+before its squads get out where it stands.
+
+**Area fire and air burst (balance pass 5, the owner's request).** A vehicle crew that has lost sight of enemy men
+does not go quiet at once: under the fire rule "free" it keeps firing at the places its men last knew them. Each
+such place is a circle round where the men were last seen or reported (their spread plus how far they may have
+moved since), with a weight that halves every 45 s (twice for a man who was firing) and is dropped after two minutes
+or once its weight falls below 0.4 (one man unseen for about a minute). A cannon fires a short burst at a random point of the circle every 20 s divided by the
+weight (at least every 6 s); a tank's main gun fires only at a heavy place (a group, or a firing machine gun), one
+round every 45 s; otherwise the machine gun beside it. Half of each ready belt is kept for enemies it can see
+(ammunition rule "max": none kept; "conserve": no area fire at all), and nothing is fired at a place within 60 m (or
+the round's danger radius) of own men, with own men in the line, or under the rules "return" or "hold". A support
+post of the mounted assault with no enemy known on the objective fires at the objective itself the same way. Where
+the real round has a programmable fuze, the crew sets it to **burst in the air**: the Puma's 30 mm KETF round
+bursts about 15 m short of the laser range and throws its 162 tungsten pellets forward in a narrow cone; the
+Leopard's DM11 bursts 3 m over the point and throws its fragments all round. A seen man in the open gets the air
+burst too; one in a building gets the impact setting. The BMP-2, the T-72B3M, the T-90M and the wheeled carriers fire
+impact-fused high explosive (no source for an air-burst fuze on their rounds yet). The player can pick "Gun: HE air
+burst" in the Fire tray of a hull that has it. Lab: `npm run lab -- areafire`.
+
+**How the two sides compare (balance pass 5).** In the mounted platoon battle by day the German attack in Pumas wins
+about three times in four and the Russian attack in BMP-2s with two T-72B3M about half the time. The differences are
+the real vehicles': the Puma's 30 mm armour-piercing round goes through a BMP-2 from any side, its air-burst round and
+fire control hit men out to a kilometre, and its thermal sight finds men the BMP-2's gunner cannot see; the BMP-2's
+Konkurs missile and the Russian tanks are what kill Pumas. In the campaign this shows more strongly than in one
+battle: the Germans win their operations and the Russians, as the player, lose theirs, because even the smallest German
+force the campaign sends (one Puma platoon with its company headquarters) beats a motor rifle company.
+
 **Guns (M7.3).** Each vehicle has a turret with a 30 mm cannon (armour-piercing and high-explosive rounds on two
 ready belts) and a machine gun beside it. Every round is counted: off the ready belt as it is fired, and when a
 belt runs low and the vehicle is standing still, the crew refills it from the rounds stowed in the hull (about

@@ -696,6 +696,10 @@ export interface Unit {
   asset?: OffMapKind;
   /** Getting in or out of a vehicle (M7.2); not a drill. */
   boarding?: Boarding;
+  /** A mounted assault this unit was ordered (balance pass 5, owner 2026-11-20; systems/assault-mounted.ts): its
+   *  carriers drive the squads to their dismount points, let them out for the assault on foot and support them by fire.
+   *  Absent: none. */
+  mountedAssault?: MountedAssault;
   /**
    * The house this unit last left on its own (M7.5e step "leave"): the building's id, when, and why. Its own rules
    * keep it out of that house for `soldier.houseReenterSeconds`. Absent: none.
@@ -897,6 +901,14 @@ export interface FireTask {
    *  (every two seconds while he fires), and whether a breach was already recorded for this task (once per task). */
   lawTick?: number;
   breached?: true;
+  /**
+   * Area fire (balance pass 5, vehicle stations): fire at a place enemy men were last known, a circle of `r` m round
+   * (x, y) of weight `w` (gunnery.areaFire); one burst every `every` s, each at the point (x + ox, y + oy) of the
+   * circle drawn for it.
+   */
+  area?: { r: number; w: number; every: number; ox: number; oy: number };
+  /** Balance pass 5: the round's programmed fuze set to air burst (a round with an `airburst` setting). */
+  fuse?: "airburst";
 }
 
 // ---------------------------------------------------------------- vehicles (M7, schema 16)
@@ -905,6 +917,58 @@ export type VehicleStatus = "ok" | "immobilised" | "disarmed" | "abandoned" | "d
 export type { StationKind };
 
 /** Drive state of a vehicle: everything history-dependent the drive model needs (rule 1). */
+/**
+ * One carrier (or hull) of a mounted assault (balance pass 5, systems/assault-mounted.ts). Phases: "drive" to the
+ * dismount point (`dx, dy`; with no squads: the stand-off point it fires from), "dismount" (its squads getting out),
+ * "support" (on or going to its support-by-fire post, firing on the objective), "done" (out of it: lost, or the
+ * assault ended).
+ */
+export interface MountedAssaultCarrier {
+  vehicle: EntityId;
+  crew: EntityId;
+  /** Foot units it carries into the assault (they get the assault drill once out); empty: assault by fire. */
+  squads: EntityId[];
+  /** Foot units it lets out with no drill (a platoon's headquarters). */
+  others: EntityId[];
+  /** drive, cover (balance pass 5 review, MH4: hit or threatened on the way in, smoke out and into the nearest spot
+   *  hidden from the enemy it knows before the squads get out), dismount, support, done. */
+  phase: "drive" | "cover" | "dismount" | "support" | "done";
+  /** Why it is in cover (the dismount reason it lets them out with). */
+  coverWhy?: string;
+  dx: number; dy: number;
+  phaseTick: number;
+  /** Where it let its squads out: its distance to the objective then, m (-1: not yet). */
+  dismountAtM: number;
+  /** Its support-by-fire post (absent: not sited yet; null: none found, it stays where it is). */
+  post?: { x: number; y: number; facing: number } | null;
+  /** Its last fire order on the objective (tick). */
+  fireTick: number;
+  /** Fire shifted (1) or lifted (2) for the squads closing in (said once each). */
+  lifted: number;
+  /** "follow" doctrine: the squads' place it last moved for. */
+  followAt?: [number, number];
+  /** The enemy it was last put on (each hull its own target first). */
+  fireAt?: EntityId;
+  /** Times its drive was sent on again after it gave up short of the dismount point (`driveRetries`). */
+  retries?: number;
+  /** The share of the objective's points its post sees (the `assault.supportPost` event; labs). */
+  postSeen?: number;
+}
+
+/** A mounted assault (balance pass 5): the objective, the way in (unit vector), when it was ordered, its hulls and the
+ *  foot units that assault (riders and those already on foot). */
+export interface MountedAssault {
+  x: number; y: number; building?: number;
+  ux: number; uy: number;
+  startTick: number;
+  /** The objective is built-up (`isBuiltUp`): the urban dismount distance, threat and post values apply. */
+  urban?: boolean;
+  /** The dismount distance in force (worked out once when ordered, `dismountDistance`), m. */
+  dismountM?: number;
+  carriers: MountedAssaultCarrier[];
+  squads: EntityId[];
+}
+
 export interface DriveState {
   /** Tracked: ground speed of each track (signed m/s, + forward). Body speed and yaw rate follow from them. */
   trackL: number; trackR: number;
@@ -923,6 +987,9 @@ export interface DriveState {
   endHeading: number | null;
   arrived: boolean;
   holdForDismount: boolean;
+  /** Balance pass 5 (F1): halted for the crew's own missile launch and guidance until this tick (route kept). Absent
+   *  normally. */
+  fireHoldUntilTick?: number;
   /** Consecutive ticks the hull was blocked; re-plans since the order. */
   stuckTicks: number; replans: number;
   /** Getting clear after striking something (M7.1c): a small move held until `untilTick`. Absent normally. */
@@ -1063,6 +1130,9 @@ export interface VehicleState {
   crewReaction: "continue" | "reverseOut" | "bailOut" | null; reactionTick: number;
   reactionWhy: string[];
   lastHitTick: number; lastPenTick: number; hitsThisTick: number;
+  /** Balance pass 5 review (M6): the last hit by an enemy cannon round (20 mm and up), rocket or missile: what gets
+   *  riders out of their carrier (rifle and machine-gun hits do not). Absent: none yet. */
+  lastHeavyHitTick?: number;
   /** Last hit by a rocket or other shaped charge, through or not (M7.4b; since 2026-11-13 no reason by itself to
    *  reverse out: a rocket that bounces off does not drive the crew back). */
   lastShapedHitTick: number;

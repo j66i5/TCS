@@ -20,6 +20,9 @@ export interface ProjectilePool {
   /** Entity that fired it (0 = none). */
   owner: Int32Array;
   bornTick: Int32Array;
+  /** Balance pass 5 (area fire): the tick a programmed (air-burst) fuze sets the round off; 0 = none. Only explosive
+   *  rounds read it. Saved only when any live row has one (states without air bursts hash as before). */
+  burstTick: Int32Array;
   /**
    * Debug guard (derived, never saved; plan C45): while `inLoop` is set (the projectile loop runs), every add is
    * counted in `loopAdds`, which must stay 0 (adding inside the loop may reallocate the arrays it holds).
@@ -33,6 +36,7 @@ export function createProjectilePool(capacity = 1024): ProjectilePool {
     x: new Float64Array(capacity), y: new Float64Array(capacity), z: new Float64Array(capacity),
     vx: new Float64Array(capacity), vy: new Float64Array(capacity), vz: new Float64Array(capacity),
     ammo: new Uint16Array(capacity), owner: new Int32Array(capacity), bornTick: new Int32Array(capacity),
+    burstTick: new Int32Array(capacity),
   };
 }
 
@@ -43,6 +47,7 @@ function grow(p: ProjectilePool): void {
   const am = new Uint16Array(cap); am.set(p.ammo); p.ammo = am;
   const ow = new Int32Array(cap); ow.set(p.owner); p.owner = ow;
   const bt = new Int32Array(cap); bt.set(p.bornTick); p.bornTick = bt;
+  const bu = new Int32Array(cap); bu.set(p.burstTick); p.burstTick = bu;
 }
 
 /** Make room for `extra` more projectiles (so a burst can write its fragments straight into the arrays). */
@@ -59,7 +64,7 @@ export function addProjectile(
   if (p.count >= p.x.length) grow(p);
   const i = p.count++;
   p.x[i] = x; p.y[i] = y; p.z[i] = z; p.vx[i] = vx; p.vy[i] = vy; p.vz[i] = vz;
-  p.ammo[i] = ammoIndex; p.owner[i] = owner; p.bornTick[i] = tick;
+  p.ammo[i] = ammoIndex; p.owner[i] = owner; p.bornTick[i] = tick; p.burstTick[i] = 0;
   return i;
 }
 
@@ -69,7 +74,7 @@ export function removeProjectile(p: ProjectilePool, i: number): void {
   if (i !== last) {
     p.x[i] = p.x[last]!; p.y[i] = p.y[last]!; p.z[i] = p.z[last]!;
     p.vx[i] = p.vx[last]!; p.vy[i] = p.vy[last]!; p.vz[i] = p.vz[last]!;
-    p.ammo[i] = p.ammo[last]!; p.owner[i] = p.owner[last]!; p.bornTick[i] = p.bornTick[last]!;
+    p.ammo[i] = p.ammo[last]!; p.owner[i] = p.owner[last]!; p.bornTick[i] = p.bornTick[last]!; p.burstTick[i] = p.burstTick[last]!;
   }
 }
 
@@ -84,12 +89,16 @@ export interface SerializedProjectiles {
   count: number;
   x: number[]; y: number[]; z: number[]; vx: number[]; vy: number[]; vz: number[];
   ammo: number[]; owner: number[]; bornTick: number[];
+  /** Balance pass 5: present only when a live row has a programmed burst. */
+  burstTick?: number[];
 }
 
 export function serializeProjectiles(p: ProjectilePool): SerializedProjectiles {
   const n = p.count;
   const a = (t: Float64Array | Uint16Array | Int32Array) => Array.from(t.subarray(0, n));
-  return { count: n, x: a(p.x), y: a(p.y), z: a(p.z), vx: a(p.vx), vy: a(p.vy), vz: a(p.vz), ammo: a(p.ammo), owner: a(p.owner), bornTick: a(p.bornTick) };
+  let anyBurst = false;
+  for (let i = 0; i < n; i++) if (p.burstTick[i] !== 0) { anyBurst = true; break; }
+  return { count: n, x: a(p.x), y: a(p.y), z: a(p.z), vx: a(p.vx), vy: a(p.vy), vz: a(p.vz), ammo: a(p.ammo), owner: a(p.owner), bornTick: a(p.bornTick), ...(anyBurst ? { burstTick: a(p.burstTick) } : {}) };
 }
 
 export function deserializeProjectiles(s: SerializedProjectiles | undefined): ProjectilePool {
@@ -100,5 +109,6 @@ export function deserializeProjectiles(s: SerializedProjectiles | undefined): Pr
   p.count = s.count;
   p.x.set(s.x); p.y.set(s.y); p.z.set(s.z); p.vx.set(s.vx); p.vy.set(s.vy); p.vz.set(s.vz);
   p.ammo.set(s.ammo); p.owner.set(s.owner); p.bornTick.set(s.bornTick);
+  if (s.burstTick) p.burstTick.set(s.burstTick);
   return p;
 }

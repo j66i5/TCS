@@ -44,7 +44,7 @@ import { heightAt, segmentsInRectInto, standZ } from "../terrain";
 import type { SpottingConcealDef, SpottingDef, VehicleDef } from "../catalog";
 import type { DroneState, VehicleState } from "../components";
 
-import { canFight } from "./gunnery";
+import { canFight, fireAndForget } from "./gunnery";
 import { compCondition, onRoof } from "../mount";
 
 /** How big an angle (radians, 0..PI) lies between heading `h` and bearing `b`. */
@@ -632,20 +632,45 @@ function vehicleSeeable(v: VehicleState | undefined): boolean {
   return v !== undefined && v.status !== "destroyed" && v.status !== "abandoned" && !isOffMap(v);
 }
 
+/**
+ * Balance pass 5 (F3): does a hull show itself firing (its signature's firingFactor, its heat): a shot within
+ * `firingTicks` (at least the time between two looks for vehicles, `vehicleFiringTicks`), or a wire- or beam-guided
+ * missile its gunner guides now.
+ */
+export function vehicleShowsFiring(v: VehicleState, tick: number, firingTicks: number): boolean {
+  if (!canFight(v)) return false;
+  for (const st of v.stations) {
+    if (st.guide && !fireAndForget(st.guide.kind)) return true;
+    for (const w of st.weapons) if (tick - w.lastShotTick <= firingTicks) return true;
+  }
+  return false;
+}
+
+/** Balance pass 5 (F3): how long after a shot a hull counts as firing, ticks. */
+export function vehicleFiringTicks(D: SpottingDef): number {
+  return Math.max(secondsToTicks(D.firingWithinSeconds), VEHICLE_SCAN_EVERY * secondsToTicks(D.scanSeconds));
+}
+
 /** Every vehicle that can be seen this scan, ID order. */
 function vehicleTargets(ctx: SimContext, state: SimState): VehTarget[] {
   const D = ctx.catalog.spotting, tick = state.tick, light = state.environment.light;
   const out: VehTarget[] = [];
   const flaring = state.flares !== undefined && state.flares.length > 0;
+  const flashTicks = secondsToTicks(D.firingWithinSeconds);
+  const firingTicks = vehicleFiringTicks(D);
   for (const [vid, v] of state.vehicle.entries()) {
     if (!vehicleSeeable(v)) continue; // off-map: ok vehicleSeeable is false off the map
     const def = ctx.catalog.vehicles[v.def], t = state.transform.get(vid);
     if (!def || !t) continue;
-    const firing = canFight(v) && v.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= secondsToTicks(D.firingWithinSeconds)));
+    // Balance pass 5 (F3): a hull counts as firing (the signature's firingFactor, its heat) for at least the time
+    // between two looks for vehicles (`VEHICLE_SCAN_EVERY` scans), so a single shot is not missed by half of them,
+    // and for the whole flight of a wire- or beam-guided missile its gunner guides. The flash stays the shot's own.
+    const firing = vehicleShowsFiring(v, tick, firingTicks);
+    const flashing = light < 1 && canFight(v) && v.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= flashTicks));
     const moving = Math.abs(v.drive.speed) > D.vehicles.movingAboveMps;
     // Night (M9.1): a gun flash lights the hull for every observer up to vehicleFlashLight (a night sight or
     // thermal no better); 0 by day.
-    const flash = firing && light < 1 ? D.night.vehicleFlashLight : 0;
+    const flash = flashing ? D.night.vehicleFlashLight : 0;
     // Heat (M9.2): hot while it moves and for `hotSeconds` after (tracks, engine, exhaust); halted longer, it has
     // cooled (its engine idling shows less than a hull just driven).
     const TH = D.thermal;

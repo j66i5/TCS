@@ -45,6 +45,7 @@ import { deliverySystem } from "./systems/delivery";
 import { mortarFetchSystem, rearmSystem } from "./systems/rearm";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
+import { mountedAssaultSystem } from "./systems/assault-mounted";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
 import { initObjectives, objectiveSystem } from "./systems/objectives";
 import { exitSystem } from "./systems/exits";
@@ -199,6 +200,7 @@ export function step(sim: Sim): SimEvent[] {
   decisionSystem(ctx, state, events);
   stationDecisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);
+  mountedAssaultSystem(ctx, state, events); // (balance pass 5)
   // Getting in and out of vehicles, seat swaps (M7.2; returns at once without vehicles).
   boardingSystem(ctx, state, events);
   if (ctx.rules.exits !== undefined && ctx.rules.exits.length > 0) exitSystem(ctx, state, events); // (M12.0b)

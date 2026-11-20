@@ -126,6 +126,8 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     riders: (crew: EntityId) => ridersIn(sim, crew),
     showRules: () => hud.showRules(),
     assault: (x: number, y: number) => issue(a, { ...to(), kind: "assault", x, y }),
+    /** Balance pass 5 (screenshots): the selected unit's fire rule. */
+    fireRule: (fire: "free" | "return" | "hold") => issue(a, { ...to(), kind: "rules", fire }),
     posture: (p: "standing" | "crouching" | "prone") => issue(a, { ...to(), kind: "posture", posture: p }),
     setDebug,
     tap: (x: number, y: number) => issue(a, { ...to(), kind: "move", waypoints: [{ x, y, mode: a.pace }], ...(a.formation ? { formation: a.formation } : {}) }),
@@ -133,7 +135,7 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     /** Vehicles (M7.3): smoke screen, and the gun and round of the next fire order (screenshots). */
     discharge: () => issue(a, { ...to(), kind: "discharge" }),
     halt: () => issue(a, { ...to(), kind: "halt" }),
-    fireNature: (x: number, y: number, n: "ap" | "he" | "mg" | "at", contact?: number) => issue(a, { ...to(), kind: "fire", x, y, nature: n, ...(contact !== undefined ? { contact } : {}) }),
+    fireNature: (x: number, y: number, n: "ap" | "he" | "mg" | "at", contact?: number, fuse?: "airburst" | "impact") => issue(a, { ...to(), kind: "fire", x, y, nature: n, ...(contact !== undefined ? { contact } : {}), ...(fuse !== undefined ? { fuse } : {}) }),
     focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM, hud.insets()),
     /** M7.5b screenshots: centre at a zoom (px/m); the zoom level shown; a roof's alpha. */
     focusScale: (x: number, y: number, scale: number) => { renderer.focusScale(x, y, scale, hud.insets()); void renderer.primeDetail(); },

@@ -160,14 +160,14 @@ describe("platoons with vehicles (M7.2)", () => {
     }
   });
 
-  it("a hit on a hull gets its men out at once (polled lastHitTick), before the vehicles arrive", () => {
+  it("a hit on a hull gets its men out at once (polled lastHeavyHitTick: a cannon round, rocket or missile), before the vehicles arrive", () => {
     const input = buildScenario(data, def(1));
     let hitTick = -1;
     const { events, sim: done } = play(input, 40, (sim) => {
       if (hitTick < 0 && sim.state.tick === 10 * 60) {
         // A round struck the first Puma (as the projectile system records it).
         const v = [...sim.state.vehicle.values()].find((x) => x.side === "blue")!;
-        v.lastHitTick = sim.state.tick; hitTick = sim.state.tick;
+        v.lastHitTick = sim.state.tick; v.lastHeavyHitTick = sim.state.tick; hitTick = sim.state.tick;
       }
     });
     const out = events.find((e) => e.kind === "unit.dismounted");

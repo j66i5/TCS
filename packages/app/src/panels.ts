@@ -65,10 +65,25 @@ export function showCard(a: App, tiles: UnitTile[] = unitTiles(a.sim.state, a.pl
     const rounds = l ? teamRounds(a.sim.state, uid, l.def.round) : 0;
     state += ` · ${a.strings.t("card.teamRow")}: ${a.strings.t(mt.guide ? "card.team.guiding" : `card.team.${mt.state}`, { rounds })}`;
   }
+  // Balance pass 5: a mounted assault under way: the hull's part (its own, or the first still going of the unit's).
+  const ph = mountedAssaultPhase(a, uid);
+  if (ph !== null) state += ` · ${a.strings.t("card.assaultRow")}: ${a.strings.t(`card.assault.${ph}`)}`;
   // (The same callsign in two platoons: "1/Puma 2", as on the map; review fix.)
   hud.setCard({ callsign: shownCallsigns(a.sim.state.unit.entries()).get(uid) ?? tile.callsign, ...(hq ? { badge: a.strings.t("side.hq") } : {}), fit: tile.fit, total: tile.total, state, men, guns: vehicleGuns(a.sim.state, a.input.catalog, uid), ...((f) => (f ? { fuel: f } : {}))(vehicleFuel(a.sim.state, a.input.catalog, uid)), ...(a.sim.state.unit.get(uid)?.supplyAsk?.pending === true ? { supplyAsk: true } : {}), ...((t) => (t !== null ? { prisoners: t } : {}))(prisonerCardText(a.strings, prisonerSummary(a.sim.state, uid))) });
   hud.setInspected(a.inspected);
   hud.showMan(a.inspected === null ? null : manDetail(a.sim.state, a.input.catalog, a.inspected));
+}
+
+/** Balance pass 5: the phase of the mounted assault this unit holds or one of whose hulls it crews, or null. */
+function mountedAssaultPhase(a: App, uid: EntityId): string | null {
+  const st = a.sim.state;
+  const own = st.unit.get(uid)?.mountedAssault;
+  if (own) return own.carriers.find((c) => c.phase !== "done")?.phase ?? null;
+  for (const [, u] of st.unit.entries()) {
+    const c = u.mountedAssault?.carriers.find((k) => k.crew === uid);
+    if (c) return c.phase === "done" ? null : c.phase;
+  }
+  return null;
 }
 
 /** Select a unit (or none) and refresh the order bar, sidebar and card. */

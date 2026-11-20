@@ -18,7 +18,8 @@
  * Each tank moves to its post (reversing when the post lies behind its front), then relocates to the next post on a
  * hit that did not get through, after its smoke drill, after `shotsPerPost` main-gun rounds, when an enemy man is
  * known within `atStandoffM` (the post farthest from him, or straight back), or when threat cover comes within the
- * standoff of its post (the section re-sites). It pulls back once (`pullBackM`, sited again, `pullRangeM` and out)
+ * standoff of its post (the section re-sites), or (an attacker's, balance pass 5) after `idleRelocateSeconds` on its
+ * post with no shot. It pulls back once (`pullBackM`, sited again, `pullRangeM` and out)
  * when its gun is out of rounds, disarmed or its front reactive tiles are below `eraLowShare`, with an enemy man
  * known within `atKnownM` or a launch seen. Its front faces the enemy vehicle it knows within reach, else the
  * targets' middle. Target choice stays with gunnery (sim).
@@ -37,7 +38,7 @@ export const TANKS = {
   enemyCoverSeconds: 60, enemyNearCoverM: 100, enemyClearSeconds: 60, enemyClearM: 60, frontSlackM: 30, coverMinHeightM: 1.8,
   shotsPerPost: 3, carrierPair: 2, samePostM: 30, arrivedM: 15, resendSeconds: 30, carrierWaitSeconds: 180, defenceEngageM: 1500, pullBackM: 250,
   pullRangeM: 600, eraLowShare: 0.25, atKnownM: 500, coverCellM: 10, rangeM: [150, 2500], beyondM: 150, defenceBehindM: 50,
-  pullRingsM: [0, 40, 80], stuckSeconds: 5, blockedSeconds: 20, progressM: 20, turnDeg: 40, resiteSeconds: 60, withdrawHoldSeconds: 60, reverseMaxM: 150, launchSeenSeconds: 60, menSeenSeconds: 60,
+  pullRingsM: [0, 40, 80], idleRelocateSeconds: 60, stuckSeconds: 5, blockedSeconds: 20, progressM: 20, turnDeg: 40, resiteSeconds: 60, withdrawHoldSeconds: 60, reverseMaxM: 150, launchSeenSeconds: 60, menSeenSeconds: 60,
 } as const;
 
 /** One tank's memory: its posts [x, y, facing], the post it holds or goes to, the stage they were sited for, when it
@@ -45,6 +46,8 @@ export const TANKS = {
 export interface TankMem {
   posts: [number, number, number][]; post: number; stage: string; sent: number; seenHit: number; seenSmoke: number;
   shots: number; lastShot: number; reached?: true; pulled?: true; back?: true;
+  /** Balance pass 5 (F7): the last tick it was on its way (an attacker's tank idle on its post since then moves on). */
+  idleFrom?: number;
   /** Review fix: posts in a row it could not get to (stood still short of it after an order); `stuck`: all of them
    *  failed, the carriers no longer wait for it. */
   failed?: number; stuck?: true;
@@ -428,6 +431,12 @@ export function tankSections(a: TankArgs): number {
         m.sent = -1e9; m.shots = 0;
         relocate = false;
       }
+      // Balance pass 5 (F7): (e) an attacker's tank that has fired nothing for `idleRelocateSeconds` on its post (since
+      // it got there or last fired) takes its next post: another view over the targets (it sat idle with live enemy
+      // hulls out of its sight).
+      const onWay = !q.v.drive.arrived && q.v.drive.routeIdx < q.v.drive.route.length;
+      if (onWay || m.idleFrom === undefined) m.idleFrom = tick;
+      if (!a.defending && !onWay && m.reached && tick - Math.max(m.idleFrom, m.lastShot) >= T.idleRelocateSeconds * 60) { relocate = true; m.idleFrom = tick; }
       if (relocate && m.posts.length > 1) { m.post = nextPost(q.c, m); m.sent = -1e9; m.shots = 0; }
       else if (relocate) m.shots = 0;
       const moving = !q.v.drive.arrived && q.v.drive.routeIdx < q.v.drive.route.length;

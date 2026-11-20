@@ -176,6 +176,26 @@ describe("missile teams (M9.3b)", () => {
     expect(ordersToTeam(true)).toBe(0);
   });
 
+  it("balance pass 5 (F6): a team set up on its post that launches nothing for mtRepostSeconds moves on to its next post", () => {
+    const sc = getScenario("platoon-vehicles");
+    const input = sc.build(data, 1, 600);
+    const sim = createSim(input);
+    const ctrls = sc.controllers!(input);
+    const team = teamOf(sim);
+    const red = ctrls.find((c) => c.side === "red")!;
+    let readyAt = -1, moved = -1;
+    for (let k = 0; k < 500 * TICK_HZ && moved < 0; k++) {
+      for (const c of ctrls) for (const o of c.think(sim.state, sim.state.tick)) submitOrder(sim, o);
+      step(sim);
+      const mt = sim.state.unit.req(team).missileTeam!;
+      if (mt.state === "ready" && readyAt < 0) readyAt = sim.state.tick;
+      const m = (red.saveState!() as { mt?: Record<string, { post: number }> }).mt?.[String(team)];
+      if (m && m.post > 0 && mt.lastLaunchTick < 0) moved = sim.state.tick;
+    }
+    expect(readyAt).toBeGreaterThan(0);
+    expect(moved).toBeGreaterThan(readyAt);
+  });
+
   it("does not fire with a comrade in the danger zone behind the post", () => {
     const { input } = teamSetup(data, 1000, 6);
     // The team's other men 8 m behind the gunner (west of him; he faces east).

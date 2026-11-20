@@ -5,6 +5,14 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 5, 3A the mounted assault (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: the
+  mounted assault").** Assault to riders, a hull or a platoon with carriers: carriers to dismount points (doctrine
+  distance, terrain-aware), squads out into the foot drill, hulls back to support-by-fire posts and fire on the
+  objective (shift, lift), close up when taken; no riders: assault by fire from ~250 m. `systems/assault-mounted.ts`;
+  `dismountSpot` / `siteSupportPost` shared with the AI commander (its carriers now stop and back once their squad is
+  out). UI: Assault on a hull's bar, card phase, map markers. Lab `npm run lab -- mounted-assault`; screenshots
+  `--scene assault-mounted`. Next in the pass: 3B area fire (HE / air burst), then the measurement (plan section 4).
+  Earlier the same day: the fix list F0-F10 (DECISIONS "Balance pass 5: Germany against Russia").
 - **M12 review fixes (2026-11-20, branch `claude/m12`; DECISIONS "M12 review fixes").** Three independent reviews
   (rules, behaviour, code). Fixed: `deployableMen` (crews of workshop or lost hulls are not counted anywhere the choice
   is made, `ableShare` too; a flank company that cannot fight drops the flank battle; `battleInputs` re-validates the

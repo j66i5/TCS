@@ -33,6 +33,7 @@ import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { isAble } from "../impair";
+import { isOffMap } from "../offmap";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin } from "../math";
 import { carrierHitNear } from "../mount";
@@ -487,7 +488,7 @@ export function mountedAssaultSystem(ctx: SimContext, state: SimState, events: E
 function stepAssault(ctx: SimContext, state: SimState, events: EventSink, holder: EntityId, u: Unit, ma: MountedAssault, P: MountedAssaultDef): void {
   const hitTicks = secondsToTicks(P.hitRecentSeconds);
   const hit: EntityId[] = [];
-  for (const [vid, v] of state.vehicle.entries()) if (v.side === u.side && state.tick - v.lastHitTick <= hitTicks) hit.push(vid);
+  for (const [vid, v] of state.vehicle.entries()) if (!isOffMap(v) && v.side === u.side && state.tick - v.lastHitTick <= hitTicks) hit.push(vid);
   const { follow } = doctrineOf(ctx, u);
   for (const c of ma.carriers) {
     if (c.phase === "done") continue;

@@ -14,7 +14,11 @@ DECISIONS.md under its date._
   checks on load, string-table keys for choice problems and "Make leader" refusals, Save / home on the briefing and
   replenishment, workshop hulls refilled at replenishment, endless steps kept to the last 30. M12 is 🟡 in ROADMAP
   until the owner's phone test and his DE/RU balance answer. `fightingValue` DE 3.0 is a placeholder for the
-  mounted-battle balance pass (Puma vs BMP-2), not a measured value.
+  mounted-battle balance pass (Puma vs BMP-2), not a measured value. Checks 2026-11-20: typecheck, lint, data lint
+  clean; `npm test` 202 files, 1670 passed, 6 skipped; `npm run e2e:campaign` 12 checks; `--scene campaign` shots
+  looked at (phone, both looks). `test:perf` (alone): 21 of 25; the spotting bench 7.6x, its smoke variant 7.7x,
+  bench-vehicles 8.0x (7.98) and bench-tanks 7.95x miss the 8x floor; main 828e4e0 run alone right after: 7.8x, 7.5x,
+  7.5x on the first three. No sim, AI or scenario code changed since M12.4: the container.
 - **M12.4 built (2026-11-20, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.7).** Faction
   `fightingValue` (`factions/<id>/campaign.json`, outside the catalog; DE 3.0, RU and xf 1.0) weighs the enemy's
   commitment and can shrink its caps (`battle.enemyCapScale` 1.0: never past a company; 2.0 made a node take 18.5 min

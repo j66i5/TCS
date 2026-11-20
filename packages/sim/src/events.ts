@@ -328,6 +328,12 @@ export type SimEvent =
   | { kind: "soldier.dismounted"; tick: number; soldier: EntityId; vehicle: EntityId; seat: number }
   | { kind: "unit.mounted"; tick: number; unit: EntityId; vehicle: EntityId }
   | { kind: "unit.dismounted"; tick: number; unit: EntityId; vehicle: EntityId }
+  /** Mounted assault (balance pass 5): a carrier's dismount point, where it let its squads out (its distance to the
+   *  objective then), its support-by-fire post, and the end of its part (taken: a man of its squads on the objective). */
+  | { kind: "assault.dismountPoint"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number }
+  | { kind: "assault.dismounted"; tick: number; unit: EntityId; vehicle: EntityId; distM: number }
+  | { kind: "assault.supportPost"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number }
+  | { kind: "assault.ended"; tick: number; unit: EntityId; vehicle: EntityId; taken: boolean }
   /** A crewman took over the seat of a fallen one (M7.2); the casualty stays aboard in the seat he left. */
   | { kind: "vehicle.seatSwap"; tick: number; vehicle: EntityId; seat: number; soldier: EntityId; casualty: EntityId }
   /** A vehicle's smoke dischargers fired (M7.3): the screen's centre. */

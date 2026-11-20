@@ -100,3 +100,4 @@ export * from "./ledger";
 export { REFILL_ACTION, refillChoice } from "./systems/refill";
 export { inPosition, positionAt, rimHeight, rimStops, positionsSystem } from "./positions";
 export * from "./hulldown";
+export { dismountSpot, hiddenFrom, hullHeights, mountedAssaultDef, objectiveRing, supportPost, supportReachM } from "./systems/assault-mounted";

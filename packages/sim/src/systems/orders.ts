@@ -42,6 +42,7 @@ import { startAction } from "../actions";
 import { noteVehicleOrder, vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./drive";
 import { dischargeSmoke, stationCeaseFire, stationFireOrder, vehicleHasMissiles } from "./gunnery";
 import { boardingOrder, dismountThen, hasRiders, leaveBoarding } from "./boarding";
+import { leaveMountedAssault, mountedAssaultApplies, startMountedAssault } from "./assault-mounted";
 import { secondsToTicks } from "../ids";
 import type { Contact, Unit } from "../components";
 import type { SimState } from "../state";
@@ -228,7 +229,10 @@ function orderApplies(ctx: SimContext, state: SimState, o: Order): boolean {
   const vid = state.unit.get(o.target)?.vehicle;
   const crew = vid !== undefined;
   switch (o.kind) {
-    case "posture": case "assault": case "withdraw": case "grenade": case "occupy": case "defendArc":
+    case "assault":
+      // (Balance pass 5: a crew's assault is the mounted one: its passengers', else assault by fire.)
+      return !crew || ctx.catalog.behaviour.mounting.mountedAssault !== undefined;
+    case "posture": case "withdraw": case "grenade": case "occupy": case "defendArc":
       return !crew;
     case "fire":
       // A crew has no launcher (M7.4a), unless its vehicle carries guided missiles (owner 2026-11-13).
@@ -354,6 +358,8 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
  * they go, and the move must still come. A fire order is in the set because it stops them: were the older move
  * left pending, it would later end the newer fire task and walk them off, the reverse of the order given.
  */
+/** Orders that take a unit out of a mounted assault under way (balance pass 5). */
+const LEAVES_MOUNTED_ASSAULT: readonly string[] = ["move", "halt", "assault", "withdraw", "occupy", "mount", "dismount", "defendArc"];
 const SUPERSEDES_HESITATION: readonly string[] = ["move", "assault", "withdraw", "occupy", "halt", "mount", "dismount", "defendArc", "fire"];
 
 /**
@@ -495,6 +501,18 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   resupplyGate(state, events, order);
   // Field repair (M11.7a): the crew's own task on its hull.
   if (order.kind === "repair") return repairOrder(ctx, state, events, state.unit.req(order.target).vehicle!);
+  // Mounted assault (balance pass 5): an order that moves or stops a unit takes it (and its sub-units) out of a
+  // mounted assault under way; an assault to riders, a crew or a platoon with carriers takes the mounted form.
+  if (isUnit && !afterDismount && LEAVES_MOUNTED_ASSAULT.includes(order.kind)) {
+    const out = new Set<EntityId>();
+    forTree(state, order.target, own, (_x, id) => { out.add(id); }, true);
+    leaveMountedAssault(state, out);
+  }
+  if (mountedAssaultApplies(ctx, state, order, afterDismount)) {
+    if (own) clearOwn(state, order.target, state.unit.req(order.target).members);
+    else forTree(state, order.target, false, clearDrill);
+    return startMountedAssault(ctx, state, events, order as Order & { kind: "assault" }, (o) => applyOrder(ctx, state, o, events, true));
+  }
   // (D4b: a halt, getting in or out, or a move of the vehicle that carries them ends an arc they were defending.)
   if (isUnit && (order.kind === "halt" || order.kind === "mount" || order.kind === "dismount" || order.kind === "move")) clearArcs(state, order.target, own);
   // A reconnaissance quadcopter (M9.4a): its own business; nobody gets out, nothing else of the unit changes.

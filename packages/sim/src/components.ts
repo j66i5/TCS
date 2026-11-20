@@ -935,6 +935,8 @@ export interface MountedAssaultCarrier {
   lifted: number;
   /** "follow" doctrine: the squads' place it last moved for. */
   followAt?: [number, number];
+  /** The enemy it was last put on (each hull its own target first). */
+  fireAt?: EntityId;
 }
 
 /** A mounted assault (balance pass 5): the objective, the way in (unit vector), when it was ordered, its hulls and the

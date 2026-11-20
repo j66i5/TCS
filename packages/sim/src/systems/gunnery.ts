@@ -1168,6 +1168,24 @@ registerActionHandler("reloadStation", {
 
 // ---------------------------------------------------------------- orders and incoming fire
 
+/**
+ * Balance pass 5 (mounted assault): would station 0's line of fire from its muzzle reach a contact of the crew (its
+ * own picture of `target`, else (x, y)) as the line check of an ordered task does? Used to put a hull only on
+ * enemies it can fire at.
+ */
+export function stationLineTo(ctx: SimContext, state: SimState, vid: EntityId, target: EntityId, x: number, y: number): boolean {
+  const v = state.vehicle.get(vid), def = v ? ctx.catalog.vehicles[v.def] : undefined;
+  if (!v || !def || v.stations.length === 0) return false;
+  const crew = v.unit !== null ? state.unit.get(v.unit) : undefined;
+  const c = crew ? crewContact(ctx, state, crew, target) : null;
+  const px = c ? c.x : x, py = c ? c.y : y;
+  const t = state.transform.req(vid);
+  const [mx, my, mz] = muzzleWorld(ctx, def, 0, 0, t.x, t.y, t.heading, v.stations[0]!.azimuth);
+  const tz = heightAt(ctx.map, px, py) + (c?.z ?? 0) + 0.6; // ground: ok (the point fired at; his floor in z)
+  const r = sight(ctx, mx, my, mz, px, py, tz, vid, state.vehicle.has(target) ? target : -1);
+  return r.blockedBy === null || (1 - r.blockedAt) * hypot2(px - mx, py - my) <= LINE_ALLOWANCE_M;
+}
+
 /** A fire order to a vehicle crew: each station that can, at the point or the named enemy, with the nature asked. */
 export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId, order: Extract<OrderBody, { kind: "fire" }>, issuer: string): true | "unable" | { unable: string } {
   const v = state.vehicle.get(vid), def = v ? ctx.catalog.vehicles[v.def] : undefined;

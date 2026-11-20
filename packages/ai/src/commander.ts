@@ -27,7 +27,7 @@ import { withDrones } from "./drone";
 import {
   atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
   positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
-  cacheHolds, carrierHitNear,
+  cacheHolds, carrierHitNear, dismountSpot, mountedAssaultDef, supportPost, supportReachM, type VehicleState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, overwatchBounds, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
@@ -163,6 +163,8 @@ interface Memory extends TanksMemory, LogisticsMemory {
   /** M7.3 after the dismount: vehicle crews set loose (fire free), where each following vehicle was last sent,
    *  and when the vehicles last got a fire order. */
   crewsFree?: boolean; followAt?: Record<string, [number, number]>; lastVehicleFire?: number;
+  /** Balance pass 5: carriers sent back to a support-by-fire post once their squad was out (crew ids). */
+  posted?: number[];
   /** M7.4b: crews that bailed out and were sent back; anti-tank tasks: the last look, each gunner's last shot
    *  order, and the men sent after a vehicle (target, since when). */
   sentBack?: number[]; lastAt?: number; atShot?: Record<string, number>; hunt?: Record<string, [number, number]>;
@@ -1517,7 +1519,17 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             // Only once the squad has moved on (and the vehicle is not on its way already).
             if (prev && hypot2(prev[0] - px, prev[1] - py) < COMMANDER.followReplanM) continue;
             if (hypot2(vt.x - px, vt.y - py) < COMMANDER.followReplanM) { mem.followAt[String(c)] = [px, py]; continue; }
-            order(c, { kind: "move", waypoints: [{ x: px, y: py, mode: "walk" }], facing: atan2(uy, ux) });
+            // (Balance pass 5: the best support-by-fire post round that point, the sim's `supportPost`; none: the point.)
+            const MA = mountedAssaultDef(ground()), def = input.catalog.vehicles[v.def];
+            let to = { x: px, y: py, facing: atan2(uy, ux) };
+            if (MA !== undefined && def && hypot2(px - tgt.x, py - tgt.y) >= MA.minObjectiveM) {
+              const ctx0 = ground();
+              const threats = all.flatMap((m) => knownMen(m)).filter((k) => k.kind !== "heard" && tick - k.tick <= MA.threatSeenSeconds * 60).map((k) => ({ x: k.x, y: k.y }));
+              const standoffM = Math.max(0, Math.min(MA.postStandoffM, hypot2(px - tgt.x, py - tgt.y) - tgt.radiusM - MA.arriveM));
+              const q = supportPost(ctx0, def, { from: { x: vt.x, y: vt.y }, anchor: { x: px, y: py }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM }, reachM: supportReachM(ctx0, def, view.environment.light), ringsM: MA.postRingsM, minSeen: MA.postMinSeen, minObjectiveM: MA.minObjectiveM, standoffM, threats });
+              if (q) to = q;
+            }
+            order(c, { kind: "move", waypoints: [{ x: to.x, y: to.y, mode: "walk" }], facing: to.facing });
             mem.followAt[String(c)] = [px, py];
           }
         } else if (!defending && input.catalog.behaviour.mounting.overwatchBound) {
@@ -1527,6 +1539,35 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             const vid = view.unit.get(c)?.vehicle;
             return vid !== undefined && ![...squads, ...topIds].some((sq) => { const u = view.unit.get(sq); return u?.carrier === vid && (riders(view, sq).length > 0 || u.boarding !== undefined); });
           });
+          // Balance pass 5 (owner 2026-11-20: "fall back slightly to provide support"): once its squad is out, each
+          // carrier backs to a support-by-fire post a little behind where it let them out (the sim's `supportPost`,
+          // shared with the player's mounted assault), once; then the bounds as before.
+          const MA = mountedAssaultDef(ground());
+          if (MA !== undefined) {
+            mem.posted ??= [];
+            const threats = all.flatMap((m) => knownMen(m)).filter((k) => k.kind !== "heard" && tick - k.tick <= MA.threatSeenSeconds * 60).map((k) => ({ x: k.x, y: k.y }));
+            const holds: { x: number; y: number }[] = [];
+            for (const c of obCrews) {
+              if (mem.posted.includes(c)) continue;
+              const vid = view.unit.get(c)?.vehicle, v = vehicleOf(c) as VehicleState | undefined, vt = vid === undefined ? undefined : view.transform.get(vid);
+              const def = v ? input.catalog.vehicles[v.def] : undefined;
+              if (!v || !vt || !def || v.status !== "ok" || (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length)) continue;
+              if (v.crewReaction === "reverseOut" && tick - v.reactionTick < COMMANDER.reverseOutHoldSeconds * 60) continue;
+              mem.posted.push(c);
+              const ctx0 = ground();
+              const dObj = hypot2(vt.x - tgt.x, vt.y - tgt.y);
+              const standoffM = Math.max(0, Math.min(MA.postStandoffM, dObj + MA.postBackM - tgt.radiusM - MA.arriveM));
+              const p = supportPost(ctx0, def, {
+                from: { x: vt.x, y: vt.y }, anchor: { x: clamp(vt.x - ux * MA.postBackM, W), y: clamp(vt.y - uy * MA.postBackM, H) },
+                obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM }, reachM: supportReachM(ctx0, def, view.environment.light), ringsM: MA.postRingsM, minSeen: MA.postMinSeen,
+                minObjectiveM: MA.minObjectiveM, standoffM, threats, avoid: holds, behind: { x: vt.x, y: vt.y, ux: -ux, uy: -uy, minM: MA.postMinBackM },
+              });
+              if (!p) continue;
+              holds.push(p);
+              const back = (p.x - vt.x) * ux + (p.y - vt.y) * uy < 0;
+              order(c, { kind: "move", waypoints: [back ? { x: p.x, y: p.y, mode: "walk", reverse: true } : { x: p.x, y: p.y, mode: "walk" }], facing: p.facing });
+            }
+          }
           if (obCrews.length > 0) {
             const ownFoot = all.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined; }).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
             overwatchBounds({ view, tick, side, ctx: ground(), objectives, mem, order, ux, uy, target: mem.target, crews: obCrews, ownFoot, bound: input.catalog.behaviour.mounting.overwatchBound, reverseHoldSeconds: COMMANDER.reverseOutHoldSeconds });
@@ -1623,18 +1664,9 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
               // The headquarters' vehicle a little behind the others.
               const hqV = topIds.some((tp) => view.unit.get(tp)?.carrier === view.unit.get(c)?.vehicle) && !squads.some((sq) => view.unit.get(sq)?.carrier === view.unit.get(c)?.vehicle);
               const behind = hqV ? 40 : 0;
-              const at = (d: number) => ({ x: clamp(tgt.x - ux * d - uy * off, W), y: clamp(tgt.y - uy * d + ux * off, H) });
-              const far = (p: { x: number; y: number }) => objectives.every((o) => hypot2(o.x - p.x, o.y - p.y) >= dismountM);
-              // The first point far enough from every objective, then up to 100 m farther back for one out of sight.
-              let k0 = 0;
-              while (k0 < 20 && !far(at(dismountM + behind + k0 * COMMANDER.dismountStepM))) k0++;
-              const first = at(dismountM + behind + k0 * COMMANDER.dismountStepM);
-              let spot: { x: number; y: number } | null = null;
-              for (let k = k0; k < k0 + COMMANDER.dismountCandidates && spot === null; k++) {
-                const p = at(dismountM + behind + k * COMMANDER.dismountStepM);
-                if (eyes.every((e) => hidden(e.x, e.y, p.x, p.y))) spot = p;
-              }
-              const p = spot ?? first;
+              // The first point far enough from every objective, then up to 100 m farther back for one out of sight
+              // (balance pass 5: the sim's `dismountSpot`, shared with the player's mounted assault).
+              const p = dismountSpot(ground(), { tgt, objectives, ux, uy, offM: off, dismountM, behindM: behind, stepM: COMMANDER.dismountStepM, candidates: COMMANDER.dismountCandidates, eyes });
               order(c, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: atan2(uy, ux) });
             });
             toAll({ kind: "rules", fire: "return" });

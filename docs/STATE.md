@@ -18,7 +18,8 @@ DECISIONS.md under its date._
   main.ts to `app/src/setup.ts` (`battleSetup`; default factions now from data, the same de/ru pair).
   `app/test/menu.test.ts`: every menu choice gives a URL the app builds a valid, running battle from (36 tests);
   `npm run e2e:menu` (Playwright flow, 10 checks) and `npm run screenshot -- --scene menu` (360x780, 780x360, desktop,
-  both looks) pass and were looked at. Checks: see DECISIONS "Start menu". Owner questions: see that entry.
+  both looks) pass and were looked at. Checks: typecheck, lint, data lint, build clean; `npm test` 1703 passed, 3
+  timed out under a busy machine and pass alone; test:perf not run (no sim code changed). Owner questions: see that entry.
 - **M12 review fixes (2026-11-20, branch `claude/m12`; DECISIONS "M12 review fixes").** Three independent reviews
   (rules, behaviour, code). Fixed: `deployableMen` (crews of workshop or lost hulls are not counted anywhere the choice
   is made, `ableShare` too; a flank company that cannot fight drops the flank battle; `battleInputs` re-validates the

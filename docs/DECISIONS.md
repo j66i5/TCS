@@ -9849,6 +9849,10 @@ remembered and "Play again", Play again reopens the same URL, the campaign's sav
 endless campaign from the menu to its briefing, "Continue the campaign". `npm run screenshot -- --scene menu`
 (phone 360 x 780 and 780 x 360 landscape, desktop 1280 x 800; photo and flat) looked at: everything fits, Start
 always reachable (sticky), the long faction names wrap in their chips.
+Checks 2026-11-20: typecheck, lint, data lint clean; `npm run build` ok; `npm test` 203 files, 1703 passed, 6 skipped,
+3 timed out at 60 s under load average 8-9 (a balance workflow's batches on the same 4 cores: tanks-ai save/load,
+commander-clear replay, campaign-views replenishment; none touches the menu) and all 24 tests of those 3 files pass
+run alone. `test:perf` not run (the machine was busy; no sim, AI or render code changed).
 
 **Open owner questions** (multiple choice, recommended first): (1) the bare link opens the menu (built) / the
 battle as before with a menu button; (2) tanks Standard / Both / None (built) / a plain on-off; (3) "Play again"

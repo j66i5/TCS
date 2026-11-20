@@ -9,10 +9,9 @@
  * save and load and the debug hooks live in the modules beside this file.
  */
 import { buildAppearance, formatErrors, Strings } from "@tcs/data";
-import { buildScenario, demoBattle, holdBattle, MAP_KINDS, mountedTanks, SCENARIO_KINDS, vehicleBattle, withoutRecovery, type MapKind, type ScenarioKind } from "@tcs/scenario";
-import { commanderController, defenceStartPosts, sideCommander, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
+import { MAP_KINDS } from "@tcs/scenario";
 import {
-  battleResultOf, DT, emptyLogistics, environmentAt, logisticsFromEvents, tracerMap, isOffMapMan, navFor, newBattleRecord, parseTimeOfDay, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
+  battleResultOf, DT, emptyLogistics, logisticsFromEvents, tracerMap, isOffMapMan, navFor, newBattleRecord, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
@@ -27,13 +26,15 @@ import { attachControls, gestureOverlay, planOverlay } from "./controls";
 import { installHooks } from "./hooks";
 import { attachPerfOverlay, FramePerf } from "./perf";
 import { attachKeys } from "./keys";
-import { carriersParam, defaultTanksApply, tanksParam } from "./params";
 import { endPlan, fetchAmmo, forUnit, goPlan, issue, issueAi, now, resupply, sendBearers, setFormation, takeKit, undoPlanPoint } from "./orders";
 import { refreshTiles, showCard, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
 import { loadOrCreate, reloadSaved, saveNow, setCampaignKey } from "./save";
 import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
 import { attachFloors, sightView, updatePins } from "./view";
+import { battleSetup } from "./setup";
+import { menuPage, menuUrl } from "./menu";
+import { isMenuRequest } from "./menu-model";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
 /** The chosen map look (plan "photo"), remembered per browser. */
@@ -51,6 +52,13 @@ async function main(): Promise<void> {
   }
   const strings = new Strings(data, "en");
   const params = new URLSearchParams(location.search);
+  // Start menu (owner 2026-11-20): the app opened without parameters (or `?menu=1`) shows the menu; every other URL
+  // opens what it always opened.
+  if (isMenuRequest(location.search)) {
+    const m = await menuPage(hudRoot, data, strings, params);
+    (globalThis as { __tcsMenu?: unknown }).__tcsMenu = { ready: true, ...m };
+    return;
+  }
   // M12.3: `?campaign=1` opens the campaign page (no battle); `?campaign=<slot>&play=1` plays the node's battle the
   // campaign in that slot has ready.
   const campaignParam = params.get("campaign");
@@ -71,48 +79,8 @@ async function main(): Promise<void> {
       return;
     }
   }
-  const seed = Number(params.get("seed") ?? 1) >>> 0;
-  const factions = (params.get("factions") ?? "de,ru").split(",") as [string, string];
-  const mapParam = params.get("map") ?? "village";
-  const mapKind = (MAP_KINDS as readonly string[]).includes(mapParam) ? (mapParam as MapKind) : undefined;
-
-  // M6 first playable: the generated platoon battle (?scenario=demo for the old one-squad sandbox).
-  // ?side=blue|red picks your side, ?attacker=blue|red who attacks; the AI commands the other side.
-  const scenario = params.get("scenario") ?? "platoon";
-  const playerSide = campaign ? "blue" : params.get("side") === "red" ? "red" : "blue";
-  const enemySide = playerSide === "blue" ? "red" : "blue";
-  // M7.6d: &assault=1: red's platoon is its assault group (on foot) with its AGS team, red attacking unless
-  // &attacker= says otherwise.
-  const assault = params.get("assault") === "1";
-  const attacker = params.get("attacker") === "red" || (assault && params.get("attacker") === null) ? "red" : "blue";
-  // The platoon battle starts with its vehicles (attacker mounted) by default since M7.4a (owner Q26: vehicles
-  // can now be knocked out and the Panzerfaust and RPG work); &vehicles=0 gives the battle on foot.
-  // M7.6c: &vehicles=wheeled (or tracked, or <blue>,<red>) picks the carrier class of each side's platoon.
-  const vp = carriersParam(params.get("vehicles"), (m) => console.warn(m));
-  const withVehicles = vp.vehicles;
-  const limit = Number(params.get("limit") ?? 2400) || 2400;
-  // ?scenario=vehicles (M7.1c): IFV platoons with their squads on foot; vehicles appear nowhere else yet.
-  const input = campaign ? campaign.input : scenario === "demo"
-    ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
-    : scenario === "hold"
-    // M11.1 ?scenario=hold: hold the village against three waves (60 min); &attacker=blue swaps the sides.
-    ? holdBattle(data, { seed, factions, defender: params.get("attacker") === "blue" ? "red" : "blue", ...(params.get("limit") ? { timeLimitSeconds: limit } : {}) })
-    : scenario === "vehicles"
-    ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: limit, ...(vp.carriers ? { carriers: vp.carriers } : {}), ...crewParam(params.get("crew")), ...(params.get("recovery") === "1" ? { recovery: true } : {}) })
-    : buildScenario(data, { kind: kindParam(params.get("kind")), ...(params.get("size") === "company" ? { size: "company" as const } : {}), seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: limit, ...(withVehicles ? { vehicles: true } : {}), ...(vp.carriers ? { carriers: vp.carriers } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}), ...(params.get("air") ? { airRecon: params.get("air")!.split(",").filter((x) => x === "blue" || x === "red") } : {}), ...tanksParam(params.get("tanks"), params.get("tankCrew"), defaultTanksApply(vp, assault) ? mountedTanks(data, factions, attacker) : null, (m) => console.warn(m)), ...(assault ? { assaultGroup: "red" as const, aglTeams: attacker === "red" ? "attacker" as const : "defender" as const } : {}) }, { defenceStartPosts }); // (balance pass 4: the defence's hulls start on their posts)
-  // ?time=HH:MM (M9.1): the battle at that local time, the light following the clock; &moon=0..1 (default a half moon).
-  const timeOfDay = parseTimeOfDay(params.get("time"));
-  if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(params.get("moon") ?? 0.5));
-  // ?repair=0 (M11.7a): no field repair by the crews.
-  if (params.get("repair") === "0") input.rules.repair = false;
-  // ?recovery=0 (M11.7b): no recovery vehicles; ?recovery=1: the vehicles scenario gets them too.
-  if (params.get("recovery") === "0") withoutRecovery(input);
-  // ?ai=0: no enemy controller (screenshots: a scene the enemy must not walk into).
-  const ai = params.get("ai") === "0" ? [] : campaign ? [sideCommander(enemySide, input)] : scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
-    : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
-    : scenario === "hold" && input.forces.find((f) => f.side === enemySide)?.posture === "attack" ? [waveCommanders(enemySide, input)]
-    // (M12.0b: a battle of a scenario kind: the enemy's commander by its plan.)
-    : [input.forces.find((f) => f.side === enemySide)?.plan ? sideCommander(enemySide, input) : commanderController(enemySide, input)];
+  // (Start menu step: the battle the URL asks for, built in setup.ts exactly as before.)
+  const { input, ai, playerSide, seed, mapKind } = battleSetup(data, params, campaign ? campaign.input : null);
   // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).
   const loaded = loadOrCreate(input, ai, params.get("load") === "1");
   const sim = loaded.sim;
@@ -211,6 +179,8 @@ async function main(): Promise<void> {
     },
     onPosture: (p) => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind: "posture", posture: p }); },
     onSave: () => saveNow(a),
+    // Start menu: back to the menu (a running battle asks first; the mid-battle save stays where it is).
+    onMenu: () => { if (sim.state.ended || confirm(strings.t("menu.leaveConfirm"))) location.assign(menuUrl()); },
     onLoad: () => reloadSaved(a),
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
     // S5: a tile tap selects the unit and centres the camera on it; on the unit already selected and centred, it
@@ -340,6 +310,7 @@ async function main(): Promise<void> {
   a.review = createAar(hudRoot, strings, {
     onHeat: (on) => { overlay.heat = on ? { shots: a.record.heatShots, falls: a.record.heatFalls } : null; },
     onClose: () => { /* the map stays; the battle is over */ },
+    onMenu: () => location.assign(menuUrl()),
     ...(campaign ? { onCampaign: () => { void returnToCampaign(data, campaign, battleResultOf(sim, input, a.orderLog, campLogistics), look); } } : {}),
   });
   let aarShown = false;
@@ -431,18 +402,3 @@ main().catch((e: unknown) => {
   pre.textContent = `Startup failed: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`;
   document.body.append(pre);
 });
-
-/** `&crew=<blue template>,<red template>` (M10.6-data): the vehicles scenario with other crew templates (data ids),
- *  e.g. the ambulance crews for `npm run screenshot -- --scene ambulances`. */
-function crewParam(v: string | null): { crewTemplates?: [string, string] } {
-  const parts = (v ?? "").split(",").filter((x) => x.length > 0);
-  return parts.length === 2 ? { crewTemplates: [parts[0]!, parts[1]!] } : {};
-}
-
-/** M12.0b `&kind=`: a scenario kind (attack, defence-counterattack, meeting, ambush, withdrawal); else the platoon attack. */
-function kindParam(v: string | null): ScenarioKind {
-  if (v === null) return "platoon-attack";
-  if ((SCENARIO_KINDS as readonly string[]).includes(v)) return v as ScenarioKind;
-  console.warn(`kind=${v}: not a scenario kind (${SCENARIO_KINDS.join(", ")}); the platoon attack`);
-  return "platoon-attack";
-}

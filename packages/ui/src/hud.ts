@@ -95,6 +95,8 @@ export interface HudCallbacks {
   /** Save the battle / load the last save (M6). */
   onSave(): void;
   onLoad(): void;
+  /** Start menu: back to the main menu (the app asks first while the battle runs). */
+  onMenu?(): void;
   /** A tap on a unit's tile in the sidebar (M7.5a). */
   /** `part`: the unit's drone tile (M9.4a) or its headquarters tile (owner 2026-11-15) was tapped. */
   onSelectUnit(unit: EntityId, part?: TilePart): void;
@@ -255,7 +257,11 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   helpBtn.setAttribute("aria-label", s.t("help.title"));
   helpBtn.title = s.t("help.title");
   helpBtn.onclick = () => toggleHelp();
-  const rare = [contourBtn, helpBtn, saveBtn, loadBtn, mapBtn, dbgBtn];
+  // (Start menu: the main menu, last in the bar and in the "⋯" menu.)
+  const menuBtn = el("button", "hud-btn hud-menu-btn", s.t("app.mainMenu"));
+  menuBtn.dataset["act"] = "menu";
+  menuBtn.onclick = () => cb.onMenu?.();
+  const rare = [contourBtn, helpBtn, saveBtn, loadBtn, mapBtn, dbgBtn, ...(cb.onMenu ? [menuBtn] : [])];
   for (const b of rare) b.addEventListener("click", () => { if (b.parentElement === barMenu) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); } });
   bar.append(title, clock, ...speedBtns, ...rare, barMoreBtn, barMenu);
   const score = el("div", "hud-score");

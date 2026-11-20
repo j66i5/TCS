@@ -3,7 +3,10 @@
 A real-time, top-down tactical combat simulation at platoon to company scale, set in the present day.
 Plain visuals, deep simulation: every soldier is an individual and every projectile is simulated.
 
-- **Play the current build:** https://j66i5.github.io/TCS/ — current version: **M12: persistent battalion, linked operations and endless mode** (2026-11-20 04:15 UTC; deployed from `main`)
+- **Play the current build:** https://j66i5.github.io/TCS/ — current version: **Start menu with the game modes** (2026-11-20 08:06 UTC; deployed from `main`)
+- **How to start:** the link opens the main menu: Continue, Quick battle (attack or defend, Germany or Russia, on foot
+  or mounted, tanks, map, time of day), Campaign, Hold the village, Assault group and More (vehicle sandbox, look).
+  Links with parameters (e.g. `?seed=3&map=farmland`) still open a battle directly.
 - Specification: [`docs/SPEC.md`](docs/SPEC.md) · Status: [`docs/STATE.md`](docs/STATE.md) ·
   Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md) · Tour: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md)
 

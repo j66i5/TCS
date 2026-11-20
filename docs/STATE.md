@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-20 (M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-20 (start menu; M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -35,6 +35,25 @@ DECISIONS.md under its date._
   out). UI: Assault on a hull's bar, card phase, map markers. Lab `npm run lab -- mounted-assault`; screenshots
   `--scene assault-mounted`. Next in the pass: 3B area fire (HE / air burst), then the measurement (plan section 4).
   Earlier the same day: the fix list F0-F10 (DECISIONS "Balance pass 5: Germany against Russia").
+- **Start menu (2026-11-20, branch `claude/start-menu`; owner request; DECISIONS "Start menu").** The app without
+  parameters (or `?menu=1`) opens a main menu (`ui/src/menu.ts`, `app/src/menu.ts`, pure part
+  `app/src/menu-model.ts`): Continue (the campaign in the automatic slot, the mid-battle save, the last battle started
+  from the menu), Quick battle (task, side by faction name, on foot / tracked / wheeled, tanks standard / both / none,
+  map, time of day, seed from the clock), Campaign (continue, new: army, carriers, operations / endless, straight to
+  the briefing via `?campaign=1&new=1&...`; saves page), Hold the village (side, time, seed), Assault group (part, map,
+  time, seed), More (vehicle sandbox, look). A launch only writes the URL options the app already took; any URL with a
+  parameter opens what it did before. Menu buttons: the battle bar (asks first while the battle runs; behind "⋯" on a
+  phone), the review ("Main menu"), the campaign home (its old "Single battle instead" now "Main menu"). Choices in
+  localStorage `tcs.menu.choices`, the last launch in `tcs.menu.last`. The battle a URL builds moved unchanged from
+  main.ts to `app/src/setup.ts` (`battleSetup`; default factions now from data, the same de/ru pair).
+  `app/test/menu.test.ts`: every menu choice gives a URL the app builds a valid, running battle from (36 tests);
+  `npm run e2e:menu` (Playwright flow, 10 checks) and `npm run screenshot -- --scene menu` (360x780, 780x360, desktop,
+  both looks) pass and were looked at. Checks: typecheck, lint, data lint, build clean; `npm test` 1703 passed, 3
+  timed out under a busy machine and pass alone; test:perf not run (no sim code changed). Owner questions: see that entry.
+  Review fixes (UI and code reviews): a campaign battle's result can no longer be lost through Menu (its review has
+  no Main menu; the bar's Menu in an ended campaign battle goes back to the campaign), the battle bar collapses into
+  "⋯" instead of clipping in phone landscape, "Start a new campaign" waits for the slot read, the menu always opens on
+  its first screen, wording, a 44 px look toggle, default factions pinned by a test.
 - **M12 review fixes (2026-11-20, branch `claude/m12`; DECISIONS "M12 review fixes").** Three independent reviews
   (rules, behaviour, code). Fixed: `deployableMen` (crews of workshop or lost hulls are not counted anywhere the choice
   is made, `ableShare` too; a flank company that cannot fight drops the flank battle; `battleInputs` re-validates the

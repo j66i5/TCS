@@ -8,7 +8,9 @@
  * auto-resolved) and opens the after-battle card.
  *
  * URL options: `&seconds=<s>` a new campaign's battle length (tests, screenshots); `&seed=<n>` a new campaign's seed
- * (default from the clock); `&fixtures=1` lists the fixture faction; `&look=photo|flat`.
+ * (default from the clock); `&fixtures=1` lists the fixture faction; `&look=photo|flat`. From the start menu:
+ * `&new=1&faction=<id>&carriers=tracked|wheeled&mode=operations|endless` starts a new campaign at once, `&continue=1`
+ * opens the one in the automatic slot; either then shows the plain `?campaign=1` URL.
  */
 import {
   AUTO_SLOT, afterBattleView, LeaderError, nodesFought, battalionView, briefingView, chooseForces, confirmForces, FlowError, makeLeader, manView, newCampaign, phaseOf, proceed,
@@ -53,16 +55,7 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
   const factions = Object.keys(data.factions).sort().filter((f) => data.factions[f]!.manifest.battalionTemplates !== undefined && (data.factions[f]!.manifest.fixture !== true || params.get("fixtures") === "1"));
 
   const ui = createCampaignUi(root, strings, {
-    onNew: (o) => void guard(async () => {
-      const enemy = factions.find((f) => f !== o.faction && data.factions[f]!.manifest.fixture !== true) ?? o.faction;
-      const seed = Number(params.get("seed") ?? (Date.now() % 1_000_000_000)) >>> 0;
-      const seconds = Number(params.get("seconds") ?? 0);
-      let r = newCampaign(data, { seed, faction: o.faction, enemy, carriers: o.carriers, mode: o.mode, ...(seconds > 0 ? { battleSeconds: seconds } : {}) });
-      r = startFlow(data, r);
-      setSlot(null);
-      await commit(r);
-      showFlow();
-    }),
+    onNew: (o) => void guard(async () => { await startNew(o); }),
     onContinue: () => void guard(async () => { await loadSlot(AUTO_SLOT); }),
     onLoad: (slot) => void guard(async () => { await loadSlot(slot); }),
     onSaveAs: (name) => void guard(async () => {
@@ -97,7 +90,8 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
       } catch (e) { console.warn("import", e); message = { text: t("cmp.msg.importFailed"), bad: true }; }
       await showHome();
     }),
-    onSingleBattle: () => { location.search = ""; },
+    // (Start menu: the main menu, the app without parameters.)
+    onSingleBattle: () => { location.assign(location.pathname); },
     onHome: () => void guard(showHome),
     onBack: () => { const b = backStack.pop(); go(b ?? { kind: "flow" }); },
     onBattalion: () => { push(); show({ kind: "battalion" }); },
@@ -166,6 +160,18 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
       if (screen === "briefing") { preview = null; showFlow(); }
     },
   }, look);
+
+  /** A new campaign (home's Start, or the start menu's `&new=1`): it replaces the one in the automatic slot. */
+  async function startNew(o: { faction: string; carriers: "tracked" | "wheeled"; mode: "operations" | "endless" }): Promise<void> {
+    const enemy = factions.find((f) => f !== o.faction && data.factions[f]!.manifest.fixture !== true) ?? o.faction;
+    const seed = Number(params.get("seed") ?? (Date.now() % 1_000_000_000)) >>> 0;
+    const seconds = Number(params.get("seconds") ?? 0);
+    let r = newCampaign(data, { seed, faction: o.faction, enemy, carriers: o.carriers, mode: o.mode, ...(seconds > 0 ? { battleSeconds: seconds } : {}) });
+    r = startFlow(data, r);
+    setSlot(null);
+    await commit(r);
+    showFlow();
+  }
 
   const warnings = (w: number, r: number) => (w + r > 0 ? ` ${t("cmp.msg.repaired", { w, r })}` : "");
   const setSlot = (s: string | null) => { slotShown = s; try { if (s === null) localStorage.removeItem(SLOT_KEY); else localStorage.setItem(SLOT_KEY, s); } catch { /* not remembered */ } };
@@ -340,6 +346,17 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
         showFlow();
       }
     });
+    history.replaceState(null, "", `?campaign=1&look=${look}`);
+  } else if (params.get("new") === "1" && factions.includes(params.get("faction") ?? "")) {
+    // Start menu: `&new=1&faction=<id>&carriers=tracked|wheeled&mode=operations|endless` starts the campaign at once;
+    // the URL is then the plain campaign page's (a reload must not start another one).
+    const carriers = params.get("carriers") === "wheeled" ? "wheeled" : "tracked";
+    const mode = params.get("mode") === "endless" ? "endless" : "operations";
+    await guard(() => startNew({ faction: params.get("faction")!, carriers, mode }));
+    history.replaceState(null, "", `?campaign=1&look=${look}`);
+  } else if (params.get("continue") === "1" && (await store.slots()).some((x) => x.slotName === AUTO_SLOT)) {
+    // Start menu: `&continue=1` opens the campaign in the automatic slot where it stands.
+    await guard(() => loadSlot(AUTO_SLOT));
     history.replaceState(null, "", `?campaign=1&look=${look}`);
   } else await showHome();
 

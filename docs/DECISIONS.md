@@ -10197,3 +10197,95 @@ the recommended option, see the three entries above), and:
   sights, APFSDS through every BMP-2 face); RU is the harder campaign; (b) let the enemy commit less than a platoon
   when its value is far above the player's (a section or half platoon, no company HQ); (c) give RU-as-player
   operations an easier node table (more defend nodes, fewer attacks).
+
+## 2026-11-20 — Start menu (owner request: "Make a starting menu with the different game modes to choose from")
+
+Branch `claude/start-menu`. No sim, AI, scenario or catalog change: goldens untouched (strings are outside the catalog
+fingerprint).
+
+**What it is.** The app opened without parameters (or `?menu=1`) shows a main menu instead of the platoon battle:
+title, **Continue** (the campaign in the automatic slot, the mid-battle save of a plain battle, the last battle started
+from the menu), and the modes **Quick battle**, **Campaign**, **Hold the village**, **Assault group** and **More**
+(vehicle sandbox, look). Each mode has one screen of chips and a sticky Start.
+
+**Design choices.**
+- **The menu writes URLs, nothing else.** A launch navigates to the URL parameters the app has always understood
+  (`app/src/menu-model.ts` `launchSearch`; CLAUDE.md "App URL options"): every existing link, test, screenshot, the
+  phone-perf and probe tools and the campaign e2e keep working unchanged. The menu shows only when the URL has no
+  parameter at all (or `menu=1`): `?look=flat` alone, `?seed=3` alone, `?load=1` still open the battle as before.
+- **The battle building moved out of main.ts unchanged** (`app/src/setup.ts`, `battleSetup`), so a test builds the
+  battle of every URL the menu writes the way the app does. The one change: the default factions (`?factions=` absent)
+  come from data (the first two playable, non-fixture factions in id order: de, ru today) instead of the literal
+  "de,ru" (task rule: no faction literals in app code). A fixture-only data set gives xf against xf, and the menu's
+  faction names fall back to the id: no crash.
+- **Quick battle** = the platoon battle: task (attack / defend -> `attacker`), side shown by faction name
+  (`faction.<id>`; blue is the first faction, red the second), forces (on foot `vehicles=0`, tracked: no parameter,
+  wheeled `vehicles=wheeled`), tanks **Standard / Both sides / None** (no parameter: the balanced sections of the
+  tracked battle, none otherwise; `tanks=1`; `tanks=0`), map kind (the four generated kinds; "flat" is not offered:
+  the platoon battle has none), time of day **Day / Dawn 06:00 / Dusk 18:30 / Night 23:00** (Day writes no `time`: the
+  constant daylight every golden uses; the sun table has sunrise about 6:00, dark from 19:15), seed.
+- **Seed:** from the clock (`clockSeed`, 1 .. 999 999; the menu is UI, the simulation stays seeded), editable, a "New"
+  button; a fresh one each visit. "Play the last battle again" reopens the exact last URL (same seed).
+- **Hold the village:** the player defends (side by faction; red: `side=red&attacker=blue`), time, seed.
+  **Assault group:** M7.6d's `assault=1` battle on foot: lead the assault group (red, `side=red`) or defend against it
+  (blue), map, time, seed. **More:** the vehicle sandbox (`scenario=vehicles`, tracked / wheeled, map, seed) and the
+  look (photo / flat, remembered as before in `tcs.ui.look`).
+- **Campaign:** continue (`?campaign=1&continue=1` opens the automatic slot where it stands), a new campaign straight
+  from the menu (army, carriers, operations / endless: `?campaign=1&new=1&faction=&carriers=&mode=`; the page starts it
+  and replaces its URL with `?campaign=1`, so a reload does not start another; a campaign in progress is asked about
+  first), saves (`?campaign=1`, the existing home with load / import).
+- **Ways back:** "Menu" in the battle's top bar (behind "⋯" on a phone; a running battle asks first, an ended one does
+  not; the mid-battle save is not touched), "Main menu" in the review, and the campaign home's old "Single battle
+  instead" is now "Main menu". The browser's back button returns from a mode's screen to the menu (history state).
+- **Remembered:** the choices in `tcs.menu.choices` (read back field by field: anything unknown keeps its default),
+  the last launch in `tcs.menu.last`; every storage access in try/catch.
+- **Look and layout:** the campaign screens' frame (`.cmp`: top bar, cards, chips, sticky actions) with big mode
+  tiles (one column on a phone, two from 640 px; a compact hero in a short landscape window); both looks. Strings
+  `menu.*`, `app.mainMenu`, `aar.menu` (English is the only language with string files).
+
+**Tests and checks.** `app/test/menu.test.ts` (36): the bare URL and `?menu=1` show the menu, any parameter does
+not; each battle mode with every option at least once (and the quick battle's forces x tanks grid) gives a URL that
+reads back as the same choice and from which `battleSetup` builds a valid battle (both sides placed, the player's
+side and task, hulls or none, the clock only when asked, the enemy commanded, 10 s run); tanks Both / None change the
+hulls; the default quick battle is the old bare URL's battle; campaign launches open the campaign page; remembered
+choices, clock seeds, default factions (never the fixture; fixture-only data does not crash), every menu string
+exists. `npm run e2e:menu` (Playwright, 360 x 780): bare URL -> menu, every mode's screen and back, the back button,
+a quick battle on foot at dusk defending (its URL checked), the battle's Menu (confirmed) back with the choices
+remembered and "Play again", Play again reopens the same URL, the campaign's saves page and its Main menu back, a new
+endless campaign from the menu to its briefing, "Continue the campaign". `npm run screenshot -- --scene menu`
+(phone 360 x 780 and 780 x 360 landscape, desktop 1280 x 800; photo and flat) looked at: everything fits, Start
+always reachable (sticky), the long faction names wrap in their chips.
+Checks 2026-11-20: typecheck, lint, data lint clean; `npm run build` ok; `npm test` 203 files, 1703 passed, 6 skipped,
+3 timed out at 60 s under load average 8-9 (a balance workflow's batches on the same 4 cores: tanks-ai save/load,
+commander-clear replay, campaign-views replenishment; none touches the menu) and all 24 tests of those 3 files pass
+run alone. `test:perf` not run (the machine was busy; no sim, AI or render code changed).
+
+**Review fixes** (two independent reviews, UI and code). Fixed:
+- A campaign battle's result could be lost through the new Menu buttons (it reaches the campaign only through
+  `returnToCampaign`): a campaign battle's review has no "Main menu" (only "Back to the campaign"), and the bar's Menu
+  in an ended campaign battle hands the result to the campaign first; while it runs it asks, as any battle (leaving
+  then is like closing the tab: the campaign offers the battle again).
+- The battle bar clipped its buttons on a phone in landscape (780 x 360 with a 6-digit menu seed: "Contours", "Save",
+  "Debug", "Menu" cut, the map button on two lines): bar buttons no longer shrink (`flex-shrink: 0; white-space:
+  nowrap`), so the bar overflows and `fitBar` puts the rare ones behind "⋯". Measured again at 780 / 900 / 1024 /
+  1280 px with seeds 1 and 627716: nothing clipped.
+- "Start a new campaign" is disabled until the automatic slot has been read (`campaignKnown`), so it can never
+  replace a campaign without asking on a slow phone.
+- The menu always opens on its first screen and clears a restored mode history entry (the first "‹" after the
+  browser's Back from a battle was a no-op).
+- Wording: the quick battle no longer says "for a village" (four maps); "Play again" for the sandbox no longer starts
+  with "More". The look toggle in the menu and campaign bars is 44 px high.
+- The default factions are pinned by a test (`["de", "ru"]`): a new faction folder sorting first would change every
+  link without `factions=`, so that has to be a deliberate change with an entry here. The default quick battle is
+  now compared with the old bare-URL battle by full state hash.
+Not changed: the browser's Back from the menu to a battle URL rebuilds that battle from tick 0 without a question,
+as every URL always did (a running battle is only kept by Save). `npm run e2e:menu` stays a local command, not a CI
+job (as `e2e:campaign`).
+Checks after the fixes: typecheck, lint, build clean; `npm test` 203 files, 1707 passed, 6 skipped (none timed out);
+`menu.test.ts` 37; `npm run e2e:menu` 9 checks and `npm run e2e:campaign` 12 checks pass; `--scene menu` looked at again.
+
+**Open owner questions** (multiple choice, recommended first): (1) the bare link opens the menu (built) / the
+battle as before with a menu button; (2) tanks Standard / Both / None (built) / a plain on-off; (3) "Play again"
+keeps the seed (built) / a new seed each time; (4) time of day as four presets (built) / any clock time and the moon;
+(5) the quick battle's sides are the two factions of the data (built) / pick both factions freely (e.g. Germany
+against Germany); (6) Hold the village: defend only (built) / attacking the village too.

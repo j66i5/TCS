@@ -47,7 +47,7 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
         const next = cycle[(k + 1) % cycle.length]!;
         overlay.selectedUnit = next; overlay.selectedDrone = null; overlay.selectedOwn = isHqUnit(sim, next);
         a.inspected = null;
-        syncOrders(a); refreshTiles(a);
+        syncOrders(a); refreshTiles(a, true);
         return;
       }
       const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
@@ -58,7 +58,7 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
         if (his === overlay.selectedUnit && !droneMode(a) && hqMode(a) === own) a.inspected = a.inspected === hit ? null : hit;
         else { overlay.selectedUnit = his; a.inspected = null; }
         overlay.selectedDrone = null; overlay.selectedOwn = own;
-        syncOrders(a); refreshTiles(a);
+        syncOrders(a); refreshTiles(a, true);
         return;
       }
       const uid = overlay.selectedUnit;

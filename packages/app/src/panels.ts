@@ -32,9 +32,12 @@ export function syncOrders(a: App): void {
   if (a.overlay.debug) a.renderer.setNavOverlay(navFor(a.sim.ctx, vehicleClassOf(a, a.overlay.selectedUnit) ?? "foot").grid);
 }
 
-/** The unit sidebar (M7.5a): refreshed about four times a second and on every selection. */
-export function refreshTiles(a: App): void {
+/** The unit sidebar (M7.5a): refreshed about four times a second and on every selection. `reveal`: an explicit
+ *  selection (map tap, Tab, hook, Wounded tab), whose tile's folded platoon opens even if it was selected already
+ *  (owner 2026-11-20, review fix). */
+export function refreshTiles(a: App, reveal = false): void {
   const tiles = unitTiles(a.sim.state, a.playerSide, a.input.catalog);
+  if (reveal && a.overlay.selectedUnit !== null) a.hud.revealTile(a.overlay.selectedUnit, selPart(a));
   a.hud.setTiles(tiles, a.overlay.selectedUnit, selPart(a));
   const amb = ambulanceRows(a.sim.state, a.playerSide), caller = amb.ready > 0 ? ambulanceCallerName(a) : undefined;
   a.hud.setWounded(woundedRows(a.sim.state, a.playerSide), caller !== undefined ? { ...amb, caller } : amb);
@@ -72,7 +75,7 @@ export function showCard(a: App, tiles: UnitTile[] = unitTiles(a.sim.state, a.pl
 export function select(a: App, uid: EntityId | null, part?: TilePart): void {
   a.overlay.selectedUnit = uid;
   a.overlay.selectedDrone = part === "drone" ? uid : null; a.overlay.selectedOwn = part === "hq";
-  syncOrders(a); refreshTiles(a);
+  syncOrders(a); refreshTiles(a, true);
 }
 
 /** S13: select a unit and centre on it (Tab), following it instead while the camera follows. */
@@ -81,7 +84,7 @@ export function selectAndCentre(a: App, uid: EntityId): void {
   a.overlay.selectedUnit = uid; a.overlay.selectedDrone = null; a.overlay.selectedOwn = false;
   showCard(a);
   if (a.following !== null) startFollow(a, uid); else centreOn(a, uid);
-  syncOrders(a); refreshTiles(a);
+  syncOrders(a); refreshTiles(a, true);
 }
 
 /** A unit's rules as the sim has them now (the card's fire row and the Rules panel). */

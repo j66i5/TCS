@@ -154,6 +154,8 @@ export interface Hud {
   setOrders(set: OrderSet | null): void;
   /** The unit sidebar's tiles and the selected unit (M7.5a; the app refreshes them a few times a second). */
   setTiles(tiles: readonly UnitTile[], selected: EntityId | null, part?: TilePart): void;
+  /** Open the sidebar folds above a unit's tile on the next `setTiles` (an explicit selection; owner 2026-11-20). */
+  revealTile(unit: EntityId, part?: TilePart): void;
   /** The sidebar's Wounded tab (M10.5, owner Q-2c). */
   setWounded(rows: readonly WoundedRow[], amb?: { rows: readonly AmbulanceRow[]; ready: number; caller?: string }): void;
   /** The map area left free by the bars and the sidebar (px from each screen edge). */
@@ -802,6 +804,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       if (was !== score.hidden || score.offsetHeight !== wasH) layout();
     },
     setTiles(tiles, selected, part) { sidebar.update(tiles, selected, part); },
+    revealTile(unit, part) { sidebar.reveal(unit, part); },
     setWounded(rows, amb) { sidebar.setWounded(rows, amb); },
     insets: () => ({ ...free }),
     bottomCover: () => {

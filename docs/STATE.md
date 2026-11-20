@@ -5,6 +5,14 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Folding sub-units (2026-11-20, branch `claude/collapsible-units`; owner request; DECISIONS "Folding sub-units").**
+  In the battle's unit list every unit with sub-units (a platoon) has a fold button (under its tile on the slim
+  strip, at its right in the open list; >= 32 px): it hides the platoon's HQ, drone, squads and vehicles without
+  selecting it; folded, "+n" hidden, the tile's men count covers the platoon, a dot shows the worst state below
+  (broken, pinned/damaged, firing, lost). Folds keyed by callsign-and-id path, kept until the page reloads (Load
+  starts unfolded); every explicit selection of a hidden unit (even a second tap) opens its platoon; Tab still cycles
+  everything; Enter/Space on a focused fold button folds. Pure part `ui/src/collapse.ts` (12 tests); `--scene ui` has
+  a company-battle fold part with checks. Owner questions in the DECISIONS entry.
 - **Start menu (2026-11-20, branch `claude/start-menu`; owner request; DECISIONS "Start menu").** The app without
   parameters (or `?menu=1`) opens a main menu (`ui/src/menu.ts`, `app/src/menu.ts`, pure part
   `app/src/menu-model.ts`): Continue (the campaign in the automatic slot, the mid-battle save, the last battle started

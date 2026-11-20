@@ -3,12 +3,14 @@
  * men fit and a colour for its state. A tap on a tile selects the unit (and centres the camera on it, S5); a press
  * held on a tile for `HOLD_MS` makes the camera follow the unit (S5); a tap on the strip's head opens the full
  * list with details; on a wide screen (>= 1000 px) the list is always open. `unitTiles` is pure (SimView only);
- * the strip itself is plain DOM.
+ * the strip itself is plain DOM. Owner 2026-11-20: a unit with sub-units has a fold button (under its tile on the
+ * strip, at its right in the list) that hides its sub-tree; which tiles show is `visibleTiles` (collapse.ts).
  */
 import type { Strings } from "@tcs/data";
 import { isAble, isOut, type Catalog, type EntityId, type SimView } from "@tcs/sim";
 import { unitSoldierIds } from "./orders-for";
 import type { AmbulanceRow, WoundedRow } from "./wounded";
+import { expandTo, visibleTiles } from "./collapse";
 
 export type TileState = "ok" | "moving" | "firing" | "aboard" | "pinned" | "damaged" | "broken" | "lost";
 
@@ -228,6 +230,11 @@ export function sideListMaxPx(top: number, cardTop: number): number {
 /** S5: a press held this long on a tile follows the unit. */
 export const HOLD_MS = 450;
 
+/** A sidebar row's depth (its tile's). */
+function depthOf(el: Element): number {
+  return Number((el as HTMLElement).dataset["depth"] ?? 0);
+}
+
 export function createSidebar(s: Strings, colour: string, onSelect: (unit: EntityId, part?: TilePart) => void, onResize: () => void, onHold?: (unit: EntityId) => void, wounded?: WoundedActions): Sidebar {
   const root = document.createElement("div");
   root.className = "hud-side side-left";
@@ -275,19 +282,33 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
   slimWounded.onclick = () => { tab = "wounded"; if (!wide()) { expanded = true; } applyExpanded(); tab = "wounded"; applyTab(); onResize(); };
   applyExpanded();
   globalThis.addEventListener("resize", applyExpanded);
-  const els = new Map<string, { b: HTMLButtonElement; key: string }>();
+  const els = new Map<string, { row: HTMLDivElement; b: HTMLButtonElement; fold: HTMLButtonElement | null; key: string }>();
+  // Owner 2026-11-20: folded units (callsign paths; this battle only), the selection last seen (a new one opens the
+  // folds above it) and the last tiles (a fold tapped lays them out again at once).
+  let collapsed: ReadonlySet<string> = new Set<string>(), lastSel = "";
+  let last: { tiles: readonly UnitTile[]; selected: EntityId | null; part: TilePart } | null = null;
+  const chevron = `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 6 L8 10.5 L12.5 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   /** Review fix: more rows below the bottom edge fade out there (the list scrolls). */
   const markMore = () => { list.classList.toggle("more", list.scrollHeight - list.scrollTop - list.clientHeight > 4); };
   list.addEventListener("scroll", markMore, { passive: true });
-  return {
+  const api: Sidebar = {
     el: root,
     update(tiles, selected, part) {
+      last = { tiles, selected, part };
+      // (A unit newly selected, from the map, the keys, the card or an event: the folds above its tile open.)
+      const sel = `${selected}|${part ?? ""}`;
+      if (sel !== lastSel && selected !== null) collapsed = expandTo(tiles, collapsed, selected, part);
+      lastSel = sel;
       const keep = new Set<string>();
-      tiles.forEach((t, i) => {
+      visibleTiles(tiles, collapsed, { unit: selected, part }).forEach((r, i) => {
+        const t = r.tile;
         const tk = tileKey(t), isDrone = t.kind === "drone", tp = tilePart(t);
         keep.add(tk);
         let e = els.get(tk);
         if (!e) {
+          const row = document.createElement("div");
+          row.className = "hud-side-row";
+          row.id = `hud-side-row-${tk}`;
           const b = document.createElement("button");
           b.className = "hud-tile";
           b.dataset["unit"] = String(t.unit);
@@ -312,18 +333,36 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
             onSelect(t.unit, tp);
             if (expanded && !wide() && tab === "units") { expanded = false; applyExpanded(); onResize(); }
           };
-          e = { b, key: "" };
+          row.append(b);
+          e = { row, b, fold: null, key: "" };
           els.set(tk, e);
         }
+        // The fold button (a unit with sub-units): its own button beside the tile, so a tap on it never selects.
+        if (r.fold !== null && !e.fold) {
+          const f = document.createElement("button"), fk = r.fold;
+          f.className = "hud-tile-fold";
+          f.onclick = () => {
+            const next = new Set(collapsed);
+            if (next.has(fk)) next.delete(fk); else next.add(fk);
+            collapsed = next;
+            if (last) api.update(last.tiles, last.selected, last.part);
+          };
+          e.row.append(f); e.fold = f; e.key = "";
+        } else if (r.fold === null && e.fold) { e.fold.remove(); e.fold = null; e.key = ""; }
         const detail = isDrone ? s.t(t.droneUp ? "side.droneUp" : t.droneAboard ? "side.droneAboard" : "side.droneReady", { pct: t.dronePct ?? 0 })
           : t.kind === "vehicle"
           ? `${s.t(`vehicle.status.${t.vehicleStatus ?? "ok"}`)}${t.repairing ? ` · ${s.t("side.repairing")}` : ""}${t.resupply ? ` · ${s.t(`side.resupply.${t.resupply}`)}` : ""}${t.towed ? ` · ${s.t("side.towed")}` : ""}${(t.passengers ?? 0) > 0 ? ` · ${s.t("side.riding", { n: t.passengers ?? 0 })}` : ""}${t.hqAboard ? ` · ${s.t("side.hqAboard")}` : ""}`
           : t.kind === "hq" ? `${s.t("side.platoonAll")} · ${s.t(`side.state.${t.state}`)}${moraleChip(s, t)}`
           : `${s.t(`side.state.${t.state}`)}${moraleChip(s, t)}`;
-        const key = `${t.callsign}|${t.fit}|${t.total}|${t.state}|${detail}|${t.parent}`;
+        // (Folded: how many units it hides and the worst state among them, so folding never hides trouble.)
+        const below = r.collapsed ? `${s.t("side.foldedN", { n: r.hidden })}${r.alert ? ` · ${s.t("side.worstBelow", { state: s.t(`side.state.${r.alert}`) })}` : ""}` : "";
+        const key = `${t.callsign}|${t.fit}|${t.total}|${t.state}|${detail}|${t.parent}|${r.fold}|${below}`;
         if (e.key !== key) {
           e.key = key;
-          e.b.className = `hud-tile st-${t.state} depth-${Math.min(2, t.depth)} kind-${t.kind}`;
+          const depth = `depth-${Math.min(2, t.depth)}`;
+          e.row.dataset["depth"] = String(t.depth);
+          e.row.className = `hud-side-row ${depth}${r.fold !== null ? " has-fold" : ""}${r.collapsed ? " folded" : ""}`;
+          e.b.className = `hud-tile st-${t.state} ${depth} kind-${t.kind}${r.collapsed && r.alert ? ` alert-${r.alert}` : ""}`;
           e.b.innerHTML = "";
           const sym = document.createElement("span");
           sym.className = "hud-tile-sym";
@@ -344,14 +383,31 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
           men.textContent = isDrone ? `${t.dronePct ?? 0} %` : s.t("side.men", { fit: t.fit, total: t.total });
           const det = document.createElement("span");
           det.className = "hud-tile-detail";
-          det.textContent = detail;
+          det.textContent = below ? `${detail} · ${below}` : detail;
           e.b.append(sym, name, men, det);
-          e.b.title = `${t.parent ? `${t.parent} · ` : ""}${t.callsign}: ${detail}`;
+          if (r.collapsed && r.alert) { const dot = document.createElement("span"); dot.className = "hud-tile-alert"; dot.setAttribute("aria-hidden", "true"); e.b.append(dot); }
+          e.b.title = `${t.parent ? `${t.parent} · ` : ""}${t.callsign}: ${det.textContent}`;
+          if (e.fold) {
+            e.fold.innerHTML = `${chevron}${r.collapsed ? `<span class="hud-fold-n">+${r.hidden}</span>` : ""}`;
+            e.fold.setAttribute("aria-expanded", String(!r.collapsed));
+            const label = r.collapsed ? s.t("side.unfold", { n: r.hidden, callsign: t.callsign }) : s.t("side.fold", { callsign: t.callsign });
+            e.fold.setAttribute("aria-label", r.collapsed && r.alert ? `${label} · ${s.t("side.worstBelow", { state: s.t(`side.state.${r.alert}`) })}` : label);
+            e.fold.title = e.fold.getAttribute("aria-label") ?? "";
+          }
         }
         e.b.classList.toggle("selected", selected === t.unit && part === tp);
-        if (list.children[i] !== e.b) list.insertBefore(e.b, list.children[i] ?? null);
+        e.b.classList.toggle("holds-selected", r.holdsSelected);
+        if (list.children[i] !== e.row) list.insertBefore(e.row, list.children[i] ?? null);
       });
-      for (const [k, e] of els) if (!keep.has(k)) { e.b.remove(); els.delete(k); }
+      for (const [k, e] of els) if (!keep.has(k)) { e.row.remove(); els.delete(k); }
+      // (The fold buttons name the rows they open: the sub-tiles shown right now.)
+      for (const e of els.values()) {
+        if (!e.fold) continue;
+        if (e.fold.getAttribute("aria-expanded") !== "true") { e.fold.removeAttribute("aria-controls"); continue; }
+        const ids: string[] = [];
+        for (let n = e.row.nextElementSibling; n && depthOf(n) > depthOf(e.row); n = n.nextElementSibling) ids.push(n.id);
+        e.fold.setAttribute("aria-controls", ids.join(" "));
+      }
       markMore();
     },
     setWounded(rows, amb) {
@@ -418,4 +474,5 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
     isExpanded: () => expanded || wide(),
     width: () => (wide() ? root.offsetWidth : Math.min(root.offsetWidth, SLIM_PX)),
   };
+  return api;
 }

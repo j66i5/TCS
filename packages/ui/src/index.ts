@@ -5,6 +5,7 @@ export * from "./aar";
 export * from "./orders-for";
 export * from "./dock";
 export * from "./sidebar";
+export * from "./collapse";
 export * from "./wounded";
 export * from "./supply";
 export * from "./floors";

@@ -139,6 +139,64 @@ async function uiScenes(page: Page, name: string, errors: string[], shots: strin
     return { src, going: [...s.soldier.entries()].filter(([, x]) => x.intent && x.intent.kind === "takeKit").map(([id]) => id) };`) as () => object);
   await shot("8-take-kit-going");
   console.log(`${name}: ui scene squad ${JSON.stringify(sq)}; vehicle ${JSON.stringify(veh)}; insets ${JSON.stringify(ins)}; kit ${JSON.stringify(kit)} ${JSON.stringify(took)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+  await foldScenes(page, name, errors, shots);
+}
+
+/**
+ * Owner 2026-11-20 folding sub-units (`--scene ui`, last part): the company battle (`&size=company`) in both looks.
+ * The list as it opens (all unfolded); the second platoon folded by its fold button (the selection unchanged, "+n" on
+ * the button, a worst-state dot: a man of a hidden squad is set pinned for the shot), on the open list too (phone);
+ * the first platoon folded as well; then a squad of the first platoon selected from outside (the hook, as the map or
+ * the keys would): its platoon opens, the second stays folded. Checks (thrown): a fold tap never selects, hidden tiles are out of the list, the fold buttons are >= 32 px.
+ */
+async function foldScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const info: object[] = [];
+  for (const look of ["photo", "flat"]) {
+    const shot = async (label: string) => { await page.waitForTimeout(350); const p = `${outDir}/ui-${seed}-${name}-9-fold-${look}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&kind=attack&size=company&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); t.stepTicks(1);`) as () => void);
+    const count = () => page.evaluate(new Function("return document.querySelectorAll('.hud-side-list .hud-tile').length;") as () => number);
+    // (A man of the second platoon's first squad pinned, set in the state for the shot: the folded platoon's dot.)
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; const us = t.units(); const pl = us.filter((u) => u.kind === "hq")[1];
+      const sq = us.slice(us.indexOf(pl) + 1).find((u) => u.kind === "infantry"); s.soldier.get(s.unit.get(sq.unit).members[0]).mental.behaviour = "pinned";`) as () => void);
+    await page.waitForTimeout(400);
+    const all = await count();
+    // The slim strip (phone) or the open list (desktop) as it opens.
+    await shot("0-open");
+    const sel0 = await page.evaluate(new Function("return globalThis.__tcs.mapfeel().selected;") as () => number | null);
+    // The second platoon's fold button (the second fold in the list).
+    const boxes = await page.evaluate(new Function("return [...document.querySelectorAll('.hud-side-list .hud-tile-fold')].map((b) => { const r = b.getBoundingClientRect(); return { w: r.width, h: r.height }; });") as () => { w: number; h: number }[]);
+    if (boxes.length < 2) throw new Error(`fold: expected the company and its platoons to have fold buttons, got ${boxes.length}`);
+    if (boxes.some((b) => b.w < 32 || b.h < 32)) throw new Error(`fold: a button under 32 px ${JSON.stringify(boxes)}`);
+    await page.click(":nth-match(.hud-side-list .hud-tile-fold, 2)");
+    const sel1 = await page.evaluate(new Function("return globalThis.__tcs.mapfeel().selected;") as () => number | null);
+    const dot = await page.evaluate(new Function("return document.querySelector('.hud-side-list .hud-tile.alert-pinned .hud-tile-alert') !== null;") as () => boolean);
+    if (!dot) throw new Error("fold: the folded platoon shows no pinned dot");
+    if (sel1 !== sel0) throw new Error(`fold: the fold tap selected ${sel1}`);
+    const afterPlatoon = await count();
+    if (afterPlatoon >= all) throw new Error("fold: nothing hidden");
+    const folded = await page.evaluate(new Function(`const b = document.querySelectorAll('.hud-side-list .hud-tile-fold')[1];
+      return { expanded: b.getAttribute("aria-expanded"), label: b.getAttribute("aria-label"), text: b.textContent };`) as () => object);
+    await shot("1-platoon-folded");
+    if (name === "phone") {
+      await page.evaluate(new Function("globalThis.__tcs.expandSidebar(true); globalThis.__tcs.stepTicks(1);") as () => void);
+      await shot("2-platoon-folded-list");
+    }
+    // The first platoon folded too (the company battle has no company HQ tile: its platoons are the top level).
+    await page.click(":nth-match(.hud-side-list .hud-tile-fold, 1)");
+    const afterBoth = await count();
+    await shot("3-two-platoons-folded");
+    // A squad of the first platoon selected from outside the list: the company and the platoon open.
+    const sq = await page.evaluate(new Function(`const t = globalThis.__tcs; const us = t.units(); const pl = us.filter((u) => u.kind === "hq" && u.depth === 1)[0];
+      const i = us.indexOf(pl); const sq = us.slice(i + 1).find((u) => u.kind === "infantry"); t.select(sq.unit); t.stepTicks(1);
+      return { unit: sq.unit, callsign: sq.callsign, shown: document.querySelector('.hud-side-list .hud-tile[data-unit="' + sq.unit + '"]:not([data-hq]):not([data-drone])') !== null };`) as () => { unit: number; shown: boolean });
+    if (!sq.shown) throw new Error("fold: the selected squad's tile is still folded away");
+    await shot("4-selected-opens");
+    if (name === "phone") await page.evaluate(new Function("globalThis.__tcs.expandSidebar(false);") as () => void);
+    info.push({ look, all, afterPlatoon, afterBoth, folded, opened: await count() });
+  }
+  console.log(`${name}: fold scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**

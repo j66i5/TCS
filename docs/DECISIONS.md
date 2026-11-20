@@ -10309,6 +10309,12 @@ included; the ledger of seeds 1-3 had 1 Konkurs in 3 battles. The batch report d
 `fightingValue` is at its bounds both ways (DE at its one-platoon floor with RU as player, RU at its one-company cap with
 DE as player), and these fixes moved the platoon battles by one or two wins each. DE 3.0, RU 1.0, xf 1.0 kept.
 
+**Checks:** typecheck, lint, data lint (low-confidence warnings only), `npm test` 207 files, 1741 passed, 6 skipped
+(`npm run check`, run alone). `npm run test:perf` alone: 23 of 25; the spotting bench (304 men, 7.77x) and
+bench-vehicles (7.95x) missed the 8x floor. Run against origin/main's sim (d4bb676) interleaved, same machine, the
+same two benches: main 6.40-6.95x, branch 6.52-7.08x (other agents loaded the machine by then): no regression from the
+branch; the floors want a quiet machine.
+
 **New owner questions** (recommended first):
 - **Q17. A village objective far inside the village:** (a) dismount at the last cover before the village's edge
   (edge + 50 m, then clear through on foot; built: in platoon-vehicles that is about 590 m from the objective); (b)

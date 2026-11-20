@@ -114,7 +114,7 @@ export function launchOfSearch(search: string): Extract<MenuLaunch, { seed: numb
 export function describeLaunch(l: Extract<MenuLaunch, { seed: number }>, t: (k: string, p?: Record<string, string | number>) => string, factions: [string, string], factionName: (f: string) => string): string {
   const fac = (s: MenuSide) => factionName(factions[s === "blue" ? 0 : 1]);
   const mapName = (m: string) => t(`map.${m}`);
-  const parts: string[] = [t(`menu.mode.${l.mode === "sandbox" ? "more" : l.mode}`)];
+  const parts: string[] = l.mode === "sandbox" ? [] : [t(`menu.mode.${l.mode}`)];
   if (l.mode === "quick") parts.push(t(`menu.role.${l.c.role}`), fac(l.c.side), t(`menu.forces.${l.c.forces}`), mapName(l.c.map));
   else if (l.mode === "hold") parts.push(fac(l.c.side));
   else if (l.mode === "assault") parts.push(fac(l.c.role === "assault" ? "red" : "blue"), mapName(l.c.map));

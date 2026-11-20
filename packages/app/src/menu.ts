@@ -60,6 +60,9 @@ export async function menuPage(root: HTMLElement, data: DataSet, strings: String
   if (lastLaunch) local.push({ kind: "again", detail: describeLaunch(lastLaunch, t, factions, factionName) });
   let continues = local;
 
+  // (The page always opens on its first screen: a history entry restored by the browser's Back from a battle may
+  // still name a mode's screen, which would make the first "‹" a no-op history.back().)
+  if ((history.state as { tcsMenu?: string } | null)?.tcsMenu) history.replaceState(null, "");
   const go = (search: string) => { location.search = search; };
   const menu = createStartMenu(root, strings, { look, factions, campaignFactions, mapKinds, continues, campaignInProgress: false, choices }, {
     onLaunch: (l) => {
@@ -84,16 +87,19 @@ export async function menuPage(root: HTMLElement, data: DataSet, strings: String
     menu.show(MENU_SCREENS.includes(s as MenuScreen) ? s as MenuScreen : "home");
   });
 
-  // The campaign in the automatic slot (IndexedDB; none or unreadable: no row).
+  // The campaign in the automatic slot (IndexedDB; none or unreadable: no row). Always reported, so the menu knows
+  // whether a new campaign would replace one.
+  let inProgress = false;
   try {
     const slots = await browserCampaignStore(data).slots();
     const auto = slots.find((x) => x.slotName === AUTO_SLOT);
     if (auto) {
       const line = [`${factionName(auto.faction)} — ${factionName(auto.enemy)}`, t(`cmp.mode.${auto.mode}`), t("cmp.slot.battles", { n: auto.battles })].join(" · ");
       continues = [{ kind: "campaign", detail: line }, ...local];
-      menu.setContinues(continues, true);
+      inProgress = true;
     }
   } catch (e) { console.warn("menu: campaign store", e); }
+  menu.setContinues(continues, inProgress);
 
   return {
     state: () => ({ screen: menu.screen(), choices: structuredClone(choices), continues: continues.map((c) => c.kind), look }),

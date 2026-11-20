@@ -60,6 +60,9 @@ export interface MenuModel {
   continues: MenuContinue[];
   /** A campaign is in the automatic slot (a new one replaces it: asked first). */
   campaignInProgress: boolean;
+  /** The automatic slot has been read (until then "Start a new campaign" is disabled: it could replace a campaign
+   *  without asking). Set by `setContinues`. */
+  campaignKnown?: boolean;
   choices: MenuChoices;
 }
 
@@ -90,9 +93,9 @@ function h(tag: string, cls = "", ...kids: Child[]): HTMLElement {
   for (const k of kids) if (k !== null && k !== undefined && k !== false) e.append(k);
   return e;
 }
-function btn(text: string, cls: string, on: () => void, data?: Record<string, string>): HTMLButtonElement {
+function btn(text: string, cls: string, on: () => void, data?: Record<string, string>, disabled = false): HTMLButtonElement {
   const b = h("button", `cmp-btn ${cls}`, text) as HTMLButtonElement;
-  b.type = "button";
+  b.type = "button"; b.disabled = disabled;
   b.onclick = (ev) => { ev.stopPropagation(); on(); };
   if (data) for (const [k, v] of Object.entries(data)) b.dataset[k] = v;
   return b;
@@ -208,9 +211,10 @@ export function createStartMenu(parent: HTMLElement, s: Strings, model: MenuMode
         label("cmp.home.mode"), chips("mode", ["operations", "endless"] as const, (x) => t(`cmp.mode.${x}`), () => c.mode, (x) => { c.mode = x; }),
         h("div", "cmp-note", t("cmp.home.modeInfo")),
         h("div", "cmp-actions", btn(t("menu.campaign.start"), "primary", () => {
+          if (model.campaignKnown !== true) return;
           if (model.campaignInProgress && !confirm(t("menu.campaign.replace"))) return;
           cb.onLaunch({ mode: "campaign-new", c: { ...c }, look });
-        }, { act: "campaign-new" }))));
+        }, { act: "campaign-new" }, model.campaignKnown !== true))));
     }
     body.append(card(t("cmp.home.slots"), h("div", "cmp-note", t("menu.campaign.savesInfo")),
       h("div", "cmp-actions", btn(t("menu.campaign.saves"), "", () => cb.onLaunch({ mode: "campaign-saves", look }), { act: "campaign-saves" }))));
@@ -251,7 +255,7 @@ export function createStartMenu(parent: HTMLElement, s: Strings, model: MenuMode
   return {
     show(m) { screen = m; render(); },
     screen: () => screen,
-    setContinues(c, inProgress) { model.continues = c; model.campaignInProgress = inProgress; if (screen === "home" || screen === "campaign") render(); },
+    setContinues(c, inProgress) { model.continues = c; model.campaignInProgress = inProgress; model.campaignKnown = true; if (screen === "home" || screen === "campaign") render(); },
     root,
   };
 }

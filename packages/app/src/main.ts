@@ -180,7 +180,12 @@ async function main(): Promise<void> {
     onPosture: (p) => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind: "posture", posture: p }); },
     onSave: () => saveNow(a),
     // Start menu: back to the menu (a running battle asks first; the mid-battle save stays where it is).
-    onMenu: () => { if (sim.state.ended || confirm(strings.t("menu.leaveConfirm"))) location.assign(menuUrl()); },
+    // (A campaign battle: once ended, its result goes to the campaign first, as "Back to the campaign" does; never
+    // lost on the way to the menu.)
+    onMenu: () => {
+      if (campaign && sim.state.ended) { void returnToCampaign(data, campaign, battleResultOf(sim, input, a.orderLog, campLogistics), look); return; }
+      if (sim.state.ended || confirm(strings.t("menu.leaveConfirm"))) location.assign(menuUrl());
+    },
     onLoad: () => reloadSaved(a),
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
     // S5: a tile tap selects the unit and centres the camera on it; on the unit already selected and centred, it
@@ -310,7 +315,8 @@ async function main(): Promise<void> {
   a.review = createAar(hudRoot, strings, {
     onHeat: (on) => { overlay.heat = on ? { shots: a.record.heatShots, falls: a.record.heatFalls } : null; },
     onClose: () => { /* the map stays; the battle is over */ },
-    onMenu: () => location.assign(menuUrl()),
+    // (A campaign battle's review has only "Back to the campaign": its result must reach the campaign.)
+    ...(campaign ? {} : { onMenu: () => location.assign(menuUrl()) }),
     ...(campaign ? { onCampaign: () => { void returnToCampaign(data, campaign, battleResultOf(sim, input, a.orderLog, campLogistics), look); } } : {}),
   });
   let aarShown = false;

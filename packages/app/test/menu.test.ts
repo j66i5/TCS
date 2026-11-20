@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { MAP_KINDS } from "@tcs/scenario";
 import { Strings } from "@tcs/data";
-import { createSim, step, submitOrder } from "@tcs/sim";
+import { createSim, hashState, step, submitOrder } from "@tcs/sim";
 import { MENU_FORCES, MENU_SCREENS, MENU_TANKS, MENU_TIMES, type MenuLaunch } from "@tcs/ui";
 import { loadData } from "../../tools/src/scenarios";
 import { clockSeed, defaultChoices, describeLaunch, isMenuRequest, launchOfSearch, launchSearch, MENU_CLOCK, readChoices } from "../src/menu-model";
@@ -113,6 +113,7 @@ describe("start menu: every battle choice gives a URL the app builds a valid bat
     const viaMenu = battleSetup(data, new URLSearchParams(launchSearch({ mode: "quick", c: base.quick, seed: SEED, look: "photo" })));
     const old = battleSetup(data, new URLSearchParams(`seed=${SEED}`));
     expect(createSim(viaMenu.input).state.nextEntityId).toBe(createSim(old.input).state.nextEntityId);
+    expect(hashState(createSim(viaMenu.input).state)).toBe(hashState(createSim(old.input).state));
     expect(JSON.stringify(viaMenu.input.forces.map((f) => [f.side, f.faction, f.posture, f.units.length, placedHulls(f)])))
       .toBe(JSON.stringify(old.input.forces.map((f) => [f.side, f.faction, f.posture, f.units.length, placedHulls(f)])));
   });
@@ -149,6 +150,11 @@ describe("start menu: choices, seeds, factions, strings", () => {
   });
   it("clock seeds stay in 1 .. 999 999", () => {
     for (const ms of [0, 1, 999_998, 999_999, 1_763_600_000_123, -5]) { const s = clockSeed(ms); expect(s).toBeGreaterThanOrEqual(1); expect(s).toBeLessThanOrEqual(999_999); }
+  });
+  it("the default factions are pinned: a link without factions= keeps its battle when a faction is added", () => {
+    // (Review: `defaultFactions` takes the first two playable factions by id. A new faction folder sorting before
+    // these would change every such link and the menu's sides: change this line on purpose, with a DECISIONS entry.)
+    expect(defaultFactions(data)).toEqual(["de", "ru"]);
   });
   it("the default factions come from data: the playable ones in id order, never the fixture", () => {
     const real = Object.keys(data.factions).sort().filter((f) => data.factions[f]!.manifest.fixture !== true);

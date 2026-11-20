@@ -1336,7 +1336,7 @@
   "menu.continue.again": "Play the last battle again",
   "menu.modes": "Game modes",
   "menu.mode.quick": "Quick battle",
-  "menu.mode.quickInfo": "One platoon battle for a village: attack or defend, on foot or mounted, with or without tanks.",
+  "menu.mode.quickInfo": "One platoon battle: attack or defend, on foot or mounted, with or without tanks.",
   "menu.mode.campaign": "Campaign",
   "menu.mode.campaignInfo": "Lead a battalion through linked battles: operations or an endless war. Every man is remembered.",
   "menu.mode.hold": "Hold the village",

@@ -166,6 +166,18 @@ export async function campaignE2e(page: E2ePage, o: CampaignE2eOptions): Promise
   check((await state()).battles === s.battles, "the next briefing");
   pass("load -> the next briefing");
   await shot("11-next-briefing");
+  // (Review M12: Save / home from the briefing, save, load: back on the same briefing, the same record.)
+  const atBriefing = (await state()).hash;
+  await page.click("[data-act=home]");
+  await waitScreen("home", 30_000);
+  await page.fill("[data-field=slotName]", "E2E two");
+  await page.click("[data-act=saveAs]");
+  await waitScreen("home", 30_000);
+  await page.click(`[data-slot="E2E two"] [data-act=load]`);
+  await waitScreen("briefing", 60_000, "choose");
+  await page.waitForSelector(".cmp-preview canvas", { timeout: 60_000 });
+  check((await state()).hash === atBriefing, "the briefing saved from Save / home loads as it was");
+  pass("briefing -> Save / home -> save -> load -> the same briefing");
 
   // 6. A played battle: the battle page, its end, back to the campaign.
   await page.click("[data-act=play]");

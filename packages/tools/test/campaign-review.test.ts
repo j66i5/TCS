@@ -104,7 +104,7 @@ describe("M12 review: walking wounded and the workshop at a replenishment", () =
   });
 
   it("a hull in the workshop is refilled at the replenishment (its repair goes on); the books balance", () => {
-    let r = newCampaign(data, { seed: 1, faction: "de", enemy: "ru" });
+    const r = newCampaign(data, { seed: 1, faction: "de", enemy: "ru" });
     const start = clone(r);
     const cat = campaignCatalog(data, r);
     const f = r.sides.player;

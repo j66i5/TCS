@@ -30,7 +30,7 @@ export const AAR_TABS: readonly AarTab[] = ["battle", "medical", "conduct", "log
 
 export interface Aar { show(m: AarModel): void; hide(): void; visible(): boolean; tab(t?: AarTab): AarTab }
 
-export function createAar(root: HTMLElement, s: Strings, cb: { onHeat(on: boolean): void; onClose(): void; /** M12.3: a campaign battle: back to the campaign with the result. */ onCampaign?: () => void }): Aar {
+export function createAar(root: HTMLElement, s: Strings, cb: { onHeat(on: boolean): void; onClose(): void; /** M12.3: a campaign battle: back to the campaign with the result. */ onCampaign?: () => void; /** Start menu: to the main menu. */ onMenu?: () => void }): Aar {
   const box = document.createElement("div");
   box.className = "hud-aar";
   box.hidden = true;
@@ -54,6 +54,12 @@ export function createAar(root: HTMLElement, s: Strings, cb: { onHeat(on: boolea
         const back = el("button", "hud-btn hud-aar-campaign on", s.t("aar.campaign")) as HTMLButtonElement;
         back.onclick = () => cb.onCampaign!();
         btns.append(back);
+      }
+      if (cb.onMenu) {
+        const menu = el("button", "hud-btn hud-aar-menu", s.t("aar.menu")) as HTMLButtonElement;
+        menu.dataset["act"] = "menu";
+        menu.onclick = () => cb.onMenu!();
+        btns.append(menu);
       }
       box.append(btns);
       // The tabs (D2): the battle first; the chosen tab stays chosen while the review is open.

@@ -12,6 +12,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "../args";
 import { campaignE2e, type E2ePage } from "../campaign-e2e";
+import { menuE2e, type MenuPage } from "../menu-e2e";
 
 const ROOT = fileURLToPath(new URL("../../../..", import.meta.url));
 const args = parseArgs(process.argv.slice(2));
@@ -2293,6 +2294,22 @@ try {
       }
       await page.close(); continue;
     }
+    // Start menu: the flow with its checks on a 360 x 780 phone (photo), then the screens alone in landscape and in the
+    // flat look; on the desktop the screens in both looks (menu-e2e.ts).
+    if (args["scene"] === "menu") {
+      await page.close();
+      const views: [string, { width: number; height: number }, "photo" | "flat", boolean][] = name === "phone"
+        ? [["phone", { width: 360, height: 780 }, "photo", true], ["landscape", { width: 780, height: 360 }, "photo", false], ["phone", { width: 360, height: 780 }, "flat", false]]
+        : [["desktop", vp, "photo", false], ["desktop", vp, "flat", false]];
+      for (const [vn, v, look, flow] of views) {
+        const p2 = await browser.newPage({ viewport: v, deviceScaleFactor: scale, hasTouch: name === "phone" });
+        p2.on("pageerror", (e) => errors.push(e.message));
+        const passed = await menuE2e(p2 as unknown as MenuPage, { base: `http://localhost:${port}`, shots: { dir: outDir, name: vn, list: shots }, look, flow, log: () => undefined });
+        console.log(`${vn} ${look}: menu scene, ${passed.length} checks passed; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+        await p2.close();
+      }
+      continue;
+    }
     if (args["scene"] === "recovery") { await recoveryScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks") { await tankScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
@@ -2438,7 +2455,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "prisoners" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" || args["scene"] === "campaign" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "prisoners" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" || args["scene"] === "campaign" || args["scene"] === "menu" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

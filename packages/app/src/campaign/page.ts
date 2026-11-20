@@ -27,7 +27,9 @@ type Back = { kind: "home" } | { kind: "battalion" } | { kind: "man"; personId: 
 
 export interface CampaignPageHooks {
   /** The page as the debug hook sees it (Playwright drives and checks it). */
-  state(): { screen: string; phase: FlowPhase | null; battles: number; hash: string | null; busy: boolean };
+  state(): { screen: string; phase: FlowPhase | null; battles: number; hash: string | null; busy: boolean;
+    /** M12.4 (phoneperf --campaign): every battle fought, flank or main, its battle seconds and men (both sides). */
+    history: { flank: boolean; durationS: number; men: number }[] };
 }
 
 export async function campaignPage(root: HTMLElement, data: DataSet, strings: Strings, params: URLSearchParams, hashOf: (r: CampaignRecord) => string): Promise<CampaignPageHooks> {
@@ -328,5 +330,6 @@ export async function campaignPage(root: HTMLElement, data: DataSet, strings: St
     history.replaceState(null, "", `?campaign=1&look=${look}`);
   } else await showHome();
 
-  return { state: () => ({ screen, phase: record ? phaseOf(record) : null, battles: record?.battles ?? 0, hash: record ? hashOf(record) : null, busy }) };
+  return { state: () => ({ screen, phase: record ? phaseOf(record) : null, battles: record?.battles ?? 0, hash: record ? hashOf(record) : null, busy,
+    history: (record?.history ?? []).map((h) => ({ flank: h.flank === true, durationS: h.durationS, men: h.men.player.in + h.men.enemy.in })) }) };
 }

@@ -7,6 +7,12 @@
  * dist, `--url` measures a running server instead), opens it in Playwright Chromium as a Pixel 7 (412x915, touch),
  * waits for the opening tiles, turns on a CDP CPU throttle and measures four runs per look:
  *   idle (4 s, battle at 1x) · pan at 1x (touch swipes) · pan paused · pan with no throttle (5 s).
+ *
+ * M12.4 `--campaign N [--battle-seconds 1200]`: the campaign's auto-resolve instead: a new campaign (Germany against
+ * Russia, the proposed choice) and N nodes auto-resolved under the throttle, then one without it; wall time per node
+ * with its battles (main and flank, battle seconds, men). The page loses its Web Worker (an init script), so the
+ * battles run on the main thread, where the CDP throttle applies (it does not reach workers); the work is the same.
+ * Writes reports/phoneperf-campaign-<stamp>.md.
  * Each run gives the rAF intervals measured in the page and `__tcs.perf()`'s split (sim, know, ui, draw, gpu).
  * Prints a markdown table and writes it to reports/phoneperf-<stamp>.md with the load average.
  *
@@ -42,6 +48,9 @@ interface Page {
   waitForFunction(f: () => boolean, arg: null, opts: { timeout: number }): Promise<unknown>;
   evaluate<T>(f: () => T): Promise<T>;
   waitForTimeout(ms: number): Promise<void>;
+  click(sel: string): Promise<void>;
+  reload(): Promise<unknown>;
+  addInitScript(script: string): Promise<void>;
 }
 interface Context { newPage(): Promise<Page>; newCDPSession(p: Page): Promise<Cdp>; close(): Promise<void> }
 interface Browser { newContext(o: object): Promise<Context>; close(): Promise<void> }
@@ -103,6 +112,51 @@ async function measureLook(browser: Browser, base: string, look: string): Promis
   return { runs, errors, loadMs };
 }
 
+type CampaignState = { screen: string; phase: string | null; battles: number; busy: boolean; history: { flank: boolean; durationS: number; men: number }[] };
+interface NodeRun { node: number; throttle: number; wallS: number; battles: { flank: boolean; durationS: number; men: number }[] }
+
+/** M12.4: auto-resolve times of campaign nodes on the phone proxy (see the file comment). */
+async function measureCampaign(browser: Browser, base: string, nodes: number, battleSeconds: number): Promise<{ runs: NodeRun[]; errors: string[] }> {
+  const ctx = await browser.newContext({ ...phone, deviceScaleFactor: dpr });
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.addInitScript("delete globalThis.Worker;");
+  const cdp = await ctx.newCDPSession(page);
+  const state = () => page.evaluate(fn<CampaignState>("return globalThis.__tcsCampaign.state();"));
+  const wait = async (screen: string, timeout: number) => {
+    await page.waitForFunction(fn<boolean>(`const s = globalThis.__tcsCampaign?.state?.(); return !!s && s.screen === ${JSON.stringify(screen)} && !s.busy;`), null, { timeout });
+  };
+  const url = `${base}?campaign=1&seconds=${battleSeconds}&seed=${seed}&look=photo`;
+  await page.goto(url, { waitUntil: "load", timeout: 60000 });
+  await page.waitForFunction(fn<boolean>("return globalThis.__tcsCampaign?.ready === true;"), null, { timeout: 60000 });
+  await page.evaluate(fn(`return new Promise((r) => { const q = indexedDB.deleteDatabase("tcs-campaign"); q.onsuccess = q.onerror = q.onblocked = () => r(true); });`));
+  await page.reload();
+  await page.waitForFunction(fn<boolean>("return globalThis.__tcsCampaign?.ready === true;"), null, { timeout: 60000 });
+  await wait("home", 60000);
+  await page.click("[data-act=new]");
+  const runs: NodeRun[] = [];
+  for (let n = 0; n <= nodes; n++) {
+    const rate = n < nodes ? throttle : 1;
+    await wait("briefing", 600000);
+    const before = (await state()).history.length;
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate });
+    const t = Date.now();
+    await page.click("[data-act=auto]");
+    await wait("after", 3600000);
+    const wallS = (Date.now() - t) / 1000;
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    const st = await state();
+    runs.push({ node: n + 1, throttle: rate, wallS, battles: st.history.slice(before) });
+    console.log(`node ${n + 1} at ${rate}x: ${wallS.toFixed(0)} s wall, ${st.history.slice(before).map((b) => `${b.flank ? "flank" : "main"} ${b.durationS.toFixed(0)} s ${b.men} men`).join(", ")}`);
+    await page.click("[data-act=proceed]");
+    await page.waitForTimeout(500);
+    if ((await state()).screen === "replenishment") await page.click("[data-act=proceed]");
+  }
+  await ctx.close();
+  return { runs, errors };
+}
+
 async function waitForServer(base: string): Promise<void> {
   for (let i = 0; i < 100; i++) {
     try { const r = await fetch(base); if (r.ok) return; } catch { /* not yet */ }
@@ -126,6 +180,30 @@ try {
   }
   await waitForServer(base);
   const browser = await chromium.launch();
+  if (args["campaign"] !== undefined) {
+    const nodes = Number(args["campaign"] || 2), bs = Number(args["battle-seconds"] ?? 1200);
+    const r = await measureCampaign(browser, base, nodes, bs);
+    await browser.close();
+    const loadAfter = loadavg()[0]!;
+    const lines = [
+      `# Phone proxy: campaign auto-resolve (M12.4) ${new Date().toISOString()}`, "",
+      `Pixel 7 emulation, CPU throttle ${throttle}x on the main thread (the page's Web Worker removed so the throttle applies), a new campaign (the default: Germany against Russia, tracked, operations), ${bs} s battles, seed ${seed}, ${base}.`,
+      `Load average ${loadBefore.toFixed(1)} before, ${loadAfter.toFixed(1)} after, on ${cores} cores.`,
+      ...(Math.max(loadBefore, loadAfter) > cores ? ["", `**Warning: load average above the core count (${cores}): other work shares the CPU, the numbers are noisy.**`] : []),
+      "", "| node | throttle | wall s | battles (battle s, men both sides) | battle s per wall s |", "|---:|---:|---:|---|---:|",
+      ...r.runs.map((x) => `| ${x.node} | ${x.throttle}x | ${x.wallS.toFixed(0)} | ${x.battles.map((b) => `${b.flank ? "flank" : "main"} ${b.durationS.toFixed(0)} s, ${b.men}`).join("; ")} | ${(x.battles.reduce((n, b) => n + b.durationS, 0) / Math.max(0.001, x.wallS)).toFixed(1)} |`),
+      "", `Page errors: ${r.errors.length ? r.errors.slice(0, 3).join(" | ") : "none"}.`, "",
+      "A report, no pass/fail: the throttle approximates a phone's CPU; a real phone runs the worker beside the page.",
+    ];
+    const md = lines.join("\n") + "\n";
+    console.log(md);
+    mkdirSync(`${ROOT}/reports`, { recursive: true });
+    const out = `${ROOT}/reports/phoneperf-campaign-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.md`;
+    writeFileSync(out, md);
+    console.log(`Written: ${out}`);
+    server?.kill();
+    process.exit(0);
+  }
   const runs: Run[] = [];
   const notes: string[] = [];
   for (const look of looks) {

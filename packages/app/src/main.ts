@@ -216,7 +216,7 @@ async function main(): Promise<void> {
       overlay.selectedUnit = uid; overlay.selectedDrone = null; overlay.selectedOwn = isHqUnit(sim, uid); a.inspected = m; showCard(a);
       const t = sim.state.transform.get(m);
       if (t) { stopFollow(a); renderer.focusScale(t.x, t.y, Math.max(renderer.camera.scale, OPENING_SCALE), hud.insets()); }
-      syncOrders(a); refreshTiles(a);
+      syncOrders(a); refreshTiles(a, true);
     },
     onEvacuate: (m) => { issue(a, { ...now(a, m), kind: "evacuate" }); refreshTiles(a); },
     // M10.6a: the selected unit's platoon calls an ambulance (none selected: the platoon with wounded at its nest).

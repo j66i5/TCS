@@ -2599,7 +2599,7 @@
               ],
               "feeds": [
                 {
-                  "item": "ru-125-3bm42-round",
+                  "item": "ru-125-3bm60-round",
                   "ready": {
                     "count": 12,
                     "charge": 1
@@ -2667,15 +2667,17 @@
           "sources": [
             "https://armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-72b3m-t-72b4-main-battle-tank-technical-data-sheet-specifications-pictures-video-12003163",
             "https://forum.warthunder.com/t/why-does-the-t-72b3-have-a-reload-rate-of-7-1/96843?page=16",
-            "https://www.armyrecognition.com/9cy8"
+            "https://www.armyrecognition.com/9cy8",
+            "https://development.weaponsystems.net/system/1410-T-72B3",
+            "https://en.wikipedia.org/wiki/125%C3%97139mm"
           ],
           "confidence": "low",
-          "note": "Two-plane stabilised turret with Sosna-U (thermal, laser rangefinder, published; one source says 1PN96MT-02 on the B3 family). The carousel's 22 rounds (ready: 12 3BM42, 9 3OF26 and one 9M119M, game split); 8 3BM42, 7 3OF26 and 3 missiles more (40 in all, low). The autoloader takes 7.5 s a round (low: 'likely about 8 s'); a round is in the breech at the start. The commander has a day sight only. Other values as the T-90M's (game values)."
+          "note": "Two-plane stabilised turret with Sosna-U (thermal, laser rangefinder, published; one source says 1PN96MT-02 on the B3 family). The carousel's 22 rounds (ready: 12 3BM60, 9 3OF26 and one 9M119M, game split); 8 3BM60, 7 3OF26 and 3 missiles more (40 in all, low). Balance pass 5 (F10, low; search extracts: Army Recognition T-72B3M data sheet, weaponsystems.net T-72B3, the 125 mm ammunition and 2A46 reference pages): the B3's 2A46M-5 comes with a modified autoloader that takes the long Svinets rods (3BM59 / 3BM60), so the carousel round is the 3BM60 as on the T-90M (it was the 3BM42 Mango of the old carousel; one forum post disagrees). The autoloader takes 7.5 s a round (low: 'likely about 8 s'); a round is in the breech at the start. The commander has a day sight only. Other values as the T-90M's (game values)."
         }
       ],
       "stowed": [
         {
-          "item": "ru-125-3bm42-round",
+          "item": "ru-125-3bm60-round",
           "count": 8,
           "charge": 1
         },

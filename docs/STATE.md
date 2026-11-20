@@ -5,6 +5,13 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 5, the measurement (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: the
+  measurement and the campaign values").** 20 seeds x 1200 s: platoon-vehicles 15 of 20 attacker wins (main 13; one
+  above the band, real gaps C1-C3 and KETF, no bug found), platoon-ru-vehicles 9 (main 8); the infantry platoon
+  battles and the hold battle are unchanged. Campaign (seeds 300/301): DE as player 8 of 8, RU as player 0 of 8, xf
+  6 of 12. `fightingValue` kept (DE 3.0, RU 1.0): it is at its bounds both ways (DE at its one-platoon floor, RU at
+  its one-company cap). Open: Q2 and the new Q16 (RU as player against DE's floor), Q1-Q15. Pass done apart from the
+  owner's answers, the timing tests run alone and a pull request.
 - **Balance pass 5, 3B area fire and air burst (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5:
   area fire and air burst").** Crews with no live target under fire "free" fire at the places their men last knew
   enemy men (`crewSuspects`, weight halving every 45 s, half of each ready belt kept, 60 m / danger radius clear of
@@ -657,6 +664,10 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- Balance pass 5, measurement: Q2 (DE as player wins 8 of 8 with RU at its one-company cap) and Q16 (RU as player
+  loses 8 of 8 against DE's smallest commitment, one Puma platoon + HQ; `fightingValue` cannot move either) in
+  DECISIONS "Balance pass 5: the measurement and the campaign values".
 
 - Balance pass 5, urban assault (low, game choices): DE `dismount.urbanDistanceM` 150 m, RU 200 m; built-up = a
   building, or 8 buildings / 4 % footprint within 120 m (core/behaviour.json `mountedAssault.urban`); Q13 (hit

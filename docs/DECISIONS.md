@@ -10112,3 +10112,88 @@ it strikes short of the point is checked for own men within that radius like the
 
 Golden replays updated (`npm run golden:update`, 12 changed: catalog fingerprint, the AI's threat cap and urban
 dismount in the village battles, the burst-short check); `packages/tools/golden/no-interiors` untouched.
+
+## 2026-11-20 — Balance pass 5: the measurement and the campaign values (plan docs/plans/balance-5.md section 4)
+
+After the fix list (F0-F10), the mounted assault (3A, with the owner's shorter distance for built-up objectives) and
+area fire with air burst (3B). One heavy process at a time on the shared 4 cores; batches by day unless marked. No code
+or data changed in this step: the numbers below are of commit 3fc73bd.
+
+**Platoon battles** (`npm run batch -- --scenario <s> --runs 20 --seconds 1200`, seeds 1-20; attacker wins;
+casualties attacker / defender; hulls lost attacker / defender). "main" = balance pass 4 after its review fixes, the
+numbers M12.4 quoted for main d4bb676:
+
+| scenario | main | **balance pass 5** |
+|---|---|---|
+| platoon-vehicles (DE attacks in 8 Pumas; RU: 3 BMP-2, 2 T-90M, Metis-M) | 13; 20.2 / 27.35; hulls 1.85 / 4.10 | **15; 18.1 / 30.1; hulls 1.30 / 4.55**; time 8, eliminated 11, broken 1 |
+| platoon-ru-vehicles (RU attacks in 6 BMP-2 + 2 T-72B3M; DE: 4 Pumas) | 8; 25.7 / 15.85; hulls 2.80 / 2.15 | **9; 29.0 / 17.2; hulls 3.30 / 2.10**; time 10, broken 5, eliminated 5 |
+| platoon (on foot) | 7; 18.6 / 11.1 | **7; 18.6 / 11.1** (identical) |
+| platoon-ru (on foot) | 7; 20.55 / 7.95 | **7; 20.55 / 7.95** (identical) |
+| hold-resupply / hold-resupply-ru | (balance pass 4) | **unchanged**: seed 2, 3600 s, the whole event stream equals main's line for line (no armed hulls; only the state hash differs, by the catalog) |
+
+- platoon-ru-vehicles is in the band (6-14 of 20). platoon-vehicles is one battle above it (15; main 13, a difference
+  within the noise of 20 seeds, standard error about 2 battles). It is not bug-driven: the ledger (seeds 1-3) has
+  every RU loss from real weapons with nothing wasted. RU casualties: KETF air-burst pellets 58 (517 m median), Puma
+  APFSDS through BMP-2s 31 (all aboard), coax 12, Spike 3; impact HE now 1 (KETF replaced it). Hull kills over 20
+  battles: BMP-2 by Puma 58, T-90M by Puma 33 (Spike top attack and 30 mm on the hull side), Puma by T-90M 21, by
+  BMP-2 3. These are the kept gaps C1, C2, C3 and the KETF round (owner Q6), all real.
+- In RU's attack, the T-72B3M (now firing 3BM60, F10) kills the Pumas (38 of 42 Puma losses) and the BMP-2's impact HE
+  is RU's best weapon against men (27 of 62 DE casualties, ledger seeds 1-3).
+- Konkurs launches went from almost none (diagnosis: 3 in 18 platoon battles) to 0.9 per battle in platoon-vehicles
+  (0.3 in platoon-ru-vehicles, where most BMP-2s are hit before they halt). In the campaign the BMP-2s now kill Pumas
+  with it (RU-player operation 300/0: 12 launches, 9 hits, 3 Pumas destroyed).
+- Own fire: no casualty to an own vehicle gun in the six ledger battles (one unattributed burn, as on main).
+- Area fire (ledger seeds 1-3, bursts per battle): Pumas 4-21 air bursts, BMP-2s 6-14 impact HE bursts when
+  attacking, tanks' coax 1-8.
+
+**Report only (10 runs, 1200 s):**
+
+| scenario | balance pass 5 | earlier reference |
+|---|---|---|
+| platoon-vehicles-tanks-both | DE attacker 9 of 10; 9.7 / 33.6; hulls 0.8 / 5.0 | - |
+| platoon-vehicles-wheeled (GTK attack v BTR) | 2; 27.5 / 19.8; hulls 1.0 / 2.2 | M7.6c review: 0; 33.1 / 20.5 |
+| platoon-ru-vehicles-wheeled (BTR attack v GTK) | 3; 25.1 / 20.6; hulls 0.9 / 2.6 | M7.6c review: 2; 23.1 / 30.1 |
+| platoon-vehicles at 23:00, moon 0 | 9; 12.4 / 33.1 | - |
+| platoon-ru-vehicles at 23:00, moon 0 | 3; 31.0 / 15.3 | - |
+
+No regression in the wheeled carriers. At night the Puma's thermal sight against the BMP-2's image intensifier (now
+850 m, F9) is a real gap; campaign battles are by day.
+
+**Campaign** (`npm run campaign -- batch --faction de,ru --operations 8 --campaigns 2 --seed 3 --jobs 2 --seconds
+1200`, seeds 300 and 301, the M12.4 protocol; xf: `--faction xf --enemy xf --operations 12 --seed 4`; current
+values DE 3.0, RU 1.0, xf 1.0, `enemyCapScale` 1.0; all acceptance checks clean):
+
+| | M12.4 (iteration 3, RU caps x2) | **balance pass 5 (caps x1)** |
+|---|---|---|
+| DE as player | 8 of 8; killed DE 178 / RU 1737 | **8 of 8**; nodes won 24 of 25; killed DE 166 / RU 1427; enemy men per main battle mean 82 (one company at most) |
+| RU as player | 0 of 8; nodes won 11 of 32 | **0 of 8**; nodes won 8 of 27 (attack 2-5, defend 2-5, meeting 2-3, withdraw 2-4, ambush 0-2); killed RU 1238 / DE 232; enemy men per main battle 33-39 (one Puma platoon + company HQ) |
+| xf vs xf | 7 of 12 (58 %) | **6 of 12 (50 %)**; failure 1, limit 5 |
+
+DE as player: ambush 4-0-0, attack 9-0-0, defend 3-0-0, meeting 3-0-1, pursue 5-0-0 (win-draw-loss); no failures. RU as player: failures 8 (two losses in a
+row 5, below the combat-ineffective line 3); able share at operation ends median 0.35. Wall time per main battle:
+DE v RU median 67 s, RU v DE 63 s, xf 31 s (two campaigns at a time).
+
+Ledger of RU-player operation 300/0 (4 battles; `<scratchpad>/bal5/final/camp`): RU casualties 170, of them KETF
+pellets 89 (median 513 m), Puma APFSDS 34 (33 aboard BMP-2s), coax 29; DE casualties 51, of them Konkurs 14, BMP-2 HE
+10, T-72B3M APFSDS 8, BMP-2 AP 7. Puma APFSDS: 97 hits on BMP-2s, 92 through. The company battle is the platoon
+battle's gap at three to one in men: no bug found.
+
+**Campaign values: kept (DE 3.0, RU 1.0, xf 1.0; `enemyCapScale` 1.0).** `fightingValue` acts only through the enemy's
+commitment, and it is at its bounds on both sides:
+- RU as player: DE already commits its floor (one platoon with the company headquarters: 33-39 men; `enemyChoice`
+  always takes one platoon, and the caps scaled by 1/3 leave no support). A higher DE value changes nothing; a lower
+  one makes DE commit more.
+- DE as player: RU already commits its cap (one company, 84-110 men). A higher DE value changes nothing (the caps are
+  held at `enemyCapScale` 1.0 for the phone budget, M12.4); a lower one makes RU commit less.
+So no value of `fightingValue` brings either side into 30-70 %; the files stay as they are (their notes are part of
+`rulesFingerprint`, so not even the note is touched). xf vs xf (the campaign rules alone) stays in the band (50 %).
+What would close it lies outside `fightingValue`: owner Q2 (DE as player against a capped enemy) and the new Q16 (RU as
+player against DE's floor).
+
+**Owner questions open after this pass** (recommended first): Q1-Q5 (plan section 5, unchanged), Q6-Q15 (built as
+the recommended option, see the three entries above), and:
+- **Q16. RU as player loses every operation, because DE's smallest commitment (one Puma platoon with the company HQ)
+  beats a motor rifle company:** (a) accept and record it: the Puma platoon's real advantage (KETF air burst, thermal
+  sights, APFSDS through every BMP-2 face); RU is the harder campaign; (b) let the enemy commit less than a platoon
+  when its value is far above the player's (a section or half platoon, no company HQ); (c) give RU-as-player
+  operations an easier node table (more defend nodes, fewer attacks).

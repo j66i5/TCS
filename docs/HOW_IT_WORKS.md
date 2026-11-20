@@ -1424,6 +1424,14 @@ burst too; one in a building gets the impact setting. The BMP-2, the T-72B3M, th
 impact-fused high explosive (no source for an air-burst fuze on their rounds yet). The player can pick "Gun: HE air
 burst" in the Fire tray of a hull that has it. Lab: `npm run lab -- areafire`.
 
+**How the two sides compare (balance pass 5).** In the mounted platoon battle by day the German attack in Pumas wins
+about three times in four and the Russian attack in BMP-2s with two T-72B3M about half the time. The differences are
+the real vehicles': the Puma's 30 mm armour-piercing round goes through a BMP-2 from any side, its air-burst round and
+fire control hit men out to a kilometre, and its thermal sight finds men the BMP-2's gunner cannot see; the BMP-2's
+Konkurs missile and the Russian tanks are what kill Pumas. In the campaign this shows more strongly than in one
+battle: the Germans win their operations and the Russians, as the player, lose theirs, because even the smallest German
+force the campaign sends (one Puma platoon with its company headquarters) beats a motor rifle company.
+
 **Guns (M7.3).** Each vehicle has a turret with a 30 mm cannon (armour-piercing and high-explosive rounds on two
 ready belts) and a machine gun beside it. Every round is counted: off the ready belt as it is fired, and when a
 belt runs low and the vehicle is standing still, the crew refills it from the rounds stowed in the hull (about

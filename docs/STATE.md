@@ -5,6 +5,14 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 5, review fixes (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: review fixes").**
+  origin/main (start menu) merged. Four reviews' findings fixed: platoon-on-foot Assault kept its drill; shift/lift
+  every step and each area burst's own point checked; KETF pellet cone holds for own men to ~180 m; riders get out only
+  on cannon / rocket / missile hits, after a dash to cover with smoke; a village objective is dismounted for at the
+  village's edge (+50 m); no blind support posts (follow instead), support fire on the whole assault lane; failed
+  assault falls back to the hulls; Konkurs guided through its day sight only; BTR-82A night sights as the BMP-2's.
+  Batches: platoon-vehicles 16 of 20, platoon-ru-vehicles 7 of 20; campaign values kept. Open: Q6, Q8 restated, new
+  Q17, Q18; timing tests run alone at the end of the pass.
 - **Balance pass 5, the measurement (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: the
   measurement and the campaign values").** 20 seeds x 1200 s: platoon-vehicles 15 of 20 attacker wins (main 13; one
   above the band, real gaps C1-C3 and KETF, no bug found), platoon-ru-vehicles 9 (main 8); the infantry platoon

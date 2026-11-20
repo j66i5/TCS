@@ -1534,6 +1534,9 @@ export const CampaignFile = z.object({
       floorX: Num(1, 100), measuredX: Num(0, 10000),
       /** M12.2: a campaign battle's time limit (s). */
       seconds: Num(60, 7200).optional(),
+      /** M12.4: the enemy's caps (platoons and each support kind) scale with the fighting values (player / enemy),
+       *  at most by this factor (a stronger player meets more than a company); below 1 they shrink with it. */
+      enemyCapScale: Num(1, 3).optional(),
     }).strict(),
     /** M12.1a: the clock between battles: hours from one battle's end to the next battle of an operation, days between
      *  operations (the replenishment); battles of an operation (the chain's), endless mode's replenishment rhythm. */

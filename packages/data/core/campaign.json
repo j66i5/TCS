@@ -9,7 +9,8 @@
       "tankSections": 1,
       "floorX": 4,
       "measuredX": 14,
-      "seconds": 1200
+      "seconds": 1200,
+      "enemyCapScale": 1.5
     },
     "clock": {
       "hoursBetweenBattles": 12,
@@ -20,7 +21,7 @@
       "minBattles": 3,
       "sectors": [
         3,
-        5
+        4
       ],
       "start": [
         "attack",
@@ -80,7 +81,7 @@
       "attack": {
         "kind": "attack",
         "attacker": "player",
-        "enemyRatio": 0.7,
+        "enemyRatio": 0.5,
         "enemySupport": false
       },
       "defend": {
@@ -110,7 +111,7 @@
       "pursue": {
         "kind": "withdrawal",
         "attacker": "player",
-        "enemyRatio": 0.7,
+        "enemyRatio": 0.5,
         "enemySupport": false
       }
     },

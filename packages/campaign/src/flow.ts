@@ -118,7 +118,9 @@ export const valueRatio = (data: DataSet, record: CampaignRecord): number =>
 export function enemyFor(data: DataSet, record: CampaignRecord, which: "main" | "flank", playerMen: number, exclude: readonly string[] = []): string[] {
   const o = operationRules(data);
   const nt = o.nodes[which === "main" ? record.op!.node : record.op!.flank!.node]!;
-  return enemyChoice(data, record.sides.enemy, playerMen, nt.enemyRatio * valueRatio(data, record), nt.enemySupport, exclude);
+  const vr = valueRatio(data, record);
+  const maxScale = campaignRules(data).battle.enemyCapScale ?? 1;
+  return enemyChoice(data, record.sides.enemy, playerMen, nt.enemyRatio * vr, nt.enemySupport, exclude, Math.min(maxScale, vr));
 }
 
 /** In "battle": the node's battles, built (pure: the same record gives the same inputs). */

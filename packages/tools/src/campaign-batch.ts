@@ -284,9 +284,11 @@ export function batchReport(parts: PartResult[], header: string): string {
     // M12.4 tuning lines.
     const st = ps.flatMap((p) => p.opStats ?? []);
     if (st.length > 0) {
+      const gq = (xs: { gain: number }[]) => { const g = xs.map((x) => x.gain); return `(${g.length}): gain p10 ${quant(g, 0.1).toFixed(3)}, median ${quant(g, 0.5).toFixed(3)}, p90 ${quant(g, 0.9).toFixed(3)}, max ${Math.max(0, ...g).toFixed(3)}`; };
+      // A full operation: every node (the fittest company fights, so few men fight all of them); also 3 battles or more.
       const full = st.flatMap((o) => o.survivors.filter((x) => x.battles >= o.nodes && x.fireMin >= 1));
-      const g = full.map((x) => x.gain), all = st.flatMap((o) => o.survivors.map((x) => x.gain));
-      out.push(`Experience over an operation: survivors who fought every node and were under fire (${full.length}): gain p10 ${quant(g, 0.1).toFixed(3)}, median ${quant(g, 0.5).toFixed(3)}, p90 ${quant(g, 0.9).toFixed(3)}, max ${Math.max(0, ...g).toFixed(3)}; every survivor (${all.length}) median ${quant(all, 0.5).toFixed(3)}; highest experience ${Math.max(0, ...st.flatMap((o) => o.survivors.map((x) => x.xp))).toFixed(3)}.`);
+      const three = st.flatMap((o) => o.survivors.filter((x) => x.battles >= 3 && x.fireMin >= 1));
+      out.push(`Experience over an operation: survivors under fire who fought every node ${gq(full)}; 3 battles or more ${gq(three)}; every survivor ${gq(st.flatMap((o) => o.survivors))}; highest experience ${Math.max(0, ...st.flatMap((o) => o.survivors.map((x) => x.xp))).toFixed(3)}.`);
       const fails = st.filter((o) => o.end === "failure");
       const able = st.map((o) => o.able);
       out.push(`Able share at operation ends: min ${Math.min(...able).toFixed(2)}, p10 ${quant(able, 0.1).toFixed(2)}, median ${quant(able, 0.5).toFixed(2)}; failures ${fails.length}: two losses in a row ${fails.filter((o) => o.lossesInRow >= 2).length}, below the combat-ineffective line only ${fails.filter((o) => o.lossesInRow < 2).length}. Men back from recovery inside operations: ${st.reduce((n, o) => n + o.rejoined, 0)}.`);

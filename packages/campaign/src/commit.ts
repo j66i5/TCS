@@ -96,10 +96,14 @@ export function proposeChoice(data: DataSet, f: CampaignForce, exclude: readonly
  * The enemy's choice for a node: platoons of any company, the fittest first (most men; ties: battalion order), until
  * its men reach `ratio` times `against` (the player's committed men) or the cap; with `support`, the headquarters of
  * the company most of them come from and the support units up to the cap. Never more than the cap; at least one
- * platoon when any has men. `exclude`: keys committed elsewhere.
+ * platoon when any has men. `exclude`: keys committed elsewhere. `capScale` (M12.4): every cap times it (rounded; platoons
+ * at least 1).
  */
-export function enemyChoice(data: DataSet, f: CampaignForce, against: number, ratio: number, support: boolean, exclude: readonly string[] = []): string[] {
-  const cap = campaignRules(data).battle;
+export function enemyChoice(data: DataSet, f: CampaignForce, against: number, ratio: number, support: boolean, exclude: readonly string[] = [], capScale = 1): string[] {
+  const cap0 = campaignRules(data).battle;
+  // M12.4: the caps scaled (`enemyFor`: by the fighting values, at most `enemyCapScale`); at least one platoon.
+  const sc = (n: number) => Math.round(n * capScale);
+  const cap = { ...cap0, platoons: Math.max(1, sc(cap0.platoons)), mortarSections: sc(cap0.mortarSections), missileTeams: sc(cap0.missileTeams), aglTeams: sc(cap0.aglTeams), tankSections: sc(cap0.tankSections) };
   const ex = new Set(exclude);
   const all = selectables(data, f);
   const plats = all.filter((s) => s.what === "platoon" && s.men > 0 && !ex.has(s.key))

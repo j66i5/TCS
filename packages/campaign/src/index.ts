@@ -1,8 +1,20 @@
 /**
- * @tcs/campaign - persistent roster and operational layer (SPEC 9.3). Empty until M12.
+ * @tcs/campaign - persistent roster and operational layer (SPEC 9.3; M12).
  *
- * The foundations it relies on already exist in @tcs/sim:
- *   - roster records:      SoldierRecord / UnitInput (battle.ts)
- *   - battle as function:  runBattle(BattleInput) -> BattleResult with `forcesOut`
+ * Deterministic like the simulation (the sim's lint rules apply: seeded RNG, sim/math, no clock); never imports the
+ * AI: battles run through an injected `BattleRunner`.
  */
-export {};
+export * from "./runner";
+export * from "./carry";
+export * from "./chain";
+export * from "./rules";
+export * from "./record";
+export * from "./holdings";
+export * from "./commit";
+export * from "./leaders";
+export * from "./between";
+export * from "./campaign-chain";
+export * from "./save";
+export * from "./operation";
+export * from "./flow";
+export * from "./view";

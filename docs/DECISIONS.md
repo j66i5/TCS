@@ -9228,3 +9228,566 @@ Owner decisions (binding, all the recommended options). Band for the four platoo
   rangefinder, HE stops once its dismounts are within ~70-100 m of the enemy) is accepted as a difference between the
   sides; overhead fire by vehicle guns over own infantry (~1 own man hit per 20 mounted battles) is accepted with the
   current clearance values.
+
+## 2026-11-19 — M12.0a: the battle contract a campaign needs (slice 12.0a, plan docs/plans/m12-roster.md 4.1)
+Built: `BattleInput.damage` (an earlier battle's `state.terrain` on the same map: holes, craters, vegetation loss,
+dug positions; copied into the state at setup, the holes stamped into the wall tables, navigation grids and building
+interiors by the existing `syncTerrainDamage`, exactly as a hole blown in the battle; a hole naming an obstacle or
+building the map lacks is refused) and `BattleInput.wrecksIn` (crewless, empty, destroyed hulls placed after every
+other entity, so the battle's own ids do not move; side `WRECK_SIDE` "-", neither force's, so no side counts, scores,
+settles, re-arms from or recovers them; their old side and status kept in `VehicleState.wreckIn` and given back in
+`BattleResult.wrecks`; nav stamp as `isWreck`, they stop rounds as any hull). `BattleResult.damageOut` (the state's
+terrain at the end, the input's included) and `BattleResult.service` (per `personId`: seconds under effective fire,
+seconds in contact, rounds fired, wounds taken, peak shock and strain) only with `rules.campaignOut: true`: the tally
+(`service.ts`, `SoldierState.service`) is write-only, so a battle with it has the same events, orders and roster out
+as without (tested; only the state hash differs); without it every golden and batch result is byte-identical (golden
+tests pass unchanged, no `golden:update`). **Craters:** in-battle craters never touched the navigation grids, and
+still do not (that would change every golden with a burst); craters carried in are rough ground in every grid,
+`CRATER_NAV` foot x1.3, tracked x1.5, wheeled x2 (game values, low; `ctx.navCraters`, in full builds and patches).
+Owner question for later: should this battle's own craters slow movement too (behaviour change, goldens move)?
+**Vegetation loss** is carried in and out but nothing makes or reads it yet (as before). **Effective fire** for the
+tally: suppression >= 0.1 (`SERVICE_FIRE_SUPPRESSION`, the care rules' level; low). `ScenarioDef.forces` (per side
+roster units and hulls instead of the template build; the tank section, mortars and teams of the template build are
+not added; off-map assets still per battle from the manifest; hulls placed as the side's vehicles, a crewman seated
+by his role's slot in the faction's crew template for that hull type, attacking squads aboard their carriers when
+the seats suffice, other men at the side's start) and `ScenarioDef.terrain` (damage, wrecks; the placement grids keep
+clear of the wrecks) and `campaignOut`. Campaign package: under the sim's determinism lint (eslint `files`) and an
+architecture purity test; app may import campaign (eslint and `ALLOWED_DEPS`); `runner.ts` (`BattleRunner`, tools
+inject the AI: `tools/src/campaign.ts aiRunner`), `carry.ts` (`fieldForce`: the men "fit" or "wounded", hulls in
+service — ok or disarmed, not captured, towed or lost; the settlement's mark cleared on a hull that came through — a
+crew whose hull is gone on foot, off-map assets dropped, a unit whose leader is gone has none until 12.1a appoints one;
+`sectorTerrain`), `chain.ts` (`runChain`), `npm run campaign -- chain --faction de|ru|xf [--battles n]`. Rejected:
+wrecks with their old side (every vehicle count, score and settlement would have needed an exception); the tally from
+events in `runBattle` (lost on a mid-battle save); craters into the grids for this battle's own bursts (goldens).
+
+## 2026-11-19 — M12.0b: scenario kinds and company-size battles (slice 12.0b, plan docs/plans/m12-roster.md 4.2)
+Built: `ScenarioDef.kind` attack, defence-counterattack, meeting, ambush, withdrawal (SPEC 6.9), with `platoon-attack`
+kept exactly as it was (every existing scenario, golden and batch builds the same input; goldens pass unchanged, no
+`golden:update`). `attack` is `platoon-attack` plus the plans and the attacker's break-off exit (tested: the inputs
+differ in nothing else). Each side stands at its start by a stance (holding its objectives, at its map edge, lying in
+wait); defence-counterattack: the defender's reserve platoon (`reservePlatoons`, default 1) comes on at `reserveAtS`
+(default 40 % of the time limit) at its own map edge, mounted when the battle has vehicles, and counter-attacks under a
+commander of its own; meeting: two objectives in the middle held by nobody, both sides attack them from their edges
+(attacker's allotment each, no dug positions); ambush: the attacker moves along the middle of the map to an exit zone
+at the far edge (men and hulls out there saved, 2 points a man, 10 a hull), the defender lies beside the route a
+little past the middle (17 % of the height off it, 110-200 m) with its hulls further along, `ambush` order (D4b) at
+220 m, planned fires on the route; on foot the map is 1200 x 900 and the attacker starts 20 % in (a walk of ~400 m to
+the ambush instead of 800: on a 1600 m map on foot one battle in 40 ran out of time with the column still walking);
+withdrawal: the defender holds its two objectives until `delayUntilS` (default 35 %; `ObjectiveDef.untilS`: the holder
+from then on scores them) and then gets out by an exit zone at its own map edge; the attacker follows up.
+**Sim (only with the new fields; absent, nothing runs):** `rules.exits` (`ExitZone`: a strip, side, points per man and
+hull; `systems/exits.ts`, once a second): an able man of that side on foot in it, or a hull that can drive (ok or
+disarmed, crewed, not towed) with its centre within 10 m of it (`EXIT_HULL_SLACK_M`: a hull cannot reach the very
+edge) leaves the map for good: the man is `evacuated` with `via: "exit"` and parked off the map (every system that
+passes the evacuated by passes him by; `isAble` false, `isOut` true) but he is saved: roster status as he left ("fit"
+or "wounded"), not a man down in the score, `SideScore.saved` / `savedPoints`, `SideResult.saved`; the hull is
+`exited` (`isOffMap`), everyone aboard with it; event `unit.exited`. A man carrying a casualty or carried does not leave
+by himself; prisoners are not led out. A side with an exit and nobody standing on the map, some of it out, ends the
+battle "side-withdrew" (no loser by that; the scores decide; string `aar.reason.side-withdrew`). `ObjectiveDef.untilS`
+freezes the holder. Late units (`arriveS`) now come on with their hulls (`lateHulls`: their crews' vehicles are created
+at arrival, crews seated, riders aboard; before, a late unit with a crew threw): only units with `arriveS` change.
+`ForceInput.plan` (`ForcePlan`: posture, untilS, exit, route, reserve, ambushRangeM, breakOff) is battle input the sim
+never reads. **AI (orders only, `ai/postures.ts`, `POSTURES_AI`, game values low):** `sideCommander` / `planControllers`
+pick each side's commander by its plan (no plan: the platoon commander, so every existing battle is commanded as
+before); `commanderController` takes a `CommanderScope` (`except` units, `attack` even where its side holds the
+objectives) and exposes its phase. Postures: the reserve's own commander attacks when it comes (its orders filtered to
+its own units); ambush (lie in wait, spring, close on the enemy known within 350 m 120 s after it was sprung); transit
+(fire free and `onContact: "push"`, every unit to the exit, sent on when it stands still 20 s or has not moved 10 m in
+60 s); withdraw (the platoon commander's defence until `untilS`, then squads within 250 m of their carrier mount, hulls
+wait up to 60 s, everyone to the exit); follow (the platoon commander's attack until `untilS`, then every unit to the
+nearest enemy its side knows within 500 m, else toward the enemy's exit, 80 m short); **break-off**: the attacking side
+of attack, defence-counterattack, meeting (both) and withdrawal has an exit zone at its own map edge (no points);
+60 s after its platoon commander broke the attack off (phase "withdraw": losses past the faction's tolerance or its
+vehicles lost), the side leaves by it, so a failed attack ends the battle instead of waiting at its start for the rest of
+the time limit (the stalemate the first matrix found: mounted attack, farmland seed 2, Russian attack withdrawn at 120 s,
+no fire from 505 s to 1200 s); a hull that does not get on (a broken track) lets its riders out to walk. Exit strips
+are 15 m wide (game value): wide enough that men whose move ends with the halt drill's cover search stay in it, narrow
+enough that no start position is in one (mortars 2 % in, missile and AGL teams of the new kinds at least 30 m in;
+tested: nobody starts in his side's exit). **Size:** `size: "company"` gives each side three platoons with the
+company's support (on-map mortar section, missile and AGL teams, the tank section, each unless set false); maps grow
+with the force (`scenarioMapSize`: the kind's base size x 1.6 for a company; a new kind with roster forces and no carried
+terrain x sqrt(men / 90), at most x 2); more than one defending platoon stands in rows 25 m behind the defence spots;
+start lines close up when they would not fit. **The company headquarters is not in the data yet** (no faction has a
+company template: 12.1a adds the battalion, company and company-HQ data, moving the catalog fingerprint once);
+`core/campaign.json` caps a battle at three platoons, the company HQ and one of each support element per side.
+`ScenarioDef.platoons`, `reinforcements` (extra platoons per side coming on at times), `reserveAtS`, `delayUntilS`.
+App: `&kind=` and `&size=company` (the enemy commanded by its plan). Tools: scenarios `bench-company`, `counterattack`,
+`meeting`, `ambush`, `withdrawal`; `npm run lab -- kinds`; `phoneperf --query`; `aiRunner` uses `planControllers`.
+**Acceptance (lab kinds, AI against AI, 1,200 s, attacker by seed parity, stalemate = ran to the time limit, no side
+fired in the last third, both sides above half their men able on the map):** on foot, 5 kinds x 4 map kinds (village,
+farmland, woodland, industrial; "flat" is no generated kind) x 10 seeds = 200 battles, 0 stalemates (attack: 25 ran
+to the time, 14 a side broken or wiped out, 1 withdrew; defence-counterattack 36 / 3 / 1; meeting 27 / 11 / 2; ambush:
+39 ended with a side wiped out, median 310 s, 7 men got through; withdrawal: 39 "side-withdrew", 780 men out by the
+exit, every one "fit" or "wounded" in `forcesOut`, median 886 s); medians 45-116x real time.
+With roster forces (each side's template build fed back in as roster records, `rosterForcesOf`; the counter-attack
+reserve then the defender's last platoon): 5 kinds x 4 maps x 3 seeds = 60 battles, 0 stalemates (withdrawal 218 men
+out, all fit or wounded). Mounted: 5 kinds x 4 maps x 2 seeds = 40 battles, 0 stalemates (8 of the 24 attack, counter-attack
+and meeting battles ended "side-withdrew": a side broke off and left by its own edge; ambush 136 men out, withdrawal
+200). Before the break-off and the ambush-on-foot change the matrix found 2 stalemates: an ambush on foot whose column
+was still walking at the time limit (1 of 200 on foot) and the mounted attack above (1 of 40 mounted). **Existing battles unchanged:** goldens and no-interiors goldens pass
+untouched; headless state hashes identical to main for platoon-vehicles (seed 1, 300 s), platoon-ru-vehicles (2),
+hold-resupply (1, 400 s) and assault-group (3). **Speed and the cap:** `bench-company` (33 hulls, 221 men on the map:
+DE 118, RU 103, AI against AI) headless on this container: 14x real time over whole battles (seed 1 1,200 s in 86 s;
+seed 2 922 s in 65 s), 18x over its first 240 s (the floor test, `BENCH_COMPANY_FLOOR_X` 4); so the cap is a company
+per side (`core/campaign.json` `battle`: 3 platoons, the company HQ, one mortar section, one missile team, one AGL team,
+one tank section; `floorX` 4, `measuredX` 14; owner question Q-C, option (a) kept). Phone proxy (`npm run phoneperf --
+--query "kind=attack&size=company" --map farmland`, its report reports/phoneperf-2026-11-19T18-16-11.md is not kept in git: the numbers here; software GL, report
+only): photo, idle at 1x, 4x CPU throttle: frame p50 98 ms, sim 15.3 ms a frame (the platoon battle on the same map:
+82 ms, 7.1 ms); flat 132 / 20.2 ms (platoon 116 / 11.7); no game time lost in any run; the sim share about doubles
+with a company each. Game values (all low): `SCENARIO_KIND`, `POSTURES_AI`, `EXIT_HULL_SLACK_M`. Rejected: removing a
+man who leaves from the stores (his record would have to be rebuilt; every reference to him would dangle); an exit
+"vehicle" carrying the men off (needs a vehicle type in the data: catalog fingerprint); resuming a broken-off attack
+after a pause (the faction's casualty tolerance said stop; leaving ends the battle and keeps the auto-resolve short);
+an `attack` identical to `platoon-attack` (without the break-off the matrix had a stalemate).
+
+## 2026-11-19 — M12.1a: battalion data, the campaign record, rules between battles (slice 12.1a, plan docs/plans/m12-roster.md 4.3)
+
+**Data (add-data-entry; search extracts only, no page opened: medium at most).** Company headquarters in their own hull:
+DE `pzgren-kompanie` / `jaeger-kompanie` = members Kompaniechef (Hauptmann), Kompanietruppfuehrer (Hauptfeldwebel), Funker
+riding in the HQ Puma / GTK Boxer (`puma-besatzung-kp`, `boxer-besatzung-kp`, carriage `hq`) + three existing Zuege
+(battleorder.org HS.30-era extract: the company commander, a Hauptmann, with a company troop leader in his own vehicle;
+the Puma-era table was not found, low); RU `motostrelkovaya-rota` / `-btr` = company commander (kapitan), deputy
+(starshiy leytenant), starshina, radio operator in their BMP-2 / BTR-82A + three existing platoons (extracts: a company
+HQ section and three platoons, medium; the men and ranks low). Battalions `pzgren-bataillon` / `jaeger-bataillon`
+(Kommandeur Oberstleutnant, S3 Major, Funker in a Puma / Boxer; three companies; `moerser-gruppe`, `gmw-trupp`, an attached
+`panzer-halbzug`: 340 / 354 men, 42 hulls) and `motostrelkoviy-batalyon` / `-btr` (podpolkovnik, mayor, radio operator;
+three companies; `minomyotny-vzvod-82`, `raschet-ags`, `raschet-metis`, attached `tankovaya-gruppa`: 298 / 316 men, 33
+hulls; extracts list command, three motor rifle companies, mortar battery, grenade launcher platoon, anti-tank platoon:
+medium for the listing, the sizes here low). Staff, supply, maintenance and reconnaissance elements are not modelled
+(they stay behind the battles). xf: `cart-company` (a boss and a porter, three cart bands), `cart-battalion` (three
+companies, the dart team, the tortoise pair; 107 men, 20 hulls). Manifest `battalionTemplates {tracked, wheeled}` (loader:
+echelon "battalion", every carriage crew of that class; a class without an entry falls back to the other). New ranks
+DE hauptmann / major / oberstleutnant (OF-2..4, grades 16-18) and RU kapitan / mayor / podpolkovnik, with insignia: a
+new insignia element `wreath` (an open ring, the Eichenlaubkranz; drawn in ui/insignia.ts; sizes low), RU field
+officers' two long stripes as `band`s along the board and 20 mm stars (low). New roles (leader flag on the commanders
+and deputies). **Goldens: `golden:update` for the catalog fingerprint only**: the 12 goldens' checkpoint hashes change
+(the state carries the fingerprint), their orders are unchanged, and a run of every golden spec before and after the
+data change gives identical event streams, orders and `forcesOut` (hashed; recorded in the slice's notes).
+
+**`core/campaign.json` (game values, low):** clock 12 h between battles, 7 days between operations; the chain's
+operation 5 battles; endless `replenishEvery` 3; experience +0.005 a battle plus +0.004 a minute under effective fire,
+at most +0.04 a battle, never above 0.9 (a man above it keeps what he has); recovery an hour: fatigue 0.05, shock 0.1,
+strain 0.01, water back to full; 7 recovery days and 3 workshop days where a battle settled none; Q-A (a)
+`rejoinWithinOperation` true, Q-B (a) `replaceLost` true; replacements of the "conscript" level; combat-ineffective
+below 0.5 of the establishment (read by M12.2).
+
+**Campaign record (campaign/src/record.ts):** `CampaignRecord` { version 1, seed, rng (the campaign's own named streams:
+`campaign/<prefix>/names|skills`), hours, mode, operation {index, battles}, battles, sides {player, enemy}, history
+(per battle: kind, map, seeds, sides, winner, end, men and hulls in / able / killed / evacuated / captured / missing,
+service / workshop / lost), consumption, log }. A side: faction, carriers, battalion template, key prefix ("P" / "E"),
+the battalion as one `UnitInput` tree (every unit kept, empty ones too), hulls in service, `establishment` (unit key ->
+template: the places a unit has), workshop hulls (days to go), lost hulls, pools (recovering with days, dead, missing,
+held by the enemy, the enemy's men it holds as references, replacements, unassigned), `service` (per personId every
+battle's entry: minutes under fire and in contact, rounds, wounds, peak shock and strain, strain after, experience
+gained, status; kept for the dead), `nextPersonId` / `nextHullSerial`. Per-man history lives in the record, not in
+`SoldierRecord`, so the battle contract and the goldens do not change.
+
+**Who fights (commit.ts, until M12.2's choice):** the fittest company (most men; ties the first): its HQ (the company
+unit with only its non-platoon sub-units: the HQ crew), up to `battle.platoons` platoons, and the battalion's support
+up to the cap (by the manifest's support templates), each a top-level unit of the battle; crews of hulls not in service
+rest; carriers not there are taken off their squads. So the company that just fought usually rests in the next battle
+(owner question). Results come back by unit key (men by personId, hulls by vehicleId); the battle's own assets
+(ambulances, recovery, military police) are not the battalion's and are ignored.
+
+**Rules between battles (between.ts, pure: each returns a new record):** as the file comment and plan 4.3: men fit /
+wounded stay (walking wounded's days run down, healed: fit, wounds and physiology gone); evacuated (and incapacitated)
+to recovering; killed / missing / captured to their pools with their loads written off; hulls in service stay, recovered
+or towed to the workshop for their `repairDays`, destroyed or captured lost (written off); experience and service
+entries; the clock runs (battle + 12 h): rest, healing, rejoining (old unit if it has room, else unassigned), the
+workshop; automatic leaders (leaders.ts: top down, the best of the unit's own men and its direct sub-units' leaders by
+leader's role, grade, experience, own man first; a sub-unit's leader chosen moves up into the HQ and his unit gets its
+own leader; medical personnel never lead; logged with whom he replaced). No replacements, no refill inside an
+operation. `replenish`: 7 days pass; unassigned men fill vacancies of their role; green replacements (conscript skills
+from the campaign rng, new `P#<n>` ids) the rest (vacancies: template slots unmatched by role, at most as many as the
+unit lacks); every man's load to his role's slot load (his unit's template, else the first template with the role),
+`powerFitted` cleared; every hull's stowage and fuel to `newVehicleRecord`, ready belts full, components repaired; lost
+hulls replaced with a new id (`<crewKey>~<n>`; the crew's `vehicleId` and every `carrierId` moved to it); leaders;
+operation counter on. **The books (holdings.ts):** rounds by ammunition id, charges by kind, items, counted over the
+battalion's men, hulls in service and workshop, recovering and unassigned men; a battle logs `net` (the committed
+records in minus out), `fired` (`BattleResult.logistics` consumed), `writtenOff`; a replenishment logs `delivered`; so
+start + delivered - net - written off = now, per id. Rejected: refilling men in the recovering pool (they are not with
+a unit; refilled when they rejoin at a replenishment); carrying the history in `SoldierRecord` (moves the battle
+contract); replacing the dead in the same place by "rank promotion" chains (the appointed leader keeps the lead; the
+green man takes the empty slot).
+
+**CLI:** `npm run campaign -- chain --faction de|ru|xf --battles 10 [--seed N] [--seconds 600] [--carriers]` (kinds
+attack, defence-counterattack, meeting, ambush, withdrawal in turn on village / farmland / woodland / industrial, a new
+map each battle; one company's worth per side; AI both sides; replenishment after battle 5); report and record JSON in
+`reports/`. The M12.0a one-map chain is now `campaign -- sector`.
+
+**Acceptance.** Tests (`tools/test/campaign-rules.test.ts`, 10): battalions built for DE, RU and xf with their
+establishment and hulls; the commit (one company's worth, every crew with its hull, it builds and sets up); a man
+evacuated in battle 1 with 5 recovery days is in the recovering pool through the five battles of the operation (2.5
+days) and back in his squad, fit and healed, after the replenishment, or unassigned when his squad was filled; no
+replacement and no refill inside an operation (dead stay gone, a magazine at 3 rounds and a hull at 17 l stay so), both
+at the replenishment (two green men with new ids and conscript experience, loads and hulls back to the data, the books
+exact); a dead squad leader replaced by the rule's man and a dead platoon leader by the Zugtruppfuehrer moving up from
+the HQ Puma, both the units' leaders in the next battle's sim; medics never appointed; experience grows more under fire
+(+0.04 capped against +0.005), never above 0.9 over 30 battles, and the history keeps all 30 entries with their peak
+shock; the dead keep their history, the enemy's captured men in the player's prisoners; hulls lost, to the workshop and
+back, replaced with a new id; a real xf chain (4 battles, operations of 2) twice with the same record hash and exact books.
+10-battle chains (600 s battles, seed 1, AI both sides), each run twice:
+DE (player) against RU: record hash `079ac646b303cbf4` both runs; player won 9 of 10; player 12 / 0 / 0 / 9 / 1 / 2 / 5 / 0 / 1 / 0
+killed per battle (30 dead), the enemy 468 dead over the chain (its battalion down to 28 men before the replenishment;
+296 green replacements in all, 26 the player's); 141 leaders appointed (14 the player's); books exact both sides
+(player: start 312,354 rounds + 25,051 delivered - 8,656 net (8,601 fired by the events) - 22,762 written off =
+305,987); wall time 11 min a run (three chains at once on 4 cores). RU (player) against DE: `8eadca7b494622ce` both
+runs; player won 2 of 10; 374 Russian dead; 233 replacements for the player; books exact. xf (player) against DE:
+`9794e763732c31aa` both runs; books exact. In all three no recovering man came back (the medical settlement's recovery
+days left are 11-408 days: owner question); the replenishment after battle 5 brought each battalion back to its
+establishment (DE 340, RU 298, xf 107) and every hull lost before it was replaced (DE as the enemy: 31). Reports
+`reports/campaign-{de,ru,xf}-s1-*.md` (not in git; numbers here). Low game values and questions in STATE.
+
+## 2026-11-19 — M12.1b: campaign saves (slice 12.1b, plan docs/plans/m12-roster.md 4.4)
+
+**The save (campaign/src/save.ts).** `CampaignSave { version, record, slotName, savedAt, fingerprint }`: `savedAt` is
+the app's clock as a string (the slot list shows it; the rules never read it, so a campaign stays deterministic),
+`fingerprint` the catalog fingerprint of the campaign's factions at saving. `CAMPAIGN_VERSION` is now **2** (record and
+save carry the same number; so every record hash differs from M12.1a's by the version field alone). Version 1 was the
+bare `CampaignRecord` that `npm run campaign -- chain` wrote as .json in M12.1a: `MIGRATIONS[1]` wraps it (slot
+"imported", no time, fingerprint "" = unknown, no warning). Migrations run n -> n+1 in turn and each step is checked;
+a save newer than the game is refused. A released migration is never edited. The fixture
+`packages/campaign/test/fixtures/campaign-v1.json` is a real M12.1a record (xf against xf, seed 5, two 90 s battles,
+made with 12.1a's code at f72ed80; record hash then `03e36a92bde09920`): never regenerate it.
+
+**Loading (`readSave`):** parse -> migrate -> validate the shape (fatal problems listed in `SaveError.problems`: missing
+sides, a faction the data does not have, members that are not records...) -> **ID repair** -> fingerprint check (a
+mismatch is the warning "data-changed"; the save still loads: records name items by id, and a changed catalog only
+changes numbers). ID repair (`repairIds`, in place, returned as a list for the player): person ids unique across both
+sides (they share a battle); an id with a side's prefix belongs to that side first; then, per side, battalion men in
+roster order and the pools in a fixed order: the first holder keeps the id, a later holder or a man without one gets
+`<prefix>#<n>`; `nextPersonId` raised past every serial in use (men, pools, service history). Hulls: in service, then
+the workshop; a duplicate gets `<base>~<n>` and the crews naming the duplicated id are shared out over the copies in
+roster order; a crew or carried unit naming a hull the force has nowhere (not in service, workshop or lost) loses the
+link (it walks; a lost hull's link stays for its replacement); `nextHullSerial` raised past every `~n`. A leader index
+out of range is cleared and the leader rule (`appointLeaders`) appoints one. A valid save loads without any change.
+
+**Export / import.** `exportSave` is canonical JSON (sorted keys), so a save always gives the same bytes and export ->
+import -> export is byte-identical (a migrated or repaired import changes once, then is stable). **App storage**
+(app/src/campaign-store.ts): `SaveBackend` (get / put / delete / keys) with an IndexedDB implementation (database
+`tcs-campaign`, store `saves`; no new dependency) and an in-memory one (Node tests; also the fallback without
+IndexedDB); per slot `save:<slot>` (the export text) and `meta:<slot>` (the slot list line); named slots (1-40
+characters, not "auto") and the automatic slot `auto` (`saveAuto`, after every battle: 12.2/12.3 call it); export as a
+.json download (`downloadText`, `exportFileName` = `tcs-campaign-<slot>-b<battles>.json`), import from a file
+(`pickFileText`, `importText`: validated, migrated, repaired; stored under its own slot name unless one is given).
+**Mid-battle save (plan Q-E option a):** the one existing save (localStorage `tcs.save`) now carries `campaignSlot`
+(from `?campaign=<slot>`, which the 12.3 interface will set) and loads only into a battle of the same slot (a plain
+battle's save only outside a campaign; old saves have no tag = plain).
+
+**Continuing a chain.** `continueCampaignChain(data, record, opts, runner)` goes on from any record until
+`opts.battles`; `runCampaignChain` is it from `newCampaign`. The replenishment of a finished operation now runs before
+the next battle instead of right after the last battle of the operation: the same records in an uninterrupted chain
+(it never ran after the chain's last battle), but a chain saved between them continues exactly. `npm run campaign --
+chain` writes a `CampaignSave` (slot "chain") instead of the bare record and takes `--from <save.json>` (faction,
+enemy, seed and carriers from the save; migrations and repairs printed).
+
+**Acceptance.** `tools/test/campaign-saves.test.ts` (4 tests): xf against xf, operations of 3, 90 s battles: saved
+after battle 3, exported, loaded and continued to battle 6 (the replenishment falls in the continued part) = the
+uninterrupted chain's record hash, books exact; the v1 fixture migrates (only the version changes, no repair, no
+warning) and continues two battles, twice with the same hash, books exact; a corrupted id set (two men with one id, a
+man without one, a player man with an enemy id, a recovering man copying a battalion man, two hulls and their crews
+with one id, a crew and a carried unit linked to hulls that do not exist, a leader index 99, both counters at 0) is
+repaired (4 person ids, hull id, crew and carrier links, leader, both counters; nothing on the enemy side), every id is
+unique and every link valid, a second load repairs nothing, and two more battles run; unreadable, damaged and newer
+saves are refused, a changed fingerprint warns and loads. `app/test/campaign-store.test.ts` (3 tests): slots (auto
+first, then by name; overwrite, remove, slot names), export -> import -> export byte-identical (DE against RU fresh;
+the v1 fixture after its one migration), a non-save import refused and nothing stored, the mid-battle tag. CLI,
+DE against RU, seed 2, 300 s battles: 6 battles uninterrupted -> `1d461639db88381f`; 3 battles, then `--from` that save
+to 6 (the replenishment before battle 6 in the continued run) -> `1d461639db88381f`; the two final save files are
+byte-identical but for `savedAt`. A DE battalion save is 0.95 MB after 3 battles, 1.48 MB after 6 (the service history
+and the logs grow with the battles; IndexedDB holds that easily, but 12.3's slot list reads only the `meta:` lines).
+
+## 2026-11-19 — M12.2: linked operations and endless mode (slice 12.2, plan docs/plans/m12-roster.md 4.5)
+
+**Operations (campaign/src/operation.ts).** `generateOperation` draws (campaign dice, stream "campaign/op") a LINE of
+3-5 sectors (`operation.sectors`): each a `Sector {mapKind, mapSeed, widthM, heightM}` (size: its first node's kind at
+company size, `scenarioMapSize`), so a sector fought again is the same map. The player is blue (west); the east edge
+of a sector leads to the west edge of the next. Each position has a planned node (the first from `operation.start`,
+the others from `operation.planned`). Node types are data (`core/campaign.json` `nodes`: scenario kind, who attacks,
+the enemy's commit ratio, whether it brings its company headquarters and support): attack (enemy 0.7, no support),
+defend (defence-counterattack, the enemy attacks, the player's last platoon its reserve; enemy 1.0 with support),
+meeting (1.0 with support), ambush (the player lies in wait for an enemy on the move; 0.7), withdraw (the player delays
+and leaves, the enemy follows; 1.0 with support), pursue (the enemy withdraws, the player follows; 0.7). **The
+transition table** (`transitions`, per node type and the player's result): a win goes on to the next sector's planned
+node; a loss turns an attack, a meeting or a pursuit into the enemy's counter-attack on the same sector (defend), a lost
+defence or ambush into a withdrawal, a withdrawal goes a sector back (won: an ambush there; else a defence); a draw
+fights the same sector again (attack / defend / meeting; an ambush draw: defend). `nextNode` is the table alone (pure);
+`advance` applies it: **success** = a win moving on past the last sector; **failure** = two losses in a row or the
+player's battalion below `combatIneffective` (able men / establishment places), both only from `minBattles` (3) nodes
+on, so an operation always has 3-5 nodes; **no-force** = the player has no able platoon (could end it earlier; never
+happened); **limit** after `battles` (5) nodes. A move before the first sector stays on it, a non-win past the last
+stays on the last. **Flank battles**: per node with chance `flankChance` (0.3) a flank battle (type from `flankNodes`)
+for a second company on a flank sector beside the line sector (made once, remembered like any sector); the player's
+flank company is the fittest company not chosen for the main battle (`proposeChoice(..., exclude)`), always
+auto-resolved; its result is recorded but does not drive the table (the main battle does). **Endless mode**: the same
+table ("planned" drawn from `operation.planned`), a new sector every `endless.sectorEvery` (2) nodes (older sectors are
+dropped), a replenishment every `endless.replenishEvery` (3) nodes (early when the player has no able platoon).
+**Sector memory**: after each battle its sector keeps `sectorTerrain(result)` (damage incl. the earlier battles', every
+wreck); the next battle there gets it as `ScenarioDef.terrain`, with the sector's size passed explicitly. All game
+values, confidence low.
+
+**Choosing forces (commit.ts).** `selectables` (company HQs by the company key, platoons, support units with their men),
+`proposeChoice` (the fittest company's HQ and platoons within the cap and the support; `proposeCommit` is now
+`commitOf(proposeChoice)`, the same units as in 12.1a), `enemyChoice` (platoons of any company, fittest first, until
+`ratio` x the player's committed men or the cap; with support the HQ of the company most of them come from and the
+support within the cap), `validateCommit` (unknown / doubled / committed-elsewhere keys, over the cap, no able
+platoon, a unit without men, a carrier without its squad or a squad without its carrier in service), `commitOf`.
+
+**The state machine (flow.ts)**, every step pure, the phase in `record.flow`: `startFlow` (operation generated,
+briefing) -> `chooseForces` (choose, the proposal) -> `setChoice` (problems listed) -> `confirmForces` (refused with
+the problems; the flank company proposed) -> `battleInputs` (main and flank `ScenarioDef` with `forces` and `terrain`,
+built by `buildScenario`; battle seeds `hashString32("campaign/<seed>/<battles>/<main|flank>")`; throws on a side of 0
+men; the enemy with no able platoon: no battle, the node won as a walkover, the clock runs `hoursBetweenBattles`) ->
+`finishBattle(record, env, result | "auto")` (the flank battle auto-resolved through `env.runner`, the main battle's
+result handed in from the app or auto-resolved; the flank applied first with `CampaignBattle.flank`: no clock, no
+leaders, not an operation battle; then the main) -> after-battle -> `proceed` (briefing, replenishment in endless
+mode, operation-end: archived in `record.operations`, `replenish`, a new operation). `autoResolve`, `autoPlay` (the AI
+plays the player's side), `env.onProgress(which, s)` for 12.3's progress bar. New record fields are optional (`op`,
+`operations`, `flow`, `battleSeconds`; `BattleSummary.node/sector/flank`; log kinds operation-start/-end, walkover), so
+`CAMPAIGN_VERSION` stays 2 (a 12.1b save loads unchanged and `startFlow` starts its first operation). `passHours` (a
+walkover's clock). `battle.seconds` 1200 for a campaign battle (`newCampaign({battleSeconds})` overrides).
+
+**Bug found by the batch and fixed:** the flank battle was applied with leader appointment; when the enemy's flank
+commit took a company HQ whose platoons fought the main battle (the enemy commits platoons of any company) and the HQ
+was lost to the last man, a platoon leader moved up into the HQ, then came back with his platoon's `forcesOut` too: one
+man in two units (`E#2486`, de s101 node 100). A flank battle now appoints no leaders (the main battle's application
+does, for both; the flank's lost leaders are not named as "replaced" in the log). Regression test with constructed
+results; the batch counts person ids held twice.
+
+**CLI.** `npm run campaign -- batch [--faction de,ru] [--operations 50] [--mode operations|endless] [--battles 30]
+[--seed n] [--seconds 600] [--campaigns k] [--jobs j]` (tools/src/campaign-batch.ts: per node the acceptance checks;
+`batch-part --opts <json> --out <file>` runs one campaign, `batch --merge` merges parts run apart).
+
+**Acceptance.** `tools/test/campaign-operations.test.ts` (11 tests): the data consistent (`checkOperationRules`);
+`nextNode` follows the table for every node type and result at the line's start, middle and end; `proposeChoice` (HQ
+and 3 platoons; the flank company shares no unit), `validateCommit` (cap, no platoon, twice, unknown, elsewhere, two
+HQs), `enemyChoice` by ratio; xf against xf, 90 s battles: two operations of 3-5 nodes with every batch check clean,
+replenished exactly at their ends, a sector fought again, the same record hash twice; endless (replenishEvery 2): 5
+nodes, replenishments after nodes 2 and 4, sectors 1-2 / 3-4 / 5; the phases (wrong phase refused, an empty choice
+refused with "no able platoon", a save in the battle phase loads to the same hash, a played main battle handed to
+`finishBattle` = `autoResolve`, `onProgress` reports "main 60"); the enemy with no able platoon: a walkover, no battle
+run, the clock 12 h; sector memory (craters and a wreck handed in, the sector's size passed); the flank/main leader
+regression. **Batch** (`npm run campaign -- batch`, AI on both sides, tracked carriers, the player's side auto-resolved
+with the proposed choice; parts run as `batch-part` four at a time and merged): 50 operations per faction with 300 s
+battles (two campaigns of 25 each; the 600 s battles of the first attempt ran ~80-140 s wall each under that load,
+about 10 h for the batch) and 30 endless nodes with 600 s battles:
+
+| run | nodes | battles (with flank) | zero-men | ops outside 3-5 | table mismatches | sectors fought again (craters / wrecks) | memory / enemy roster mismatches | misplaced replenishments | ids twice |
+|---|---:|---:|---:|---:|---:|---|---:|---:|---:|
+| DE vs RU, 50 operations | 229 | 288 | 0 | 0 | 0 | 54 (53 / 42) | 0 / 0 | 0 | 0 |
+| RU vs DE, 50 operations | 188 | 249 | 0 | 0 | 0 | 116 (110 / 96) | 0 / 0 | 0 | 0 |
+| DE vs RU, endless 30 nodes | 30 | 39 | 0 | - | 0 | 17 (16 / 13) | 0 / 0 | 0 (replenished after every 3rd node) | 0 |
+
+Outcomes (balance is 12.4's): DE as the player 52 % success (26 success, 24 limit, 0 failure; nodes per operation 3: 6,
+4: 9, 5: 35; 5.76 battles per operation with flank battles); RU as the player 2 % (1 success, 38 failure, 11 limit;
+3: 26, 4: 10, 5: 14). DE player losses over 50 operations 489 killed, 288 evacuated (enemy 5743 / 1204); RU player
+5026 / 1157 (enemy 452 / 208). Recovering men at operation ends: DE mean 60, RU 243 (recovery days are months). Player
+experience at the end: DE p10 / median / p90 / max 0.12 / 0.36 / 0.60 / 0.79, RU 0.02 / 0.12 / 0.24 / 0.51 (green
+replacements). Wall time: 300 s battles median 20 s (DE) / 23 s (RU), 600 s battles 57 s, four campaigns at a time;
+55-57 min per 25-operation campaign. Main battles at 300 s mostly end at the time limit (210 of 229 DE, 182 of 188 RU),
+so draws repeat a sector (that is where most revisits come from). Record hashes: de s100 `0aa22a1eeced40a1`, de s101
+`588943a79d74f946`, ru s100 `abb5318dee43c74a`, ru s101 `297bb939c168233c`, endless de s200 `8a67815fcf1a33b9`;
+reproducible: RU vs DE seed 7, 2 operations at 300 s, run twice at once -> `be1b44a1b3a704fa` both times (and the
+xf test). The first batch (before the leader fix) found the one enemy man held twice and nothing else.
+
+## 2026-11-19 — M12.3: the phone roster interface (slice 12.3, plan docs/plans/m12-roster.md 4.6)
+
+**Where the screens live.** The screens are DOM layout in `ui/src/campaign.ts` (`createCampaignUi`, `drawSectorPreview`):
+they read plain views and call back on taps; the ui package still imports no campaign code (its `Cmp*` interfaces are
+the parts of the views it reads, structurally). Every number on a screen comes from pure views in
+`campaign/src/view.ts` (tested in Node): `battalionView` (the tree with places, men, fit, walking wounded, recovering,
+lost for good, ammunition as the mean share of the standard load over the ammunition kinds a unit carries, hulls in
+service / workshop / lost), `manView` (a man wherever he is: unit or pool; skills with experience, condition, wounds,
+days, service entries and their stress peaks, his squad, `canMakeLeader`), `briefingView` (node, sector, who attacks,
+the enemy's estimate rounded to 5 / 10 men with its hulls by type, the selectables with callsigns and hull counts, the
+choice, the proposal, the cap, problems, steps so far), `afterBattleView` (built from the record alone by the battle
+indexes on pools, logs, service entries and the consumption log, so a loaded save shows the same card: results of the
+node's battles, killed, wounded with days, captured and missing, experience (men, total, the five who gained most), new
+leaders, men back, rounds fired by calibre, hulls lost / workshop / repaired, prisoners taken, the operation's steps and
+next node), `replenishmentView` (the last replenishment's log entries: replacements, men back, hulls replaced and
+repaired, rounds and litres delivered, strength after). New flow steps: `makeLeader` (owner: leaders automatic, the
+player can change them; refused for medical personnel, his own leader, and once the forces are confirmed: the battle is
+built from the record; logged `how: "player"`), `reviseForces` (battle -> choose, the choice kept; after a cancelled
+auto-resolve). `between.ts` exports `standardSlot` and `loadOf` for the ammunition share.
+
+**The app.** `?campaign=1` opens the campaign page (`app/src/campaign/page.ts`) instead of a battle: home (new campaign:
+faction, carriers, operations / endless; continue (the automatic slot); slots with load, save under a name, rename,
+delete, export; import), battalion tree (expand a unit to see its men), man card ("Make leader"), briefing (the sector
+preview, kind, who attacks, the clock, the enemy estimate, the flank battle, the steps so far; the choice with the
+proposed default marked, the cap, problems; Proposed, Battalion, Auto-resolve, Play; in phase "battle": Change forces),
+progress (bars for the flank and main battles; Cancel), what changed, replenishment. The record the player works on is
+written to the automatic slot after every step (`store.saveAuto`); a named save is the player's own. The briefing opens
+straight on the choice (`chooseForces` with the proposal). The look (photo / flat) is the battle's (`?look=`, localStorage
+`tcs.ui.look`), switchable on every screen: photo has gradients, soft shadows, a photo-painted sector preview; flat has
+square corners, solid fills, a monospace face and the flat painter's preview. **Auto-resolve and the preview run in a Web
+Worker** (`campaign/worker.ts`, `client.ts`; the pure work in `campaign/resolve.ts`: `finishNode`, `sectorPreview`,
+`appRunner` = `runBattle` with `planControllers`, progress every 10 battle seconds). Cancel terminates the worker: the
+record the page holds is untouched (pure steps), the briefing shows phase "battle" and the preview is drawn again.
+**A played battle**: Play confirms the choice, saves the automatic slot and opens `?campaign=auto&play=1` (main.ts): the
+node's main battle exactly as `battleInputs` builds it, the player blue, the enemy's AI by its plan (`sideCommander`);
+logistics gathered from the events (`logisticsFromEvents`); the review gets "Back to the campaign": `battleResultOf(sim,
+input, orders, logistics)` (new in sim/run.ts, the summary `continueBattle` gives at its end; read-only) goes to the
+store's pending key and `?campaign=1&finish=1` applies it in the worker with the flank battle auto-resolved there, then
+the what-changed card. The mid-battle save of 12.1b keeps working (`?campaign=auto&play=1&load=1`; logistics count from
+the load, as for any continued run). The review is the ordinary one (all four tabs). The clock shows "Day N, HH:MM" from
+the campaign's hours with day 1 starting 06:00 (`CAMPAIGN_START_HOUR`, display only: battles are fought in daylight in
+stage one; owner question). App URL options: `&seconds=<s>` a new campaign's battle length, `&seed=<n>`,
+`&fixtures=1` (lists xf).
+
+**Strings.** ~240 `cmp.*` keys and `aar.campaign` in `core/strings.en.json` (strings are outside the catalog
+fingerprint: goldens unchanged).
+
+**Acceptance.** `npm run e2e:campaign` (Playwright, phone viewport, DE vs RU, 60 s battles, seed 7; `campaign-e2e.ts`):
+11 checks, all pass in 58 s: home with nothing to continue -> new campaign -> briefing (7 of 15 units proposed, preview
+drawn) -> a platoon unticked and Proposed restoring the choice -> battalion tree -> man card -> Make leader -> back ->
+auto-resolve (progress bars) -> what changed (1 battle) -> save as "E2E one" -> reload -> load: the same record hash ->
+proceed -> the next briefing -> **Play** -> the battle page run to its end -> review -> "Back to the campaign" -> what
+changed (battles 1 -> 2) -> on to the operation's end -> replenishment card -> a cancelled auto-resolve (phase battle,
+nothing fought, preview back). `npm run screenshot -- --scene campaign` runs the same flow on phone and desktop in both
+looks (4 x 11 checks, no page errors) and saves 16 shots each (`screenshots/campaign-<phone|desktop>-<look>-*.png`);
+LOOKed at: home, briefing and forces, battalion and an opened platoon, man card, progress, what changed, slots, next
+briefing, the played battle's review with its button, the after card of the played battle, replenishment, cancelled.
+Fixed from the looking: the progress screen showed no bar until the battles were built (now "Building the battle..."
+with a moving bar), the desktop preview filled the screen (now at most 52 % of the height), a cancelled preview stayed
+"Drawing..." (drawn again), "Headquarters company HQ" twice, the sticky button bar let text through. Node tests
+`app/test/campaign-views.test.ts` (7): the tree adds up (a new DE battalion all fit, ammunition 1, every hull in
+service), the man card and Make leader (squad, refusals, the chosen leader leads the squad in the next battle's input),
+the briefing (proposal, cap, estimate rounded, problems, Change forces), the sector preview in both looks, what changed
+(numbers = the battle summary, lists = the pools; identical from a loaded save), the replenishment card, and a battle
+played tick by tick in the app's way handed back through `battleResultOf` = the auto-resolved record (same hash).
+**Owner acceptance pending:** two linked battles played on his phone.
+
+## 2026-11-20 — M12.4: campaign review and tuning (slice 12.4, plan docs/plans/m12-roster.md 4.7)
+
+**Levers added.** `factions/<id>/campaign.json` `fightingValue` (outside the catalog fingerprint: goldens unchanged;
+1 without the file): the enemy commits its node's `enemyRatio` x the player's committed men x `fightingValue(player) /
+fightingValue(enemy)`, and its per-battle caps (platoons, mortar, missile, AGL, tank sections) are scaled by the same
+ratio, at most `battle.enemyCapScale` (platoons at least 1). Batches report the tuning lines (experience over an
+operation, able share and failure reasons at operation ends, recovery days, able share before endless
+replenishments). `npm run phoneperf -- --campaign N` times auto-resolve per node on the phone proxy.
+
+**Batches** (`npm run campaign -- batch-part` per campaign, merged with `batch --merge`; 1200 s battles, AI on both
+sides, tracked carriers; the player's side auto-resolved with the proposed choice):
+
+| iteration | values | DE as player | RU as player | xf vs xf |
+|---|---|---|---|---|
+| 1 | DE value 1.6, no cap scaling, lines of 3-5 sectors, attack / pursue ratio 0.7 | 5 of 5 (interrupted) | 0 of 3 (interrupted) | 2 of 8 (25 %) |
+| 2 | DE 2.0, caps x1.5, lines of 3-4, attack / pursue 0.5 | 2 of 2 (container restart) | 0 of 2 | 2 of 3 |
+| 3 | DE 3.0, caps x2.0, experience +0.01 / +0.008 a min / 0.04 | **8 of 8 (100 %)**, s300 `2975a0a1711e82d9`, s301 `4df317488e22c00d` | **0 of 8 (0 %)**: 7 failures (two losses in a row), 1 limit; s300 `3e76bc5c3e38b538`, s301 `af79cc5b0f356865` | 1 of 6 (17 %), 5 limit; s300 `f7da3f03b8a52ef1` |
+| 4 | lines of 3 sectors | — | — | **7 of 12 (58 %)**, 5 limit; s400 `6e4bce645841cae9`, s401 `eea8a1e58d6d1f36` |
+
+All acceptance checks of 12.2 stayed clean in every batch (iterations 3 + 4: 152 nodes, 194 battles; zero-men battles 0,
+operations outside 3-5 nodes 0, table / memory / enemy-roster mismatches 0, misplaced replenishments 0, person ids
+held twice 0). Wall time per main battle: DE vs RU median 120 s (max 326, the 194-men meetings), RU vs DE 80 s, xf 26 s
+(four campaigns at once on 4 cores).
+
+**The 30-70 % band is met for xf only. The DE / RU gap is in the battles, not in the campaign's numbers.** With RU as
+the player, DE's minimum commitment (one Puma platoon with the company HQ: 27-39 men) beats a whole motor rifle company
+(93-110 men in BMP-2s): RU won 11 of 32 nodes (defend 6-6, attack 3-7, meeting 2-3), and in its lost defences lost 37,
+53 and 107 men killed against 8, 17 and 8. With DE as the player, RU commitments of up to 194 men (caps doubled) lost
+28 of 31 nodes; RU lost 1737 killed against DE's 178. No commit ratio can close that: the RU side cannot go below one
+platoon, and a bigger RU commitment breaks the phone budget (below). DE 3.0 is kept as the strongest correction that
+stays within one company's worth (caps back to x1, below); closing the gap needs a balance pass on
+the mounted battle (Puma against BMP-2: optics, 30 mm against the BMP-2's armour, the AI's use of the BMP-2's ATGM),
+an owner question. xf vs xf (the same faction on both sides) shows the campaign rules themselves: with lines of 3
+sectors 58 %; with lines of 4, 17 % (attacks almost never succeed in 1200 s: xf attack 0-0-16, defend 27-0-0, so an
+operation advances on its defence wins and the 5-battle limit ends it on a line of 4).
+
+**Experience.** Survivors under effective fire spend about half a minute of a battle under it (iteration 3, men in 3
+battles or more: 0.28 / 0.46 / 0.55 min a battle at p10 / median / p90). With +0.01 a battle and +0.008 a minute a
+survivor of a full operation under fire gained 0.05-0.07 (RU iteration 3: 4 men who fought every node, median 0.068;
+25 men in 3 battles or more, median 0.049). New values: **+0.015 a battle, +0.04 a minute under fire, at most 0.05 a
+battle, cap 0.9**: re-weighed on the same men's recorded minutes, the full-operation survivors gain 0.108 / 0.136 / 0.167
+(p10 / median / p90, max 0.172) and the 3-battles-or-more men 0.099 / 0.109 / 0.150, inside the plan's 0.1-0.2; a man never
+under fire gains 0.045-0.075 over an operation. Few men fight every node because the fittest company is proposed and
+the company that just fought usually rests (open question). Nobody passed the cap 0.9 in any batch.
+
+**Recovery days against the operation.** The medical settlement's days are real convalescence: evacuated men need
+p10 56-65, median 102-114, p90 190-220 days (all four batches); within 2.5 days (one operation) 0 %, within 7 days
+0-1 %, within 30 days 0-6 %. An operation lasts 1-2.5 days and operations are 7 days apart, so a wounded man is back
+after 8-15 operations, almost never inside one (1 man in iteration 3). Kept: the campaign does not shorten the
+medical model; the replacements fill the places meanwhile (owner question whether to scale them for the game).
+
+**Combat-ineffective line 0.5: kept.** It ended no operation on its own in any batch (able share at operation ends: DE
+min 0.73, median 0.95; xf min 0.64, median 0.83; RU min 0.31, median 0.40, but every RU failure came from two losses
+in a row first, which happens before the line is crossed).
+
+**Replenishment size: kept** at the full establishment and the standard load (the owner's answer); every
+replenishment in every batch brought both battalions back to 340 / 298 / 107 men and replaced the lost hulls.
+
+**Phone proxy** (`npm run phoneperf -- --campaign 2 --battle-seconds 1200`, Pixel 7 emulation, CPU throttle 4x, the
+worker's work on the throttled main thread, DE vs RU, iteration-3 values, load 1.0-1.4 on 4 cores; report only):
+
+| node | throttle | wall s | battles (battle s, men both sides) | battle s per wall s |
+|---:|---:|---:|---|---:|
+| 1 | 4x | 1113 | flank 1200 s, 189 men; main 1200 s, 292 men | 2.2 |
+| 2 | 4x | 165 | main 677 s, 172 men | 4.1 |
+| 3 | 1x | 13 | main 516 s, 119 men | 38.8 |
+
+The first node (RU committing about one and a half companies under caps x2, plus a flank battle) took 18.5 minutes to
+auto-resolve on the phone proxy. **So `battle.enemyCapScale` goes back to 1.0**: the enemy's caps may shrink against a
+better player (RU as the player still meets one DE platoon) but never grow past one company's worth (Q-C option (a)).
+DE as the player only meets fewer RU men than in iteration 3, where it already won 8 of 8, so its result cannot fall
+into the band; not re-run. A company-sized node with a flank battle remains several minutes on a phone at 4x (2-4 battle
+seconds per wall second): the progress bars and Cancel of 12.3 carry it; a shorter campaign battle (owner question,
+1200 s now) would cut it in proportion.
+
+**Kept values** (all low confidence, game values): DE `fightingValue` 3.0, RU and xf 1.0; `enemyCapScale` 1.0; node
+ratios attack / pursue 0.5, ambush 0.7, defend / meeting / withdraw 1.0; lines of 3 sectors; experience +0.015 / +0.04 a
+minute / 0.05 a battle / cap 0.9; combat-ineffective 0.5; full replenishment. No sim change: goldens untouched.
+
+## 2026-11-20 — M12 review fixes (three independent reviews of `claude/m12`: rules, behaviour, code)
+
+Every finding was checked against the code; the real ones are fixed, three are left with a reason.
+
+**Fixed:**
+- **Deployable men** (code review 1, high; reproduced: a company of idle crews was proposed, confirmed and then threw
+  "a side of 0 men"). `commit.ts` `deployableMen(f, unit)` counts a unit's men through the same strip `commitOf` uses
+  (crews of hulls in the workshop or lost rest). `selectables`, `fittestCompany`, `proposeChoice` (a company needs a
+  platoon with deployable men), `enemyChoice` (so an enemy of idle crews is a walkover) and `validateCommit` use it,
+  and so does `operation.ts` `ableShare` (the combat-ineffective line). `confirmForces` validates the flank company
+  and drops the flank battle when it cannot fight; `battleInputs` re-validates the confirmed choice (a damaged save
+  fails with the choice's problems, not with a 0-men battle). Crews of lost or workshop hulls still rest rather than
+  fight on foot inside an operation (owner question). Earlier batch record hashes no longer reproduce where crews sat
+  idle (the proposed company can differ).
+- **Walking wounded heal** (behaviour 2 and code 2; reproduced in saved records). A man out "wounded" without
+  recovery days (bruises under armour only: the medical settlement skips blunt wounds; wounded and out by an exit
+  zone: never handed to care) kept his wounds for good. `applyResult`: bruises only, healed at once; other wounds,
+  `recovery.walkingWoundedDays` (new, 3, game value, low; he stays with his unit, which also sets `rosterIn` so his
+  old wounds are not treated again next battle). `replenish` heals anyone still wounded with no days left.
+- **The app builds campaign battles as the tools do** (behaviour 1; reproduced in 7 of 8 seeds). `app/src/campaign/
+  hooks.ts` `CAMPAIGN_HOOKS = { defenceStartPosts }` for auto-resolve, the played battle and the sector preview, as
+  the batches and CLI (`ON_POSTS`) and the single-battle app. Tested: the runner sees the tools' input.
+- **A played result belongs to its record** (rules 1, code 4, code 3). The pending result carries `hashRecord` of
+  the record it was fought for and is applied only to that record (another record: dropped with a message); it is
+  cleared only after the record moved on (a cancelled flank auto-resolve keeps it; Auto-resolve then applies it, not
+  a new battle). The mid-battle save also carries the record hash (`setCampaignKey`) and loads only into that
+  record's battle.
+- **Saves check the campaign rules** (rules 2). `CampaignSave.rulesFingerprint` (optional: older saves have none) is
+  a hash of `core/campaign.json` and both factions' campaign blocks, outside the catalog fingerprint; a mismatch warns
+  "rules-changed" and loads. `validateSave` refuses an operation whose node types the rules lack, an unknown phase
+  and malformed choices. No version bump.
+- **String tables** (rules 3). `commitProblems` gives `{key, params}` (`cmp.problem.<key>`), `validateCommit` keeps the
+  English lines for logs and tests; "Make leader" refusals are `LeaderError` keys (`cmp.leaderRefused.*`); flow and
+  other errors show `cmp.msg.flowError` / `cmp.msg.error` with the English in the console; import and "no battle"
+  messages no longer show error text.
+- **Save / home on the briefing and the replenishment card** (behaviour 3): the owner's free saving between battles.
+- **Workshop hulls refilled at a replenishment** (behaviour 4): standard load, booked as delivered; repair goes on.
+- **Endless steps bounded** (behaviour 6 in part, code minor): the endless run keeps its last 30 steps
+  (`stepsDropped` counts the rest; `nodesFought` keeps the sector rhythm). Service history, consumption and log still
+  grow (owner question on save size).
+- **Text** (behaviour 5): the flank line ("fights on the flank at the same time: {node}"), "both sides advance" for a
+  meeting, and the after-battle "New leaders" lists only automatic appointments.
+- **Smaller:** experience only for men still with the battalion or recovering (rules 7); replacement skills sorted by
+  key explicitly (rules 6, same order as before); `campaign -- chain --from` refuses a save of the operations flow;
+  `repairIds` documents that a renamed man's history stays with the first holder of the id.
+- **Docs** (rules 4, 5): M12 is 🟡 in ROADMAP until the owner answers the DE/RU balance question and does the phone
+  test; STATE and HOW_IT_WORKS say `fightingValue` 3.0 is a placeholder for the mounted-battle balance pass.
+
+**Not changed:**
+- Leader promotion out of a crew (code minor): a crew commander moved up into a platoon HQ takes his standard load
+  from the first template of his role (`standardSlot`), which may belong to another hull type. It changes only what a
+  replenishment refills him with; kept, noted here.
+- The preview waits behind a running auto-resolve in the one worker (code minor): harmless, a second worker costs
+  memory on the phone.
+- Folding old service history and consumption entries (behaviour 6): the owner's open save-size question.

@@ -11,7 +11,7 @@ import type { BattleRules } from "./context";
 import type { Environment } from "./environment";
 import type { BattleEndReason, SimEvent, SimEventKind } from "./events";
 import type { DefId, SideId } from "./ids";
-import type { OffMapKind, VehicleRecovery, VehicleStatus } from "./components";
+import type { OffMapKind, TerrainState, VehicleRecovery, VehicleStatus } from "./components";
 import type { ItemStack } from "./items";
 import type { SideLogistics } from "./ledger";
 import type { MapDef } from "./map";
@@ -138,6 +138,9 @@ export interface ForceInput {
   offMap?: { vehicleId: string; kind: OffMapKind }[];
   /** Whether this side attacks or defends (scenario). Optional: absent = not stated. */
   posture?: "attack" | "defend";
+  /** M12.0b: the side's plan in the battle (scenario kinds, SPEC 6.9), for its commander (AI or the player's briefing).
+   *  The simulation does not read it. Absent: the plan follows from `posture` and the objectives (every battle before). */
+  plan?: ForcePlan;
   /** M11.1: crates and cans of this side on the ground: each a cache (M11.3: an entity with a place, a container and
    *  a `cache` record of this side). `point`: the supply point of the side's nearest platoon. */
   caches?: { x: number; y: number; load: ItemStack[]; point?: boolean }[];
@@ -146,6 +149,45 @@ export interface ForceInput {
    *  side's off-map mortar or artillery section every `everyS` (owner: allotments topped up by deliveries). */
   stock?: { load: ItemStack[]; supportTopUp?: { rounds: number; everyS: number } };
 }
+
+/**
+ * M12.0b: what a side is to do in a battle of a scenario kind (`ForceInput.plan`): "attack" / "defend" the objectives;
+ * "meeting" advance to the objectives in the middle (both sides); "ambush" lie in wait (`ambushRangeM`) and spring it;
+ * "transit" move along `route` to the side's exit zone `exit` (the ambushed side); "withdraw" hold the objectives until
+ * `untilS`, then get out by `exit`; "follow" attack the objectives and, from `untilS` on, follow the enemy up toward
+ * `exit` (the enemy's exit). `reserve`: callsigns of the side's units arriving late (`UnitInput.arriveS`) that attack
+ * on their own when they come (a counter-attack, reinforcements).
+ */
+export interface ForcePlan {
+  posture: "attack" | "defend" | "meeting" | "ambush" | "transit" | "withdraw" | "follow";
+  untilS?: number;
+  exit?: { x0: number; y0: number; x1: number; y1: number };
+  route?: { x: number; y: number }[];
+  reserve?: string[];
+  ambushRangeM?: number;
+  /** Where the side leaves the map when it gives its attack up (its own edge; an exit zone of the side, no points). */
+  breakOff?: { x0: number; y0: number; x1: number; y1: number };
+}
+
+/**
+ * M12.0a: terrain damage carried from earlier battles on the same map (a campaign sector): holes in walls, craters,
+ * thinned vegetation, dug fighting positions, as `state.terrain` holds them (`BattleResult.damageOut`). Applied at
+ * setup: holes go into the wall tables, the navigation grids and the building interiors exactly as a hole blown in
+ * the battle; craters are rough ground in the navigation grids (`CRATER_NAV`, nav.ts); positions protect anyone in
+ * them. Their ticks are those of the battle that made them (before this one).
+ */
+export type TerrainDamage = TerrainState;
+
+/** A wreck lying on the map (M7 `BattleResult.wrecks`; M12.0a `BattleInput.wrecksIn`). */
+export interface WreckRecord { vehicleId: string; type: DefId; side: SideId; x: number; y: number; heading: number; status: VehicleStatus }
+
+/**
+ * M12.0a: what one man went through in a battle (`BattleResult.service`, per `personId`; the campaign's experience
+ * and stress history). Seconds are counted once a second: under effective fire (his suppression at least
+ * `SERVICE_FIRE_SUPPRESSION`), in contact (he knows an enemy); rounds he fired (his weapon or a vehicle station he
+ * served); wounds taken in this battle; his peak shock and strain (1 Hz samples and the start).
+ */
+export interface ServiceTally { underFireS: number; contactS: number; roundsFired: number; wounds: number; peakShock: number; peakStrain: number }
 
 export interface BattleInput {
   map: MapDef;
@@ -156,6 +198,12 @@ export interface BattleInput {
   /** The order stream. For AI or human play, orders produced during the battle are appended. */
   orders: Order[];
   environment?: Environment;
+  /** M12.0a: terrain damage from earlier battles on this map (absent: none; the battle is as before). */
+  damage?: TerrainDamage;
+  /** M12.0a: wrecks from earlier battles on this map: crewless hulls of neither force (`WRECK_SIDE`), empty, burnt
+   *  out, lying where they were (navigation stamp as `isWreck`; they stop rounds as any hull). Placed after every
+   *  other entity, so the ids of the battle itself are as without them. */
+  wrecksIn?: WreckRecord[];
 }
 
 export interface SideResult {
@@ -179,10 +227,14 @@ export interface SideResult {
   prisonersTaken?: number;
   prisonersEvacuated?: number;
   prisonersEscaped?: number;
+  /** M12.0b (absent: none): men out by the side's exit zones (saved; counted in fit or wounded as they left). */
+  saved?: number;
   /** Vehicles (M7): how many started and how they ended; absent for a force without vehicles. */
   vehicles?: { start: number; ok: number; immobilised: number; disarmed: number; abandoned: number; destroyed: number; captured: number;
     /** M11.7b (absent: none): towed off the map in the battle; recovered by the own side at the end. */
-    towed?: number; recovered?: number };
+    towed?: number; recovered?: number;
+    /** M12.0b (absent: none): out by the side's exit zones with everyone aboard (counted by their status too). */
+    exited?: number };
 }
 
 /** A prisoner at the end of a battle (M11.9b, `BattleResult.prisoners`). */
@@ -203,7 +255,7 @@ export interface BattleResult {
   forcesOut: { side: SideId; faction: DefId; units: UnitInput[]; /** M7: every vehicle of the force. */ vehicles?: VehicleRecord[] }[];
   /** Wrecks left on the map (M7; persistent map damage as data): destroyed, abandoned, and immobilised hulls not
    *  penetrated for more than 30 s (`isWreck`, the same hulls stamped into the navigation grids). */
-  wrecks?: { vehicleId: string; type: DefId; side: SideId; x: number; y: number; heading: number; status: VehicleStatus }[];
+  wrecks?: WreckRecord[];
   /** Caches on the map at the end (M11.3): whose they are (`from`: the side a captured one was taken from), where, what
    *  is left in them, `burnt`. The contents of a captured cache count as captured (the campaign gives them to its
    *  captor). */
@@ -217,6 +269,11 @@ export interface BattleResult {
    *  off the map by the holder's military police; `medical`: by the holder's medical chain, wounded; `held`: still
    *  held on the map at the end), and the documents items taken from him. Input for M12 (roster) and M13 (intelligence). */
   prisoners?: PrisonerResult[];
+  /** M12.0a (only with `rules.campaignOut`): the map's terrain damage at the end, the input's `damage` included. */
+  damageOut?: TerrainDamage;
+  /** M12.0a (only with `rules.campaignOut`): per `personId` of every man of the forces who took part (late arrivals
+   *  that never came are not in it), what he went through (`ServiceTally`). */
+  service?: Record<string, ServiceTally>;
   /** Full order stream, including orders produced by controllers during the battle. */
   orders: Order[];
   eventCounts: Partial<Record<SimEventKind, number>>;

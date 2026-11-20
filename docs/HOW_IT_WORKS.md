@@ -1989,6 +1989,69 @@ the last round passes him, when the place is older than 20 s, or as soon as he s
 at night too (the muzzle flashes give the shooter away). Every side does this. Two men given the same spot no longer
 hold each other's fire.
 
+## The campaign: a battalion through linked battles (M12)
+
+Open the game with `?campaign=1`. You command a **battalion** (Germany: a Panzergrenadier or Jäger battalion of about
+340 men in 42 vehicles; Russia: a motor rifle battalion of about 300 men in 33; the test faction xf has a small one).
+Its three companies, their platoons and squads, the mortar section, the grenade-launcher and missile teams and an
+attached tank section are the same units the single battles use, built from the factions' data. Every man has a name,
+a rank, skills, experience and a service history; every vehicle has its damage and its load.
+
+**Operations.** A campaign is a row of operations. An operation is a line of three connected sectors (a village, a farm,
+a wood, an industrial estate: each a generated map, the same map whenever that sector is fought again). Each sector
+has a planned battle: attack, defend (the enemy attacks and you have a counter-attack reserve), meeting, ambush,
+withdraw or pursue. The battle's result picks the next one from a table in `core/campaign.json`: a win moves on to the
+next sector, a loss turns into the enemy's counter-attack or a withdrawal one sector back, a draw fights the same
+sector again. Winning past the last sector is a success; two losses in a row (from the third battle on), or the
+battalion falling below half its men able, is a failure; after five battles the operation ends anyway. Sometimes a
+second company fights a flank battle beside the main one; that one is always resolved by the computer.
+In **endless mode** battles keep coming, a new sector every two battles and a replenishment every three.
+
+**Before a battle** the briefing shows the sector, who attacks, a rough estimate of the enemy and the units you may
+commit: up to a company's worth (three platoons, the company headquarters and the support), which is what a phone can
+run. The fittest company is proposed. You can play the battle yourself or let the computer fight it out ("auto-resolve");
+both run the same simulation, so a played battle and an auto-resolved one count the same.
+
+**The enemy** has its own battalion that remembers its losses. For each battle it commits platoons by the battle
+type's ratio of your committed men (0.5 for an attack or a pursuit you make, 0.7 for an ambush, 1.0 for its own
+attacks, meetings and your withdrawals), weighed by how good a man of each side is in a fight
+(`factions/<id>/campaign.json` `fightingValue`: Germany 3, Russia and xf 1), but never more than a company's worth,
+which is what a phone can run (a node with one and a half companies and a flank battle took 18 minutes to auto-resolve
+on the phone proxy). That weight is a game value, measured from batches of operations played by the
+computer on both sides. With the same faction on both sides an operation succeeds a bit more than half the time
+(58 %). Between Germany and Russia it does not work yet: Germany won every operation and Russia none, even when
+Germany sent only one Puma platoon, because in the battles themselves a Puma platoon beats a BMP-2 company; that needs
+a balance pass on the mounted battle (DECISIONS M12.4 has the numbers). Germany's value of 3 is a placeholder until
+that pass: it hides a gap inside the battles rather than measuring one, and it is not a statement about real armies.
+
+**After a battle** the men come home as the battle left them: the dead are gone for good (their history is kept), the
+evacuated wounded go to a recovery pool for the days the medical settlement gave them and come back to their old
+squad when those are up (or wait unassigned if the squad has been filled), prisoners are held by the side that took
+them. A vehicle that was towed away goes to the workshop for its days; a destroyed or captured one is lost. Fatigue,
+shock and strain recover by the hour (12 hours between battles, 7 days between operations). Experience grows a little
+with every battle (0.015) and more for every minute under effective fire (0.04 a minute; men are under it about half a
+minute a battle; at most 0.05 a battle, never above 0.9), so a man who comes through a whole operation under fire ends
+roughly 0.1-0.17 better. Wounded men's recovery days are the medical model's (usually two to six months), so an
+evacuated man rarely comes back within the same operation; replacements fill his place meanwhile. When a leader falls, the next man by
+role, rank and experience takes over automatically; you can appoint someone else on the man's card.
+
+**Inside an operation nothing is refilled**: a magazine left with three rounds still has three in the next battle, a
+carrier with 17 litres of fuel still has 17, and nobody new arrives. **Between operations** (in endless mode at each
+replenishment) green replacements fill the empty places, everything is brought back to the standard load, and lost
+vehicles are replaced. The books of every round and litre balance exactly: start plus deliveries minus what the
+battles used minus what was lost with men and vehicles equals what the battalion holds.
+
+**Saving** is free between battles: named slots, an automatic slot after every step, export to a file and import from
+one. A save remembers the data it was made with and warns when that has changed; broken ids are repaired on loading.
+
+**The map remembers.** Craters, holes blown in walls, wrecks and dug positions stay on a sector's map; when it is
+fought again they are there (craters carried in are rough ground, wrecks block the way).
+
+How we check it: `npm run campaign -- batch` plays whole operations with the computer on both sides and checks every
+step (no battle with an empty side, the table followed, the enemy's roster as it was left, replenishments only where
+they belong, nobody counted twice); `npm run e2e:campaign` drives the phone screens in a browser; `npm run phoneperf --
+--campaign 2` times an auto-resolved battle on the phone proxy.
+
 ## Does an attack work?
 
 `npm run lab -- attack` runs a squad attacking across 300 m of open ground. Against a squad lying behind a low

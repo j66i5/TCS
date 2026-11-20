@@ -19,7 +19,7 @@ import type { SimContext } from "./context";
 import { EventSink } from "./events";
 import { newCache, pointForCache } from "./systems/supply";
 import { secondsToTicks, TICK_HZ } from "./ids";
-import { ammoOf } from "./ledger";
+import { ammoOf, chargeOf } from "./ledger";
 import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
 import { OFF_MAP_PARK, parkOffMap } from "./offmap";
@@ -36,10 +36,12 @@ export function buildInitialState(input: BattleInput): SimState {
     const offMap = new Set((force.offMap ?? []).map((a) => a.vehicleId));
     // Vehicles first (M7): crews are seated in them as their units are added. (Off-map assets come after every
     // force, M10.6a, so that the entities of the battle itself keep the ids they have without them.)
-    const vehicles = addVehicles(state, force, input.catalog, (id) => !offMap.has(id));
+    // (M12.0b: the hulls of a unit arriving late come with it.)
+    const late = lateHulls(force);
+    const vehicles = addVehicles(state, force, input.catalog, (id) => !offMap.has(id) && !late.has(id));
     // (A unit arriving late, M11.1, enters at its time: arrivalSystem.)
     for (const u of force.units) if ((u.arriveS ?? 0) <= 0 && (u.vehicleId === undefined || !offMap.has(u.vehicleId))) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
-    seatPassengers(state, force, vehicles, input.catalog);
+    seatPassengers(state, force, vehicles, input.catalog, late.size > 0 ? (id) => !late.has(id) : undefined);
   }
   // Off-map assets (M10.6a): their crews are nobody's to order; they wait at the off-map park until called. (M11.9b:
   // the military police come after everything else, below, so that no other entity moves its id.)
@@ -69,7 +71,48 @@ export function buildInitialState(input: BattleInput): SimState {
   }
   // M11.9b: the military police off the map, last of all.
   addOffMap(state, input, (k) => k === "mp");
+  // M12.0a: the damage and the wrecks of earlier battles on this map (the wrecks after everything else, so the ids of
+  // the battle itself are as without them).
+  if (input.damage) applyDamage(state, input);
+  if (input.wrecksIn && input.wrecksIn.length > 0) addWrecks(state, input);
   return state;
+}
+
+/** M12.0a: the side of a wreck from an earlier battle: neither force's (no system counts it as anyone's hull). */
+export const WRECK_SIDE = "-";
+
+/** M12.0a: an earlier battle's terrain damage into the state (copied; `syncTerrainDamage` stamps the holes). */
+function applyDamage(state: SimState, input: BattleInput): void {
+  const d = input.damage!, map = input.map;
+  for (const b of d.breaches) {
+    const ok = b.owner === "obstacle" ? map.obstacles.some((o) => o.id === b.id) : map.buildings.some((q) => q.id === b.id);
+    if (!ok) throw new Error(`damage: no ${b.owner} ${b.id} on map '${map.id}' (damage belongs to the map it was made on)`);
+  }
+  state.terrain = {
+    breaches: d.breaches.map((b) => ({ ...b })),
+    craters: d.craters.map((c) => ({ ...c })),
+    vegetationLoss: d.vegetationLoss.map(([c, f]) => [c, f] as [number, number]),
+    ...(d.positions && d.positions.length > 0 ? { positions: d.positions.map((p) => ({ ...p })) } : {}),
+  };
+}
+
+/** M12.0a: wrecks of earlier battles: hulls of `WRECK_SIDE` (the faction of the force of their old side, if any),
+ *  no crew, empty (no fuel, stowage or ready rounds), destroyed, settled ("lost") so the end settlement passes them. */
+function addWrecks(state: SimState, input: BattleInput): void {
+  const wrecks = input.wrecksIn!;
+  const faction = (side: SideId) => input.forces.find((f) => f.side === side)?.faction ?? input.forces[0]?.faction ?? "";
+  for (const w of wrecks) {
+    const def = input.catalog.vehicles[w.type];
+    if (!def) throw new Error(`wreck ${w.vehicleId}: unknown vehicle type '${w.type}'`);
+    const rec: VehicleRecord = {
+      vehicleId: w.vehicleId, type: w.type, load: [], status: "destroyed", recovery: { state: "lost", tick: -1 },
+      ready: def.stations.flatMap((sn) => sn.weapons.map((wp) => wp.feeds.map((f) => ({ item: f.item, rounds: 0 })))),
+    };
+    const ids = addVehicles(state, { side: WRECK_SIDE, faction: faction(w.side), units: [], placements: [], vehicles: [rec], vehiclePlacements: [{ vehicleId: w.vehicleId, x: w.x, y: w.y, heading: w.heading }] }, input.catalog, () => true);
+    const v = state.vehicle.req(ids.get(w.vehicleId)!);
+    v.wreckIn = { side: w.side, status: w.status };
+    for (const st of v.stations) for (const wp of st.weapons) wp.loadedRound = false;
+  }
 }
 
 /** The forces' off-map assets of the kinds `which` takes: hulls, crews, parked off the map, waiting to be called. */
@@ -201,13 +244,21 @@ function seatCrew(state: SimState, uid: EntityId, vid: EntityId, members: Entity
   }
 }
 
-/** Men placed `mountedIn` a vehicle (passengers), after all units exist. */
-function seatPassengers(state: SimState, force: ForceInput, vehicles: Map<string, EntityId>, catalog: Catalog): void {
+/** M12.0b: the vehicle ids crewed by the force's units that arrive late (`arriveS`): they come on with them. */
+export function lateHulls(force: ForceInput): Set<string> {
+  const out = new Set<string>();
+  const walk = (u: UnitInput) => { if (u.vehicleId !== undefined) out.add(u.vehicleId); u.subunits.forEach(walk); };
+  for (const u of force.units) if ((u.arriveS ?? 0) > 0) walk(u);
+  return out;
+}
+
+/** Men placed `mountedIn` a vehicle (passengers), after all units exist (`which`: only into these vehicle ids). */
+function seatPassengers(state: SimState, force: ForceInput, vehicles: Map<string, EntityId>, catalog: Catalog, which?: (vehicleId: string) => boolean): void {
   const byPerson = new Map<string, EntityId>();
   // mounted: ok roster mapping (every man, aboard or not)
   for (const [id, ident] of state.identity.entries()) if (ident.side === force.side) byPerson.set(ident.personId, id);
   for (const p of force.placements) {
-    if (p.mountedIn === undefined) continue;
+    if (p.mountedIn === undefined || (which !== undefined && !which(p.mountedIn))) continue;
     const vid = vehicles.get(p.mountedIn);
     if (vid === undefined) throw new Error(`soldier ${p.personId}: no vehicle '${p.mountedIn}'`);
     const sid = byPerson.get(p.personId);
@@ -517,7 +568,13 @@ export function arrivalSystem(ctx: SimContext, state: SimState, events: EventSin
   for (const l of ctx.late) {
     if (state.tick < l.tick || (state.arrived ?? []).includes(l.unit.key)) continue;
     const first = state.nextEntityId;
-    const uid = addUnit(state, l.unit, null, l.side, l.faction, l.placements, ctx.catalog, new Map());
+    // (M12.0b: its hulls come on with it, crews in their seats, its riders aboard.)
+    const hulls = new Set<string>();
+    const walk = (u: UnitInput) => { if (u.vehicleId !== undefined) hulls.add(u.vehicleId); u.subunits.forEach(walk); };
+    walk(l.unit);
+    const vehicles = hulls.size > 0 && l.force ? addVehicles(state, l.force, ctx.catalog, (id) => hulls.has(id)) : new Map<string, EntityId>();
+    const uid = addUnit(state, l.unit, null, l.side, l.faction, l.placements, ctx.catalog, vehicles);
+    if (hulls.size > 0 && l.force) seatPassengers(state, l.force, vehicles, ctx.catalog, (id) => hulls.has(id));
     (state.arrived ??= []).push(l.unit.key);
     events.emit({ kind: "unit.entered", tick: state.tick, unit: uid, side: l.side });
     // (What its men carry enters the battle with them: a delivery from off the map, for the conservation guard.)
@@ -525,6 +582,8 @@ export function arrivalSystem(ctx: SimContext, state: SimState, events: EventSin
     for (let id = first; id < state.nextEntityId; id++) ids.push(id);
     const ammo = ammoOf(ctx.catalog, state, ids);
     for (const k of Object.keys(ammo).sort()) events.emit({ kind: "items.delivered", tick: state.tick, holder: uid, item: k, count: ammo[k]!, ammo: k, rounds: ammo[k]! });
+    // (M12.0b: and the fuel in the tanks of the hulls that come with it.)
+    if (hulls.size > 0) for (const c of chargeOf(ctx.catalog, state, ids)) events.emit({ kind: "items.delivered", tick: state.tick, holder: uid, item: c.item, count: 0, chargeKind: c.kind, amount: c.amount });
   }
 }
 

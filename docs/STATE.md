@@ -1,10 +1,102 @@
 # State — handover note
 
-_Last updated: 2026-11-19 (balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-20 (M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M12 review fixes (2026-11-20, branch `claude/m12`; DECISIONS "M12 review fixes").** Three independent reviews
+  (rules, behaviour, code). Fixed: `deployableMen` (crews of workshop or lost hulls are not counted anywhere the choice
+  is made, `ableShare` too; a flank company that cannot fight drops the flank battle; `battleInputs` re-validates the
+  choice), walking wounded without recovery days heal (`recovery.walkingWoundedDays` 3, bruises only at once), the
+  app builds campaign battles with `CAMPAIGN_HOOKS` (defence on its posts, as the tools), the pending played result
+  and the mid-battle save carry the record hash, `CampaignSave.rulesFingerprint` ("rules-changed" warning) and node
+  checks on load, string-table keys for choice problems and "Make leader" refusals, Save / home on the briefing and
+  replenishment, workshop hulls refilled at replenishment, endless steps kept to the last 30. M12 is 🟡 in ROADMAP
+  until the owner's phone test and his DE/RU balance answer. `fightingValue` DE 3.0 is a placeholder for the
+  mounted-battle balance pass (Puma vs BMP-2), not a measured value. Checks 2026-11-20: typecheck, lint, data lint
+  clean; `npm test` 202 files, 1670 passed, 6 skipped; `npm run e2e:campaign` 12 checks; `--scene campaign` shots
+  looked at (phone, both looks). `test:perf` (alone): 21 of 25; the spotting bench 7.6x, its smoke variant 7.7x,
+  bench-vehicles 8.0x (7.98) and bench-tanks 7.95x miss the 8x floor; main 828e4e0 run alone right after: 7.8x, 7.5x,
+  7.5x on the first three. No sim, AI or scenario code changed since M12.4: the container.
+- **M12.4 built (2026-11-20, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.7).** Faction
+  `fightingValue` (`factions/<id>/campaign.json`, outside the catalog; DE 3.0, RU and xf 1.0) weighs the enemy's
+  commitment and can shrink its caps (`battle.enemyCapScale` 1.0: never past a company; 2.0 made a node take 18.5 min
+  to auto-resolve on the phone proxy); operations are lines of 3 sectors (3-5 battles);
+  experience +0.015 a battle, +0.04 a minute under effective fire, at most 0.05 a battle (a full operation under fire
+  +0.11-0.17, re-weighed on recorded minutes); recovery days, combat-ineffective line 0.5 and full replenishment kept.
+  Batches (1200 s, AI both sides): xf vs xf 7 of 12 operations (58 %); DE as player 8 of 8, RU 0 of 8: one Puma
+  platoon beats a BMP-2 company, so no commit ratio closes the gap (a mounted-battle balance pass, owner question).
+  Every 12.2 check clean (152 nodes). `npm run phoneperf -- --campaign N` times auto-resolve on the phone proxy.
+  HOW_IT_WORKS campaign section, SPEC 9.3 note (battalion). Open owner questions: see "M12 open questions" below.
+  Owner acceptance pending: two linked battles on his phone (`?campaign=1`).
+  Checks 2026-11-20: typecheck, lint, data lint clean; `npm test` 201 files, 1661 passed, 6 skipped. `npm run
+  test:perf`: 22 of 25; the spotting bench (7.3-7.9x), its smoke variant (7.3-7.4x) and bench-vehicles (7.6x) miss the
+  8x floor, and main 828e4e0 misses the same floors on this container (7.8x, 7.3x): the container, not M12 (M12.4
+  changed no sim code). The independent spec review was not run (no reviewer agent in that session).
+- **M12 open questions (asked as multiple choice, recommended first):** Q-A recovered men rejoin inside an operation
+  (built: yes) · Q-B lost hulls replaced at replenishment (built: yes) · Q-C one company's worth a battle (built: yes) ·
+  Q-D ammunition inside an operation: only in-battle deliveries from the battle's own stock (built: (a)) · Q-E the
+  mid-battle save tied to its slot (built: (a)) · DE/RU balance pass on the mounted battle · recovery days scaled for
+  the game or kept · the same company proposed again or the fittest (rotation) · night battles from the campaign
+  clock · a lost flank battle turning a main win into a draw · leaving a played battle early · battle's own craters
+  slow movement · confirm the low-confidence values (`core/campaign.json`, `CRATER_NAV`, effective fire = suppression
+  >= 0.1, `SCENARIO_KIND`) · saves: fingerprint mismatch only warns, one auto slot, full service history · (review)
+  crews of hulls in the workshop or lost rest inside an operation, or fight on foot · `recovery.walkingWoundedDays` 3.
+- **M12.3 built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.6).** `?campaign=1` opens the
+  campaign page (`app/src/campaign/page.ts`): home (new campaign: faction, carriers, operations / endless; continue;
+  slots load / save / rename / delete / export; import), battalion tree, man card ("Make leader"), briefing (sector
+  preview, kind, who attacks, clock, enemy estimate, the choice with the proposed default and the cap; Play or
+  Auto-resolve; Change forces), auto-resolve in a Web Worker (progress bars, Cancel leaves the record), what changed,
+  replenishment; both looks; strings `cmp.*`. Views in `campaign/src/view.ts`; `makeLeader`, `reviseForces`. A played
+  battle: `?campaign=auto&play=1`, the review's "Back to the campaign" hands `battleResultOf` back through the store's
+  pending key (`?campaign=1&finish=1`). `npm run e2e:campaign` (Playwright, 11 checks) and `npm run screenshot --
+  --scene campaign` (phone and desktop, both looks) pass. Owner acceptance pending: two linked battles on his phone.
+  Next: 12.4 review and tuning.
+- **M12.2 built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.5).** `campaign/src/operation.ts`
+  (operations: a line of 3-5 sectors, node types and the transition table in `core/campaign.json`, success / failure /
+  limit / no-force, flank battles for a second company, endless mode, sector memory), commit.ts (`selectables`,
+  `proposeChoice`, `enemyChoice` by ratio, `validateCommit`, `commitOf`), the state machine `campaign/src/flow.ts`
+  (briefing -> choose -> battle played (`finishBattle`) or `autoResolve` -> after-battle -> briefing / replenishment /
+  operation-end; `autoPlay`), `npm run campaign -- batch`. 50 operations per faction and 30 endless nodes: every check
+  clean (DECISIONS "M12.2"); DE as the player 52 % success, RU 2 %. A flank battle no longer appoints leaders (a man was
+  held twice). No UI yet. Next: 12.3 phone roster interface.
+- **M12.1b built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.4).** `campaign/src/save.ts`:
+  `CampaignSave {version, record, slotName, savedAt, fingerprint}`, `CAMPAIGN_VERSION` 2, `MIGRATIONS` (1: the bare
+  12.1a record; fixture `campaign/test/fixtures/campaign-v1.json`), `validateSave`, `repairIds` (duplicate / missing
+  person and hull ids, crew / carrier links, leaders, counters), `readSave` (data-changed warns and loads),
+  canonical `exportSave`; `continueCampaignChain` (a finished operation is replenished before the next battle);
+  `app/src/campaign-store.ts` (IndexedDB or memory backend, named slots plus `auto`, export download, import from a
+  file); the mid-battle save carries `campaignSlot` (`?campaign=<slot>`); `campaign -- chain --from <save>`. DE vs RU
+  saved after battle 3 and continued = uninterrupted at battle 6 (`1d461639db88381f`). No UI yet (12.3 shows slots).
+  Next: 12.2 operations and endless mode.
+- **M12.1a built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.3).** Battalion data: company
+  headquarters in their own hull (DE Kompaniefuehrungstrupp in a Puma / GTK Boxer, RU company command group in a BMP-2 /
+  BTR-82A), company templates (HQ + 3 existing platoons), battalion templates (HQ, 3 companies, mortar section, AGL team,
+  RU Metis team, an attached tank section; DE 340 / 354 men and 42 hulls, RU 298 / 316 and 33, xf 107 and 20), manifest
+  `battalionTemplates`, ranks Hauptmann / Major / Oberstleutnant and kapitan / mayor / podpolkovnik (insignia element
+  `wreath`); goldens: the fingerprint only (events, orders and forcesOut of all 12 identical). `core/campaign.json`
+  clock, operation, endless, experience, recovery, repair, replacements, combat-ineffective. `CampaignRecord` (both
+  battalions, establishment, pools, workshop, lost hulls, service history, consumption log, battle history, campaign
+  RNG); `applyResult` / `replenish` (pure); automatic leaders; `proposeCommit` (the fittest company within the cap);
+  the books (`forceHoldings`, `bookedChange`: exact in every chain); `npm run campaign -- chain` (10 battles, a
+  replenishment after 5; the old one-map chain is `campaign -- sector`). Next: 12.1b saves.
+- **M12.0b built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.2).** Scenario kinds attack
+  (`platoon-attack` unchanged), defence-counterattack (reserve mounted at 40 %), meeting, ambush (to an exit at the far
+  edge), withdrawal (hold until 35 %, out by the own edge); exit zones (`rules.exits`: men out are `evacuated` `via:
+  "exit"`, saved and fit; hulls `exited`; "side-withdrew"), objectives scoring at a time (`untilS`), late units with
+  their hulls; `ForceInput.plan` read by the AI (`ai/postures.ts` `planControllers`: reserve counter-attack, ambush,
+  transit, withdraw, follow, break-off by the own edge); a company per side (`size: "company"`), maps from the force;
+  `bench-company` 14x real time headless (floor test 4x), cap in `core/campaign.json`; `npm run lab -- kinds`: 300
+  battles (foot 200, roster 60, mounted 40) without a stalemate. Company HQ data and the battalion: 12.1a. Next: 12.1a.
+- **M12.0a built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.1).** `BattleInput.damage`
+  (holes, craters, vegetation loss, dug positions of earlier battles on the map) and `wrecksIn` (crewless hulls of
+  side `WRECK_SIDE`, old side in `wreckIn`); `BattleResult.damageOut` and `service` (per man: seconds under effective
+  fire and in contact, rounds, wounds, peak shock and strain) only with `rules.campaignOut` (goldens unchanged);
+  craters carried in are rough ground (`CRATER_NAV`); `ScenarioDef.forces` (roster units and hulls placed and mounted
+  by the generator) and `terrain`; campaign package under the sim lint, `BattleRunner` injected (tools `aiRunner`),
+  `fieldForce` / `sectorTerrain` / `runChain`; `npm run campaign -- chain --faction de|ru|xf`. Next: 12.0b scenario
+  kinds and company-size battles. Open owner question: should a battle's own craters slow movement too (goldens move)?
 - **Balance pass 4 (2026-11-19, branch `claude/balance-4`; owner decisions 2026-11-19 E-H).** H: danger close for
   bursting rounds (`dangerRadiusM` from the fragment data, `stationDangerM`, AGL teams; the gunner-seat floor bug in
   `friendInLine` fixed): own men hit by own vehicle gunners in 10 seeds 11 -> 0 (platoon-vehicles), 22 -> 0
@@ -542,6 +634,41 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+- M12.3 (2026-11-19): (1) please play two linked battles on your phone (`?campaign=1`: new campaign, Play the first
+  battle, back to the campaign, continue to the second) and say what feels wrong; (2) the campaign clock is shown from
+  06:00 on day 1 but every battle is fought in daylight: should campaign battles take the clock's time of day (night
+  battles, M9.1)?; (3) the enemy estimate in the briefing is his committed men rounded to 5 / 10 and his vehicles by
+  type: show less (only "about a company") or more?; (4) a played battle hands its result back only through the
+  review's "Back to the campaign" button: also offer to leave a battle early (withdraw everyone, counted as a loss)?
+- M12.2 (2026-11-19): new low game values in `core/campaign.json`: campaign battles 1200 s; operations of 3-5 sectors
+  (at least 3, at most 5 battles; failure only from the third); first node attack / attack / meeting / defend, later
+  sectors attack / attack / meeting / pursue / ambush; a flank battle in 30 % of nodes; the six node types and their
+  enemy ratios (0.7 when the player attacks or ambushes, 1.0 with support otherwise); the transition table (a loss in
+  an attack is followed by the enemy's counter-attack on the same sector; a lost defence by a withdrawal a sector
+  back); endless: a new sector every 2 nodes. To decide: (1) RU as the player succeeds in 1 of 50 operations, DE in 26:
+  12.4 tunes ratios, but the Puma vs BMP-2 gap from 12.1a remains; (2) a flank battle's result does not change the
+  next node (only the main battle's does): should a lost flank turn a main win into a draw?; (3) the enemy commits
+  platoons of any company (fittest first) while the player commits a whole company: keep?; (4) the batch used 300 s
+  battles (time) - most end at the time limit, so draws repeat sectors: is 1200 s the right campaign battle length?
+- M12.1b (2026-11-19): saves built as planned (Q-E (a): the one mid-battle save, tied to its campaign slot). To
+  confirm: a save made with other data (catalog fingerprint changed) only warns and loads; the automatic slot is a
+  single slot overwritten after every battle (not a rolling history); a save grows with the service history (DE
+  battalion about 1 MB after 3 battles, 1.5 MB after 6): keep the full per-battle history, or fold old entries?
+- M12.1a (2026-11-19): built with option (a) of plan section 5: **Q-A** a recovered man rejoins at the first battle
+  after his days are up, inside an operation too (`recovery.rejoinWithinOperation`); **Q-B** destroyed and captured
+  hulls are replaced at a replenishment (`repair.replaceLost`). New low game values in `core/campaign.json`: 12 h between
+  battles, 7 days between operations, operations of 5 battles in the chain, experience +0.005 a battle and +0.004 a
+  minute under effective fire (at most +0.04 a battle, cap 0.9), fatigue -0.05 / shock -0.1 / strain -0.01 an hour,
+  7 recovery days and 3 workshop days when a battle settled none, green replacements of the conscript level,
+  combat-ineffective below half. New organisation data (low/medium from search extracts): the company HQs (who is in
+  them, their hulls and ranks), the battalions' support (one mortar section, one AGL team, RU one Metis team, an attached
+  tank section; staff, supply and reconnaissance not modelled), the leader rule (leader's role, then rank, then
+  experience; a sub-unit's leader moves up when the HQ has nobody; medics never lead). Questions: (1) the medical
+  settlement's recovery days are months (60-400 days in the chains), so nobody evacuated is back within ten battles:
+  keep (realistic) or shorten for the campaign? (2) in the 10-battle chains Germany won 9 of 10 as the player and
+  8 of 10 as the enemy (in the German chain the Russian battalion lost 468 dead, its replacements included): balance belongs to 12.4, but is the lopsided Puma
+  versus BMP-2 result expected? (3) the company that fought rests: the next battle takes the fittest company, so the
+  battalion rotates its companies; or should the player's choice (12.2) default to the same company?
 - M11.9a prisoners (2026-11-17; plan `docs/plans/m11-mp-pow.md` section 6): built with the recommended option, to be
   confirmed: **Q2** search automatic for every prisoner, kit to the searcher, beyond 15 kg into a captured cache at the
   point; **Q3** one escort per 4 on the move, one guard per 6 at the point; **Q8** guards fire only in self-defence

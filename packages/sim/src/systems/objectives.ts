@@ -15,10 +15,13 @@ import { isAssetUnit } from "../offmap";
 import { settleBattle } from "./aftercare";
 import { settleVehicles } from "./recovery";
 import { latePending } from "../setup";
+import { exitedOf } from "./exits";
 import type { SimState, SimView } from "../state";
 
 export interface SideScore {
   side: SideId; objectivePoints: number; menDown: number; score: number;
+  /** M12.0b (only with exit zones in the rules): men and hulls out by the side's exits (saved), and their points. */
+  saved?: number; vehiclesSaved?: number; savedPoints?: number;
   /** Vehicles (M7.4a, Q9; only with vehicle points in the rules): own vehicles lost (destroyed or abandoned) and immobilised. */
   vehiclesLost?: number; vehiclesImmobilised?: number;
 }
@@ -37,6 +40,8 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
   for (let i = 0; i < defs.length; i++) {
     const o = defs[i]!, st = state.objectives[i];
     if (!st) continue;
+    // (M12.0b: a time that scores: from `untilS` on the holder stays.)
+    if (o.untilS !== undefined && state.tick >= o.untilS * TICK_HZ) { st.contested = false; continue; }
     const present = new Set<SideId>();
     // mounted: ok men aboard hold and contest objectives too (owner, Q10)
     for (const [id, ident] of state.identity.entries()) {
@@ -58,6 +63,10 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
   const V = ctx.rules.victory;
   if (!V?.endOnDefeat || state.ended) return;
   const defeated: { side: SideId; reason: "side-eliminated" | "side-broken" }[] = [];
+  // M12.0b: a side with an exit zone that has nobody left on the map, some of them out by the exit: it withdrew (no
+  // loser by that; the scores decide).
+  const exits = ctx.rules.exits ?? [];
+  const withdrew: SideId[] = [];
   for (const sd of state.sides) {
     // (M10.6a: an off-map asset's crew is not of the force: it neither breaks nor keeps a side in the field.)
     const tops = [...state.unit.entries()].filter(([, u]) => u.side === sd.id && u.parent === null && u.asset === undefined);
@@ -66,7 +75,16 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
     const anyStanding = [...state.identity.entries()].some(([id, i]) => i.side === sd.id && !isAssetUnit(state, i.unit) && standing(state, id));
     const allBroken = tops.length > 0 && tops.every(([, u]) => u.broken);
     // (M11.1: a side with a wave still to come is not beaten yet.)
+    if (!anyStanding && exits.some((z) => z.side === sd.id) && !latePending(ctx, state, sd.id) && exitedOf(state, sd.id).men > 0) { withdrew.push(sd.id); continue; }
     if ((!anyStanding || allBroken) && !latePending(ctx, state, sd.id)) defeated.push({ side: sd.id, reason: !anyStanding ? "side-eliminated" : "side-broken" });
+  }
+  if (defeated.length === 0 && withdrew.length > 0) {
+    state.ended = { tick: state.tick, reason: "side-withdrew" };
+    events.emit({ kind: "battle.ended", tick: state.tick, reason: "side-withdrew" });
+    state.endLoser = null;
+    settleBattle(ctx, state, events);
+    settleVehicles(ctx, state, events);
+    return;
   }
   if (defeated.length === 0) return;
   // Both at once: nobody wins by default (the scores decide; a tie is a draw).
@@ -91,7 +109,15 @@ export function battleScore(ctx: SimContext, state: SimView): BattleScore {
     // Men lost: killed, incapacitated, surrendered or captured (M6.6), each counted once.
     // mounted: ok losses count every man
     for (const [id, ident] of state.identity.entries()) if (ident.side === sd.id && !isAssetUnit(state, ident.unit) && isOut(state.soldier.req(id))) down++;
+    // (M12.0b: a man out by his side's exit zone is saved, not down.)
+    const exits = (ctx.rules.exits ?? []).filter((z) => z.side === sd.id);
+    let saved: { men: number; vehicles: number } | null = null;
+    if (exits.length > 0) { saved = exitedOf(state, sd.id); down -= saved.men; }
     const out: SideScore = { side: sd.id, objectivePoints: pts, menDown: down, score: pts - (V?.casualtyPoints ?? 0) * down };
+    if (saved) {
+      const z = exits[0]!, sp = (z.pointsPerMan ?? 0) * saved.men + (z.pointsPerVehicle ?? 0) * saved.vehicles;
+      out.saved = saved.men; out.vehiclesSaved = saved.vehicles; out.savedPoints = sp; out.score += sp;
+    }
     if (V?.vehiclePoints) {
       let lost = 0, immob = 0;
       for (const [, v] of state.vehicle.entries()) {

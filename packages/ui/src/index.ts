@@ -18,3 +18,4 @@ export * from "./support";
 export * from "./player-order";
 export * from "./perf";
 export * from "./prisoners";
+export * from "./campaign";

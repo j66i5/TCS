@@ -15,6 +15,9 @@ export const PERF_FLOOR_X_REALTIME = 8;
 export const BENCH_MEDICAL_FLOOR_X = 8;
 /** bench-tanks (M7.6b): 30 tanks and their squads: the SPEC target (DECISIONS.md). */
 export const BENCH_TANKS_FLOOR_X = 8;
+/** bench-company (M12.0b): a company each, mounted, AI against AI: the campaign's per-battle cap holds while headless
+ *  runs it at this multiple of real time (plan m12-roster 4.2; core/campaign.json `battle.floorX`). */
+export const BENCH_COMPANY_FLOOR_X = 4;
 
 describe("performance floor", () => {
   it(`benchmark scenario runs at >= ${PERF_FLOOR_X_REALTIME}x real time headless`, () => {
@@ -92,6 +95,23 @@ describe("performance floor", () => {
     console.log(`spotting bench with 30 smoke clouds: ${(30 / s).toFixed(1)}x real time`);
     expect(sim.state.smoke.length).toBe(30);
     expect(30 / s).toBeGreaterThanOrEqual(8);
+  });
+
+  it(`bench-company (a company each, mounted, AI against AI) runs at >= ${BENCH_COMPANY_FLOOR_X}x real time`, () => {
+    const sc = getScenario("bench-company");
+    const data = loadData();
+    const seconds = 240;
+    const input = sc.build(data, 1, seconds);
+    runBattle(sc.build(data, 2, 20), { controllers: sc.controllers!(sc.build(data, 2, 20)) });
+    const t0 = performance.now();
+    const r = runBattle(input, { controllers: sc.controllers!(input) });
+    const wall = (performance.now() - t0) / 1000;
+    const speed = r.durationSeconds / wall;
+    const soldiers = r.sides.reduce((n, s) => n + s.soldiersStart, 0), vehicles = input.forces.reduce((n, f) => n + (f.vehicles?.length ?? 0), 0);
+    console.log(`bench-company: ${vehicles} vehicles + ${soldiers} soldiers, ${r.durationSeconds} s game time in ${wall.toFixed(2)} s wall = ${speed.toFixed(1)}x real time`);
+    expect(soldiers).toBeGreaterThanOrEqual(200);
+    expect(speed).toBeGreaterThanOrEqual(BENCH_COMPANY_FLOOR_X);
+    expect(data.campaign?.campaign.battle.floorX).toBe(BENCH_COMPANY_FLOOR_X);
   });
 
   it(`bench-vehicles (30 IFVs + their squads, all moving) runs at >= ${PERF_FLOOR_X_REALTIME}x real time`, () => {

@@ -157,6 +157,42 @@
       ],
       "confidence": "medium",
       "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "hauptmann",
+      "nameKey": "rank.de.hauptmann",
+      "abbrKey": "rank.de.hauptmann.abbr",
+      "natoCode": "OF-2",
+      "grade": 16,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify. M12.1a: added for the company and battalion commanders."
+    },
+    {
+      "id": "major",
+      "nameKey": "rank.de.major",
+      "abbrKey": "rank.de.major.abbr",
+      "natoCode": "OF-3",
+      "grade": 17,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify. M12.1a: added for the company and battalion commanders."
+    },
+    {
+      "id": "oberstleutnant",
+      "nameKey": "rank.de.oberstleutnant",
+      "abbrKey": "rank.de.oberstleutnant.abbr",
+      "natoCode": "OF-4",
+      "grade": 18,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify. M12.1a: added for the company and battalion commanders."
     }
   ]
 }

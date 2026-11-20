@@ -859,6 +859,9 @@ export const FactionManifest = withProv({
    *  a class without an entry falls back to `platoonTemplate`. Each template's carriage crews drive vehicles of
    *  that class. */
   platoonTemplates: z.object({ tracked: Id.optional(), wheeled: Id.optional() }).strict().optional(),
+  /** M12.1a: the campaign's battalion by the class of its carriers (a template of echelon "battalion": its
+   *  headquarters, companies and support); a class without an entry falls back to the other. */
+  battalionTemplates: z.object({ tracked: Id.optional(), wheeled: Id.optional() }).strict().optional(),
   /** On-map mortar section generated battles add with `mortars` (M8.3a). */
   mortarTemplate: Id.optional(),
   /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */
@@ -1317,6 +1320,9 @@ export const InsigniaElementSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("chevron"), y: Mm, halfSpanMm: PosMm, riseMm: PosMm, widthMm: PosMm, headMm: z.number().min(0).max(60).optional() }).strict(),
   /** A star (pip) of `points` points, `diameterMm` across its points, one point towards the collar. */
   z.object({ kind: z.literal("star"), x: Mm, y: Mm, diameterMm: PosMm, points: z.union([z.literal(4), z.literal(5)]) }).strict(),
+  /** M12.1a: an open wreath (Eichenlaubkranz) centred on (0, y): a ring of a `widthMm` band, `diameterMm` across its
+   *  outer edge, open towards the collar (its upper quarter left out). */
+  z.object({ kind: z.literal("wreath"), y: Mm, diameterMm: PosMm, widthMm: PosMm }).strict(),
 ]);
 /** One rank: the devices on its board; `bare`: the rank wears no board at all (only the strap, if any, shows). */
 export const InsigniaDeviceSchema = z.object({
@@ -1361,6 +1367,13 @@ export const FactionAppearanceFile = z.object({
   insignia: FactionInsigniaSchema.optional(),
   note: z.string().optional(),
 }).strict();
+/** factions/<id>/campaign.json (M12.4; optional file): how the campaign weighs this faction's men. Not in the catalog:
+ *  battles never read it. `fightingValue`: the relative fighting value of one of its men in the campaign's enemy
+ *  commitment (the enemy commits `enemyRatio x the player's men x player value / enemy value`); 1 without the file. */
+export const FactionCampaignFile = z.object({
+  campaign: withProv({ fightingValue: Num(0.1, 10) }),
+}).strict();
+export type FactionCampaignT = z.infer<typeof FactionCampaignFile>["campaign"];
 /** The flat map palette (M7.5b): one colour per surface, vegetation, roof and floor (keyed by terrain ids). */
 export const CoreAppearanceFile = z.object({
   surfaces: z.record(Id, LookColour),
@@ -1506,6 +1519,81 @@ export type SupplyT = z.infer<typeof SupplyFile>;
  * core/prisoners.json (M11.9, plan docs/plans/m11-mp-pow.md section 4; optional file): the prisoner collection point,
  * the search, escorts and guards, segregation by rank. Game values (low) unless a source says more.
  */
+/**
+ * core/campaign.json (M12; optional file): the campaign's rules between battles. Not part of the catalog: battles never
+ * read it. M12.0b: `battle`, what one battle may commit per side (the cap from the company benchmark: `bench-company`
+ * headless at `measuredX` real time on the build container against the floor `floorX`; DECISIONS "M12.0b").
+ */
+export const CampaignFile = z.object({
+  campaign: withProv({
+    battle: z.object({
+      /** Platoons per side, the company headquarters, and the support (sections and teams) a battle takes at most. */
+      platoons: z.number().int().min(1).max(9), companyHq: z.boolean(),
+      mortarSections: z.number().int().min(0).max(3), missileTeams: z.number().int().min(0).max(3), aglTeams: z.number().int().min(0).max(3), tankSections: z.number().int().min(0).max(3),
+      /** Headless speed floor (multiples of real time) and what the benchmark measured. */
+      floorX: Num(1, 100), measuredX: Num(0, 10000),
+      /** M12.2: a campaign battle's time limit (s). */
+      seconds: Num(60, 7200).optional(),
+      /** M12.4: the enemy's caps (platoons and each support kind) scale with the fighting values (player / enemy),
+       *  at most by this factor (a stronger player meets more than a company); below 1 they shrink with it. */
+      enemyCapScale: Num(1, 3).optional(),
+    }).strict(),
+    /** M12.1a: the clock between battles: hours from one battle's end to the next battle of an operation, days between
+     *  operations (the replenishment); battles of an operation (the chain's), endless mode's replenishment rhythm. */
+    clock: z.object({ hoursBetweenBattles: Num(0, 720), daysBetweenOperations: Num(0, 365) }).strict(),
+    /** M12.2: `battles` is also the most battles (nodes) an operation has; `minBattles` the fewest before a failure may
+     *  end it; its line of `sectors` [min, max] connected sector maps (each a `mapKinds` kind, its own seed, the size of
+     *  its first node's kind at company size), the first node drawn from `start`, every further sector's planned node
+     *  from `planned`; each node has a flank battle for a second company with chance `flankChance` (its node from
+     *  `flankNodes`, on a flank sector of its own). */
+    operation: z.object({
+      battles: z.number().int().min(1).max(20),
+      minBattles: z.number().int().min(1).max(20).optional(),
+      sectors: z.tuple([z.number().int().min(1).max(20), z.number().int().min(1).max(20)]).optional(),
+      start: z.array(Id).min(1).optional(),
+      planned: z.array(Id).min(1).optional(),
+      flankNodes: z.array(Id).min(1).optional(),
+      flankChance: Num(0, 1).optional(),
+      mapKinds: z.array(z.enum(["village", "farmland", "woodland", "industrial"])).min(1).optional(),
+    }).strict(),
+    /** M12.2 endless mode: a replenishment every `replenishEvery` battles (nodes); a new sector every `sectorEvery`. */
+    endless: z.object({ replenishEvery: z.number().int().min(1).max(50), sectorEvery: z.number().int().min(1).max(50).optional() }).strict(),
+    /** M12.2: node types (a scenario kind, who attacks, the enemy's commit as a ratio of the player's men, whether the
+     *  enemy brings its company headquarters and support). */
+    nodes: z.record(Id, z.object({
+      kind: z.enum(["attack", "defence-counterattack", "meeting", "ambush", "withdrawal"]),
+      attacker: z.enum(["player", "enemy"]),
+      enemyRatio: Num(0.05, 5),
+      enemySupport: z.boolean(),
+    }).strict()).optional(),
+    /** M12.2: the transition table: per node type and result (the player's win, loss, draw) the next node ("planned":
+     *  the next sector's planned node) and sector ("next": one forward on the line, "same", "back": one back). */
+    transitions: z.record(Id, z.object({
+      win: z.object({ node: Id, sector: z.enum(["next", "same", "back"]) }).strict(),
+      loss: z.object({ node: Id, sector: z.enum(["next", "same", "back"]) }).strict(),
+      draw: z.object({ node: Id, sector: z.enum(["next", "same", "back"]) }).strict(),
+    }).strict()).optional(),
+    /** Experience (owner 2026-11-19: a little per battle, more under fire, capped): a man who took part gains `perBattle`
+     *  plus `perMinuteUnderFire` per minute under effective fire (`BattleResult.service`), at most `capPerBattle` in one
+     *  battle, never above `cap` (a man already above it keeps what he has). */
+    experience: z.object({ perBattle: Num(0, 1), perMinuteUnderFire: Num(0, 1), capPerBattle: Num(0, 1), cap: Num(0, 1) }).strict(),
+    /** Recovery per hour between battles: fatigue, shock (stress) and strain down by these, to 0; water back to full.
+     *  `defaultDays`: recovery days of an evacuated man the battle gave none; `walkingWoundedDays` (review M12; default 3): of a
+     *  walking wounded man it gave none. `rejoinWithinOperation` (owner Q-A (a)): a
+     *  recovered man rejoins at the first battle after his days are up, inside an operation too (false: only at a
+     *  replenishment). */
+    recovery: z.object({ fatiguePerHour: Num(0, 1), shockPerHour: Num(0, 1), strainPerHour: Num(0, 1), defaultDays: Num(0, 365), walkingWoundedDays: Num(0, 365).optional(), rejoinWithinOperation: z.boolean() }).strict(),
+    /** Hulls: workshop days of a recovered hull the battle gave none; `replaceLost` (owner Q-B (a)): destroyed and captured
+     *  hulls are replaced at a replenishment. */
+    repair: z.object({ defaultDays: Num(0, 365), replaceLost: z.boolean() }).strict(),
+    /** Green replacements: the quality level (core/qualities.json) they are drawn from. */
+    replacements: z.object({ quality: Id }).strict(),
+    /** A battalion with fewer than this share of its establishment able is combat-ineffective (M12.2 ends an operation). */
+    combatIneffective: Num(0, 1),
+  }),
+});
+export type CampaignT = z.infer<typeof CampaignFile>;
+
 export const PrisonersFile = z.object({
   prisoners: withProv({
     /** The prisoners are looked at every `stepS` (s). */

@@ -16,10 +16,10 @@ import {
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   MedicalFile, type MedicalT,
   RepairFile, type RepairT,
-  SupplyFile, type SupplyT, PrisonersFile, type PrisonersT,
+  SupplyFile, type SupplyT, PrisonersFile, type PrisonersT, CampaignFile, type CampaignT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
   StringsFile, UnitsFile, VehiclesFile, type VehicleT,
-  CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT,
+  CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT, FactionCampaignFile, type FactionCampaignT,
   type DoctrineT, type FactionManifestT, type ItemT, type MovementModeT, type NamesT, type QualityT, type RankT,
   type RoleT, type UnitTemplateT,
 } from "./schemas";
@@ -49,6 +49,8 @@ export interface FactionPack {
   strings: StringTables;
   /** Look (M7.5; optional file appearance.json): uniform tones and vehicle paint. Not in the catalog. */
   appearance?: FactionAppearanceT;
+  /** The campaign's weighing (M12.4; optional file campaign.json). Not in the catalog. */
+  campaign?: FactionCampaignT;
 }
 
 export interface TerrainData {
@@ -69,6 +71,8 @@ export interface DataSet {
   supply?: SupplyT;
   /** Prisoners of war (M11.9; optional file core/prisoners.json). */
   prisoners?: PrisonersT;
+  /** The campaign's rules (M12; optional file core/campaign.json). Not in the catalog. */
+  campaign?: CampaignT;
   shooting: ShootingT | null;
   spotting: SpottingT | null;
   behaviour: BehaviourT | null;
@@ -204,6 +208,7 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     if (P.pcp.minBackM > P.pcp.maxBackM) errors.push({ file: "core/prisoners.json", path: "prisoners.pcp.minBackM", message: "minBackM above maxBackM", severity: "error" });
     if (P.escort.gapMinM > P.escort.gapMaxM) errors.push({ file: "core/prisoners.json", path: "prisoners.escort.gapMinM", message: "gapMinM above gapMaxM", severity: "error" });
   }
+  const campaign = files["core/campaign.json"] === undefined ? null : parse(CampaignFile, "core/campaign.json", files["core/campaign.json"], errors);
   const data: DataSet = {
     wounds,
     shooting,
@@ -221,6 +226,7 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     ...(repair ? { repair } : {}),
     ...(supply ? { supply } : {}),
     ...(prisoners ? { prisoners } : {}),
+    ...(campaign ? { campaign } : {}),
   };
   // Appearance (M7.5): presentation only, outside the catalog; its keys must name terrain entries.
   if (files["core/appearance.json"] !== undefined) {
@@ -299,6 +305,7 @@ function loadFaction(
   const vehiclesF = files[f("vehicles.json")] === undefined ? { vehicles: [] } : parse(VehiclesFile, f("vehicles.json"), files[f("vehicles.json")], errors);
   if (!ammoF || !weaponsF || !vehiclesF) return null;
   const appearance: FactionAppearanceT | null = files[f("appearance.json")] === undefined ? null : parse(FactionAppearanceFile, f("appearance.json"), files[f("appearance.json")], errors);
+  const campaignF = files[f("campaign.json")] === undefined ? null : parse(FactionCampaignFile, f("campaign.json"), files[f("campaign.json")], errors);
   ammoF.ammunition.forEach((a, i) => {
     if (itemsF.items.some((it) => it.id === a.id)) {
       errors.push({ file: f("ammunition.json"), path: `ammunition[${i}].id`, message: `'${a.id}' is also defined in items.json; ammunition becomes an item automatically`, severity: "error" });
@@ -414,6 +421,7 @@ function loadFaction(
     doctrine,
     strings,
     ...(appearance ? { appearance } : {}),
+    ...(campaignF ? { campaign: campaignF.campaign } : {}),
   };
 
   // Cross references.
@@ -481,6 +489,30 @@ function loadFaction(
       const vd = su?.vehicle !== undefined ? pack.vehicles[su.vehicle] : undefined;
       if (vd && vd.class !== cls) err(`'${id}': carriage crew '${su!.id}' drives '${vd.id}', a ${vd.class} vehicle, not ${cls}`);
     }
+  }
+  // M12.1a: the campaign's battalion by carrier class: a template of echelon "battalion", every template under it
+  // known (lint: unknown sub-units are reported for every template), its carriage crews of that class.
+  for (const cls of ["tracked", "wheeled"] as const) {
+    const id = manifest.battalionTemplates?.[cls];
+    if (id === undefined) continue;
+    const err = (message: string) => errors.push({ file: f("manifest.json"), path: `battalionTemplates.${cls}`, message, severity: "error" });
+    const bt = pack.units[id];
+    if (!bt) { err(`unknown unit template '${id}' (known: ${known(pack.units)})`); continue; }
+    if (bt.echelon !== "battalion") err(`'${id}' is of echelon '${bt.echelon}', not 'battalion'`);
+    const seen = new Set<string>();
+    const walk = (tid: string) => {
+      if (seen.has(tid)) return;
+      seen.add(tid);
+      const t = pack.units[tid];
+      if (!t) return;
+      for (const c of t.carriage ?? []) {
+        const su = pack.units[t.subunits[c.crew] ?? ""];
+        const vd = su?.vehicle !== undefined ? pack.vehicles[su.vehicle] : undefined;
+        if (vd && vd.class !== cls) err(`'${tid}' (in '${id}'): carriage crew '${su!.id}' drives '${vd.id}', a ${vd.class} vehicle, not ${cls}`);
+      }
+      t.subunits.forEach(walk);
+    };
+    walk(id);
   }
   // M7.6d: the automatic grenade launcher team and the assault group are templates of this faction; the team's men
   // carry an "agl" post.

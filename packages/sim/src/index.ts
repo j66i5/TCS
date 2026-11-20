@@ -30,6 +30,7 @@ export { componentIndex, plateNeed, resolveVehicleHit, vehicleDamageSystem } fro
 export { reactiveAdd, tileFor } from "./tiles";
 export { flightStep, type FlightState } from "./flight";
 export { battleScore, type BattleScore, type SideScore } from "./systems/objectives";
+export { exitedOf, hasExited, inExit } from "./systems/exits";
 export { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM, type Observer, type ObserverKind } from "./systems/observers";
 export { airborneDroneOf, droneChargeWh, droneDefOf, droneHitChance, droneInSight, droneRiderOf, FLY_ACTION, hasDrone } from "./systems/drones";
 export { AUTO_DEPLOY_S, aglOf, crewAt, crewPostOf, crewServedKind, isAglTeam, isMissileTeam, isMortarUnit, launcherOf, mortarTeams, teamRounds, tubeOf, tubeRangeM, tubeReaches, type AglPost, type Launcher, type Post, type Tube } from "./systems/mortars";
@@ -82,6 +83,7 @@ export * from "./battle";
 export * from "./setup";
 export * from "./sim";
 export * from "./run";
+export * from "./service";
 export { unitSoldiers } from "./systems/orders";
 export { loadKg, postureChangeSeconds, requestPosture, thirstAimFactor, thirstShare } from "./systems/body";
 export * from "./expenditure";

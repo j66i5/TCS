@@ -119,6 +119,42 @@
       ],
       "confidence": "medium",
       "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "kapitan",
+      "nameKey": "rank.ru.kapitan",
+      "abbrKey": "rank.ru.kapitan.abbr",
+      "natoCode": "OF-2",
+      "grade": 16,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "M12.1a: added for the company and battalion commanders. NATO code from public comparison tables."
+    },
+    {
+      "id": "mayor",
+      "nameKey": "rank.ru.mayor",
+      "abbrKey": "rank.ru.mayor.abbr",
+      "natoCode": "OF-3",
+      "grade": 17,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "M12.1a: added for the company and battalion commanders. NATO code from public comparison tables."
+    },
+    {
+      "id": "podpolkovnik",
+      "nameKey": "rank.ru.podpolkovnik",
+      "abbrKey": "rank.ru.podpolkovnik.abbr",
+      "natoCode": "OF-4",
+      "grade": 18,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "M12.1a: added for the company and battalion commanders. NATO code from public comparison tables."
     }
   ]
 }

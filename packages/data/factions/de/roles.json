@@ -219,6 +219,46 @@
       ],
       "confidence": "low",
       "note": "M11.7b: the recovery mechanic of a Bergepanzer crew (Bergetrupp; search extracts); hooks up the tow."
+    },
+    {
+      "id": "kompaniechef",
+      "nameKey": "role.de.kompaniechef",
+      "leader": true,
+      "sources": [
+        "https://www.battleorder.org/post/de-pzg-1966"
+      ],
+      "confidence": "medium",
+      "note": "M12.1a (plan m12-roster 4.3): company commander. Search extracts only; no page could be opened."
+    },
+    {
+      "id": "kompanietruppfuehrer",
+      "nameKey": "role.de.kompanietruppfuehrer",
+      "leader": true,
+      "sources": [
+        "https://www.battleorder.org/post/de-pzg-1966"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): Kompanietruppfuehrer, the company commander's troop leader in the Kompaniefuehrungstrupp. Search extracts only; no page could be opened."
+    },
+    {
+      "id": "bataillonskommandeur",
+      "nameKey": "role.de.bataillonskommandeur",
+      "leader": true,
+      "sources": [
+        "https://www.battleorder.org/post/de-pzg-1966"
+      ],
+      "confidence": "medium",
+      "note": "M12.1a (plan m12-roster 4.3): battalion commander. Search extracts only; no page could be opened."
+    },
+    {
+      "id": "stabsoffizier",
+      "nameKey": "role.de.stabsoffizier",
+      "leader": true,
+      "sources": [
+        "https://www.battleorder.org/post/de-pzg-1966"
+      ],
+      "confidence": "low",
+      "note": "M12.1a (plan m12-roster 4.3): S3 staff officer (operations) of the battalion; his place with the commander is a game value (low). Search extracts only; no page could be opened."
     }
   ]
 }

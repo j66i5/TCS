@@ -367,6 +367,142 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M11.7a): the tug's two crew (commander, driver)."
+    },
+    {
+      "id": "cart-company",
+      "echelon": "company",
+      "callsign": "Company {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "boss",
+          "rank": "boss",
+          "load": [
+            {
+              "item": "xf-mag",
+              "count": 4,
+              "charge": 20
+            },
+            {
+              "item": "xf-vest",
+              "count": 1
+            },
+            {
+              "item": "xf-bomb",
+              "count": 1
+            },
+            {
+              "item": "xf-strap",
+              "count": 1
+            },
+            {
+              "item": "xf-poultice",
+              "count": 2
+            },
+            {
+              "item": "xf-puff",
+              "count": 1
+            },
+            {
+              "item": "xf-papers",
+              "count": 1
+            }
+          ],
+          "weapon": "xf-blaster"
+        },
+        {
+          "role": "porter",
+          "rank": "private",
+          "load": [
+            {
+              "item": "xf-mag",
+              "count": 10,
+              "charge": 20
+            },
+            {
+              "item": "xf-crate",
+              "count": 1
+            },
+            {
+              "item": "xf-puff",
+              "count": 1
+            },
+            {
+              "item": "xf-bandolier",
+              "count": 1,
+              "charge": 60
+            },
+            {
+              "item": "xf-can",
+              "count": 1,
+              "charge": 300
+            }
+          ],
+          "weapon": "xf-blaster"
+        }
+      ],
+      "subunits": [
+        "cart-band",
+        "cart-band",
+        "cart-band"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M12.1a): a boss and his porter on foot, three cart bands."
+    },
+    {
+      "id": "cart-battalion",
+      "echelon": "battalion",
+      "callsign": "Battalion {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "boss",
+          "rank": "boss",
+          "load": [
+            {
+              "item": "xf-mag",
+              "count": 4,
+              "charge": 20
+            },
+            {
+              "item": "xf-vest",
+              "count": 1
+            },
+            {
+              "item": "xf-bomb",
+              "count": 1
+            },
+            {
+              "item": "xf-strap",
+              "count": 1
+            },
+            {
+              "item": "xf-poultice",
+              "count": 2
+            },
+            {
+              "item": "xf-puff",
+              "count": 1
+            },
+            {
+              "item": "xf-papers",
+              "count": 1
+            }
+          ],
+          "weapon": "xf-blaster"
+        }
+      ],
+      "subunits": [
+        "cart-company",
+        "cart-company",
+        "cart-company",
+        "dart-team",
+        "tortoise-pair"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M12.1a): three companies, a dart team and the tortoise pair."
     }
   ]
 }

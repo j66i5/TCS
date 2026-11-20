@@ -11,7 +11,7 @@ import type { InteriorGraph } from "./interior-nav";
 import type { PhysiologyModel } from "./wounds";
 import type { BallisticsCtx, DropTable } from "./ballistics";
 import type { DefId, SideId } from "./ids";
-import type { Placement, UnitInput } from "./battle";
+import type { ForceInput, Placement, UnitInput } from "./battle";
 
 export interface BattleRules {
   /** The battle ends when this much game time has passed. */
@@ -62,6 +62,24 @@ export interface BattleRules {
    *  (balance pass 2): the positions dug in this window are at most this deep (a hasty dig-in; absent: the data's
    *  `fightingPosition.depthM`). */
   prepared?: { side: SideId; fromS: number; untilS: number; depthM?: number }[];
+  /** M12.0a: the battle's result carries what a campaign needs (`BattleResult.damageOut`, `service`; a per-man tally
+   *  kept in `SoldierState.service`). Absent or false: nothing of it (every golden and batch result as before). */
+  campaignOut?: boolean;
+  /** M12.0b: exit zones (SPEC 6.9 withdrawal, ambush): a man of `side` on foot, able, inside the rectangle, or a hull
+   *  of that side that can still move with everyone aboard, leaves the map there for good (`systems/exits.ts`): he is
+   *  saved (roster status as he left, "fit" or "wounded"; not a man down) and scores `pointsPerMan` (a hull
+   *  `pointsPerVehicle`). A side with an exit and nobody left on the map ends the battle ("side-withdrew"). Absent:
+   *  none (every battle before M12.0b). */
+  exits?: ExitZone[];
+}
+
+/** M12.0b: an exit zone of one side (a rectangle, m, usually a strip along a map edge). */
+export interface ExitZone {
+  side: SideId;
+  x0: number; y0: number; x1: number; y1: number;
+  /** Points per man saved through it (game value), and per hull. Default 0. */
+  pointsPerMan?: number;
+  pointsPerVehicle?: number;
 }
 
 /** An area worth holding (M6). */
@@ -75,6 +93,9 @@ export interface ObjectiveDef {
   points: number;
   /** Who holds it at the start (the defender), or nobody. */
   holder: SideId | null;
+  /** M12.0b: a time that scores ("hold until T"): from `untilS` (s) on its holder no longer changes; whoever held it
+   *  then scores its points at the end. Absent: held to the end as before. */
+  untilS?: number;
 }
 
 /**
@@ -109,6 +130,8 @@ export interface SimContext {
   physiologyParams: Record<string, number>;
   /** Holes blown in walls so far (a reference to the state's list; set by syncTerrainDamage). */
   breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number; sillM?: number; headM?: number }[];
+  /** M12.0a: craters carried in from earlier battles (`BattleInput.damage`): rough ground in the navigation grids. */
+  navCraters?: readonly { x: number; y: number; radiusM: number }[];
   /** Wrecks stamped into the navigation grids (derived from the vehicle store; M7), and their key. */
   navStamps: NavStamp[];
   navStampKey: string;
@@ -118,5 +141,5 @@ export interface SimContext {
   hasInteriors?: boolean;
   /** M11.1: the top-level units that arrive late (`UnitInput.arriveS`), from the input; never saved (the state's
    *  `arrived` says which have come). */
-  late: { side: SideId; faction: DefId; unit: UnitInput; tick: number; placements: Map<string, Placement> }[];
+  late: { side: SideId; faction: DefId; unit: UnitInput; tick: number; placements: Map<string, Placement>; /** M12.0b: its force (its hulls come on with it). */ force?: ForceInput }[];
 }

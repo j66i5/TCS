@@ -9,15 +9,18 @@
  * save and load and the debug hooks live in the modules beside this file.
  */
 import { buildAppearance, formatErrors, Strings } from "@tcs/data";
-import { buildScenario, demoBattle, holdBattle, MAP_KINDS, mountedTanks, vehicleBattle, withoutRecovery, type MapKind } from "@tcs/scenario";
-import { commanderController, defenceStartPosts, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
+import { buildScenario, demoBattle, holdBattle, MAP_KINDS, mountedTanks, SCENARIO_KINDS, vehicleBattle, withoutRecovery, type MapKind, type ScenarioKind } from "@tcs/scenario";
+import { commanderController, defenceStartPosts, sideCommander, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
 import {
-  DT, environmentAt, isOffMapMan, navFor, newBattleRecord, parseTimeOfDay, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
+  battleResultOf, DT, emptyLogistics, environmentAt, logisticsFromEvents, tracerMap, isOffMapMan, navFor, newBattleRecord, parseTimeOfDay, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
 import { ageLabel, cacheMarkers, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, prisonerMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
+import { hashRecord } from "@tcs/campaign";
 import { loadBundledData } from "./data";
+import { loadCampaignBattle, returnToCampaign, type CampaignBattle } from "./campaign/battle";
+import { campaignPage } from "./campaign/page";
 import type { App } from "./app";
 import { centredOn, centreOn, centreOnDrone, droneCentred, followStep, keepSelectedClear, startFollow, stopFollow } from "./camera";
 import { attachControls, gestureOverlay, planOverlay } from "./controls";
@@ -28,7 +31,7 @@ import { carriersParam, defaultTanksApply, tanksParam } from "./params";
 import { endPlan, fetchAmmo, forUnit, goPlan, issue, issueAi, now, resupply, sendBearers, setFormation, takeKit, undoPlanPoint } from "./orders";
 import { refreshTiles, showCard, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
-import { loadOrCreate, reloadSaved, saveNow } from "./save";
+import { loadOrCreate, reloadSaved, saveNow, setCampaignKey } from "./save";
 import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
 import { attachFloors, sightView, updatePins } from "./view";
 
@@ -48,6 +51,26 @@ async function main(): Promise<void> {
   }
   const strings = new Strings(data, "en");
   const params = new URLSearchParams(location.search);
+  // M12.3: `?campaign=1` opens the campaign page (no battle); `?campaign=<slot>&play=1` plays the node's battle the
+  // campaign in that slot has ready.
+  const campaignParam = params.get("campaign");
+  if (campaignParam !== null && params.get("play") !== "1") {
+    const page = await campaignPage(hudRoot, data, strings, params, hashRecord);
+    (globalThis as { __tcsCampaign?: unknown }).__tcsCampaign = { ready: true, ...page };
+    return;
+  }
+  let campaign: CampaignBattle | null = null;
+  if (campaignParam !== null) {
+    try { campaign = await loadCampaignBattle(data, campaignParam); setCampaignKey(campaign.recordHash); } catch (e) {
+      console.warn("campaign battle", e);
+      hudRoot.textContent = strings.t("cmp.msg.noBattle");
+      hudRoot.style.pointerEvents = "auto";
+      const back = document.createElement("a");
+      back.href = "?campaign=1"; back.textContent = ` ${strings.t("cmp.title.home")}`; back.style.color = "#f5d061";
+      hudRoot.append(back);
+      return;
+    }
+  }
   const seed = Number(params.get("seed") ?? 1) >>> 0;
   const factions = (params.get("factions") ?? "de,ru").split(",") as [string, string];
   const mapParam = params.get("map") ?? "village";
@@ -56,7 +79,7 @@ async function main(): Promise<void> {
   // M6 first playable: the generated platoon battle (?scenario=demo for the old one-squad sandbox).
   // ?side=blue|red picks your side, ?attacker=blue|red who attacks; the AI commands the other side.
   const scenario = params.get("scenario") ?? "platoon";
-  const playerSide = params.get("side") === "red" ? "red" : "blue";
+  const playerSide = campaign ? "blue" : params.get("side") === "red" ? "red" : "blue";
   const enemySide = playerSide === "blue" ? "red" : "blue";
   // M7.6d: &assault=1: red's platoon is its assault group (on foot) with its AGS team, red attacking unless
   // &attacker= says otherwise.
@@ -69,14 +92,14 @@ async function main(): Promise<void> {
   const withVehicles = vp.vehicles;
   const limit = Number(params.get("limit") ?? 2400) || 2400;
   // ?scenario=vehicles (M7.1c): IFV platoons with their squads on foot; vehicles appear nowhere else yet.
-  const input = scenario === "demo"
+  const input = campaign ? campaign.input : scenario === "demo"
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "hold"
     // M11.1 ?scenario=hold: hold the village against three waves (60 min); &attacker=blue swaps the sides.
     ? holdBattle(data, { seed, factions, defender: params.get("attacker") === "blue" ? "red" : "blue", ...(params.get("limit") ? { timeLimitSeconds: limit } : {}) })
     : scenario === "vehicles"
     ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: limit, ...(vp.carriers ? { carriers: vp.carriers } : {}), ...crewParam(params.get("crew")), ...(params.get("recovery") === "1" ? { recovery: true } : {}) })
-    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: limit, ...(withVehicles ? { vehicles: true } : {}), ...(vp.carriers ? { carriers: vp.carriers } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}), ...(params.get("air") ? { airRecon: params.get("air")!.split(",").filter((x) => x === "blue" || x === "red") } : {}), ...tanksParam(params.get("tanks"), params.get("tankCrew"), defaultTanksApply(vp, assault) ? mountedTanks(data, factions, attacker) : null, (m) => console.warn(m)), ...(assault ? { assaultGroup: "red" as const, aglTeams: attacker === "red" ? "attacker" as const : "defender" as const } : {}) }, { defenceStartPosts }); // (balance pass 4: the defence's hulls start on their posts)
+    : buildScenario(data, { kind: kindParam(params.get("kind")), ...(params.get("size") === "company" ? { size: "company" as const } : {}), seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: limit, ...(withVehicles ? { vehicles: true } : {}), ...(vp.carriers ? { carriers: vp.carriers } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}), ...(params.get("air") ? { airRecon: params.get("air")!.split(",").filter((x) => x === "blue" || x === "red") } : {}), ...tanksParam(params.get("tanks"), params.get("tankCrew"), defaultTanksApply(vp, assault) ? mountedTanks(data, factions, attacker) : null, (m) => console.warn(m)), ...(assault ? { assaultGroup: "red" as const, aglTeams: attacker === "red" ? "attacker" as const : "defender" as const } : {}) }, { defenceStartPosts }); // (balance pass 4: the defence's hulls start on their posts)
   // ?time=HH:MM (M9.1): the battle at that local time, the light following the clock; &moon=0..1 (default a half moon).
   const timeOfDay = parseTimeOfDay(params.get("time"));
   if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(params.get("moon") ?? 0.5));
@@ -85,10 +108,11 @@ async function main(): Promise<void> {
   // ?recovery=0 (M11.7b): no recovery vehicles; ?recovery=1: the vehicles scenario gets them too.
   if (params.get("recovery") === "0") withoutRecovery(input);
   // ?ai=0: no enemy controller (screenshots: a scene the enemy must not walk into).
-  const ai = params.get("ai") === "0" ? [] : scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
+  const ai = params.get("ai") === "0" ? [] : campaign ? [sideCommander(enemySide, input)] : scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
     : scenario === "hold" && input.forces.find((f) => f.side === enemySide)?.posture === "attack" ? [waveCommanders(enemySide, input)]
-    : [commanderController(enemySide, input)];
+    // (M12.0b: a battle of a scenario kind: the enemy's commander by its plan.)
+    : [input.forces.find((f) => f.side === enemySide)?.plan ? sideCommander(enemySide, input) : commanderController(enemySide, input)];
   // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).
   const loaded = loadOrCreate(input, ai, params.get("load") === "1");
   const sim = loaded.sim;
@@ -281,7 +305,11 @@ async function main(): Promise<void> {
   if (loaded.failed) hud.radio(strings.t("app.loadFailed"), 0, "#ffb4b4");
 
   // ---- Events (rule 5): the renderer's effects, the battle record (the review's source, D2), the radio log.
+  // M12.3: a campaign battle gathers its logistics from the events (the result handed back to the campaign).
+  const campLogistics = sim.state.sides.map((x) => emptyLogistics(x.id));
+  const tracer = campaign ? tracerMap(input.catalog) : null;
   const handleEvents = (events: SimEvent[]) => {
+    if (tracer && events.length > 0) logisticsFromEvents(campLogistics, events, sim.state, input.catalog, tracer);
     renderer.onEvents(events, sim.state, overlay);
     vehicleDebug.onEvents(events);
     recordEvents(a.record, events, sim.state, input.catalog);
@@ -312,6 +340,7 @@ async function main(): Promise<void> {
   a.review = createAar(hudRoot, strings, {
     onHeat: (on) => { overlay.heat = on ? { shots: a.record.heatShots, falls: a.record.heatFalls } : null; },
     onClose: () => { /* the map stays; the battle is over */ },
+    ...(campaign ? { onCampaign: () => { void returnToCampaign(data, campaign, battleResultOf(sim, input, a.orderLog, campLogistics), look); } } : {}),
   });
   let aarShown = false;
   const showAar = () => { aarShown = true; a.speed = 0; a.review!.show(reviewModel(a)); };
@@ -410,3 +439,10 @@ function crewParam(v: string | null): { crewTemplates?: [string, string] } {
   return parts.length === 2 ? { crewTemplates: [parts[0]!, parts[1]!] } : {};
 }
 
+/** M12.0b `&kind=`: a scenario kind (attack, defence-counterattack, meeting, ambush, withdrawal); else the platoon attack. */
+function kindParam(v: string | null): ScenarioKind {
+  if (v === null) return "platoon-attack";
+  if ((SCENARIO_KINDS as readonly string[]).includes(v)) return v as ScenarioKind;
+  console.warn(`kind=${v}: not a scenario kind (${SCENARIO_KINDS.join(", ")}); the platoon attack`);
+  return "platoon-attack";
+}

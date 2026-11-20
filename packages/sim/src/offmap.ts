@@ -16,8 +16,8 @@ export const OFF_MAP_PARK = { x: -10000, y: -10000 } as const;
 
 /** Is this vehicle off the map right now (an asset waiting, on its way to the edge, or gone; a combat vehicle away on
  *  a rear run, M10.6b; a hull towed off the map, M11.7b)? */
-export function isOffMap(v: { readonly offMap?: { readonly phase: OffMapAsset["phase"] } | undefined; readonly rearRun?: { readonly phase: RearRun["phase"] } | undefined; readonly towAway?: true | undefined } | undefined): boolean {
-  if (v?.towAway === true) return true;
+export function isOffMap(v: { readonly offMap?: { readonly phase: OffMapAsset["phase"] } | undefined; readonly rearRun?: { readonly phase: RearRun["phase"] } | undefined; readonly towAway?: true | undefined; readonly exited?: number | undefined } | undefined): boolean {
+  if (v?.towAway === true || v?.exited !== undefined) return true;
   const o = v?.offMap;
   if (o !== undefined) return o.phase === "ready" || o.phase === "called" || o.phase === "away";
   return v?.rearRun?.phase === "away";

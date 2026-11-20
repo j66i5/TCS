@@ -199,5 +199,17 @@
   "item.ru-jerrycan": "Fuel can (20 l)",
   "item.ru-dokumenty": "Documents (dokumenty: map, orders, notebook)",
   "vehicle.ru.kamaz-patrul-vp": "KamAZ Patrul (military police)",
-  "item.ru-patrul-diesel": "Diesel (Patrul tank)"
+  "item.ru-patrul-diesel": "Diesel (Patrul tank)",
+  "rank.ru.kapitan": "Kapitan",
+  "rank.ru.kapitan.abbr": "Kpt.",
+  "rank.ru.mayor": "Mayor",
+  "rank.ru.mayor.abbr": "Maj.",
+  "rank.ru.podpolkovnik": "Podpolkovnik",
+  "rank.ru.podpolkovnik.abbr": "Ppk.",
+  "role.ru.komandir-roty": "Company commander",
+  "role.ru.zamestitel-komandira-roty": "Deputy company commander",
+  "role.ru.starshina-roty": "Company starshina",
+  "role.ru.radist": "Radio operator",
+  "role.ru.komandir-batalona": "Battalion commander",
+  "role.ru.nachalnik-shtaba": "Chief of staff"
 }

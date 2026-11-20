@@ -73,6 +73,8 @@ export function rosterStatus(s: Man): "fit" | "wounded" | "incapacitated" | "sur
   if (!s.physiology.alive) return "killed";
   // (M11.9: a prisoner taken back by his captors' ambulance stays "captured".)
   if (s.captive !== null && s.evacuated !== undefined) return s.captive.state;
+  // (M12.0b: out by the exit zone: saved, as he left.)
+  if (s.evacuated?.via === "exit") return s.wounds.length > 0 ? "wounded" : "fit";
   // (M10.6a: taken off the map by ambulance; the aid station's outcome comes in M10.6b.)
   if (s.evacuated !== undefined) return "evacuated";
   if (s.captive !== null) return s.captive.state;

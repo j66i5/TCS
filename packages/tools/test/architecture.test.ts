@@ -19,7 +19,7 @@ export const ALLOWED_DEPS: Record<string, string[]> = {
   campaign: ["sim", "data", "scenario"],
   render: ["sim", "data"],
   ui: ["sim", "data", "render"],
-  app: ["sim", "data", "scenario", "ai", "render", "ui"],
+  app: ["sim", "data", "scenario", "ai", "render", "ui", "campaign"],
   tools: ["sim", "data", "scenario", "ai", "campaign"],
 };
 
@@ -74,6 +74,11 @@ describe("simulation purity (packages/sim)", () => {
     const bad = sourceFiles(join(PKG, "scenario", "src")).filter((f) => pat.test(stripComments(readFileSync(f, "utf8")))).map((f) => relative(ROOT, f));
     expect(bad).toEqual([]);
   });
+  it("the campaign (M12.0a) also avoids Math.random, the clock, timers and engine-dependent maths", () => {
+    const pat = /\bMath\.(random|sin|cos|tan|asin|acos|atan|atan2|sqrt|cbrt|pow|exp|log|hypot)\b|\*\*|\bDate\b|\bperformance\b|\bsetTimeout\b|\bsetInterval\b/;
+    const bad = sourceFiles(join(PKG, "campaign", "src")).filter((f) => pat.test(stripStrings(stripComments(readFileSync(f, "utf8"))))).map((f) => relative(ROOT, f));
+    expect(bad).toEqual([]);
+  });
   it("routes transcendental maths through sim/math only", () => {
     const pat = /\bMath\.(sin|cos|tan|asin|acos|atan|atan2|sqrt|cbrt|pow|exp|expm1|log|log2|log10|log1p|hypot|sinh|cosh|tanh)\b|\*\*/;
     const bad = files.filter((f) => !f.endsWith(join("sim", "src", "math.ts")) && pat.test(stripComments(readFileSync(f, "utf8")))).map((f) => relative(ROOT, f));
@@ -102,7 +107,7 @@ describe("no faction is hard-coded (SPEC 4.3 rule 8)", () => {
     const factionIds = [...readdirSync(join(PKG, "data", "factions")), ...readdirSync(join(PKG, "data", "fixtures", "factions"))];
     const pat = new RegExp(`["'\`](${factionIds.join("|")})(-[a-z0-9-]+)?["'\`]`);
     const bad: string[] = [];
-    for (const pkg of ["sim", "ai", "render", "ui", "scenario"]) {
+    for (const pkg of ["sim", "ai", "render", "ui", "scenario", "campaign"]) {
       for (const f of sourceFiles(join(PKG, pkg, "src"))) {
         const t = stripComments(readFileSync(f, "utf8"));
         const m = pat.exec(t);

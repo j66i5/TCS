@@ -91,8 +91,24 @@ export function ammoOf(catalog: Catalog, state: SimView, ids: readonly number[])
     const w = state.weapon.get(id);
     const mi = w?.magazine ? catalog.items[w.magazine.item]?.chargeItem : undefined;
     if (w?.magazine && mi !== undefined) add(out, mi, w.magazine.rounds);
+    // (M12.0b: a hull coming on with its unit: the ready rounds in its station weapons too.)
+    const v = state.vehicle.get(id);
+    if (v) for (const st of v.stations) for (const sw of st.weapons) for (const f of sw.feeds) { const ci = catalog.items[f.item]?.chargeItem; if (ci !== undefined && f.rounds > 0) add(out, ci, f.rounds); }
   }
   return out;
+}
+
+/** M12.0b: the charge (litres of fuel) in some entities' containers, by item (with its kind), in item order: a hull
+ *  arriving late brings its tank. */
+export function chargeOf(catalog: Catalog, state: SimView, ids: readonly number[]): { item: string; kind: string; amount: number }[] {
+  const out = new Map<string, { item: string; kind: string; amount: number }>();
+  for (const id of ids) for (const s of state.container.get(id)?.stacks ?? []) {
+    const d = catalog.items[s.type], k = d?.chargeKind;
+    if (k === undefined || d?.chargeItem !== undefined || s.charge === undefined) continue;
+    const e = out.get(s.type);
+    if (e) e.amount += s.charge * s.count; else out.set(s.type, { item: s.type, kind: k, amount: s.charge * s.count });
+  }
+  return [...out.values()].sort((a, b) => (a.item < b.item ? -1 : a.item > b.item ? 1 : 0));
 }
 
 /** The item a section fires for a mission's ammunition kind. */

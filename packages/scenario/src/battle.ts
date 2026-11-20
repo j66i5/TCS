@@ -9,16 +9,54 @@
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
-  atan2, buildBallistics, buildMapIndex, buildNavGrid, heightAt, hypot2, nearestPassable, newVehicleRecord, PI, sight, TICK_HZ,
-  type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type ObjectiveDef, type Placement, type SideId, type SimContext, type UnitInput, type VehicleRecord,
+  atan2, buildBallistics, buildMapIndex, buildNavGrid, heightAt, hypot2, nearestPassable, newVehicleRecord, PI, sight, sqrt, TICK_HZ, wreckStamp,
+  type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type NavGridOptions, type ObjectiveDef, type Placement, type SideId, type SimContext,
+  type TerrainDamage, type UnitInput, type VehicleRecord, type WreckRecord,
 } from "@tcs/sim";
 import { defaultRules, freeSpot, SIDES } from "./demo";
 import { allMembers, buildForceWithVehicles, withoutVehicles, type ForceVehicle } from "./forces";
 import { generateMap, type MapKind } from "./mapgen/index";
 import { addMpAssets, addRecoveryAssets, addSupplyAssets, platoonTemplateOf, type CarrierClass } from "./vehicles";
 
+/** M12.0a: a side's force from the roster (campaign): its units (`UnitInput` records) and its vehicles. */
+export interface ScenarioForces { units: UnitInput[]; vehicles?: VehicleRecord[] }
+
+/** M12.0a: what earlier battles left on this map (campaign sector): terrain damage and wrecks. */
+export interface ScenarioTerrain { damage?: TerrainDamage; wrecks?: WreckRecord[] }
+
+/**
+ * M12.0b: the kinds of battle the generator makes (SPEC 6.9): `attack` (one side attacks, the other holds two
+ * objectives; `platoon-attack` is the same, the name every scenario before M12.0b uses), `defence-counterattack` (the
+ * attack, and the defender's reserve comes on at `reserveAtS` and counter-attacks), `meeting` (both sides advance to two
+ * objectives in the middle, nobody holds them at the start), `ambush` (`attacker` is the side on the move along a
+ * route across the map to an exit zone at the far edge; the defender lies in wait beside the route), `withdrawal` (the
+ * defender holds its objectives until `delayUntilS`, then gets its men out by an exit zone at its own map edge; the
+ * attacker follows up).
+ */
+export type ScenarioKind = "platoon-attack" | "attack" | "defence-counterattack" | "meeting" | "ambush" | "withdrawal";
+
+/** M12.0b: every kind of battle (without the old name of `attack`). */
+export const SCENARIO_KINDS = ["attack", "defence-counterattack", "meeting", "ambush", "withdrawal"] as const;
+
+/** M12.0b game values (confidence low): exit zones (a strip along the map edge), the reserve's and the delay's times
+ *  as shares of the time limit, the ambush (where it lies: along the route past the middle, off it), the map's size per
+ *  kind (m) and its growth with the force (men of both sides per `menPerBase`, at most `maxScale`), the company. */
+export const SCENARIO_KIND = {
+  exitStripM: 15, exitPointsPerMan: 2, exitPointsPerVehicle: 10,
+  reserveAtShare: 0.4, delayUntilShare: 0.35,
+  ambushRangeM: 220, ambushAlongShare: 0.05, ambushOffShare: 0.17, ambushOffM: [110, 200] as const, ambushSpacingM: 40,
+  mapM: { attack: [1200, 900], "defence-counterattack": [1200, 900], meeting: [1400, 900], ambush: [1600, 1000], withdrawal: [1400, 900] } as Record<string, readonly [number, number]>,
+  /** The ambush on foot: a smaller map, and the moving side starts this share of the map in from its edge (a walk to
+   *  the ambush of about 400 m, not 800). */
+  ambushFootM: [1200, 900] as const, ambushFootStartShare: 0.2,
+  menPerBase: 90, maxScale: 2, companyScale: 1.6,
+  /** Platoons per side by kind (attacker, defender) at platoon size; a company: 3 each (the defender's third the reserve
+   *  in a counter-attack battle). */
+  platoons: { attack: [2, 1], "defence-counterattack": [2, 1], meeting: [1, 1], ambush: [1, 1], withdrawal: [2, 1] } as Record<string, readonly [number, number]>,
+} as const;
+
 export interface ScenarioDef {
-  kind: "platoon-attack";
+  kind: ScenarioKind;
   seed: number;
   mapKind: MapKind;
   /** Faction of blue (west) and red (east). */
@@ -89,7 +127,34 @@ export interface ScenarioDef {
   /** Balance pass 2: how deep the defender's holes are (default SCENARIO_HASTY_DEPTH_M; null: the data's
    *  `fightingPosition.depthM`, as the hold battle). */
   preparedDepthM?: number | null;
+  /** M12.0a: per side (blue, red) the force from the roster instead of the templates (null: built as without it).
+   *  Every unit and vehicle given takes part: hulls placed as the side's vehicles (crews in their seats by the
+   *  template slots of their roles), carried squads aboard their carriers when attacking, the men on foot at the
+   *  side's start; the tank section, mortars and teams of the template build are not added (they are in the roster
+   *  or not). Off-map assets (ambulances, recovery, military police) are added per battle as without it. */
+  forces?: [ScenarioForces | null, ScenarioForces | null];
+  /** M12.0a: damage and wrecks from earlier battles on this map (`BattleInput.damage`, `wrecksIn`); hulls and men are
+   *  placed clear of the wrecks. The map must be the one they were made on (same kind, seed and size). */
+  terrain?: ScenarioTerrain;
+  /** M12.0a: the result carries `damageOut` and `service` (`rules.campaignOut`). */
+  campaignOut?: boolean;
+  /** M12.0b: "company": each side three platoons with the company's support (on-map mortars, missile and AGL teams,
+   *  the tank section; each unless set false here) on a larger map (`SCENARIO_KIND.companyScale`). Default "platoon". */
+  size?: "platoon" | "company";
+  /** M12.0b: platoons per side (blue, red), instead of the kind's (`attackerPlatoons` for the attacker otherwise). */
+  platoons?: [number, number];
+  /** M12.0b defence-counterattack: when the defender's reserve comes on (s; default `reserveAtShare` of the time limit)
+   *  and how many platoons it is (default 1). */
+  reserveAtS?: number;
+  reservePlatoons?: number;
+  /** M12.0b withdrawal: until when the defender must hold (s; default `delayUntilShare` of the time limit). */
+  delayUntilS?: number;
+  /** M12.0b: per side (blue, red), extra platoons coming on at these times (s) at the side's map edge (the side's
+   *  template; they attack on their own when they come). */
+  reinforcements?: [number[] | null, number[] | null];
 }
+
+type Stance = "defend" | "edge" | "ambush";
 
 /** Balance pass after M11: the window (s) in which the platoon battle's defenders dig in where they halt (the hold
  *  battle's, after the commander's siting walk; game values). */
@@ -155,41 +220,119 @@ export interface ScenarioHooks {
   defenceStartPosts?: (input: BattleInput, side: SideId) => unknown;
 }
 
+/** M12.0b: the map's size for a scenario: as given; else the kind's base size, larger for a company or (a new kind, no
+ *  terrain carried) for a big roster force. `platoon-attack` keeps 1200 x 900. */
+export function scenarioMapSize(def: ScenarioDef): { W: number; H: number } {
+  const kind = def.kind === "platoon-attack" ? "attack" : def.kind;
+  const base = kind === "ambush" && !scenarioMounted(def) ? SCENARIO_KIND.ambushFootM : SCENARIO_KIND.mapM[kind] ?? [1200, 900];
+  let scale = def.size === "company" ? SCENARIO_KIND.companyScale : 1;
+  if (def.forces && def.kind !== "platoon-attack" && !def.terrain) {
+    let men = 0;
+    const count = (u: UnitInput): void => { men += u.members.length; u.subunits.forEach(count); };
+    for (const f of def.forces) for (const u of f?.units ?? []) count(u);
+    scale = Math.max(scale, Math.min(SCENARIO_KIND.maxScale, sqrt(men / SCENARIO_KIND.menPerBase)));
+  }
+  const r = (v: number) => Math.round((v * scale) / 100) * 100;
+  return { W: def.mapWidthM ?? r(base[0]!), H: def.mapHeightM ?? r(base[1]!) };
+}
+
+/** Does the battle have vehicles (the template build's `vehicles`, or roster forces with hulls)? */
+function scenarioMounted(def: ScenarioDef): boolean {
+  return def.forces ? def.forces.some((f) => (f?.vehicles?.length ?? 0) > 0) : def.vehicles === true;
+}
+
 export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHooks = {}): BattleInput {
   const catalog = buildCatalog(data, [...def.factions]);
-  const W = def.mapWidthM ?? 1200, H = def.mapHeightM ?? 900;
+  const kind = def.kind === "platoon-attack" ? "attack" : def.kind;
+  const { W, H } = scenarioMapSize(def);
   const map = generateMap(catalog.terrain, { kind: def.mapKind, seed: def.seed, widthM: W, heightM: H });
   const defender = def.attacker === "blue" ? "red" : "blue";
+  const company = def.size === "company";
+  const T = def.timeLimitSeconds ?? 2400;
+  // M12.0b: how each side stands at the start: holding its objectives, at its map edge, or lying in wait.
+  const stanceOf = (side: string): Stance => (kind === "meeting" || side === def.attacker ? "edge" : kind === "ambush" ? "ambush" : "defend");
+  // Where a side at its edge starts on foot (x): 8 % in; the ambushed side on foot further in.
+  const edgeX = (side: string): number => {
+    const k = kind === "ambush" && side === def.attacker && !scenarioMounted(def) ? SCENARIO_KIND.ambushFootStartShare : 0.08;
+    return side === "blue" ? W * k : W * (1 - k);
+  };
+  // Dead ground for the attacker's start only where it attacks a defence that watches.
+  const deadGround = def.deadGroundStart !== false && (kind === "attack" || kind === "defence-counterattack" || kind === "withdrawal");
+  const sup = (v: boolean | undefined): boolean | undefined => (v === undefined && company ? true : v);
+  const mortarsOn = sup(def.mortars), missileOn = sup(def.missileTeams);
+  const aglOn: ScenarioDef["aglTeams"] = def.aglTeams === undefined && company ? true : def.aglTeams;
+  const tanksOn: ScenarioDef["tanks"] = def.tanks === undefined && company ? true : def.tanks;
+  const reserveAt = Math.round(def.reserveAtS ?? T * SCENARIO_KIND.reserveAtShare);
+  const delayUntil = Math.round(def.delayUntilS ?? T * SCENARIO_KIND.delayUntilShare);
+  const platoonsOf = (side: "blue" | "red", s: number): number => {
+    if (def.platoons) return Math.max(1, def.platoons[s]!);
+    const att = side === def.attacker;
+    if (company) return kind === "defence-counterattack" && !att ? 2 : 3;
+    if (att) return Math.max(1, def.attackerPlatoons ?? SCENARIO_KIND.platoons[kind]![0]!);
+    return SCENARIO_KIND.platoons[kind]![1]!;
+  };
+  /** Late platoons per side (times, s): the defender's reserve in a counter-attack battle, and reinforcements. */
+  const lateOf = (side: "blue" | "red", s: number): number[] => [
+    ...(kind === "defence-counterattack" && side === defender ? Array.from({ length: Math.max(1, def.reservePlatoons ?? 1) }, () => reserveAt) : []),
+    ...(def.reinforcements?.[s] ?? []),
+  ];
+  // M12.0a: wrecks and craters of earlier battles in the placement grids (none: the grids as before).
+  const navExtra = terrainNav(catalog, def.terrain);
   // Objectives on the defender's side of the map: the main one at a building near its middle, the second at
   // another building (or the ground) on a flank.
   const dx = defender === "red" ? 1 : -1;
-  const mainP = def.hold === true ? nearBuilding(map, W / 2, H / 2, 250) : nearBuilding(map, W / 2 + dx * W * 0.2, H / 2, 250);
-  let secondP = nearBuilding(map, W / 2 + dx * W * 0.1, H / 2 + (def.seed % 2 === 0 ? 1 : -1) * H * 0.2, 200, [mainP]);
+  // M12.0b ambush: the route runs across the middle of the map (y = H / 2) from the attacker's edge to the far edge;
+  // the ambush lies beside it a little past the middle, on a flank (by the seed).
+  const flank = def.seed % 2 === 0 ? -1 : 1;
+  const ambushP = { x: W / 2 + dx * W * SCENARIO_KIND.ambushAlongShare, y: H / 2 + flank * Math.min(Math.max(H * SCENARIO_KIND.ambushOffShare, SCENARIO_KIND.ambushOffM[0]), SCENARIO_KIND.ambushOffM[1]) };
+  const mainP = kind === "ambush" ? ambushP : kind === "meeting" ? nearBuilding(map, W / 2, H / 2, 250) : def.hold === true ? nearBuilding(map, W / 2, H / 2, 250) : nearBuilding(map, W / 2 + dx * W * 0.2, H / 2, 250);
+  let secondP = kind === "ambush" ? { x: ambushP.x - dx * 60, y: ambushP.y } : kind === "meeting" ? nearBuilding(map, W / 2, H / 2 + flank * H * 0.25, 200, [mainP]) : nearBuilding(map, W / 2 + dx * W * 0.1, H / 2 + (def.seed % 2 === 0 ? 1 : -1) * H * 0.2, 200, [mainP]);
   // The two areas never overlap (their radii are 40 and 30 m): at least 90 m apart.
-  if (hypot2(secondP.x - mainP.x, secondP.y - mainP.y) < 90) secondP = { x: mainP.x, y: Math.min(Math.max(mainP.y + (mainP.y < H / 2 ? 1 : -1) * 120, 20), H - 20) };
-  const objectives: ObjectiveDef[] = [
-    { id: "main", nameKey: "objective.main", x: mainP.x, y: mainP.y, radiusM: 40, points: SCENARIO_POINTS.main, holder: defender },
-    { id: "second", nameKey: "objective.second", x: secondP.x, y: secondP.y, radiusM: 30, points: SCENARIO_POINTS.second, holder: defender },
+  if (kind !== "ambush" && hypot2(secondP.x - mainP.x, secondP.y - mainP.y) < 90) secondP = { x: mainP.x, y: Math.min(Math.max(mainP.y + (mainP.y < H / 2 ? 1 : -1) * 120, 20), H - 20) };
+  const holder = kind === "meeting" ? null : defender;
+  const until = kind === "withdrawal" ? { untilS: delayUntil } : {};
+  const objectives: ObjectiveDef[] = kind === "ambush" ? [] : [
+    { id: "main", nameKey: "objective.main", x: mainP.x, y: mainP.y, radiusM: 40, points: SCENARIO_POINTS.main, holder, ...until },
+    { id: "second", nameKey: "objective.second", x: secondP.x, y: secondP.y, radiusM: 30, points: SCENARIO_POINTS.second, holder, ...until },
   ];
+  // M12.0b: exit zones (a strip along a map edge, full height): the ambushed side's at the far edge, the withdrawing
+  // side's at its own edge.
+  const strip = (edge: "blue" | "red") => (edge === "blue" ? { x0: 0, y0: 0, x1: SCENARIO_KIND.exitStripM, y1: H } : { x0: W - SCENARIO_KIND.exitStripM, y0: 0, x1: W, y1: H });
+  const exitZone = kind === "ambush" ? { side: def.attacker, ...strip(defender) } : kind === "withdrawal" ? { side: defender, ...strip(defender) } : null;
+  // A side that attacks (both in a meeting; the follower of a withdrawal) and gives the attack up leaves by its own map
+  // edge (its break-off exit: saved, no points), so a broken-off attack ends the battle instead of waiting at its start.
+  const breakOffSides = kind === "meeting" ? ["blue", "red"] : kind === "ambush" ? [] : [def.attacker];
   // The defender is built first: the attacker's start (dead ground) depends on where the defenders stand.
   let observers: { x: number; y: number; z: number; thermal?: boolean }[] = [];
   const buildSide = (side: "blue" | "red", s: number): ForceInput => {
+    const roster = def.forces?.[s] ?? null;
+    if (roster) {
+      const force = rosterSide(data, catalog, map, roster, side, def.factions[s]!, stanceOf(side), { mainP, secondP, dx, W, H, flank, edgeX: edgeX(side) },
+        side === def.attacker && deadGround ? { observers, objectives: [mainP, secondP] } : null, navExtra,
+        kind === "defence-counterattack" && side === defender ? reserveAt : null);
+      return finishSide(force, side, s, (force.vehicles?.length ?? 0) > 0);
+    }
     const faction = def.factions[s]!;
     const pack = data.factions[faction];
     const carriers = Array.isArray(def.carriers) ? def.carriers[s] : def.carriers;
     const assault = def.assaultGroup === side ? pack?.manifest.assaultGroupTemplate : undefined;
     const template = def.templates?.[s] ?? assault ?? platoonTemplateOf(data, faction, carriers) ?? pack?.manifest.demoTemplate ?? "demo-team";
-    const count = side === def.attacker ? Math.max(1, def.attackerPlatoons ?? 2) : 1;
+    const count = platoonsOf(side, s);
+    const late = lateOf(side, s);
     const built = Array.from({ length: count }, (_, k) => buildForceWithVehicles(data, { faction, template, seed: def.seed * 31 + s * 7 + k * 101, keyPrefix: `${side}-${k + 1}`, number: k + 1 }));
-    const withVehicles = def.vehicles === true && built.some((b) => b.vehicles.length > 0);
+    // M12.0b: the late platoons (reserve, reinforcements), numbered after the others.
+    const lateBuilt = late.map((_, k) => buildForceWithVehicles(data, { faction, template, seed: def.seed * 31 + s * 7 + (count + k) * 101, keyPrefix: `${side}-${count + k + 1}`, number: count + k + 1 }));
+    const withVehicles = def.vehicles === true && [...built, ...lateBuilt].some((b) => b.vehicles.length > 0);
     const units = built.map((b) => (withVehicles ? b.unit : withoutVehicles(b.unit)));
     const placements: Placement[] = [];
-    const heading = side === "blue" ? 0 : PI; // facing the other side
-    const attacking = side === def.attacker;
-    const fv = withVehicles ? placeVehicles(catalog, map, built.flatMap((b) => b.vehicles), attacking, side, mainP, dx, W, H, attacking && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null) : null;
+    const stance = stanceOf(side);
+    const heading = stance === "ambush" ? (H / 2 > mainP.y ? PI / 2 : -PI / 2) : side === "blue" ? 0 : PI; // facing the other side (the ambush: the route)
+    const attacking = stance === "edge";
+    const role = side === def.attacker ? "attacker" : "defender";
+    const fv = withVehicles ? placeVehicles(catalog, map, built.flatMap((b) => b.vehicles), attacking, side, mainP, dx, W, H, side === def.attacker && deadGround ? { observers, objectives: [mainP, secondP] } : null, null, navExtra) : null;
     if (fv) placements.push(...fv.placements);
     // Tanks (M7.6b): the side's tank section, a unit of its own, its crews in their seats.
-    const tankWanted = def.tanks === true || def.tanks === (attacking ? "attacker" : "defender");
+    const tankWanted = tanksOn === true || tanksOn === role;
     const tt = tankWanted ? (def.tankTemplates?.[s] ?? pack?.manifest.tankSectionTemplate) : undefined;
     let tv: ReturnType<typeof placeVehicles> | null = null;
     if (tt) {
@@ -207,7 +350,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
         home = { x: cx - ux * 60, y: cy - uy * 60 };
         behind = sec.vehicles.map((_, i) => ({ x: cx - ux * 40 - uy * (i - (sec.vehicles.length - 1) / 2) * 25, y: cy - uy * 40 + ux * (i - (sec.vehicles.length - 1) / 2) * 25 }));
       }
-      tv = placeVehicles(catalog, map, sec.vehicles, attacking, side, mainP, dx, W, H, attacking && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null, { home, avoid: ifvs, behind });
+      tv = placeVehicles(catalog, map, sec.vehicles, attacking, side, mainP, dx, W, H, side === def.attacker && deadGround ? { observers, objectives: [mainP, secondP] } : null, { home, avoid: ifvs, behind }, navExtra);
       placements.push(...tv.placements);
     }
     // Each sub-unit (squad) and each platoon's own men get a spot; men stand in a loose line, 6 m apart.
@@ -225,24 +368,42 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
       }
     } else groups.map((g) => g.men).forEach((men, gi) => {
       let cx: number, cy: number;
-      if (side === defender) {
+      if (stance === "ambush") {
+        // M12.0b ambush: the groups in a line beside the route, each man 6 m from the next along it, facing it.
+        const ax = mainP.x + (gi - (groups.length - 1) / 2) * SCENARIO_KIND.ambushSpacingM;
+        men.forEach((m, mi) => {
+          const p = freeSpot(map, catalog, Math.min(Math.max(ax + (mi - (men.length - 1) / 2) * 6, 5), W - 5), mainP.y);
+          placements.push({ personId: m, x: p.x, y: p.y, heading });
+        });
+        return;
+      }
+      if (stance === "defend") {
         // Defence: the platoon's men behind the main objective's centre and two squads at its front corners (all
         // inside its 40 m ring), one squad at the second objective, in front of its centre.
-        const sp = defenceSpots(mainP, secondP, dx)[Math.min(gi, 3)]!;
-        cx = sp.x; cy = sp.y;
+        // (M12.0b: more than one platoon: the further groups behind them, 25 m a row.)
+        const sp = count > 1 ? defenceSpots(mainP, secondP, dx)[gi % 4]! : defenceSpots(mainP, secondP, dx)[Math.min(gi, 3)]!;
+        cx = sp.x + (count > 1 ? dx * Math.floor(gi / 4) * 25 : 0); cy = sp.y;
       } else {
         // Attack: start in a line of squads near the own map edge, opposite the objectives.
-        cx = side === "blue" ? W * 0.08 : W * 0.92;
-        cy = H / 2 + (gi - (groups.length - 1) / 2) * (groups.length > 4 ? 45 : 70);
+        cx = edgeX(side);
+        cy = H / 2 + (gi - (groups.length - 1) / 2) * lineSpacing(groups.length, H);
       }
       men.forEach((m, mi) => {
         const p = freeSpot(map, catalog, cx, cy + (mi - (men.length - 1) / 2) * 6);
         placements.push({ personId: m, x: p.x, y: p.y, heading });
       });
     });
+    // M12.0b: the late platoons come on at the side's map edge (mounted in their carriers when the battle has vehicles).
+    let lv: ReturnType<typeof lateEdge> | null = null;
+    if (lateBuilt.length > 0) {
+      const lunits = lateBuilt.map((b, k) => { const u = withVehicles ? b.unit : withoutVehicles(b.unit); u.arriveS = late[k]!; return u; });
+      units.push(...lunits);
+      lv = lateEdge(catalog, map, lunits, withVehicles ? lateBuilt.flatMap((b) => b.vehicles) : [], side, W, H, navExtra);
+      placements.push(...lv.placements);
+    }
     // On-map mortars (M8.3a): the section behind the own line (the defender 250 m behind its main objective, the
     // attacker at its map edge), its two teams 30 m apart across the front, the men 4 m apart.
-    const mt = def.mortars === true ? pack?.manifest.mortarTemplate : undefined;
+    const mt = mortarsOn === true ? pack?.manifest.mortarTemplate : undefined;
     if (mt) {
       const sec = buildForceWithVehicles(data, { faction, template: mt, seed: def.seed * 37 + s * 11, keyPrefix: `${side}-m`, number: 1 }).unit;
       units.push(sec);
@@ -251,7 +412,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
       let minR = 0;
       for (const m of allMembers(sec)) for (const l of m.load) minR = Math.max(minR, catalog.items[l.type]?.mortar?.minRangeM ?? 0);
       const back = Math.max(250, minR + 50);
-      const bx = side === defender ? Math.min(Math.max(mainP.x + dx * back, 20), W - 20) : side === "blue" ? W * 0.02 : W * 0.98;
+      const bx = stance !== "edge" ? Math.min(Math.max(mainP.x + dx * back, 20), W - 20) : side === "blue" ? W * 0.02 : W * 0.98;
       const teams = sec.subunits.length > 0 ? sec.subunits : [sec];
       teams.forEach((tm, ti) => {
         const ms = allMembers(tm);
@@ -264,19 +425,21 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
     }
     // Dismounted missile team (M9.3b): a unit of its own, behind the own line (never mounted, not a foot group).
     // (M7.6d: an automatic grenade launcher team the same, on the other flank.)
-    const at = def.missileTeams === true ? pack?.manifest.missileTeamTemplate : undefined;
-    const aglWanted = def.aglTeams === true || def.aglTeams === (attacking ? "attacker" : "defender");
+    const at = missileOn === true ? pack?.manifest.missileTeamTemplate : undefined;
+    const aglWanted = aglOn === true || aglOn === role;
     const gt = aglWanted ? pack?.manifest.aglTeamTemplate : undefined;
     for (const [tpl, prefix, seedK, other] of [[at, "a", 41, false], [gt, "g", 53, true]] as const) {
       if (!tpl) continue;
       const team = buildForceWithVehicles(data, { faction, template: tpl, seed: def.seed * seedK + s * 13, keyPrefix: `${side}-${prefix}`, number: 1 }).unit;
       units.push(team);
       const flank = (def.seed % 2 === 0 ? -1 : 1) * (other ? -1 : 1); // (the missile team: the flank away from the second objective)
-      let bx = side === defender ? Math.min(Math.max(mainP.x + dx * (other ? 250 : 300), 20), W - 20) : side === "blue" ? Math.max(20, W * 0.08 - 150) : Math.min(W - 20, W * 0.92 + 150);
-      let by = side === defender ? mainP.y + (other ? 60 * flank : 0) : H / 2 + flank * H * 0.3;
+      // (M12.0b: clear of the break-off exit along the map edge in the new kinds.)
+      const em = def.kind === "platoon-attack" ? 20 : 30;
+      let bx = stance !== "edge" ? Math.min(Math.max(mainP.x + dx * (other ? 250 : 300), em), W - em) : side === "blue" ? Math.max(em, W * 0.08 - 150) : Math.min(W - em, W * 0.92 + 150);
+      let by = stance !== "edge" ? mainP.y + (other ? 60 * flank : 0) : H / 2 + flank * H * 0.3;
       // Review fix: the attacker's team starts in dead ground as its vehicles do (hidden from the defence's sights
       // and men, nearest the flank spot, clear of the hulls); else next to the vehicles' start, behind them.
-      if (attacking && def.deadGroundStart !== false) {
+      if (side === def.attacker && deadGround) {
         const spot = teamDeadGround(catalog, map, side, observers, [mainP, secondP], W, H, { x: bx, y: by }, fv?.vehiclePlacements ?? []);
         if (spot) { bx = spot.x; by = spot.y; }
         else if (fv && fv.vehiclePlacements.length > 0) {
@@ -293,6 +456,12 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
     const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
     if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }
     if (tv) { force.vehicles = [...(force.vehicles ?? []), ...tv.records]; force.vehiclePlacements = [...(force.vehiclePlacements ?? []), ...tv.vehiclePlacements]; }
+    if (lv && lv.records.length > 0) { force.vehicles = [...(force.vehicles ?? []), ...lv.records]; force.vehiclePlacements = [...(force.vehiclePlacements ?? []), ...lv.vehiclePlacements]; }
+    return finishSide(force, side, s, fv !== null || tv !== null);
+  };
+  /** The off-map assets every side gets (from its manifest, per battle) and the defence's observers. */
+  const finishSide = (force: ForceInput, side: "blue" | "red", s: number, hasVehicles: boolean): ForceInput => {
+    const faction = force.faction, pack = data.factions[faction], attacking = side === def.attacker;
     // Ambulances off the map (M10.6a): crews and hulls from the faction's data, waiting at the rear to be called.
     const amb = def.ambulances !== false ? pack?.manifest.ambulance : undefined;
     if (amb && amb.count > 0) {
@@ -301,14 +470,14 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
         for (let k = 0; k < amb.count; k++) {
           const crew = buildForceWithVehicles(data, { faction, template: amb.template, seed: def.seed * 43 + s * 17 + k, keyPrefix: `${side}-amb${k + 1}`, number: k + 1 }).unit;
           crew.vehicleId = crew.key;
-          units.push(crew);
+          force.units.push(crew);
           (force.vehicles ??= []).push(newVehicleRecord(catalog, vtype, crew.key));
           (force.offMap ??= []).push({ vehicleId: crew.key, kind: "ambulance" });
         }
       }
     }
     // Recovery vehicles off the map (M11.7b): only for a side with vehicles of its own, after the ambulances.
-    if (def.recovery !== false && (fv !== null || tv !== null)) addRecoveryAssets(data, catalog, force, def.seed * 47 + s * 19);
+    if (def.recovery !== false && hasVehicles) addRecoveryAssets(data, catalog, force, def.seed * 47 + s * 19);
     // The military police off the map (M11.9b): every side (built last of all in the battle: setup.ts).
     if (def.mp !== false) addMpAssets(data, catalog, force, def.seed * 59 + s * 23);
     if (!attacking) observers = observersOf(force);
@@ -329,11 +498,11 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   const mortarSides = new Set<string>();
   const dIdx = SIDES.indexOf(defender), aIdx = SIDES.indexOf(def.attacker);
   forces[dIdx] = buildSide(defender, dIdx);
-  const rules = defaultRules(def.timeLimitSeconds ?? 2400);
+  const rules = defaultRules(T);
   rules.objectives = objectives;
   // Balance pass 4 (owner 2026-11-19): the defence's hulls start on their hull-down posts (the caller's hook, the
   // defending commander's own siting); the attacker's dead ground is then looked for from there.
-  if (hooks.defenceStartPosts && def.defenceOnPosts !== false && (forces[dIdx]!.vehiclePlacements?.length ?? 0) > 0) {
+  if (hooks.defenceStartPosts && def.defenceOnPosts !== false && stanceOf(defender) === "defend" && (forces[dIdx]!.vehiclePlacements?.length ?? 0) > 0) {
     hooks.defenceStartPosts({ map, catalog, forces: [forces[dIdx]!], rules, seed: def.seed, orders: [] }, defender);
     observers = observersOf(forces[dIdx]!);
   }
@@ -342,7 +511,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   // A prepared defence (balance pass after M11; SPEC M4: "a prepared defence"): the defenders dig in where their
   // commander sites them, as in the hold battle (owner 2026-11-16).
   // Balance pass 2: a hasty dig-in (`SCENARIO_HASTY_DEPTH_M`), shallower than the hold battle's prepared holes.
-  if (def.prepared !== false) {
+  if (def.prepared !== false && kind !== "meeting") {
     const depthM = def.preparedDepthM === undefined ? SCENARIO_HASTY_DEPTH_M : def.preparedDepthM;
     // (Review fix: a hole is deeper than nothing and no deeper than the data's.)
     const dataDepth = catalog.ballistics.fightingPosition?.depthM;
@@ -355,10 +524,12 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   rules.support = SIDES.filter((side) => !mortarSides.has(side)).map((side) => {
     const s = SIDES.indexOf(side);
     const k = catalog.factions[def.factions[s]!]?.fireSupport?.roundsFactor ?? 1;
-    const att = side === def.attacker;
+    // (M12.0b: in a meeting both sides have the attacker's allotment.)
+    const att = side === def.attacker || kind === "meeting";
     // Planned fires (M8.5): the defender's mortars registered before the battle on the ground in front of its
     // objectives, where the attack must cross (150 and 300 m before the main one, 150 m before the second).
-    const planned = att ? [] : [
+    // (M12.0b ambush: on the route in front of the ambush, the kill zone, and either side of it.)
+    const planned = att ? [] : kind === "ambush" ? [-120, 0, 120].map((o) => ({ x: clampX(mainP.x + o), y: H / 2 })) : [
       { x: clampX(mainP.x - dx * 150), y: mainP.y }, { x: clampX(mainP.x - dx * 300), y: mainP.y }, { x: clampX(secondP.x - dx * 150), y: secondP.y },
     ];
     return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)), illum: att ? SCENARIO_SUPPORT.attackerIllum : SCENARIO_SUPPORT.defenderIllum, ...(planned.length > 0 ? { planned } : {}) };
@@ -369,10 +540,185 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
     });
   }
   if (def.airRecon && def.airRecon.length > 0) rules.airRecon = [...def.airRecon];
-  return { map, catalog, forces, rules, seed: def.seed, orders: [] };
+  if (def.campaignOut === true) rules.campaignOut = true;
+  // M12.0b: the kinds' exit zones and each side's plan (its commander's posture); the late platoons attack on their own.
+  const breakOff = kind === "attack" && def.kind === "platoon-attack" ? [] : breakOffSides;
+  if (exitZone || breakOff.length > 0) rules.exits = [
+    ...(exitZone ? [{ ...exitZone, pointsPerMan: SCENARIO_KIND.exitPointsPerMan, pointsPerVehicle: SCENARIO_KIND.exitPointsPerVehicle }] : []),
+    ...breakOff.map((side) => ({ side, ...strip(side as "blue" | "red"), pointsPerMan: 0, pointsPerVehicle: 0 })),
+  ];
+  const zone = exitZone ? { x0: exitZone.x0, y0: exitZone.y0, x1: exitZone.x1, y1: exitZone.y1 } : undefined;
+  for (const f of forces) {
+    const att = f.side === def.attacker;
+    const reserve = f.units.filter((u) => (u.arriveS ?? 0) > 0).map((u) => u.callsign);
+    let plan: ForceInput["plan"] | undefined;
+    if (kind === "meeting") plan = { posture: "meeting" };
+    else if (kind === "ambush") plan = att ? { posture: "transit", exit: zone!, route: [{ x: def.attacker === "blue" ? 10 : W - 10, y: H / 2 }, { x: def.attacker === "blue" ? W - 10 : 10, y: H / 2 }] } : { posture: "ambush", ambushRangeM: SCENARIO_KIND.ambushRangeM };
+    else if (kind === "withdrawal") plan = att ? { posture: "follow", untilS: delayUntil, exit: zone! } : { posture: "withdraw", untilS: delayUntil, exit: zone! };
+    else if (def.kind !== "platoon-attack" || reserve.length > 0) plan = { posture: att ? "attack" : "defend" };
+    if (plan && reserve.length > 0) plan.reserve = reserve;
+    if (plan && breakOff.includes(f.side)) plan.breakOff = strip(f.side as "blue" | "red");
+    if (plan) f.plan = plan;
+  }
+  const out: BattleInput = { map, catalog, forces, rules, seed: def.seed, orders: [] };
+  if (def.terrain?.damage) out.damage = def.terrain.damage;
+  if (def.terrain?.wrecks && def.terrain.wrecks.length > 0) out.wrecksIn = def.terrain.wrecks;
+  return out;
+}
+
+/** M12.0a: the placement grids' extra stamps: earlier battles' wrecks (blocked) and craters (rough). Empty: none. */
+function terrainNav(catalog: Catalog, terrain: ScenarioTerrain | undefined): NavGridOptions {
+  const stamps = (terrain?.wrecks ?? []).flatMap((w) => { const vd = catalog.vehicles[w.type]; return vd ? [wreckStamp(vd, w.x, w.y, w.heading)] : []; });
+  const craters = (terrain?.damage?.craters ?? []).map((c) => ({ x: c.x, y: c.y, radiusM: c.radiusM }));
+  return { ...(stamps.length > 0 ? { stamps } : {}), ...(craters.length > 0 ? { craters } : {}) };
+}
+
+/**
+ * M12.0a: a side built from roster records (`ScenarioDef.forces`): every hull placed as the side's vehicles (at its
+ * edge: the dead-ground start when given; defending or lying in wait: behind the main objective), its crew unit in its
+ * seats (a crewman takes the seat of his role's slot in the faction's crew template for that vehicle type, else the
+ * next free crew seat); at its edge, each foot group rides in its carrier when the carrier is there; the rest stand
+ * at the side's start (defending: the defence spots, further groups behind them; at its edge: a line of groups;
+ * M12.0b lying in wait: a line beside the route). M12.0b: a unit with `arriveS` comes on then at the side's map edge
+ * (`lateEdge`); in a counter-attack battle (`reserveAt`) the defender's last platoon is its reserve when none is late.
+ */
+function rosterSide(
+  data: DataSet, catalog: Catalog, map: MapDef, roster: ScenarioForces, side: "blue" | "red", faction: string, stance: Stance,
+  geo: { mainP: { x: number; y: number }; secondP: { x: number; y: number }; dx: number; W: number; H: number; flank: number; edgeX: number },
+  dead: { observers: readonly { x: number; y: number; z: number; thermal?: boolean }[]; objectives: readonly { x: number; y: number }[] } | null, navExtra: NavGridOptions,
+  reserveAt: number | null,
+): ForceInput {
+  const { mainP, secondP, dx, W, H } = geo;
+  const attacking = stance === "edge";
+  const units = JSON.parse(JSON.stringify(roster.units)) as UnitInput[];
+  const records = JSON.parse(JSON.stringify(roster.vehicles ?? [])) as VehicleRecord[];
+  if (reserveAt !== null && !units.some((u) => (u.arriveS ?? 0) > 0)) {
+    const plats = units.filter((u) => u.echelon === "platoon" && allMembers(u).length > 0);
+    if (plats.length >= 2) plats[plats.length - 1]!.arriveS = reserveAt;
+  }
+  const pack = data.factions[faction];
+  const crewOf = new Map<string, UnitInput>();
+  const walk = (u: UnitInput) => { if (u.vehicleId !== undefined) crewOf.set(u.vehicleId, u); u.subunits.forEach(walk); };
+  units.forEach(walk);
+  // The seat of each crewman: his role's slot in a crew template of the faction for this vehicle type.
+  const fvOf = (r: VehicleRecord): ForceVehicle => {
+    const crew = crewOf.get(r.vehicleId);
+    const tpls = Object.keys(pack?.units ?? {}).sort().map((k) => pack!.units[k]!).filter((t) => t.vehicle === r.type);
+    const crewSeats: { personId: string; seat: string }[] = [];
+    if (crew) {
+      const used = new Set<string>();
+      for (const m of crew.members) {
+        for (const t of tpls) {
+          const slot = t.members.find((q) => q.role === m.role && q.seat !== undefined && !used.has(q.seat));
+          if (slot) { used.add(slot.seat!); crewSeats.push({ personId: m.personId, seat: slot.seat! }); break; }
+        }
+      }
+    }
+    return { vehicleId: r.vehicleId, type: r.type, crewSeats };
+  };
+  // (M12.0b: the late units' hulls come on with them, at the edge.)
+  const lateIds = new Set<string>();
+  const lateWalk = (u: UnitInput) => { if (u.vehicleId !== undefined) lateIds.add(u.vehicleId); u.subunits.forEach(lateWalk); };
+  const nowUnits = units.filter((u) => !((u.arriveS ?? 0) > 0)), lateUnits = units.filter((u) => (u.arriveS ?? 0) > 0);
+  lateUnits.forEach(lateWalk);
+  const nowRecords = records.filter((r) => !lateIds.has(r.vehicleId)), lateRecords = records.filter((r) => lateIds.has(r.vehicleId));
+  const placements: Placement[] = [];
+  const heading = stance === "ambush" ? (H / 2 > mainP.y ? PI / 2 : -PI / 2) : side === "blue" ? 0 : PI;
+  const fv = nowRecords.length > 0 ? placeVehicles(catalog, map, nowRecords.map(fvOf), attacking, side, mainP, dx, W, H, dead, null, navExtra) : null;
+  if (fv) placements.push(...fv.placements);
+  // Men on foot: every unit's own men and those of sub-units that are no crew of a hull in this battle.
+  const present = new Set(nowRecords.map((r) => r.vehicleId));
+  const groups: SoldierGroup[] = [];
+  const foot = (u: UnitInput) => {
+    if (u.vehicleId !== undefined && present.has(u.vehicleId)) return;
+    if (u.members.length > 0) groups.push({ men: u.members.map((m) => m.personId), carrier: u.carrierId !== undefined && present.has(u.carrierId) ? u.carrierId : undefined });
+    u.subunits.forEach(foot);
+  };
+  nowUnits.forEach(foot);
+  const seats = new Map<string, number>();
+  if (fv) for (const r of nowRecords) { const vd = catalog.vehicles[r.type]; seats.set(r.vehicleId, vd ? vd.seats.filter((q) => q.station === "passenger").length : 0); }
+  let line = 0;
+  const lineGroups = groups.filter((g) => !(attacking && g.carrier !== undefined && (seats.get(g.carrier) ?? 0) >= g.men.length));
+  groups.forEach((g, gi) => {
+    const vp = attacking && g.carrier !== undefined ? fv?.vehiclePlacements.find((p) => p.vehicleId === g.carrier) : undefined;
+    if (vp && (seats.get(g.carrier!) ?? 0) >= g.men.length) {
+      seats.set(g.carrier!, seats.get(g.carrier!)! - g.men.length);
+      for (const pid of g.men) placements.push({ personId: pid, x: vp.x, y: vp.y, heading: vp.heading, mountedIn: vp.vehicleId });
+      return;
+    }
+    if (stance === "ambush") {
+      const ax = mainP.x + (gi - (groups.length - 1) / 2) * SCENARIO_KIND.ambushSpacingM;
+      g.men.forEach((m, mi) => { const p = freeSpot(map, catalog, Math.min(Math.max(ax + (mi - (g.men.length - 1) / 2) * 6, 5), W - 5), mainP.y); placements.push({ personId: m, x: p.x, y: p.y, heading }); });
+      return;
+    }
+    let cx: number, cy: number;
+    if (stance === "defend") {
+      const sp = defenceSpots(mainP, secondP, dx)[gi % 4]!, back = Math.floor(gi / 4) * 25;
+      cx = sp.x + dx * back; cy = sp.y;
+    } else {
+      cx = geo.edgeX;
+      cy = H / 2 + (line - (lineGroups.length - 1) / 2) * lineSpacing(lineGroups.length, H);
+      line++;
+    }
+    g.men.forEach((m, mi) => {
+      const p = freeSpot(map, catalog, cx, cy + (mi - (g.men.length - 1) / 2) * 6);
+      placements.push({ personId: m, x: p.x, y: p.y, heading });
+    });
+  });
+  const force: ForceInput = { side, faction, units, placements, posture: stance === "edge" ? "attack" : "defend" };
+  if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; fv.records.splice(0, fv.records.length, ...nowRecords); }
+  if (lateUnits.length > 0) {
+    const lv = lateEdge(catalog, map, lateUnits, lateRecords.map(fvOf), side, W, H, navExtra);
+    placements.push(...lv.placements);
+    if (lateRecords.length > 0) { force.vehicles = [...(force.vehicles ?? []), ...lateRecords]; force.vehiclePlacements = [...(force.vehiclePlacements ?? []), ...lv.vehiclePlacements]; }
+  }
+  return force;
 }
 
 interface SoldierGroup { men: string[]; carrier: string | undefined }
+
+/** Spacing of the groups in a start line at the map edge (m): 70, 45 for more than four, closer when they would not fit. */
+function lineSpacing(n: number, H: number): number {
+  const sp = n > 4 ? 45 : 70;
+  return n * sp > H - 100 ? (H - 100) / n : sp;
+}
+
+/**
+ * M12.0b: late platoons (reserve, reinforcements) come on at their side's map edge: their hulls in a line across it
+ * (8 % in), their riders aboard; the rest on foot in a line of groups 3 % in. Placements and (for the force) the hulls.
+ */
+function lateEdge(
+  catalog: Catalog, map: MapDef, units: UnitInput[], vehicles: ForceVehicle[], side: "blue" | "red", W: number, H: number, navExtra: NavGridOptions,
+): { placements: Placement[]; records: VehicleRecord[]; vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]> } {
+  const placements: Placement[] = [];
+  const fv = vehicles.length > 0 ? placeVehicles(catalog, map, vehicles, true, side, { x: W / 2, y: H / 2 }, side === "blue" ? 1 : -1, W, H, null, null, navExtra) : null;
+  if (fv) placements.push(...fv.placements);
+  const present = new Set(vehicles.map((v) => v.vehicleId));
+  const seats = new Map<string, number>();
+  for (const v of vehicles) seats.set(v.vehicleId, (catalog.vehicles[v.type]?.seats ?? []).filter((q) => q.station === "passenger").length);
+  const groups: SoldierGroup[] = [];
+  const foot = (u: UnitInput) => {
+    if (u.vehicleId !== undefined && present.has(u.vehicleId)) return;
+    if (u.members.length > 0) groups.push({ men: u.members.map((m) => m.personId), carrier: u.carrierId !== undefined && present.has(u.carrierId) ? u.carrierId : undefined });
+    u.subunits.forEach(foot);
+  };
+  units.forEach(foot);
+  const heading = side === "blue" ? 0 : PI;
+  const walkers = groups.filter((g) => !(g.carrier !== undefined && (seats.get(g.carrier) ?? 0) >= g.men.length));
+  let line = 0;
+  for (const g of groups) {
+    const vp = g.carrier !== undefined ? fv?.vehiclePlacements.find((p) => p.vehicleId === g.carrier) : undefined;
+    if (vp && (seats.get(g.carrier!) ?? 0) >= g.men.length) {
+      seats.set(g.carrier!, seats.get(g.carrier!)! - g.men.length);
+      for (const pid of g.men) placements.push({ personId: pid, x: vp.x, y: vp.y, heading: vp.heading, mountedIn: vp.vehicleId });
+      continue;
+    }
+    const cx = side === "blue" ? W * 0.03 : W * 0.97, cy = H / 2 + (line - (walkers.length - 1) / 2) * lineSpacing(walkers.length, H);
+    line++;
+    g.men.forEach((m, mi) => { const p = freeSpot(map, catalog, cx, cy + (mi - (g.men.length - 1) / 2) * 6); placements.push({ personId: m, x: p.x, y: p.y, heading }); });
+  }
+  return { placements, records: fv?.records ?? [], vehiclePlacements: fv?.vehiclePlacements ?? [] };
+}
 
 /** Where the defence stands at the start: its platoon's men behind the main objective's centre, two squads at
  *  its front corners (inside its 40 m ring), one squad in front of the second objective. */
@@ -491,7 +837,7 @@ const VEHICLE_SPACING_M = 20;
 function placeVehicles(
   catalog: Catalog, map: MapDef, vehicles: ForceVehicle[], attacking: boolean, side: string, mainP: { x: number; y: number }, dx: number, W: number, H: number,
   dead: { observers: readonly { x: number; y: number; z: number; thermal?: boolean }[]; objectives: readonly { x: number; y: number }[] } | null = null,
-  tank: TankPlacing | null = null,
+  tank: TankPlacing | null = null, navExtra: NavGridOptions = {},
 ): { records: VehicleRecord[]; vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]>; placements: Placement[] } {
   const records: VehicleRecord[] = [], vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]> = [], placements: Placement[] = [];
   const grids = new Map<string, NavGrid>();
@@ -501,7 +847,7 @@ function placeVehicles(
   if (dead && vehicles.length > 0) {
     const def0 = catalog.vehicles[vehicles[0]!.type];
     if (def0) {
-      const grid = buildNavGrid(map, catalog.terrain, def0.class, 2, 0, [], { clearanceCells: 3 });
+      const grid = buildNavGrid(map, catalog.terrain, def0.class, 2, 0, [], { clearanceCells: 3, ...navExtra });
       grids.set(def0.class, grid);
       const mainRegion = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
       let tallest = 0;
@@ -529,7 +875,7 @@ function placeVehicles(
     const def = catalog.vehicles[fv.type];
     if (!def) throw new Error(`scenario: vehicle type '${fv.type}' not in the catalog`);
     let grid = grids.get(def.class);
-    if (!grid) { grid = buildNavGrid(map, catalog.terrain, def.class, 2, 0, [], { clearanceCells: 3 }); grids.set(def.class, grid); }
+    if (!grid) { grid = buildNavGrid(map, catalog.terrain, def.class, 2, 0, [], { clearanceCells: 3, ...navExtra }); grids.set(def.class, grid); }
     const mainRegion = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
     const lat = (i - (vehicles.length - 1) / 2) * VEHICLE_SPACING_M;
     // Attack: a line across the own edge. Defence: behind the main objective (away from the attack), staggered.

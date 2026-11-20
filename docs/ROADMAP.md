@@ -469,7 +469,43 @@ for the owner's numbers answer after playing, not for more building).
     man outside, tows the hull off the map at 8 km/h; at the end the hulls left are recovered or captured by the side
     holding the ground (roster `VehicleRecord.recovery`, `capturedBy`); `lab -- repair` part B.
 
-- **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) ⬜
+- **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) 🟡 (built and reviewed 2026-11-20; pending the owner's
+  phone test and his answer on the DE/RU balance: the 30-70 % success band is met only with one faction on both sides) — owner 2026-11-19: a battalion, operations
+  of 3-5 linked battles plus an endless mode, free saving (plan `docs/plans/m12-roster.md`, seven slices).
+  - 12.0a contract gaps ✅ (2026-11-19): `BattleInput.damage` / `wrecksIn`, `BattleResult.damageOut` / `service`
+    (only with `rules.campaignOut`), `ScenarioDef.forces` / `terrain`, campaign package rules (lint, `BattleRunner`),
+    `npm run campaign -- chain`.
+  - 12.0b scenario kinds and company-size battles ✅ (2026-11-19): attack, defence-counterattack, meeting, ambush,
+    withdrawal; exit zones, objectives scoring at a time, late units with their hulls, the AI's postures; a company per
+    side, `bench-company` 14x, the per-battle cap in `core/campaign.json`; `npm run lab -- kinds` (no stalemates).
+  - 12.1a battalion data and rules between battles ✅ (2026-11-19): company headquarters, company and battalion
+    templates (DE, RU, xf; manifest `battalionTemplates`), Hauptmann / Major / Oberstleutnant and kapitan / mayor /
+    podpolkovnik; `CampaignRecord` (both battalions, pools, service history, consumption log, battle history);
+    `applyResult` / `replenish` (recovery, experience, stress history, automatic leaders, no refill or replacements
+    inside an operation); `npm run campaign -- chain` (10 battles, replenishment after 5).
+  - 12.1b saves ✅ (2026-11-19): versioned `CampaignSave` (migrations, validation, ID repair, fingerprint warning),
+    canonical export / import, app campaign store (IndexedDB, named slots plus `auto`), mid-battle save tagged with its
+    slot, `continueCampaignChain` and `campaign -- chain --from` (saved after battle 3 = uninterrupted at battle 6).
+  - 12.2 operations and endless mode ✅ (2026-11-19): operations of 3-5 nodes on a line of connected sectors (node
+    types and the transition table in `core/campaign.json`: the result picks the next node; success, failure, limit),
+    flank battles for a second company (auto-resolved), endless mode (a replenishment every 3 nodes, a new sector every
+    2), sector memory (craters, holes, wrecks), the enemy battalion committing by ratio and remembering its losses,
+    `proposeChoice` / `validateCommit`, the state machine `campaign/src/flow.ts` (briefing, choose, battle played or
+    auto-resolved, after-battle, replenishment, operation end), `npm run campaign -- batch`.
+  - 12.3 phone roster interface ✅ (2026-11-19; owner's phone test pending): `?campaign=1` opens the campaign page
+    (home: new campaign, continue, slots load / save / rename / delete / export / import; battalion tree; man card with
+    "Make leader"; briefing with the sector preview, enemy estimate and the choice; auto-resolve in a Web Worker with
+    cancel; a played battle back to the campaign through the review; what changed; replenishment), both looks, views
+    in `campaign/src/view.ts`, `npm run e2e:campaign` (Playwright) and `npm run screenshot -- --scene campaign`.
+  - 12.4 review and tuning ✅ (2026-11-20): faction `fightingValue` (enemy caps only shrink: a battle never passes a company's worth), lines of 3 sectors,
+    experience +0.015 a battle / +0.04 a minute under fire / at most 0.05 (a full operation under fire +0.11-0.17),
+    recovery days, combat-ineffective line and replenishment kept; batches: xf vs xf 58 % success, DE 100 %, RU 0 %
+    (the Puma / BMP-2 gap is in the mounted battle: a balance pass, owner question); phone proxy auto-resolve timed;
+    HOW_IT_WORKS campaign section, SPEC 9.3 note (DECISIONS "M12.4").
+  - Review fixes ✅ (2026-11-20, DECISIONS "M12 review fixes"): deployable men (idle crews no longer counted, no 0-men
+    battles), walking wounded heal, the app's campaign battles built like the tools' (defence on its posts), a played
+    result and the mid-battle save tied to the record hash, rules fingerprint and node checks in saves, string-table
+    problems, Save / home on the briefing, workshop hulls refilled, endless steps bounded.
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 
 ## Stage D — breadth

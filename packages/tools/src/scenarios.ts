@@ -1,7 +1,7 @@
 /** Named scenarios for the headless tools, tests and benchmarks. */
 import { type DataSet, formatErrors, loadDataSet } from "@tcs/data";
 import { allMembers, buildForce, buildScenario, demoBattle, freeSpot, holdBattle, mountedTanks, vehicleBattle, type CarrierClass, type ScenarioHooks } from "@tcs/scenario";
-import { commanderController, defenceStartPosts, shootoutController, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
+import { commanderController, defenceStartPosts, planControllers, shootoutController, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
 import { healthyPhysiology, hypot2, PI, type BattleInput, type Controller, type Order, type UnitInput } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
 import { aglSetup } from "./labs/agl";
@@ -141,6 +141,37 @@ function houseClearBattle(data: DataSet, seed: number, seconds: number): BattleI
 }
 
 export const SCENARIOS: Record<string, NamedScenario> = {
+  // ---- M12.0b: the scenario kinds (SPEC 6.9), mounted, each side under its commander by its plan.
+  "bench-company": {
+    description: "Benchmark (M12.0b): a company each, mounted (the attack at company size: per side three platoons in their carriers, the on-map mortar section, the missile and AGL teams and the tank section; Germany attacks from the west) on a 1900 x 1400 m farmland map; both sides under their AI commanders. Its headless speed sets the campaign's per-battle cap (core/campaign.json).",
+    takesCarriers: true,
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "attack", size: "company", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }, ON_POSTS),
+    controllers: planControllers,
+  },
+  counterattack: {
+    description: "M12.0b defence-counterattack (village; Germany attacks mounted with two platoons): the Russian platoon holds; at 40 % of the time its reserve platoon comes on mounted at its map edge and counter-attacks.",
+    takesCarriers: true,
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "defence-counterattack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }, ON_POSTS),
+    controllers: planControllers,
+  },
+  meeting: {
+    description: "M12.0b meeting engagement (farmland): a German and a Russian platoon, mounted, both advance from their map edges to two objectives in the middle that nobody holds.",
+    takesCarriers: true,
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "meeting", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }, ON_POSTS),
+    controllers: planControllers,
+  },
+  ambush: {
+    description: "M12.0b ambush (woodland): a German platoon mounted moves along the middle of the map from the west to its exit at the east edge (men and hulls out there are saved); a Russian platoon lies in wait beside the route, a little past the middle, its carriers further along.",
+    takesCarriers: true,
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "ambush", seed, mapKind: "woodland", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }, ON_POSTS),
+    controllers: planControllers,
+  },
+  withdrawal: {
+    description: "M12.0b withdrawal (village): a Russian platoon mounted holds its two objectives until 35 % of the time (they score then), then gets its men out by the exit at its own (east) map edge; two German platoons attack mounted and follow up.",
+    takesCarriers: true,
+    build: (data, seed, seconds, o) => buildScenario(data, { kind: "withdrawal", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }, ON_POSTS),
+    controllers: planControllers,
+  },
   "house-clear": {
     description: "M7.5e: on the village, a German squad holds a two-storey house (the objective) sited by the AI commander (some men at windows, the rest outside); two Russian squads with mortar support attack it from 200 m under the AI commander, which orders the house cleared (stack at the door, grenade in, room by room).",
     build: houseClearBattle,

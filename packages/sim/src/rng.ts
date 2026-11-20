@@ -34,6 +34,8 @@ export const Streams = {
   support: "support",
   /** Vehicle gunnery (M7.3): range errors of station tasks. Created on first use (vehicle-free battles never draw). */
   station: "station",
+  /** Area fire (balance pass 5): the point of a suspected place each burst goes to. Created on first use. */
+  areaFire: "areaFire",
   /** Armour (M7.4a): ricochets, fuses, what a penetration strikes inside, fires. Created on first use. */
   armour: "armour",
   /** Shoulder-fired anti-tank weapons (M7.4a): aiming errors. Created on first use. */

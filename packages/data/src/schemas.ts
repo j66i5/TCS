@@ -211,6 +211,17 @@ export const AmmoSchema = withProv({
     /** M9.3a, fire-and-forget: the share of its seeker's view kept through ordinary smoke (multispectral: none). */
     seekerSmokeFactor: Num(0, 1).optional(),
   }).strict().optional(),
+  /** Area fire (balance pass 5): a programmable fuze's air-burst setting. Fired with it, the round is aimed
+   *  `aimHeightM` over the point and bursts `standoffM` short of the range the crew believes (its rangefinder's or
+   *  its eye's), timed at the muzzle; it still bursts on anything it strikes first. With `cone` the burst ejects a
+   *  payload forward (KETF: `count` sub-projectiles of `fragmentAmmo` in a cone of `halfAngleDeg` round the flight
+   *  path, at `velocityFraction` of the round's speed, by an ejection charge of `fillingKg`); without, the round's own
+   *  filling and fragments burst in the air (fragments all round). */
+  airburst: z.object({
+    aimHeightM: Num(0, 50), standoffM: Num(0, 200),
+    cone: z.object({ halfAngleDeg: Num(0.5, 60), count: z.number().int().min(1).max(5000), fragmentAmmo: Id,
+      velocityFraction: z.tuple([Num(0, 1.5), Num(0, 1.5)]), fillingKg: Num(0, 10) }).strict().optional(),
+  }).strict().optional(),
   /** Kinetic rounds against armour (M7.4a): ricochet below sin(material angle) x this (default 1). */
   ricochetFactor: Num(0, 2).optional(),
   /** What a round that gets through armour throws inside (M7.4a, owner Q11): fragments of the plate and the
@@ -537,6 +548,20 @@ export const BehaviourFile = withProv({
      *  sight of his seat that reaches the range, gives at least this (a day sight in the dark: no guidance). Absent: no
      *  light test. */
     missileNightFloor: Num(0, 1).optional(),
+    /** Area fire (balance pass 5, owner 2026-11-20: 'fire more near areas where they believe enemy infantry is, even
+     *  if they don't see them anymore'): a crew with no live target under fire 'free' (ammunition not 'conserve', no
+     *  ambush) fires at the places its men last knew enemy men, contacts up to `maxAgeSeconds` old merged within
+     *  gunnery.groupRadiusM; each man weighs 0.5^(age / `halfLifeSeconds`), x `firingWeight` if he was firing when
+     *  last seen; a place below `minWeight` is let go. A circle of the men's spread plus their position error, at
+     *  least `minRadiusM`, at most `maxRadiusM`. A cannon fires one burst every `everySeconds` / weight (at least
+     *  `minEverySeconds`), a main gun one round every `mainGunEverySeconds` and only at a weight of `mainGunMinWeight`;
+     *  each burst at a random point of the circle. A ready feed is fired at a place only while it holds more than
+     *  `reserveFraction` of its capacity ('max': no reserve). Absent: no area fire. */
+    areaFire: z.object({
+      maxAgeSeconds: Num(1, 600), halfLifeSeconds: Num(1, 600), firingWeight: Num(1, 10), minWeight: Num(0, 10),
+      minRadiusM: Num(0, 100), maxRadiusM: Num(1, 200), everySeconds: Num(1, 300), minEverySeconds: Num(0.5, 300),
+      mainGunEverySeconds: Num(1, 600), mainGunMinWeight: Num(0, 50), reserveFraction: Num(0, 1),
+    }).strict().optional(),
   }).strict(),
   /** Shoulder-fired anti-tank weapons (M7.4a). See BehaviourDef.antitank. */
   antitank: z.object({

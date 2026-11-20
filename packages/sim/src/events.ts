@@ -333,6 +333,9 @@ export type SimEvent =
   | { kind: "assault.dismountPoint"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number }
   | { kind: "assault.dismounted"; tick: number; unit: EntityId; vehicle: EntityId; distM: number }
   | { kind: "assault.supportPost"; tick: number; unit: EntityId; vehicle: EntityId; x: number; y: number }
+  /** Balance pass 5 (area fire): a station opens a burst at a place enemy men were last known (the point drawn in its
+   *  circle), with its fuze's setting. */
+  | { kind: "vehicle.areaFire"; tick: number; vehicle: EntityId; station: number; x: number; y: number; nature: "he" | "mg"; fuse: "airburst" | "impact"; weight: number }
   | { kind: "assault.ended"; tick: number; unit: EntityId; vehicle: EntityId; taken: boolean }
   /** A crewman took over the seat of a fallen one (M7.2); the casualty stays aboard in the seat he left. */
   | { kind: "vehicle.seatSwap"; tick: number; vehicle: EntityId; seat: number; soldier: EntityId; casualty: EntityId }

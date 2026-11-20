@@ -901,6 +901,14 @@ export interface FireTask {
    *  (every two seconds while he fires), and whether a breach was already recorded for this task (once per task). */
   lawTick?: number;
   breached?: true;
+  /**
+   * Area fire (balance pass 5, vehicle stations): fire at a place enemy men were last known, a circle of `r` m round
+   * (x, y) of weight `w` (gunnery.areaFire); one burst every `every` s, each at the point (x + ox, y + oy) of the
+   * circle drawn for it.
+   */
+  area?: { r: number; w: number; every: number; ox: number; oy: number };
+  /** Balance pass 5: the round's programmed fuze set to air burst (a round with an `airburst` setting). */
+  fuse?: "airburst";
 }
 
 // ---------------------------------------------------------------- vehicles (M7, schema 16)

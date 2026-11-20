@@ -88,7 +88,7 @@ export { unitSoldiers } from "./systems/orders";
 export { loadKg, postureChangeSeconds, requestPosture, thirstAimFactor, thirstShare } from "./systems/body";
 export * from "./expenditure";
 export * from "./review";
-export { canFight, faceNeed, gunneryAllowed, missileAimPoint, muzzleWorld, setStationTask, stationDangerM, stationOperator, visibleAimIndex, weaponOut } from "./systems/gunnery";
+export { canFight, faceNeed, gunneryAllowed, missileAimPoint, muzzleWorld, setStationTask, stationDangerM, stationOperator, visibleAimIndex, weaponOut, crewSuspects, airburstOf, areaFireOrder, type Suspect } from "./systems/gunnery";
 export { throughSmoke, vehicleSize } from "./systems/spotting";
 export { engineRangeM } from "./systems/contacts";
 export { environmentAt, lightAt, parseTimeOfDay } from "./light";

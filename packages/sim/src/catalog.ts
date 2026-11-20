@@ -296,6 +296,8 @@ export interface AmmoDef {
   guided?: { cruiseMps: number; accelMps2: number; turnRateDegS: number; minRangeM: number; maxRangeM: number; trackErrorMrad: number; trackTauS: number; lookaheadS: number; lostKickMrad: number;
     /** M9.3a: top attack (climb above the aim point, dive within diveAtM) and the seeker through smoke. */
     topAttack?: { climbM: number; diveAtM: number; launchElevationDeg: number }; seekerSmokeFactor?: number };
+  /** Area fire (balance pass 5): a programmable fuze's air-burst setting (see the schema). */
+  airburst?: { aimHeightM: number; standoffM: number; cone?: { halfAngleDeg: number; count: number; fragmentAmmo: DefId; velocityFraction: [number, number]; fillingKg: number } };
   /** Kinetic rounds against armour (M7.4a): ricochet threshold factor (default 1). */
   ricochetFactor?: number;
   /** Fragments thrown inside a hull it penetrates (M7.4a, owner Q11). */
@@ -587,6 +589,9 @@ export interface BehaviourDef {
     missileBeyondM?: number; missileHaltedMps?: number; missileSightSeconds?: number; missileSeenFloor?: number; missileHitLoseChance?: number;
     /** Balance pass 5 (F1, F5; see the schema). */
     missileHoldSeconds?: number; guidedTargetFactor?: number; penetratedTargetFactor?: number; recentPenSeconds?: number; missileNightFloor?: number;
+    /** Balance pass 5: area fire at places men were last known (see the schema). Absent: none. */
+    areaFire?: { maxAgeSeconds: number; halfLifeSeconds: number; firingWeight: number; minWeight: number; minRadiusM: number; maxRadiusM: number;
+      everySeconds: number; minEverySeconds: number; mainGunEverySeconds: number; mainGunMinWeight: number; reserveFraction: number };
   };
   /**
    * Shoulder-fired anti-tank weapons (M7.4a, owner Q19/Q20). atRuleDefault: a unit's standing rule unless set;

@@ -46,7 +46,7 @@ import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
 import { dismountUnit, footUnits, ridersOf } from "./boarding";
 import { vehicleHalt, vehicleMove, type OrderResult } from "./drive";
-import { stationFireOrder, stationLineTo } from "./gunnery";
+import { areaFireOrder, stationFireOrder, stationLineTo } from "./gunnery";
 import { radioFromTarget } from "./orders";
 
 /** The mounted-assault values, or undefined (data without the block: an assault to riders dismounts them first). */
@@ -469,7 +469,14 @@ function supportFire(ctx: SimContext, state: SimState, events: EventSink, ma: Mo
     if (dd >= bestD || !line(k)) continue;
     bestD = dd; best = k;
   }
-  if (!best) { delete c.fireAt; return; }
+  // Balance pass 5 (area fire): nobody known there: fire on the objective itself (its far half once the squads are
+  // close), as at a suspected place.
+  if (!best) {
+    delete c.fireAt;
+    const R = P.objectiveRadiusM, k = shift ? R : 0;
+    if (own.every((f) => hypot2(f.x - (ma.x + ma.ux * k), f.y - (ma.y + ma.uy * k)) >= P.ownClearM + R)) areaFireOrder(ctx, state, c.vehicle, ma.x + ma.ux * k, ma.y + ma.uy * k, R, 1);
+    return;
+  }
   c.fireAt = best.target;
   stationFireOrder(ctx, state, c.vehicle, { kind: "fire", x: best.x, y: best.y, contact: best.target }, v.side);
 }

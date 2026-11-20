@@ -51,6 +51,10 @@ export type OrderBody =
      *  men on foot fire one anti-tank round (Panzerfaust, RPG) at it — any target the player picks (owner Q19); a
      *  vehicle crew fires its guided missile if it has one ready (owner 2026-11-13), else armour-piercing. */
     nature?: "ap" | "he" | "mg" | "at";
+    /** Balance pass 5 (vehicles): the high-explosive round's fuze setting, where the round has an air-burst setting:
+     *  "airburst" (refused with `radio.noAirburst` when none has), "impact"; absent: the crew's choice (air burst at
+     *  men in the open, impact at a building or a vehicle). */
+    fuse?: "airburst" | "impact";
   }
   | { kind: "ceaseFire" }
   /** Standing rules for the unit and its sub-units (M4.2, M5); only the rules given change. */

@@ -92,6 +92,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       if (o.heightM !== undefined && !(o.heightM >= 0 && o.heightM <= 50)) return "invalid-params";
       if (o.nature !== undefined && o.nature !== "ap" && o.nature !== "he" && o.nature !== "mg" && o.nature !== "at") return "invalid-params";
+      if (o.fuse !== undefined && o.fuse !== "airburst" && o.fuse !== "impact") return "invalid-params";
+      if (o.fuse === "airburst" && o.nature !== undefined && o.nature !== "he") return "invalid-params";
       return null;
     case "ceaseFire":
       return null;

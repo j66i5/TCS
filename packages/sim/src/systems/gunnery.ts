@@ -37,8 +37,9 @@ import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
 import { sight } from "../los";
-import { atan2, cos, hypot2, PI, sin, sqrt, wrapAngle } from "../math";
+import { atan2, cos, hypot2, PI, pow, sin, sqrt, wrapAngle } from "../math";
 import { compCondition, fireTop, occupant, onRoof, REPAIR_INSIDE, vehicleItems } from "../mount";
+import { indoorAt } from "../interior-nav";
 import { reactiveAdd, tileFor } from "../tiles";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -407,6 +408,140 @@ export function stationHeld(
   return null;
 }
 
+/** Balance pass 5: the air-burst setting of the round on a station weapon's feed, if it has one. */
+export function airburstOf(ctx: SimContext, def: VehicleDef, si: number, wi: number, fi: number): AmmoDef["airburst"] {
+  const round = ctx.catalog.items[def.stations[si]?.weapons[wi]?.feeds[fi]?.item ?? ""]?.chargeItem;
+  return round === undefined ? undefined : ctx.catalog.ammo[round]?.airburst;
+}
+
+/** Balance pass 5: an air burst is set only for a point at least this far beyond the burst's stand-off (m). */
+const AIRBURST_CLEAR_M = 30;
+
+/** Balance pass 5: may this air-burst setting be used at `d` m (the burst well clear of the muzzle)? */
+export function airburstAt(ab: AmmoDef["airburst"], d: number): boolean {
+  return ab !== undefined && d >= ab.standoffM + AIRBURST_CLEAR_M;
+}
+
+/** Balance pass 5 (area fire): a place enemy men were last known, as a crew knows it: a circle and its weight. */
+export interface Suspect { x: number; y: number; r: number; w: number; men: number }
+
+/**
+ * The places the men of this crew last knew enemy men (gunnery.areaFire): each enemy man's freshest contact (seen or
+ * reported, not known down or given up, at most `maxAgeSeconds` old, its error within `maxRadiusM`), merged within
+ * gunnery.groupRadiusM; weight 0.5^(age / halfLife) per man, x `firingWeight` if he was firing at or after the
+ * moment last seen; the circle the men's spread plus their error. Heaviest first. Pure.
+ */
+export function crewSuspects(ctx: SimContext, state: SimState, crew: Unit): Suspect[] {
+  const G = ctx.catalog.behaviour.gunnery, A = G.areaFire;
+  if (A === undefined) return [];
+  const tick = state.tick, maxAge = secondsToTicks(A.maxAgeSeconds);
+  const best = new Map<EntityId, Contact>();
+  for (const m of crew.members) {
+    const s = state.soldier.get(m);
+    if (!isAble(s)) continue;
+    for (const c of s!.contacts) {
+      if (c.cls === "vehicle" || c.kind === "heard" || c.down === true || c.surrendered === true || tick - c.tick > maxAge) continue;
+      const p = best.get(c.target);
+      if (!p || c.tick > p.tick || (c.tick === p.tick && c.errM < p.errM)) best.set(c.target, c);
+    }
+  }
+  if (best.size === 0) return [];
+  const groups: { sx: number; sy: number; n: number; w: number; pts: { x: number; y: number; e: number }[] }[] = [];
+  for (const [target, c] of [...best.entries()].sort((a, b) => a[0] - b[0])) {
+    if (!state.soldier.has(target)) continue; // (gone from the field altogether)
+    const e = contactErrorM(ctx, c, tick);
+    if (e > A.maxRadiusM) continue;
+    const ew = state.weapon.get(target);
+    const firing = ew !== undefined && ew.lastShotTick >= c.tick - 3 * TICK_HZ;
+    const w = pow(0.5, (tick - c.tick) / TICK_HZ / A.halfLifeSeconds) * (firing ? A.firingWeight : 1);
+    let g = groups.find((q) => hypot2(q.sx / q.n - c.x, q.sy / q.n - c.y) <= G.groupRadiusM);
+    if (!g) { g = { sx: 0, sy: 0, n: 0, w: 0, pts: [] }; groups.push(g); }
+    g.sx += c.x; g.sy += c.y; g.n++; g.w += w; g.pts.push({ x: c.x, y: c.y, e });
+  }
+  const out: Suspect[] = [];
+  for (const g of groups) {
+    if (g.w < A.minWeight) continue;
+    const x = g.sx / g.n, y = g.sy / g.n;
+    let r = A.minRadiusM;
+    for (const p of g.pts) r = Math.max(r, hypot2(p.x - x, p.y - y) + p.e);
+    out.push({ x, y, r: Math.min(r, A.maxRadiusM), w: g.w, men: g.n });
+  }
+  return out.sort((a, b) => b.w - a.w || a.x - b.x || a.y - b.y);
+}
+
+/**
+ * The weapon and feed a station fires at a suspected place `d` m away of weight `w` (gunnery.areaFire): high
+ * explosive (air burst where the round has it), else the coaxial machine gun within its reach; a ready feed only
+ * while it holds more than the reserve; a main gun (single rounds) only at `mainGunMinWeight`. With the interval.
+ */
+function areaFeed(ctx: SimContext, def: VehicleDef, st: StationState, si: number, v: VehicleState, d: number, w: number, ammoRule: string):
+  { weapon: number; feed: number; nature: "he" | "mg"; every: number; air: boolean } | null {
+  const A = ctx.catalog.behaviour.gunnery.areaFire!;
+  const reserve = ammoRule === "max" ? 0 : A.reserveFraction;
+  const sn = def.stations[si]!;
+  for (const n of ["he", "mg"] as const) {
+    const f = pickFeed(ctx, def, st, si, n, v);
+    if (!f) continue;
+    const wdef = sn.weapons[f.weapon]!, fd = wdef.feeds[f.feed]!;
+    if (d > wdef.engageRangeM) continue;
+    if (st.weapons[f.weapon]!.feeds[f.feed]!.rounds <= reserve * fd.ready.count * fd.ready.charge) continue;
+    const single = wdef.feedKind !== "belt";
+    if (single && w < A.mainGunMinWeight) continue;
+    const every = single ? A.mainGunEverySeconds : Math.max(A.minEverySeconds, A.everySeconds / Math.max(w, 1e-3));
+    return { ...f, nature: n, every, air: n === "he" && airburstAt(airburstOf(ctx, def, si, f.weapon, f.feed), d) };
+  }
+  return null;
+}
+
+/**
+ * Balance pass 5 (area fire; owner 2026-11-20: 'Make vehicles fire more near areas where they believe enemy infantry
+ * is, even if they don't see them anymore'): a station with no live target fires at the heaviest suspected place it
+ * can (`crewSuspects`): under fire 'free' only (not 'return' or 'hold', not with ammunition 'conserve', not while
+ * an ambush is laid), within its range rule, not at a place a crewman knows protected men at, never within the
+ * round's danger radius and spread (plus the place's circle) of own men or with own men in the line, and only with a
+ * line from the muzzle into the place (cover within its circle is what it fires into). Own men are kept the round's
+ * danger radius and spread, at least gunnery.friendlyClearM, clear of the circle. True: the station has its
+ * task (kept when it is the same place).
+ */
+function areaFireTask(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef, crew: Unit, si: number): boolean {
+  const G = ctx.catalog.behaviour.gunnery, tick = state.tick;
+  const rules = state.unit.get(fireTop(state, v.unit!));
+  if (!rules || rules.fireRule !== "free" || rules.ammoRule === "conserve" || crew.ambush !== undefined) return false;
+  const op = stationOperator(state, v, def, si);
+  if (op === null) return false;
+  const sus = crewSuspects(ctx, state, crew);
+  if (sus.length === 0) return false;
+  const st = v.stations[si]!, me = state.transform.req(vid);
+  const maxM = crew.maxEngageM > 0 ? crew.maxEngageM : Infinity;
+  for (const s of sus.slice(0, 4)) {
+    const d = hypot2(s.x - me.x, s.y - me.y);
+    if (d > maxM) continue;
+    const f = areaFeed(ctx, def, st, si, v, d, s.w, rules.ammoRule);
+    if (!f) continue;
+    if (ctx.catalog.medical !== undefined && refusesFireAt(state, crew.members, s.x, s.y, undefined, ctx.catalog.medical.protection.aimSpareM + s.r)) continue;
+    const dz = stationDangerM(ctx, def, si, f.weapon, f.feed, d);
+    // (Unobserved fire spread over a circle: own men are kept `friendlyClearM` clear of it whatever the round.)
+    if (ownMenWithin(state, v.side, s.x, s.y, Math.max(dz, G.friendlyClearM) + s.r)) continue;
+    const h = f.air ? airburstOf(ctx, def, si, f.weapon, f.feed)!.aimHeightM : f.nature === "he" ? 0 : 0.6;
+    if (stationHeld(ctx, state, vid, v, def, si, f.weapon, f.feed, op, s.x, s.y, h) !== null) continue;
+    const [mx, my, mz] = muzzleWorld(ctx, def, si, f.weapon, me.x, me.y, me.heading, st.azimuth);
+    const r = sight(ctx, mx, my, mz, s.x, s.y, heightAt(ctx.map, s.x, s.y) + 0.6, vid, -1); // ground: ok (the place fired at)
+    if (!(r.blockedBy === null || (1 - r.blockedAt) * hypot2(s.x - mx, s.y - my) <= Math.max(LINE_ALLOWANCE_M, s.r))) continue;
+    const prev = st.task;
+    const area = { r: s.r, w: s.w, every: f.every, ox: 0, oy: 0 };
+    if (prev !== null && prev.area !== undefined && hypot2(prev.x - s.x, prev.y - s.y) <= G.groupRadiusM && st.taskWeapon === f.weapon && st.taskFeed === f.feed) {
+      prev.x = s.x; prev.y = s.y; prev.reasonTick = tick; area.ox = prev.area.ox; area.oy = prev.area.oy; prev.area = area;
+    } else {
+      setStationTask(ctx, state, vid, si, s.x, s.y, h, f.weapon, f.feed, undefined, true);
+      st.task!.area = area;
+      if (f.air) st.task!.fuse = "airburst";
+    }
+    emitDecision(events, state, vid, si, st, f.nature, ["why.target.suspected", f.air ? "why.nature.airburst" : f.nature === "he" ? "why.nature.he" : "why.nature.mg"]);
+    return true;
+  }
+  return false;
+}
+
 function emitDecision(events: EventSink, state: SimState, vid: EntityId, si: number, st: StationState, nature: Nature | null, keys: string[]): void {
   const same = st.why.keys.length === keys.length && st.why.keys.every((k, i) => k === keys[i]);
   const target = st.task?.contact ?? null;
@@ -449,6 +584,8 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
         continue;
       }
       const pick = chooseTarget(ctx, state, vid, v, def, crew, si);
+      // Balance pass 5 (area fire): nothing live to fire at: the places its men last knew enemy men.
+      if (pick === null && G.areaFire !== undefined && areaFireTask(ctx, state, events, vid, v, def, crew, si)) continue;
       if (pick === null || typeof pick === "string") {
         // (Balance pass 4 review: targets there, but fire at each held for own men: say so.)
         if (st.task || (pick !== null && st.why.keys[0] !== pick)) { st.task = null; emitDecision(events, state, vid, si, st, null, [pick ?? "why.hold.noTarget"]); }
@@ -460,9 +597,14 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
         continue;
       }
       // (The feed fired, a substitute included, was checked for own men in chooseTarget: `stationHeld`.)
-      const changed = !st.task || st.task.contact !== pick.target || st.taskWeapon !== f.weapon || st.taskFeed !== f.feed;
-      if (changed) setStationTask(ctx, state, vid, si, pick.x, pick.y, pick.heightM, f.weapon, f.feed, pick.target, true);
-      else { st.task!.x = pick.x; st.task!.y = pick.y; st.task!.reasonTick = tick; if (state.vehicle.has(pick.target)) st.task!.heightM = pick.heightM; }
+      // (Balance pass 5: high explosive at a man with a round that has an air-burst setting: air burst, unless he is
+      // in a building, where the impact setting strikes the wall or the window.)
+      const me = state.transform.req(vid);
+      const air = f.nature === "he" && !state.vehicle.has(pick.target) && airburstAt(airburstOf(ctx, def, si, f.weapon, f.feed), hypot2(pick.x - me.x, pick.y - me.y)) && indoorAt(ctx, pick.x, pick.y) < 0;
+      const hM = air ? airburstOf(ctx, def, si, f.weapon, f.feed)!.aimHeightM : pick.heightM;
+      const changed = !st.task || st.task.contact !== pick.target || st.taskWeapon !== f.weapon || st.taskFeed !== f.feed || st.task.area !== undefined || (st.task.fuse === "airburst") !== air;
+      if (changed) { setStationTask(ctx, state, vid, si, pick.x, pick.y, hM, f.weapon, f.feed, pick.target, true); if (air) { st.task!.fuse = "airburst"; pick.keys.push("why.nature.airburst"); } }
+      else { st.task!.x = pick.x; st.task!.y = pick.y; st.task!.reasonTick = tick; if (state.vehicle.has(pick.target)) st.task!.heightM = pick.heightM; if (air) pick.keys.push("why.nature.airburst"); }
       if (f.nature !== pick.nature) pick.keys.push("why.nature.substitute");
       // Balance pass 5 (F1): its own missile chosen on the move: the hull halts for the launch (its route kept).
       if (f.nature === "atgm" && G.missileHoldSeconds !== undefined && v.playerHold !== true && Math.abs(v.drive.speed) > (G.missileHaltedMps ?? 0.3)) {
@@ -707,12 +849,20 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
         }
         w.burstLeft = wdef.feedKind === "belt" && wd.sustained ? wd.sustained.burstRounds : 1;
         w.burstIndex = 0;
+        // Balance pass 5 (area fire): each burst at a point of the suspected place, drawn evenly over its circle.
+        if (task.area) {
+          const ar = task.area, rho = ar.r * sqrt(nextFloat(state.rng, Streams.areaFire)), th = 2 * PI * nextFloat(state.rng, Streams.areaFire);
+          ar.ox = rho * cos(th); ar.oy = rho * sin(th);
+          const nat = natureOf(ctx, def, si, st.taskWeapon, w.feed);
+          events.emit({ kind: "vehicle.areaFire", tick, vehicle: vid, station: si, x: task.x + ar.ox, y: task.y + ar.oy, nature: nat === "mg" ? "mg" : "he", fuse: task.fuse === "airburst" ? "airburst" : "impact", weight: Math.round(ar.w * 100) / 100 });
+        }
       }
       // ---- one round
       const { ammoId, v0 } = pickRound(ctx.catalog, wd, feed.item, feed.rounds);
       if (v0 === undefined) { st.task = null; continue; }
       const [mx, my, mz] = muzzleWorld(ctx, def, si, st.taskWeapon, t.x, t.y, t.heading, st.azimuth);
       let tx = task.x, ty = task.y;
+      if (task.area) { tx += task.area.ox; ty += task.area.oy; }
       const tr = tableRange(wdef.engageRangeM);
       if (task.contact !== undefined && crew) {
         const c = crewContact(ctx, state, crew, task.contact);
@@ -720,7 +870,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       }
       const range = hypot2(tx - mx, ty - my);
       if (range < 2) { st.task = null; continue; }
-      const tz = heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (the point fired at)
+      const tz = heightAt(ctx.map, task.area ? tx : task.x, task.area ? ty : task.y) + task.heightM; // ground: ok (the point fired at)
       const a0 = atan2(ty - my, tx - mx);
       const believed = range * (1 + task.rangeError);
       const skill = os.skills["marksmanship"] ?? 0.5;
@@ -733,6 +883,14 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
         * skillFactor(ctx, skill) * (1 + A.burstGrowth * recoil * w.burstIndex) * os.impair.aim * sightK;
       const total = sqrt(sd * sd + wd.dispersionMrad * wd.dispersionMrad) / 1000;
       launchShot(ctx, state, events, op, wdef.weapon, ammoId, v0, mx, my, mz, tz, a0, range, believed, total, vid, tr);
+      // Balance pass 5: the programmed fuze, set at the muzzle to burst `standoffM` short of the range the crew believes.
+      if (task.fuse === "airburst") {
+        const ab = ctx.catalog.ammo[ammoId]?.airburst;
+        if (ab) {
+          const tof = flightTimeAt(ctx, ammoId, v0, Math.min(Math.max(1, believed - ab.standoffM), tr), tr);
+          state.projectiles.burstTick[state.projectiles.count - 1] = tick + Math.max(1, Math.round(tof * TICK_HZ));
+        }
+      }
       feed.rounds--;
       w.lastShotTick = tick;
       if (task.contact !== undefined && ctx.catalog.medical !== undefined) noteFireAt(ctx, state, events, op, task, task.self !== true, vid, crew?.members); // laws of war (M10.7b)
@@ -744,7 +902,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       else {
         w.burstLeft = 0;
         const trickle = !task.self && since > fullTicks;
-        const interval = trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : 60 / wd.cyclicRpm;
+        const interval = task.area ? task.area.every : trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : 60 / wd.cyclicRpm;
         const disc = ctx.catalog.behaviour.decisions.ammoIntervalFactor[crew?.ammoRule ?? "normal"];
         w.nextShotTick = tick + Math.max(1, Math.round(secondsToTicks(interval) * disc * (0.85 + 0.3 * nextFloat(state.rng, Streams.fire))));
         if (wdef.feedKind !== "belt") w.burstIndex = 0;
@@ -1213,21 +1371,66 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
     return m !== null && named !== undefined && d >= m.g.minRangeM && d <= Math.min(m.g.maxRangeM, def.stations[si]!.weapons[m.weapon]!.engageRangeM)
       && (d >= (def.stations[si]!.weapons[m.weapon]!.missileBeyondM ?? G.missileBeyondM ?? 1000) || (!apCanPierce(ctx, state, def, si, t.x, t.y, named, zone) && missileCanPierce(ctx, state, def, si, m.weapon, t.x, t.y, named, zone)));
   };
-  const want0: Nature = order.nature === "at" ? "atgm" : order.nature ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
-  let any = false;
+  // Balance pass 5: an air burst asked for is high explosive (and only from a round that has the setting).
+  const wantAir = order.fuse === "airburst";
+  const want0: Nature = order.nature === "at" ? "atgm" : wantAir ? "he" : order.nature ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
+  let any = false, noAir = false;
   for (let si = 0; si < v.stations.length; si++) {
     if (stationOperator(state, v, def, si) === null) continue;
-    const want: Nature = order.nature === undefined && mslVeh(si) ? "atgm" : want0;
-    const f = feedFor(ctx, def, v.stations[si]!, si, want, v);
+    const want: Nature = order.nature === undefined && !wantAir && mslVeh(si) ? "atgm" : want0;
+    const f = wantAir ? (() => { const p = pickFeed(ctx, def, v.stations[si]!, si, "he", v); return p ? { ...p, nature: "he" as Nature } : null; })() : feedFor(ctx, def, v.stations[si]!, si, want, v);
     if (!f) continue;
-    const h = order.heightM ?? (isVeh ? aimPointsOf(ctx, state, named)[apk]![2] : f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : aimHeightAt(ctx, known));
+    // The air-burst setting: asked for, or the crew's choice at men in the open (not a vehicle, not a building).
+    const ab = f.nature === "he" ? airburstOf(ctx, def, si, f.weapon, f.feed) : undefined;
+    const air = ab !== undefined && airburstAt(ab, d) && order.fuse !== "impact" && (wantAir || (!isVeh && indoorAt(ctx, x, y) < 0));
+    if (wantAir && !air) { noAir = true; continue; }
+    const h = air && order.heightM === undefined ? ab.aimHeightM : order.heightM ?? (isVeh ? aimPointsOf(ctx, state, named)[apk]![2] : f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : aimHeightAt(ctx, known));
     setStationTask(ctx, state, vid, si, x, y, h, f.weapon, f.feed, named, false);
-    v.stations[si]!.why = { tick: state.tick, keys: ["why.target.ordered", `why.nature.${f.nature}`] };
+    if (air) v.stations[si]!.task!.fuse = "airburst";
+    v.stations[si]!.why = { tick: state.tick, keys: ["why.target.ordered", air ? "why.nature.airburst" : `why.nature.${f.nature}`] };
     any = true;
   }
-  if (!any) return { unable: "radio.noAmmunition" };
+  if (!any) return { unable: noAir ? "radio.noAirburst" : "radio.noAmmunition" };
   if (crew) { crew.firing = true; crew.lineBlockedReported = false; }
   return true;
+}
+
+/**
+ * Balance pass 5 (area fire): an ordered area fire (a drill's support fire at an objective where no enemy is known):
+ * each station that can fires at the circle of `r` m round (x, y) as at a suspected place of weight `w`
+ * (`areaFeed`: high explosive with its air burst where it has one, else the coaxial machine gun; the reserve kept),
+ * never with own men within the danger radius plus the circle or in the line. True if any station took it.
+ */
+export function areaFireOrder(ctx: SimContext, state: SimState, vid: EntityId, x: number, y: number, r: number, w: number): boolean {
+  const v = state.vehicle.get(vid), def = v ? ctx.catalog.vehicles[v.def] : undefined;
+  if (!v || !def || !canFight(v) || ctx.catalog.behaviour.gunnery.areaFire === undefined) return false;
+  const crew = v.unit !== null ? state.unit.get(v.unit) : undefined;
+  if (!crew) return false;
+  const rules = state.unit.get(fireTop(state, v.unit!));
+  const t = state.transform.req(vid), d = hypot2(x - t.x, y - t.y);
+  let any = false;
+  for (let si = 0; si < v.stations.length; si++) {
+    const op = stationOperator(state, v, def, si), st = v.stations[si]!;
+    if (op === null || (st.guide && !fireAndForget(st.guide.kind))) continue;
+    const f = areaFeed(ctx, def, st, si, v, d, w, rules?.ammoRule ?? "normal");
+    if (!f) continue;
+    const dz = stationDangerM(ctx, def, si, f.weapon, f.feed, d);
+    if (ownMenWithin(state, v.side, x, y, dz + r)) continue;
+    const h = f.air ? airburstOf(ctx, def, si, f.weapon, f.feed)!.aimHeightM : f.nature === "he" ? 0 : 0.6;
+    if (stationHeld(ctx, state, vid, v, def, si, f.weapon, f.feed, op, x, y, h) !== null) continue;
+    const prev = st.task;
+    const area = { r, w, every: f.every, ox: prev?.area?.ox ?? 0, oy: prev?.area?.oy ?? 0 };
+    if (prev !== null && prev.area !== undefined && !prev.self && hypot2(prev.x - x, prev.y - y) < 3 && st.taskWeapon === f.weapon && st.taskFeed === f.feed) { prev.reasonTick = state.tick; prev.area = area; }
+    else {
+      setStationTask(ctx, state, vid, si, x, y, h, f.weapon, f.feed, undefined, false);
+      st.task!.area = area;
+      if (f.air) st.task!.fuse = "airburst";
+    }
+    st.why = { tick: state.tick, keys: ["why.target.ordered", f.air ? "why.nature.airburst" : `why.nature.${f.nature}`] };
+    any = true;
+  }
+  if (any) { crew.firing = true; crew.lineBlockedReported = false; }
+  return any;
 }
 
 /** Cease fire for a crew: its station tasks end, and it holds its fire until fired upon again. */

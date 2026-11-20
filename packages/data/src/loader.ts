@@ -323,6 +323,16 @@ function loadFaction(
       if ((a.fuse === "time") !== (a.explosive.fuseSeconds !== undefined)) errors.push({ ...at("explosive.fuseSeconds"), message: `a "time" fuse needs fuseSeconds, other fuses must not have it` });
       if (a.explosive.fragmentVelocityMps[0] > a.explosive.fragmentVelocityMps[1]) errors.push({ ...at("explosive.fragmentVelocityMps"), message: "give the lower speed first" });
     }
+    // Balance pass 5: an air-burst setting needs a bursting round with a programmable fuze; a cone's payload is fragments.
+    if (a.airburst) {
+      if (!a.explosive || a.fuse !== "programmable") errors.push({ ...at("airburst"), message: "an air-burst setting needs an explosive round with a \"programmable\" fuse" });
+      const cn = a.airburst.cone;
+      if (cn) {
+        const fr = ammoF.ammunition.find((x) => x.id === cn.fragmentAmmo);
+        if (!fr || fr.kind !== "fragment") errors.push({ ...at("airburst.cone.fragmentAmmo"), message: `'${cn.fragmentAmmo}' must be an ammunition of kind "fragment"` });
+        if (cn.velocityFraction[0] > cn.velocityFraction[1]) errors.push({ ...at("airburst.cone.velocityFraction"), message: "give the lower fraction first" });
+      }
+    }
     if (a.delivery) {
       if (!a.explosive && !(a.smoke && a.delivery.method === "thrown")) errors.push({ ...at("delivery"), message: "only explosive munitions (or hand smoke grenades) can be thrown or launched" });
       if (a.explosive && a.smoke) errors.push({ ...at("smoke"), message: "a munition is either explosive or a smoke grenade" });

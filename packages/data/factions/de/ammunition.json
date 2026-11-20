@@ -422,8 +422,22 @@
         "atVelocityMps": 1000
       },
       "tracer": false,
-      "fuse": "impact",
+      "fuse": "programmable",
       "guidance": "unguided",
+      "airburst": {
+        "aimHeightM": 1.0,
+        "standoffM": 15,
+        "cone": {
+          "halfAngleDeg": 10,
+          "count": 162,
+          "fragmentAmmo": "de-30-ketf-pellet",
+          "velocityFraction": [
+            0.95,
+            1.0
+          ],
+          "fillingKg": 0.0005
+        }
+      },
       "explosive": {
         "fillingKg": 0.05,
         "fragmentCount": 80,
@@ -435,12 +449,15 @@
         "armingSeconds": 0.02,
         "burstOnBody": true
       },
+      "confidence": "low",
+      "note": "Impact-fused high explosive for the Puma (owner Q16: impact HE in M7, the ABM air-burst round later). Muzzle velocity, filling, fragments and arming distance are game values (low). Bursts on a man it strikes (owner Q18). The search tool cannot open pages in this container: values from published references as remembered (search extracts only). Balance pass 5, area fire (owner 2026-11-20: 'they can use HE / airburst munitions, as they do in real life'): the Puma's high-explosive belt now also has the air-burst setting of the MK30-2/ABM's programmable round, the 30 x 173 KETF (Rheinmetall PMC308, Bundeswehr DM21). Rheinmetall data sheets (search extracts, pages not opened): 162 cylindrical tungsten-alloy sub-projectiles of 1.24 g each (201 g payload) ejected by a 0.5 g charge just ahead of the target, fuze timed inductively at the muzzle, 1100 m/s, round about 830 g; targets include dismounted troops. Modelled (airburst): the round is aimed 1 m over the point and bursts 15 m short of the laser range, the 162 pellets flying on in a 10-degree cone at 95-100 % of its speed; aim height, stand-off and cone are game values (low). The impact setting keeps the old values (one belt with two settings, a game simplification: the real belt holds KETF, not a second HE round; owner question Q6 open).",
       "sources": [
         "https://www.rheinmetall.com/en/products/ammunition/medium-calibre-ammunition",
-        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
-      ],
-      "confidence": "low",
-      "note": "Impact-fused high explosive for the Puma (owner Q16: impact HE in M7, the ABM air-burst round later). Muzzle velocity, filling, fragments and arming distance are game values (low). Bursts on a man it strikes (owner Q18). The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)",
+        "https://www.rheinmetall.com/Rheinmetall%20Group/brochure-download/Weapon-Ammmunition/D127us0725-ABM-KETF-30x173-PMC308.pdf",
+        "https://rheinmetall.com/Rheinmetall%20Group/brochure-download/Weapon-Ammmunition/D127e0823-ABM-KETF-30x173-PMC308-RWMS.pdf",
+        "https://esut.de/2024/01/meldungen/46940/munitionsvorrat-fuer-schuetzenpanzer-puma-wird-aufgefuellt/"
+      ]
     },
     {
       "id": "de-30mm-fragment",
@@ -465,6 +482,32 @@
       "sources": [],
       "confidence": "low",
       "note": "One fragment of the 30 mm HE round (game abstraction: all fragments equal)."
+    },
+    {
+      "id": "de-30-ketf-pellet",
+      "nameKey": "ammo.de-30-ketf-pellet",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.00124,
+      "cartridgeMassKg": 0.00124,
+      "diameterM": 0.0045,
+      "drag": {
+        "a": 0.8,
+        "b": 0,
+        "max": 0.9
+      },
+      "penetration": {
+        "steelMm": 6,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://www.rheinmetall.com/Rheinmetall%20Group/brochure-download/Weapon-Ammmunition/D127us0725-ABM-KETF-30x173-PMC308.pdf"
+      ],
+      "confidence": "low",
+      "note": "One tungsten-alloy sub-projectile of the 30 x 173 KETF (PMC308): 1.24 g, cylindrical (Rheinmetall data sheet, search extract; medium for the mass). Diameter (a 4.5 x 4.5 mm cylinder at about 17.5 g/cm3), drag and penetration (dense, so it keeps its speed and pierces more than a steel fragment) are game values (low)."
     },
     {
       "id": "de-76mm-smoke",
@@ -846,8 +889,12 @@
         "atVelocityMps": 1050
       },
       "tracer": false,
-      "fuse": "impact",
+      "fuse": "programmable",
       "guidance": "unguided",
+      "airburst": {
+        "aimHeightM": 3,
+        "standoffM": 0
+      },
       "explosive": {
         "fillingKg": 2.0,
         "fragmentCount": 1200,
@@ -862,10 +909,12 @@
       "sources": [
         "https://www.armyrecognition.com/news/army-news/2017/idex-2017-rheinmetall-120mm-ammunition-technology-remains-commensurate-to-the-threat-22102173",
         "https://spartanat.com/en/dm11-frische-munition-fuer-den-leopard",
-        "https://asiapacificdefencereporter.com/posts/rheinmetall-unveils-new-he-dm11"
+        "https://asiapacificdefencereporter.com/posts/rheinmetall-unveils-new-he-dm11",
+        "https://www.armyrecognition.com/archives/archives-land-defense/land-defense-2013/rheinmetall-ammunition-idex-2013-press-release-24-february-2013-uk",
+        "https://esut.de/2021/12/meldungen/31455/leopard2a7v-verschiesst-erstmals-programmierbare-panzermunition-dm11/"
       ],
       "confidence": "low",
-      "note": "DM11 HE multipurpose for the 120 mm L55: its programmable fuze has point detonation, delay and air burst (published); here only point detonation (the factory default) is modelled. Search extracts only (pages not opened in this container). Projectile and cartridge mass, filling, fragments, their speed and the arming time are game values (low); muzzle velocity about 1050 m/s (game value). Fragments are the 120 mm mortar bomb's (game abstraction). cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
+      "note": "DM11 HE multipurpose for the 120 mm L55: its programmable fuze has point detonation, delay and air burst (published; Rheinmetall IDEX 2013: it bursts ahead of and above the target, out to 5000 m; esut.de 2021: first fired from a Leopard 2A7V); point detonation (the factory default) and, since balance pass 5 (area fire), the air burst are modelled: aimed 3 m over the point and timed at the muzzle from the EMES 15 laser range, it bursts over it and throws its fragments all round (burst height a game value, low). Search extracts only (pages not opened in this container). Projectile and cartridge mass, filling, fragments, their speed and the arming time are game values (low); muzzle velocity about 1050 m/s (game value). Fragments are the 120 mm mortar bomb's (game abstraction). cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
     },
     {
       "id": "de-127x99-ap",

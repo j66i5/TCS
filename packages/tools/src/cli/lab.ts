@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|mounted-assault [seeds] [--seconds s] [--scenarios a,b] [--modes player,ai]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]|repair [seeds]|batteries [seed] [speedup]|consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-refill] [--no-consolidate]|redistribute [trials]|cache [trials]|resupply [distances, e.g. 200,400]|rearm|prisoners [runs] [--part 1,2,3,4]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|mounted-assault [seeds] [--seconds s] [--scenarios a,b] [--modes player,ai]|areafire [seeds] [--parts fuse,area] [--ranges a,b] [--seconds s] [--area-range m] [--area-seconds s]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]|repair [seeds]|batteries [seed] [speedup]|consumption [seeds] [--seconds 1200,2400] [--scenarios a,b] [--conservation] [--no-resupply] [--no-refill] [--no-consolidate]|redistribute [trials]|cache [trials]|resupply [distances, e.g. 200,400]|rearm|prisoners [runs] [--part 1,2,3,4]` prints the lab tables and writes them to reports/. */
 import { buildCatalog } from "@tcs/data";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -26,6 +26,7 @@ import { antitankLab, antitankLabMarkdown } from "../labs/antitank";
 import { missileLab, missileLabMarkdown } from "../labs/missile";
 import { missileTeamLab, missileTeamLabMarkdown } from "../labs/missile-team";
 import { mountedAssaultLab, mountedAssaultLabMarkdown } from "../labs/mounted-assault";
+import { areaFireLab, areaFireLabMarkdown } from "../labs/areafire";
 import { aglLab, aglLabMarkdown } from "../labs/agl";
 import { houseClearLab, houseClearMarkdown, houseDefendLab, houseDefendMarkdown, houseLeaveLab, houseLeaveMarkdown, houseRocketLab, houseRocketMarkdown } from "../labs/house";
 import { indirectLab, indirectLabMarkdown } from "../labs/indirect";
@@ -135,6 +136,13 @@ const LABS: Record<string, () => string> = {
     const sc = (argOf("scenarios") ?? "platoon-vehicles,platoon-ru-vehicles").split(",");
     const modes = (argOf("modes") ?? "player,ai").split(",") as ("player" | "ai")[];
     return `# Mounted-assault lab\n\n${mountedAssaultLabMarkdown(mountedAssaultLab(loadData(), n, Number(argOf("seconds") ?? 600), sc, modes))}\n`;
+  },
+  // Balance pass 5: `lab -- areafire [seeds] [--parts fuse,area] [--ranges 400,800,1200] [--seconds s] [--area-range m] [--area-seconds s]`.
+  areafire: () => {
+    const n = Number(process.argv[3] !== undefined && !process.argv[3].startsWith("--") ? process.argv[3] : 3);
+    const parts = (argOf("parts") ?? "fuse,area").split(",") as ("fuse" | "area")[];
+    const ranges = argOf("ranges")?.split(",").map(Number);
+    return `# Area fire lab\n\n${areaFireLabMarkdown(areaFireLab(loadData(), { seeds: n, parts, ...(ranges ? { ranges } : {}), seconds: Number(argOf("seconds") ?? 30), areaRange: Number(argOf("area-range") ?? 600), areaSeconds: Number(argOf("area-seconds") ?? 240) }))}\n`;
   },
   "missile-team": () => `# Missile team lab\n\n${missileTeamLabMarkdown(missileTeamLab(loadData(), Number(process.argv[3] ?? 50)))}\n`,
   repair: () => `# Repair lab\n\n## Part A: field repair (M11.7a)\n\n${repairLabMarkdown(repairLab(loadData(true), Number(process.argv[3] ?? 10)))}\n\n## Part B: recovery and towing (M11.7b)\n\n${towLabMarkdown(towLab(loadData(true)))}\n`,

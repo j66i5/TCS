@@ -510,6 +510,7 @@ button.cmp-row:active { background: rgba(255, 255, 255, 0.06); }
 .cmp.menu.look-flat .menu-tile { border-width: 2px; border-left-width: 6px; }
 .cmp.menu.look-flat .menu-tile.mode-more, .cmp.menu.look-flat .menu-tile-small { border-left-width: 2px; }
 .menu-seed { max-width: 160px; }
+.cmp.look-flat .cmp-input { border-radius: 0; border-width: 2px; }
 .hud-aar-menu { margin-left: auto; }
 /* Wide or landscape: the modes two by two. */
 @media (min-width: 640px) { .menu-modes { grid-template-columns: 1fr 1fr; } .menu-tile.mode-more { grid-column: 1 / -1; } }

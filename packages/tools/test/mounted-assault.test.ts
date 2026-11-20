@@ -10,11 +10,12 @@ import { mountedAssaultBattle } from "../src/labs/mounted-assault";
 import { getScenario, loadData } from "../src/scenarios";
 
 const data = loadData();
+const catalog = getScenario("platoon-vehicles").build(data, 1, 60).catalog;
 
 describe("mounted assault with real data (balance pass 5)", () => {
   it("platoon-vehicles seed 1, the player's Assault: carriers get out no nearer than the doctrine distance, posts no nearer than minObjectiveM, the hulls fire, no hits on own men", () => {
     const r = mountedAssaultBattle(data, "platoon-vehicles", "player", 1, 300);
-    const MA = data.catalog.behaviour.mounting.mountedAssault!;
+    const MA = catalog.behaviour.mounting.mountedAssault!;
     expect(r.carriers).toBeGreaterThanOrEqual(4);
     expect(r.dismountM.length).toBe(r.carriers);
     for (const d of r.dismountM) expect(d).toBeGreaterThanOrEqual(r.doctrineM - MA.arriveM - 10);
@@ -43,7 +44,7 @@ describe("mounted assault with real data (balance pass 5)", () => {
   it("night: a support post must lie within the hull's night sight (BMP-2 image intensifier ~850 m; Puma thermal: its guns' reach)", () => {
     const input = getScenario("platoon-vehicles").build(data, 1, 60);
     const ctx = createContext(input);
-    const bmp = data.catalog.vehicles["ru-bmp2"]!, puma = data.catalog.vehicles["de-puma"]!;
+    const bmp = catalog.vehicles["ru-bmp2"]!, puma = catalog.vehicles["de-puma"]!;
     const day = supportReachM(ctx, bmp, 1), night = supportReachM(ctx, bmp, 0);
     expect(night).toBeLessThanOrEqual(900);
     expect(night).toBeLessThan(day);

@@ -1066,24 +1066,24 @@ async function mountedAssaultScenes(page: Page, name: string, errors: string[], 
       let x = o.x, y = o.y; for (const [px, py] of ps) { x += px; y += py; } x /= ps.length + 1; y /= ps.length + 1;
       t.focus(x - 100, y, 900); t.stepTicks(1); return plat;`) as () => number);
     await shot(`${look}-1-dismount-points`);
-    const out = await page.evaluate(new Function("plat", `const t = globalThis.__tcs; const s = t.sim.state;
+    const out = await page.evaluate(new Function(`const plat = ${plat}; const t = globalThis.__tcs; const s = t.sim.state;
       for (let i = 0; i < 60 * 240; i += 30) { t.stepTicks(30); const ma = s.unit.get(plat).mountedAssault; if (!ma || ma.carriers.some((c) => c.phase === "dismount" && s.tick - c.phaseTick > 60 * 5)) break; }
       const ma = s.unit.get(plat).mountedAssault; const c = ma ? ma.carriers.find((k) => k.phase === "dismount") ?? ma.carriers[0] : null;
       const p = c ? s.transform.get(c.vehicle) : null; if (p) t.focus(p.x, p.y, 180); t.stepTicks(1);
-      return { tick: s.tick, phases: ma ? ma.carriers.map((k) => k.phase + '@' + Math.round(Math.hypot(s.transform.get(k.vehicle).x - ma.x, s.transform.get(k.vehicle).y - ma.y))) : [] };`) as (p: number) => object, plat);
+      return { tick: s.tick, phases: ma ? ma.carriers.map((k) => k.phase + '@' + Math.round(Math.hypot(s.transform.get(k.vehicle).x - ma.x, s.transform.get(k.vehicle).y - ma.y))) : [] };`) as () => object);
     await shot(`${look}-2-dismounted`);
-    const post = await page.evaluate(new Function("plat", `const t = globalThis.__tcs; const s = t.sim.state;
+    const post = await page.evaluate(new Function(`const plat = ${plat}; const t = globalThis.__tcs; const s = t.sim.state;
       t.select(plat); t.stepTicks(60 * 25);
       const ma = s.unit.get(plat).mountedAssault; const ps = ma ? ma.carriers.filter((k) => k.post).map((k) => k.post) : [];
       let x = 0, y = 0; for (const p of ps) { x += p.x; y += p.y; } if (ps.length > 0) { x /= ps.length; y /= ps.length; t.focus(x + 100, y, 500); } t.stepTicks(1);
-      return { tick: s.tick, posts: ps.map((p) => Math.round(p.x) + ',' + Math.round(p.y)) };`) as (p: number) => object, plat);
+      return { tick: s.tick, posts: ps.map((p) => Math.round(p.x) + ',' + Math.round(p.y)) };`) as () => object);
     await shot(`${look}-3-support-posts`);
-    const fire = await page.evaluate(new Function("plat", `const t = globalThis.__tcs; const s = t.sim.state;
+    const fire = await page.evaluate(new Function(`const plat = ${plat}; const t = globalThis.__tcs; const s = t.sim.state;
       let fired = null; const ma0 = s.unit.get(plat).mountedAssault; const vids = ma0 ? ma0.carriers.map((k) => k.vehicle) : [];
       for (let i = 0; i < 60 * 120 && fired === null; i++) { t.stepTicks(1); for (const id of vids) { const v = s.vehicle.get(id); if (!v) continue; for (const st of v.stations) for (const w of st.weapons) if (s.tick - w.lastShotTick === 2) fired = id; } }
       const p = fired !== null ? s.transform.get(fired) : null; const o = t.sim.ctx.rules.objectives[0];
       if (p) t.focus((p.x + o.x) / 2, (p.y + o.y) / 2, Math.hypot(o.x - p.x, o.y - p.y) + 150); t.stepTicks(1);
-      return { tick: s.tick, fired };`) as (p: number) => object, plat);
+      return { tick: s.tick, fired };`) as () => object);
     await shot(`${look}-4-firing`);
     info.push({ look, out, post, fire });
   }

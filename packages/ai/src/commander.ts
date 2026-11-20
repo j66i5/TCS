@@ -1561,6 +1561,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
                 hull: { x: vt.x, y: vt.y }, anchor: { x: clamp(vt.x - ux * MA.postBackM, W), y: clamp(vt.y - uy * MA.postBackM, H) },
                 behind: { x: vt.x, y: vt.y, ux: -ux, uy: -uy, minM: MA.postMinBackM }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM },
                 light: view.environment.light, threats, avoid: holds,
+                extra: all.flatMap((m) => knownMen(m)).filter((k) => k.kind !== "heard" && hypot2(k.x - tgt.x, k.y - tgt.y) <= MA.fireNearObjectiveM).map((k) => ({ x: k.x, y: k.y })),
               });
               if (!p) { if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) order(c, { kind: "halt" }); continue; }
               holds.push(p);

@@ -9866,3 +9866,81 @@ the owner's features (plan section 4).
 **Golden replays:** updated (`npm run golden:update`) for these intended changes (new behaviour values and sensor
 kinds change the catalog fingerprint; crews' target choice, missile halts, the firing window and the commander's
 dismount change replays with vehicles). `packages/tools/golden/no-interiors` untouched.
+
+## 2026-11-20 — Balance pass 5: the mounted assault (owner's feature 3A; plan docs/plans/balance-5.md section 3A)
+
+**Owner request (2026-11-20, his words):** "Make assault work for vehicles as well. If infantry are riding, the
+vehicles will stop a sensible distance from the objective, let infantry dismount, fall back slightly to provide
+support for the infantry that goes the final stretch." Built before the final measuring (owner's order of work).
+Area fire with HE / air burst (3B) is the next step, not in this entry.
+
+**Design (symmetric code, `sim/src/systems/assault-mounted.ts`, state `Unit.mountedAssault`, plain data):**
+- No new order kind. `assault {x, y, building?}` takes the mounted form when its target is a foot unit with riders,
+  a crew (its passengers' squads; none aboard: assault by fire), or a platoon on foot with carriers (its foot drill as
+  before, the carriers support it). Never after a dismount: the squad's own `then` order is the ordinary foot drill.
+  A crew may now take Assault (`orderApplies`), only with the data block present.
+- Per carrier: **drive** to its dismount point (`dismountSpot`, moved here from the AI commander unchanged: the
+  faction's doctrine `dismountM` short of the objective on the way in, `slotM` 60 m apart, up to `dismountCandidates`
+  3 x `dismountStepM` 50 m farther back for a spot out of sight of the objective's near edge and known enemies);
+  **dismount** there, or earlier on a hit on it or a carrier within `hitNearM` 300 m (last `hitRecentSeconds` 10 s;
+  `carrierHitNear`, F4), enemy men its crew knows within `threatMenM` 400 m or a hull seen within `threatVehicleM`
+  600 m (the AI commander's thresholds), an immobilised hull, or `rideTimeoutSeconds` 300 s; the squads then take the
+  ordinary assault drill to (x, y). **Support**: the hull backs (reverse leg, never its side to the objective) to a
+  post from `siteSupportPost`: the hull-down scoring of `siteHullDown` (moved to `sim/src/hulldown.ts` so the drill and
+  the AI share it) round a point `postBackM` 60 m behind where it let them out, at least `postMinBackM` 20 m back,
+  rings `postRingsM` 0/40/80 m, its sight seeing at least `postMinSeen` 0.25 of the objective's nine points (and the
+  enemies known near it), `postStandoffM` 300 m off known enemy men (counted to the objective's near edge), never
+  within `minObjectiveM` 200 m of the objective; none: round where it stands, then up to three `postBackM` steps
+  farther back; none sees anything: `postBackM` straight back. From the post (not while it backs there: review of an
+  own hit in the lab) every `fireEverySeconds` 20 s a fire order at an enemy known within `fireNearObjectiveM` 120 m
+  of the objective that its gun has a line to (`stationLineTo`, the gunnery's own line test), none within `ownClearM`
+  80 m of own men; squads within `shiftM` 200 m: only beyond the objective's middle ("radio.shiftFire"); within
+  `liftM` 100 m: none, its ordered tasks end ("radio.liftFire"). Doctrine `afterward` per faction: "follow" (RU)
+  re-sites `followM` behind the squads once they moved `followReplanM` 40 m; "overwatch" (DE) stays. **Done**: the
+  squads' drills over: a man on the objective (`takenSlackM` 40 m): the hulls close to `consolidateM` 60 m short of
+  it; else to `pickupBackM` 20 m behind their squads.
+- **No riders** (a tank, an empty carrier): assault by fire from a post at `noRidersStandoffM` 250 m on the way in
+  (never nearer than it stands); it never drives onto the objective without infantry (plan Q7 (a), the recommended
+  answer, built pending the owner).
+- **Night**: a post's reach is the main gun's `engageRangeM`, in the dark (light below `nightBelowLight` 0.3) no
+  farther than its seats' longest night sight (`supportReachM`: Puma thermal = the gun's 2000 m; BMP-2 image
+  intensifier 850 m); the anchor comes forward until the objective lies within it, never inside `minObjectiveM`; a
+  hull with no night sight finds no post and stays.
+- **Leaving it**: move, halt, assault, withdraw, occupy, mount, dismount and defendArc orders take the units they
+  reach out of the drill (`leaveMountedAssault`); the unit ordered ends it.
+- **AI commander** (one code path for the siting): its ride uses the sim's `dismountSpot` (same points as before),
+  and once a squad is out its carrier (DE "overwatch") stops driving on and backs to a `siteSupportPost` post (once;
+  then the balance pass 3 bounds); RU "follow" carriers take the best `supportPost` round each follow point. The
+  commander keeps its own platoon attack (base of fire, recon, fires, assault by squads); its carriers are not put
+  in the drill.
+- **Interface**: Assault on a hull's bar; the card's state line shows the hull's part ("driving to the dismount
+  point", "squads getting out", "supporting by fire"); the map shows a dashed line from each hull to its dismount
+  point (square) or support post (diamond), labelled when selected (intent kind "assault"). Events
+  `assault.dismountPoint`, `assault.dismounted` (distance), `assault.supportPost`, `assault.ended` (taken).
+- All values are game values (low confidence), in `core/behaviour.json` `mounting.mountedAssault`; the dismount
+  distances are each faction's doctrine (docs/research/dismount.md).
+
+**Lab** (`npm run lab -- mounted-assault 2 --seconds 900`, seeds 1-2, day; "player" = the attacker's top units given
+Assault at the start while riding, the defender's commander as usual; "ai" = both commanders):
+
+| Scenario | Mode | Carriers | Dismount m (mean, min-max; doctrine) | Hit aboard | Posts | Post m | Fell back m | Rounds | Own hits | Taken |
+|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| platoon-vehicles (DE) | player | 16 | 627 (491-740; 300) | 7 | 15 | 674 | 45 | 1172 | 0 | 0 |
+| platoon-vehicles (DE) | ai | 14 | 547 (454-736; 300) | 18 | - | - | 37 | 1470 | 1 | 2 |
+| platoon-ru-vehicles (RU) | player | 12 | 565 (449-639; 400) | 37 | 15 | 647 | 37 | 258 | 0 | 0 |
+| platoon-ru-vehicles (RU) | ai | 11 | 549 (503-715; 400) | 28 | - | - | 117 | 810 | 0 | 0 |
+
+Every carrier gets out early in these battles: the defence's posts lie 200-300 m in front of the objective point, so
+the crews know enemy men within 400 m (or a carrier near them is hit) at 450-740 m: the squads get out there, out of
+rocket reach, as the threat rule intends. Before this step the AI's DE carriers then drove on empty to their planned
+point (fell back 6 m on a first run, -38 m on another); now they stop and back (+37 m). The player's form loses fewer
+men aboard for DE (7 against 18) and more for RU (37 against 28: its carriers drive in at once, while the AI waits for
+its missile team and tanks to be on post first). The player's assault takes no objective in 900 s: it is one order
+with no preparatory fires, recon or base of fire (the commander's plan does those). Own hits: an earlier run had one
+in the player's form, a 30 mm fragment from a hull that fired while it backed to its post (the line is checked once a
+second and swings with the hull): the drill's fire now waits until the hull is on its post, and the player's form had
+none since. The one in AI mode is not the drill's (the commander's own fire orders); not traced further.
+
+**Golden replays:** updated (`npm run golden:update`) for this intended change (the new behaviour block and strings
+change the catalog fingerprint; the AI's carriers back to support posts). `packages/tools/golden/no-interiors`
+untouched.

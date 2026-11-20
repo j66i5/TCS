@@ -22,7 +22,7 @@
  */
 import {
   atan2, bestCoverNear, cos, exposureAt, eyeHeightM, heightAt, hypot2, indoorAt, navCostAt, navFor, PI, pointInPolygon, roomAt, sight, sin,
-  standZ, windowPlaces, type MovementClass, type SimContext,
+  standZ, windowPlaces, type SimContext,
 } from "@tcs/sim";
 
 /** Game values (low confidence): see the module comment. */

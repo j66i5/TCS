@@ -9656,3 +9656,63 @@ the briefing (proposal, cap, estimate rounded, problems, Change forces), the sec
 (numbers = the battle summary, lists = the pools; identical from a loaded save), the replenishment card, and a battle
 played tick by tick in the app's way handed back through `battleResultOf` = the auto-resolved record (same hash).
 **Owner acceptance pending:** two linked battles played on his phone.
+
+## 2026-11-20 — M12.4: campaign review and tuning (slice 12.4, plan docs/plans/m12-roster.md 4.7)
+
+**Levers added.** `factions/<id>/campaign.json` `fightingValue` (outside the catalog fingerprint: goldens unchanged;
+1 without the file): the enemy commits its node's `enemyRatio` x the player's committed men x `fightingValue(player) /
+fightingValue(enemy)`, and its per-battle caps (platoons, mortar, missile, AGL, tank sections) are scaled by the same
+ratio, at most `battle.enemyCapScale` (platoons at least 1). Batches report the tuning lines (experience over an
+operation, able share and failure reasons at operation ends, recovery days, able share before endless
+replenishments). `npm run phoneperf -- --campaign N` times auto-resolve per node on the phone proxy.
+
+**Batches** (`npm run campaign -- batch-part` per campaign, merged with `batch --merge`; 1200 s battles, AI on both
+sides, tracked carriers; the player's side auto-resolved with the proposed choice):
+
+| iteration | values | DE as player | RU as player | xf vs xf |
+|---|---|---|---|---|
+| 1 | DE value 1.6, no cap scaling, lines of 3-5 sectors, attack / pursue ratio 0.7 | 5 of 5 (interrupted) | 0 of 3 (interrupted) | 2 of 8 (25 %) |
+| 2 | DE 2.0, caps x1.5, lines of 3-4, attack / pursue 0.5 | 2 of 2 (container restart) | 0 of 2 | 2 of 3 |
+| 3 | DE 3.0, caps x2.0, experience +0.01 / +0.008 a min / 0.04 | **8 of 8 (100 %)**, s300 `2975a0a1711e82d9`, s301 `4df317488e22c00d` | **0 of 8 (0 %)**: 7 failures (two losses in a row), 1 limit; s300 `3e76bc5c3e38b538`, s301 `af79cc5b0f356865` | 1 of 6 (17 %), 5 limit; s300 `f7da3f03b8a52ef1` |
+| 4 | lines of 3 sectors | — | — | **7 of 12 (58 %)**, 5 limit; s400 `6e4bce645841cae9`, s401 `eea8a1e58d6d1f36` |
+
+All acceptance checks of 12.2 stayed clean in every batch (iterations 3 + 4: 152 nodes, 194 battles; zero-men battles 0,
+operations outside 3-5 nodes 0, table / memory / enemy-roster mismatches 0, misplaced replenishments 0, person ids
+held twice 0). Wall time per main battle: DE vs RU median 120 s (max 326, the 194-men meetings), RU vs DE 80 s, xf 26 s
+(four campaigns at once on 4 cores).
+
+**The 30-70 % band is met for xf only. The DE / RU gap is in the battles, not in the campaign's numbers.** With RU as
+the player, DE's minimum commitment (one Puma platoon with the company HQ: 27-39 men) beats a whole motor rifle company
+(93-110 men in BMP-2s): RU won 11 of 32 nodes (defend 6-6, attack 3-7, meeting 2-3), and in its lost defences lost 37,
+53 and 107 men killed against 8, 17 and 8. With DE as the player, RU commitments of up to 194 men (caps doubled) lost
+28 of 31 nodes; RU lost 1737 killed against DE's 178. No commit ratio can close that: the RU side cannot go below one
+platoon, and above two companies a battle breaks the phone cap (Q-C). The values are kept at iteration 3 (DE 3.0,
+caps x2) because they are the strongest correction that stays within the cap; closing the gap needs a balance pass on
+the mounted battle (Puma against BMP-2: optics, 30 mm against the BMP-2's armour, the AI's use of the BMP-2's ATGM),
+an owner question. xf vs xf (the same faction on both sides) shows the campaign rules themselves: with lines of 3
+sectors 58 %; with lines of 4, 17 % (attacks almost never succeed in 1200 s: xf attack 0-0-16, defend 27-0-0, so an
+operation advances on its defence wins and the 5-battle limit ends it on a line of 4).
+
+**Experience.** Survivors under effective fire spend about half a minute of a battle under it (iteration 3, men in 3
+battles or more: 0.28 / 0.46 / 0.55 min a battle at p10 / median / p90). With +0.01 a battle and +0.008 a minute a
+survivor of a full operation under fire gained 0.05-0.07 (RU iteration 3: 4 men who fought every node, median 0.068;
+25 men in 3 battles or more, median 0.049). New values: **+0.015 a battle, +0.04 a minute under fire, at most 0.05 a
+battle, cap 0.9**: re-weighed on the same men's recorded minutes, the full-operation survivors gain 0.108 / 0.136 / 0.167
+(p10 / median / p90, max 0.172) and the 3-battles-or-more men 0.099 / 0.109 / 0.150, inside the plan's 0.1-0.2; a man never
+under fire gains 0.045-0.075 over an operation. Few men fight every node because the fittest company is proposed and
+the company that just fought usually rests (open question). Nobody passed the cap 0.9 in any batch.
+
+**Recovery days against the operation.** The medical settlement's days are real convalescence: evacuated men need
+p10 56-65, median 102-114, p90 190-220 days (all four batches); within 2.5 days (one operation) 0 %, within 7 days
+0-1 %, within 30 days 0-6 %. An operation lasts 1-2.5 days and operations are 7 days apart, so a wounded man is back
+after 8-15 operations, almost never inside one (1 man in iteration 3). Kept: the campaign does not shorten the
+medical model; the replacements fill the places meanwhile (owner question whether to scale them for the game).
+
+**Combat-ineffective line 0.5: kept.** It ended no operation on its own in any batch (able share at operation ends: DE
+min 0.73, median 0.95; xf min 0.64, median 0.83; RU min 0.31, median 0.40, but every RU failure came from two losses
+in a row first, which happens before the line is crossed).
+
+**Replenishment size: kept** at the full establishment and the standard load (the owner's answer); every
+replenishment in every batch brought both battalions back to 340 / 298 / 107 men and replaced the lost hulls.
+
+**Phone proxy** (`npm run phoneperf -- --campaign 2 --battle-seconds 1200`): see the line below.

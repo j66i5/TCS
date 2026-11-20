@@ -1997,7 +1997,7 @@ Its three companies, their platoons and squads, the mortar section, the grenade-
 attached tank section are the same units the single battles use, built from the factions' data. Every man has a name,
 a rank, skills, experience and a service history; every vehicle has its damage and its load.
 
-**Operations.** A campaign is a row of operations. An operation is a line of 3-5 connected sectors (a village, a farm,
+**Operations.** A campaign is a row of operations. An operation is a line of three connected sectors (a village, a farm,
 a wood, an industrial estate: each a generated map, the same map whenever that sector is fought again). Each sector
 has a planned battle: attack, defend (the enemy attacks and you have a counter-attack reserve), meeting, ambush,
 withdraw or pursue. The battle's result picks the next one from a table in `core/campaign.json`: a win moves on to the
@@ -2013,18 +2013,24 @@ run. The fittest company is proposed. You can play the battle yourself or let th
 both run the same simulation, so a played battle and an auto-resolved one count the same.
 
 **The enemy** has its own battalion that remembers its losses. For each battle it commits platoons by the battle
-type's ratio of your committed men (0.7 for an attack you make, 1.0 for its own attacks and meetings), weighed by how
-good a man of each side is in a fight (`factions/<id>/campaign.json` `fightingValue`). That weight is a game value,
-measured from batches of operations played by the computer on both sides so that an operation is neither a walk-over
-nor hopeless for any faction (DECISIONS M12.4 has the numbers).
+type's ratio of your committed men (0.5 for an attack or a pursuit you make, 0.7 for an ambush, 1.0 for its own
+attacks, meetings and your withdrawals), weighed by how good a man of each side is in a fight
+(`factions/<id>/campaign.json` `fightingValue`: Germany 3, Russia and xf 1); against a better side it may also bring
+up to twice a company's worth. That weight is a game value, measured from batches of operations played by the
+computer on both sides. With the same faction on both sides an operation succeeds a bit more than half the time
+(58 %). Between Germany and Russia it does not work yet: Germany won every operation and Russia none, even when
+Germany sent only one Puma platoon, because in the battles themselves a Puma platoon beats a BMP-2 company; that needs
+a balance pass on the mounted battle (DECISIONS M12.4 has the numbers).
 
 **After a battle** the men come home as the battle left them: the dead are gone for good (their history is kept), the
 evacuated wounded go to a recovery pool for the days the medical settlement gave them and come back to their old
 squad when those are up (or wait unassigned if the squad has been filled), prisoners are held by the side that took
 them. A vehicle that was towed away goes to the workshop for its days; a destroyed or captured one is lost. Fatigue,
 shock and strain recover by the hour (12 hours between battles, 7 days between operations). Experience grows a little
-with every battle and more for every minute under effective fire (at most 0.04 a battle, never above 0.9), so a man
-who comes through a whole operation under fire ends roughly 0.1-0.2 better. When a leader falls, the next man by
+with every battle (0.015) and more for every minute under effective fire (0.04 a minute; men are under it about half a
+minute a battle; at most 0.05 a battle, never above 0.9), so a man who comes through a whole operation under fire ends
+roughly 0.1-0.17 better. Wounded men's recovery days are the medical model's (usually two to six months), so an
+evacuated man rarely comes back within the same operation; replacements fill his place meanwhile. When a leader falls, the next man by
 role, rank and experience takes over automatically; you can appoint someone else on the man's card.
 
 **Inside an operation nothing is refilled**: a magazine left with three rounds still has three in the next battle, a

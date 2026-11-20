@@ -469,7 +469,7 @@ for the owner's numbers answer after playing, not for more building).
     man outside, tows the hull off the map at 8 km/h; at the end the hulls left are recovered or captured by the side
     holding the ground (roster `VehicleRecord.recovery`, `capturedBy`); `lab -- repair` part B.
 
-- **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) 🟡 — owner 2026-11-19: a battalion, operations
+- **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) ✅ (2026-11-20; owner's phone test pending) — owner 2026-11-19: a battalion, operations
   of 3-5 linked battles plus an endless mode, free saving (plan `docs/plans/m12-roster.md`, seven slices).
   - 12.0a contract gaps ✅ (2026-11-19): `BattleInput.damage` / `wrecksIn`, `BattleResult.damageOut` / `service`
     (only with `rules.campaignOut`), `ScenarioDef.forces` / `terrain`, campaign package rules (lint, `BattleRunner`),
@@ -496,7 +496,11 @@ for the owner's numbers answer after playing, not for more building).
     "Make leader"; briefing with the sector preview, enemy estimate and the choice; auto-resolve in a Web Worker with
     cancel; a played battle back to the campaign through the review; what changed; replenishment), both looks, views
     in `campaign/src/view.ts`, `npm run e2e:campaign` (Playwright) and `npm run screenshot -- --scene campaign`.
-  - 12.4 review ⬜
+  - 12.4 review and tuning ✅ (2026-11-20): faction `fightingValue` and scaled enemy caps, lines of 3 sectors,
+    experience +0.015 a battle / +0.04 a minute under fire / at most 0.05 (a full operation under fire +0.11-0.17),
+    recovery days, combat-ineffective line and replenishment kept; batches: xf vs xf 58 % success, DE 100 %, RU 0 %
+    (the Puma / BMP-2 gap is in the mounted battle: a balance pass, owner question); phone proxy auto-resolve timed;
+    HOW_IT_WORKS campaign section, SPEC 9.3 note (DECISIONS "M12.4").
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 
 ## Stage D — breadth

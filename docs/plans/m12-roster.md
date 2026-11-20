@@ -18,6 +18,8 @@ table in `core/campaign.json`, flank battles, endless mode, sector memory, the e
 12.3 built 2026-11-19 (DECISIONS "M12.3"; `campaign/src/view.ts`, `ui/src/campaign.ts`, `app/src/campaign/` (page,
 Web Worker, played battle hand-back through `battleResultOf`), `makeLeader`, `reviseForces`; `npm run e2e:campaign`,
 `npm run screenshot -- --scene campaign`; the owner's two linked battles on his phone still to come).
+12.4 built 2026-11-20 (DECISIONS "M12.4"; `fightingValue` and scaled enemy caps, lines of 3 sectors, new experience
+values; xf vs xf 58 % success, DE 100 %, RU 0 %: the DE / RU gap is in the mounted battle; M12 done).
 
 SPEC 9.3 stage one: the player's force carries over between linked battles; soldiers keep names, experience, wounds,
 fatigue and stress history; vehicles keep damage; replacements arrive green. The owner answered the M12 round on

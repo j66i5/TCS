@@ -16,6 +16,10 @@ DECISIONS.md under its date._
   Every 12.2 check clean (152 nodes). `npm run phoneperf -- --campaign N` times auto-resolve on the phone proxy.
   HOW_IT_WORKS campaign section, SPEC 9.3 note (battalion). Open owner questions: see "M12 open questions" below.
   Owner acceptance pending: two linked battles on his phone (`?campaign=1`).
+  Checks 2026-11-20: typecheck, lint, data lint clean; `npm test` 201 files, 1661 passed, 6 skipped. `npm run
+  test:perf`: 22 of 25; the spotting bench (7.3-7.9x), its smoke variant (7.3-7.4x) and bench-vehicles (7.6x) miss the
+  8x floor, and main 828e4e0 misses the same floors on this container (7.8x, 7.3x): the container, not M12 (M12.4
+  changed no sim code). The independent spec review was not run (no reviewer agent in that session).
 - **M12 open questions (asked as multiple choice, recommended first):** Q-A recovered men rejoin inside an operation
   (built: yes) · Q-B lost hulls replaced at replenishment (built: yes) · Q-C one company's worth a battle (built: yes) ·
   Q-D ammunition inside an operation: only in-battle deliveries from the battle's own stock (built: (a)) · Q-E the

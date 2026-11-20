@@ -9735,3 +9735,59 @@ seconds per wall second): the progress bars and Cancel of 12.3 carry it; a short
 **Kept values** (all low confidence, game values): DE `fightingValue` 3.0, RU and xf 1.0; `enemyCapScale` 1.0; node
 ratios attack / pursue 0.5, ambush 0.7, defend / meeting / withdraw 1.0; lines of 3 sectors; experience +0.015 / +0.04 a
 minute / 0.05 a battle / cap 0.9; combat-ineffective 0.5; full replenishment. No sim change: goldens untouched.
+
+## 2026-11-20 — M12 review fixes (three independent reviews of `claude/m12`: rules, behaviour, code)
+
+Every finding was checked against the code; the real ones are fixed, three are left with a reason.
+
+**Fixed:**
+- **Deployable men** (code review 1, high; reproduced: a company of idle crews was proposed, confirmed and then threw
+  "a side of 0 men"). `commit.ts` `deployableMen(f, unit)` counts a unit's men through the same strip `commitOf` uses
+  (crews of hulls in the workshop or lost rest). `selectables`, `fittestCompany`, `proposeChoice` (a company needs a
+  platoon with deployable men), `enemyChoice` (so an enemy of idle crews is a walkover) and `validateCommit` use it,
+  and so does `operation.ts` `ableShare` (the combat-ineffective line). `confirmForces` validates the flank company
+  and drops the flank battle when it cannot fight; `battleInputs` re-validates the confirmed choice (a damaged save
+  fails with the choice's problems, not with a 0-men battle). Crews of lost or workshop hulls still rest rather than
+  fight on foot inside an operation (owner question). Earlier batch record hashes no longer reproduce where crews sat
+  idle (the proposed company can differ).
+- **Walking wounded heal** (behaviour 2 and code 2; reproduced in saved records). A man out "wounded" without
+  recovery days (bruises under armour only: the medical settlement skips blunt wounds; wounded and out by an exit
+  zone: never handed to care) kept his wounds for good. `applyResult`: bruises only, healed at once; other wounds,
+  `recovery.walkingWoundedDays` (new, 3, game value, low; he stays with his unit, which also sets `rosterIn` so his
+  old wounds are not treated again next battle). `replenish` heals anyone still wounded with no days left.
+- **The app builds campaign battles as the tools do** (behaviour 1; reproduced in 7 of 8 seeds). `app/src/campaign/
+  hooks.ts` `CAMPAIGN_HOOKS = { defenceStartPosts }` for auto-resolve, the played battle and the sector preview, as
+  the batches and CLI (`ON_POSTS`) and the single-battle app. Tested: the runner sees the tools' input.
+- **A played result belongs to its record** (rules 1, code 4, code 3). The pending result carries `hashRecord` of
+  the record it was fought for and is applied only to that record (another record: dropped with a message); it is
+  cleared only after the record moved on (a cancelled flank auto-resolve keeps it; Auto-resolve then applies it, not
+  a new battle). The mid-battle save also carries the record hash (`setCampaignKey`) and loads only into that
+  record's battle.
+- **Saves check the campaign rules** (rules 2). `CampaignSave.rulesFingerprint` (optional: older saves have none) is
+  a hash of `core/campaign.json` and both factions' campaign blocks, outside the catalog fingerprint; a mismatch warns
+  "rules-changed" and loads. `validateSave` refuses an operation whose node types the rules lack, an unknown phase
+  and malformed choices. No version bump.
+- **String tables** (rules 3). `commitProblems` gives `{key, params}` (`cmp.problem.<key>`), `validateCommit` keeps the
+  English lines for logs and tests; "Make leader" refusals are `LeaderError` keys (`cmp.leaderRefused.*`); flow and
+  other errors show `cmp.msg.flowError` / `cmp.msg.error` with the English in the console; import and "no battle"
+  messages no longer show error text.
+- **Save / home on the briefing and the replenishment card** (behaviour 3): the owner's free saving between battles.
+- **Workshop hulls refilled at a replenishment** (behaviour 4): standard load, booked as delivered; repair goes on.
+- **Endless steps bounded** (behaviour 6 in part, code minor): the endless run keeps its last 30 steps
+  (`stepsDropped` counts the rest; `nodesFought` keeps the sector rhythm). Service history, consumption and log still
+  grow (owner question on save size).
+- **Text** (behaviour 5): the flank line ("fights on the flank at the same time: {node}"), "both sides advance" for a
+  meeting, and the after-battle "New leaders" lists only automatic appointments.
+- **Smaller:** experience only for men still with the battalion or recovering (rules 7); replacement skills sorted by
+  key explicitly (rules 6, same order as before); `campaign -- chain --from` refuses a save of the operations flow;
+  `repairIds` documents that a renamed man's history stays with the first holder of the id.
+- **Docs** (rules 4, 5): M12 is 🟡 in ROADMAP until the owner answers the DE/RU balance question and does the phone
+  test; STATE and HOW_IT_WORKS say `fightingValue` 3.0 is a placeholder for the mounted-battle balance pass.
+
+**Not changed:**
+- Leader promotion out of a crew (code minor): a crew commander moved up into a platoon HQ takes his standard load
+  from the first template of his role (`standardSlot`), which may belong to another hull type. It changes only what a
+  replenishment refills him with; kept, noted here.
+- The preview waits behind a running auto-resolve in the one worker (code minor): harmless, a second worker costs
+  memory on the phone.
+- Folding old service history and consumption entries (behaviour 6): the owner's open save-size question.

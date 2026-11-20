@@ -5,7 +5,17 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
-- **M12.4 built, M12 complete (2026-11-20, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.7).** Faction
+- **M12 review fixes (2026-11-20, branch `claude/m12`; DECISIONS "M12 review fixes").** Three independent reviews
+  (rules, behaviour, code). Fixed: `deployableMen` (crews of workshop or lost hulls are not counted anywhere the choice
+  is made, `ableShare` too; a flank company that cannot fight drops the flank battle; `battleInputs` re-validates the
+  choice), walking wounded without recovery days heal (`recovery.walkingWoundedDays` 3, bruises only at once), the
+  app builds campaign battles with `CAMPAIGN_HOOKS` (defence on its posts, as the tools), the pending played result
+  and the mid-battle save carry the record hash, `CampaignSave.rulesFingerprint` ("rules-changed" warning) and node
+  checks on load, string-table keys for choice problems and "Make leader" refusals, Save / home on the briefing and
+  replenishment, workshop hulls refilled at replenishment, endless steps kept to the last 30. M12 is 🟡 in ROADMAP
+  until the owner's phone test and his DE/RU balance answer. `fightingValue` DE 3.0 is a placeholder for the
+  mounted-battle balance pass (Puma vs BMP-2), not a measured value.
+- **M12.4 built (2026-11-20, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.7).** Faction
   `fightingValue` (`factions/<id>/campaign.json`, outside the catalog; DE 3.0, RU and xf 1.0) weighs the enemy's
   commitment and can shrink its caps (`battle.enemyCapScale` 1.0: never past a company; 2.0 made a node take 18.5 min
   to auto-resolve on the phone proxy); operations are lines of 3 sectors (3-5 battles);
@@ -27,7 +37,8 @@ DECISIONS.md under its date._
   the game or kept · the same company proposed again or the fittest (rotation) · night battles from the campaign
   clock · a lost flank battle turning a main win into a draw · leaving a played battle early · battle's own craters
   slow movement · confirm the low-confidence values (`core/campaign.json`, `CRATER_NAV`, effective fire = suppression
-  >= 0.1, `SCENARIO_KIND`) · saves: fingerprint mismatch only warns, one auto slot, full service history.
+  >= 0.1, `SCENARIO_KIND`) · saves: fingerprint mismatch only warns, one auto slot, full service history · (review)
+  crews of hulls in the workshop or lost rest inside an operation, or fight on foot · `recovery.walkingWoundedDays` 3.
 - **M12.3 built (2026-11-19, branch `claude/m12`; plan `docs/plans/m12-roster.md` 4.6).** `?campaign=1` opens the
   campaign page (`app/src/campaign/page.ts`): home (new campaign: faction, carriers, operations / endless; continue;
   slots load / save / rename / delete / export; import), battalion tree, man card ("Make leader"), briefing (sector

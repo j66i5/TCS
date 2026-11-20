@@ -2021,7 +2021,8 @@ on the phone proxy). That weight is a game value, measured from batches of opera
 computer on both sides. With the same faction on both sides an operation succeeds a bit more than half the time
 (58 %). Between Germany and Russia it does not work yet: Germany won every operation and Russia none, even when
 Germany sent only one Puma platoon, because in the battles themselves a Puma platoon beats a BMP-2 company; that needs
-a balance pass on the mounted battle (DECISIONS M12.4 has the numbers).
+a balance pass on the mounted battle (DECISIONS M12.4 has the numbers). Germany's value of 3 is a placeholder until
+that pass: it hides a gap inside the battles rather than measuring one, and it is not a statement about real armies.
 
 **After a battle** the men come home as the battle left them: the dead are gone for good (their history is kept), the
 evacuated wounded go to a recovery pool for the days the medical settlement gave them and come back to their old

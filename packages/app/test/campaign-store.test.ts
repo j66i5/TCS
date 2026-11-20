@@ -4,11 +4,28 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { AUTO_SLOT, CAMPAIGN_VERSION, hashRecord, newCampaign, SaveError } from "@tcs/campaign";
 import { loadData } from "../../tools/src/scenarios";
-import { CampaignStore, exportFileName, memoryBackend, validSlotName } from "../src/campaign-store";
+import { CampaignStore, exportFileName, memoryBackend, pendingMatches, validSlotName } from "../src/campaign-store";
 import { campaignSlotOf, saveMatchesSlot } from "../src/save";
 
 const data = loadData(true);
 const FIXTURE = new URL("../../campaign/test/fixtures/campaign-v1.json", import.meta.url);
+
+describe("review M12: a played battle's result belongs to the record it was fought for", () => {
+  it("pending results match by record hash only; cleared only when asked", async () => {
+    const store = new CampaignStore(memoryBackend(), data);
+    const a = newCampaign(data, { seed: 1, faction: "xf", enemy: "xf" });
+    const b = newCampaign(data, { seed: 2, faction: "xf", enemy: "xf" });
+    expect(a.battles).toBe(b.battles);
+    await store.putPending(a.battles, hashRecord(a), "{}");
+    const p = await store.pending();
+    expect(pendingMatches(p, hashRecord(a))).toBe(true);
+    expect(pendingMatches(p, hashRecord(b))).toBe(false); // (same battle count, another record)
+    expect(pendingMatches({ battles: 0, result: "{}" }, hashRecord(a))).toBe(false); // (stored before the fix)
+    expect(pendingMatches(null, hashRecord(a))).toBe(false);
+    await store.clearPending();
+    expect(await store.pending()).toBeNull();
+  });
+});
 
 describe("M12.1b campaign store", () => {
   it("several named slots and the automatic one; load gives the record back; remove", async () => {

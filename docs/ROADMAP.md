@@ -469,7 +469,8 @@ for the owner's numbers answer after playing, not for more building).
     man outside, tows the hull off the map at 8 km/h; at the end the hulls left are recovered or captured by the side
     holding the ground (roster `VehicleRecord.recovery`, `capturedBy`); `lab -- repair` part B.
 
-- **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) ✅ (2026-11-20; owner's phone test pending) — owner 2026-11-19: a battalion, operations
+- **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) 🟡 (built and reviewed 2026-11-20; pending the owner's
+  phone test and his answer on the DE/RU balance: the 30-70 % success band is met only with one faction on both sides) — owner 2026-11-19: a battalion, operations
   of 3-5 linked battles plus an endless mode, free saving (plan `docs/plans/m12-roster.md`, seven slices).
   - 12.0a contract gaps ✅ (2026-11-19): `BattleInput.damage` / `wrecksIn`, `BattleResult.damageOut` / `service`
     (only with `rules.campaignOut`), `ScenarioDef.forces` / `terrain`, campaign package rules (lint, `BattleRunner`),
@@ -501,6 +502,10 @@ for the owner's numbers answer after playing, not for more building).
     recovery days, combat-ineffective line and replenishment kept; batches: xf vs xf 58 % success, DE 100 %, RU 0 %
     (the Puma / BMP-2 gap is in the mounted battle: a balance pass, owner question); phone proxy auto-resolve timed;
     HOW_IT_WORKS campaign section, SPEC 9.3 note (DECISIONS "M12.4").
+  - Review fixes ✅ (2026-11-20, DECISIONS "M12 review fixes"): deployable men (idle crews no longer counted, no 0-men
+    battles), walking wounded heal, the app's campaign battles built like the tools' (defence on its posts), a played
+    result and the mid-battle save tied to the record hash, rules fingerprint and node checks in saves, string-table
+    problems, Save / home on the briefing, workshop hulls refilled, endless steps bounded.
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 
 ## Stage D — breadth

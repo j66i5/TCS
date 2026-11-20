@@ -6,6 +6,7 @@
  * replenishment card, and the played battle's hand-back (`battleResultOf`) gives the same record as the auto-resolve.
  * Real battles with the fixture faction (xf against xf, 90 s each) and one DE vs RU node.
  */
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   afterBattleView, autoResolve, battalionView, battleInputs, briefingView, chooseForces, confirmForces, exportSave, finishBattle, findMan, hashRecord, makeLeader,
@@ -16,6 +17,7 @@ import { planControllers } from "@tcs/ai";
 import { aiRunner } from "../../tools/src/campaign";
 import { loadData, ON_POSTS } from "../../tools/src/scenarios";
 import { finishNode, sectorPreview } from "../src/campaign/resolve";
+import { CAMPAIGN_HOOKS } from "../src/campaign/hooks";
 
 const data = loadData(true);
 const ENV: FlowEnv = { runner: aiRunner, hooks: ON_POSTS };
@@ -162,7 +164,7 @@ describe("M12.3 views: after a battle, replenishment, the played battle", () => 
   it("a played battle handed back (battleResultOf with the logistics from the events) gives the record the auto-resolve gives", () => {
     let r = startFlow(data, newCampaign(data, { ...XF, seed: 25, battleSeconds: 60 }));
     r = confirmForces(data, chooseForces(data, r));
-    const nb = battleInputs(data, r);
+    const nb = battleInputs(data, r, CAMPAIGN_HOOKS);
     const input = nb.main!.input;
     // The app's loop: AI orders each tick, events into the logistics.
     const sim = createSim({ ...input, orders: [] });
@@ -182,4 +184,22 @@ describe("M12.3 views: after a battle, replenishment, the played battle", () => 
     expect(hashRecord(viaPlayed)).toBe(hashRecord(viaAuto));
     expect(phaseOf(viaPlayed)).toBe("after-battle");
   });
+  it("review M12: the app builds its campaign battles as the tools do (the defence's hulls on their posts)", () => {
+    let r = startFlow(data, newCampaign(data, { seed: 3, faction: "de", enemy: "ru", battleSeconds: 60 }));
+    r = confirmForces(data, chooseForces(data, r));
+    const tb = battleInputs(data, r, ON_POSTS), bb = battleInputs(data, r);
+    // (The runner sees the flank battle first when the node has one.)
+    const tools = (tb.flank ?? tb.main)!.input, bare = (bb.flank ?? bb.main)!.input;
+    let seen: unknown = null;
+    const stop = new Error("captured");
+    expect(() => finishNode(data, r, null, () => undefined, undefined, (input) => { seen = input; throw stop; })).toThrow(stop);
+    expect(hashText(seen)).toBe(hashText(tools));
+    // (The hook matters here: without it the defence's hulls start elsewhere.)
+    expect(hashText(bare)).not.toBe(hashText(tools));
+    const p = sectorPreview(data, r, "flat", 200)!;
+    const blue = tb.main!.input.forces.find((f) => f.side === "blue")!;
+    expect(p.hulls).toEqual((blue.vehiclePlacements ?? []).map((v) => ({ x: v.x, y: v.y })));
+  });
 });
+
+const hashText = (x: unknown) => createHash("sha256").update(JSON.stringify(x)).digest("hex");

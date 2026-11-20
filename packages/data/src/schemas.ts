@@ -522,6 +522,10 @@ export const BehaviourFile = withProv({
      *  `guidedTargetFactor` times as far; a hull penetrated within `recentPenSeconds` `penetratedTargetFactor` times.
      *  Absent: 1 (no spreading). */
     guidedTargetFactor: Num(1, 100).optional(), penetratedTargetFactor: Num(1, 100).optional(), recentPenSeconds: Num(0, 600).optional(),
+    /** Balance pass 5 (F9): a station's gunner guides a missile only where the light, or the best night or thermal
+     *  sight of his seat that reaches the range, gives at least this (a day sight in the dark: no guidance). Absent: no
+     *  light test. */
+    missileNightFloor: Num(0, 1).optional(),
   }).strict(),
   /** Shoulder-fired anti-tank weapons (M7.4a). See BehaviourDef.antitank. */
   antitank: z.object({

@@ -784,9 +784,12 @@ const MISSILE_END_ALLOWANCE_M = 5;
  * (ground, walls, roofs, hulls; the own and the target's hull ignored), and seen through woods, hedges and smoke
  * (a day sight: nothing through smoke) at least `missileSeenFloor`.
  */
-export function missileSees(ctx: SimContext, state: SimState, vid: EntityId, target: EntityId, sx: number, sy: number, sz: number, ax: number, ay: number, az: number): boolean {
-  const r = sight(ctx, sx, sy, sz, ax, ay, az, vid, target);
+export function missileSees(ctx: SimContext, state: SimState, vid: EntityId, target: EntityId, sx: number, sy: number, sz: number, ax: number, ay: number, az: number, sightLight?: number): boolean {
   const range = hypot2(ax - sx, ay - sy);
+  // Balance pass 5 (F9): in the dark, only with a night or thermal sight that reaches (`sightLight`, a station's).
+  const floor = ctx.catalog.behaviour.gunnery.missileNightFloor;
+  if (sightLight !== undefined && floor !== undefined && Math.max(state.environment.light, sightLight) < floor) return false;
+  const r = sight(ctx, sx, sy, sz, ax, ay, az, vid, target);
   if (r.blockedBy !== null && (1 - r.blockedAt) * range > MISSILE_END_ALLOWANCE_M) return false;
   let seen = r.visibility;
   if (state.smoke.length > 0) {
@@ -804,7 +807,24 @@ function missileSeesTarget(ctx: SimContext, state: SimState, vid: EntityId, v: V
   if (!t) return false;
   const [sx, sy, sz] = muzzleWorld(ctx, def, si, wi, t.x, t.y, t.heading, v.stations[si]!.azimuth);
   if (!missileAimPoint(ctx, state, target, MSL_AIM, { x: sx, y: sy, z: sz, own: vid })) return false;
-  return missileSees(ctx, state, vid, target, sx, sy, sz, MSL_AIM.x, MSL_AIM.y, MSL_AIM.z);
+  return missileSees(ctx, state, vid, target, sx, sy, sz, MSL_AIM.x, MSL_AIM.y, MSL_AIM.z, stationSightLight(ctx, def, si, hypot2(MSL_AIM.x - sx, MSL_AIM.y - sy)));
+}
+
+/**
+ * Balance pass 5 (F9): the light the best sight of a station's operator seat gives at `rangeM`: the largest
+ * `nightLight` of its sensors that reach that far (a day sight 0, an image intensifier 0.5, a thermal 1).
+ */
+export function stationSightLight(ctx: SimContext, def: VehicleDef, si: number, rangeM: number): number {
+  const op = def.stations[si]?.operator;
+  let best = 0;
+  for (const seat of def.seats) {
+    if (seat.station !== op) continue;
+    for (const sn of seat.sensors ?? []) {
+      const k = ctx.catalog.spotting.sensors[sn.kind];
+      if (k && (k.maxRangeM ?? Infinity) >= rangeM && k.nightLight > best) best = k.nightLight;
+    }
+  }
+  return best;
 }
 
 /** A missile on this station's launcher, ready to fire now: halted, nothing in flight, the launcher working. */

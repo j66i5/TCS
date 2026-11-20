@@ -5,11 +5,12 @@
  *   F3  a hull counts as firing between two looks for vehicles, and while its gunner guides a missile.
  *   F4  a hit on a carrier calls out the squads in it and in carriers near it, not the whole side.
  *   F5  fire spread: an own missile guided onto a hull is known to the side's crews.
+ *   F9  night: the BMP-2's first-generation night sight reaches about 850 m; no missile guided in the dark beyond it.
  */
 import { describe, expect, it } from "vitest";
-import { createSim, step, submitOrder, TICK_HZ, type BattleInput, type Sim, type SimEvent } from "@tcs/sim";
+import { createSim, environmentAt, step, submitOrder, TICK_HZ, type BattleInput, type Sim, type SimEvent } from "@tcs/sim";
 import { carrierHitNear } from "../../sim/src/mount";
-import { guidedTargets } from "../../sim/src/systems/gunnery";
+import { guidedTargets, stationSightLight } from "../../sim/src/systems/gunnery";
 import { vehicleFiringTicks, vehicleShowsFiring } from "../../sim/src/systems/spotting";
 import { duel } from "../src/labs/gunnery";
 import { loadData } from "../src/scenarios";
@@ -133,5 +134,31 @@ describe("balance pass 5: crews' gunnery", () => {
     expect(carrierHitNear(sim.state, blue, [blue], 300)).toBe(true);
     expect(carrierHitNear(sim.state, blue, [red], 300)).toBe(false);
     expect(carrierHitNear(sim.state, blue, [red], 1001)).toBe(true);
+  });
+
+  it("F9: the BMP-2 gunner's night channel reaches 850 m and the commander's 400 m; the Puma's thermal 3000 m", () => {
+    const sim = createSim(hulls("puma-besatzung", "bmp2-ekipazh", 1000));
+    const bmp = sim.ctx.catalog.vehicles["ru-bmp2"]!, puma = sim.ctx.catalog.vehicles["de-puma"]!;
+    expect(stationSightLight(sim.ctx, bmp, 0, 800)).toBe(0.5);
+    expect(stationSightLight(sim.ctx, bmp, 0, 1500)).toBe(0);
+    expect(stationSightLight(sim.ctx, puma, 0, 2500)).toBe(1);
+    const cmd = bmp.seats.find((x) => x.station === "commander")!;
+    expect(cmd.sensors!.map((x) => sim.ctx.catalog.spotting.sensors[x.kind]!.maxRangeM)).toContain(400);
+  });
+
+  it("F9: on a moonless night a BMP-2 does not launch its Konkurs at a Puma 1500 m off; by day it does", () => {
+    const launches = (night: boolean): number => {
+      const input = hulls("puma-besatzung", "bmp2-ekipazh", 1500);
+      input.environment = night ? environmentAt(input.catalog, 0, 0) : environmentAt(input.catalog, 12 * 3600, 0.5);
+      const sim = createSim(input);
+      const bmp = vehicleOf(sim, "red");
+      sim.state.vehicle.req(vehicleOf(sim, "blue")).movedTick = 0; // a hot hull, easy to see
+      rules(sim, "blue", "hold"); rules(sim, "red", "free");
+      let n = 0;
+      run(sim, 40, (e) => { if (e.kind === "shot.fired" && e.vehicle === bmp && sim.ctx.catalog.ammo[e.ammo]?.guided) n++; });
+      return n;
+    };
+    expect(launches(false)).toBeGreaterThan(0);
+    expect(launches(true)).toBe(0);
   });
 });

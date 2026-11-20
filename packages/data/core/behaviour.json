@@ -361,7 +361,8 @@
     "missileHoldSeconds": 5,
     "guidedTargetFactor": 3,
     "penetratedTargetFactor": 1.5,
-    "recentPenSeconds": 10
+    "recentPenSeconds": 10,
+    "missileNightFloor": 0.3
   },
   "antitank": {
     "atRuleDefault": "vehicles",

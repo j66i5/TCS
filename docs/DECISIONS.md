@@ -10103,8 +10103,12 @@ hulls get the carriers out at 450-750 m before either distance is reached.
 
 Own hits: 2 in DE village player mode (0 before): a Puma crew's own air-burst HE at a target ~500 m off burst on a
 building 49 m in front of the muzzle, next to a man of its platoon. The line check sees no own man in the line to the
-target; a round striking an obstacle near the muzzle is not covered. Not changed here (gunnery); listed for the
-measurement.
+target; a round striking an obstacle short of the point was not covered (it failed the real-data test
+`mounted-assault.test.ts`, own hits must be 0). Fixed in `stationHeld`: for a bursting round, when an own man is
+within its danger radius of the line at all, the line from the muzzle is traced (`sight`) and a wall, roof or ground
+it strikes short of the point is checked for own men within that radius like the point itself
+("why.hold.dangerClose"). Headless bench-vehicles 120 s: 14.3-15.4 s wall time with the check, 14.6 s without
+(noise; the timing tests run alone at the end of the pass).
 
 Golden replays updated (`npm run golden:update`, 12 changed: catalog fingerprint, the AI's threat cap and urban
-dismount in the village battles); `packages/tools/golden/no-interiors` untouched.
+dismount in the village battles, the burst-short check); `packages/tools/golden/no-interiors` untouched.

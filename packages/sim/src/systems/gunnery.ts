@@ -38,7 +38,7 @@ import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, pow, sin, sqrt, wrapAngle } from "../math";
-import { compCondition, fireTop, occupant, onRoof, REPAIR_INSIDE, vehicleItems } from "../mount";
+import { compCondition, fireTop, isMounted, occupant, onRoof, REPAIR_INSIDE, vehicleItems } from "../mount";
 import { indoorAt } from "../interior-nav";
 import { reactiveAdd, tileFor } from "../tiles";
 import { nextFloat, nextNormal, Streams } from "../rng";
@@ -402,10 +402,37 @@ export function stationHeld(
   const t = state.transform.req(vid);
   const dz = stationDangerM(ctx, def, si, wi, fi, hypot2(x - t.x, y - t.y));
   if (dz > 0 && ownMenWithin(state, v.side, x, y, dz)) return "why.hold.dangerClose";
-  const mz = muzzleWorld(ctx, def, si, wi, t.x, t.y, t.heading, v.stations[si]!.azimuth)[2];
+  const mw = muzzleWorld(ctx, def, si, wi, t.x, t.y, t.heading, v.stations[si]!.azimuth), mz = mw[2];
   const tz = heightAt(ctx.map, x, y) + heightM; // ground: ok (the point fired at)
+  // Balance pass 5 (urban assault lab): a bursting round that strikes a wall, a roof or the ground short of the point
+  // bursts there: own men within its danger radius of that place hold it too (a Puma's HE at a target 500 m off burst
+  // on a house 49 m in front of its muzzle, next to a man of its platoon). The line is traced only when an own man
+  // is that near the line at all.
+  if (dz > 0 && ownMenNearLine(state, v.side, mw[0], mw[1], x, y, dz)) {
+    const s = sight(ctx, mw[0], mw[1], mz, x, y, tz);
+    if (s.blockedBy === "wall" || s.blockedBy === "roof" || s.blockedBy === "ground") {
+      const bx = mw[0] + (x - mw[0]) * s.blockedAt, by = mw[1] + (y - mw[1]) * s.blockedAt;
+      if (ownMenWithin(state, v.side, bx, by, dz)) return "why.hold.dangerClose";
+    }
+  }
   if (friendInLine(ctx, state, op, x, y, Math.max(ctx.catalog.behaviour.gunnery.friendBeyondM ?? 0, dz), undefined, { mz, tz })) return "why.hold.friends";
   return null;
+}
+
+/** Is an able own man on foot (or on a roof) within `r` of the segment (ax, ay)-(bx, by)? */
+function ownMenNearLine(state: SimState, side: string, ax: number, ay: number, bx: number, by: number, r: number): boolean {
+  const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy, r2 = r * r;
+  for (const [id, ident] of state.identity.entries()) {
+    if (ident.side !== side) continue;
+    const s = state.soldier.get(id);
+    if (s === undefined || !s.physiology.alive || s.captive !== null || (isMounted(s) && !onRoof(state, id))) continue;
+    const t = state.transform.get(id);
+    if (!t) continue;
+    const k = L2 > 0 ? Math.min(1, Math.max(0, ((t.x - ax) * dx + (t.y - ay) * dy) / L2)) : 0;
+    const qx = ax + dx * k - t.x, qy = ay + dy * k - t.y;
+    if (qx * qx + qy * qy <= r2) return true;
+  }
+  return false;
 }
 
 /** Balance pass 5: the air-burst setting of the round on a station weapon's feed, if it has one. */

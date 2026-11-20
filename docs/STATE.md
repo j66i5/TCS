@@ -5,6 +5,14 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 5, 3B area fire and air burst (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5:
+  area fire and air burst").** Crews with no live target under fire "free" fire at the places their men last knew
+  enemy men (`crewSuspects`, weight halving every 45 s, half of each ready belt kept, 60 m / danger radius clear of
+  own men); the mounted assault's support posts fire at the objective that way when nobody is known there. Programmed
+  air-burst fuzes as ammo data: Puma 30 mm KETF (PMC308 / DM21: 162 x 1.24 g pellets thrown forward), Leopard DM11
+  (bursts 3 m over the point); BMP-2, T-72B3M, T-90M impact only (owner Q8). Fire order `fuse`, the Fire tray's
+  "Gun: HE air burst". Lab `npm run lab -- areafire`; screenshots `--scene areafire`. Next: the owner's pause, then
+  the measurement (plan section 4).
 - **Balance pass 5, 3A the mounted assault (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: the
   mounted assault").** Assault to riders, a hull or a platoon with carriers: carriers to dismount points (doctrine
   distance, terrain-aware), squads out into the foot drill, hulls back to support-by-fire posts and fire on the

@@ -414,6 +414,9 @@ export function airburstOf(ctx: SimContext, def: VehicleDef, si: number, wi: num
   return round === undefined ? undefined : ctx.catalog.ammo[round]?.airburst;
 }
 
+/** Balance pass 5: an ordered point this near a known enemy hull is fired at with the impact setting (m). */
+const HULL_NEAR_M = 15;
+
 /** Balance pass 5: an air burst is set only for a point at least this far beyond the burst's stand-off (m). */
 const AIRBURST_CLEAR_M = 30;
 
@@ -1373,6 +1376,8 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
   };
   // Balance pass 5: an air burst asked for is high explosive (and only from a round that has the setting).
   const wantAir = order.fuse === "airburst";
+  // (The crew's own setting at a point where it knows an enemy hull: impact, at the hull.)
+  const hullNear = crew !== undefined && crew.members.some((m) => state.soldier.get(m)?.contacts.some((c) => c.cls === "vehicle" && c.wreck !== true && hypot2(c.x - x, c.y - y) <= HULL_NEAR_M) === true);
   const want0: Nature = order.nature === "at" ? "atgm" : wantAir ? "he" : order.nature ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
   let any = false, noAir = false;
   for (let si = 0; si < v.stations.length; si++) {
@@ -1382,7 +1387,7 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
     if (!f) continue;
     // The air-burst setting: asked for, or the crew's choice at men in the open (not a vehicle, not a building).
     const ab = f.nature === "he" ? airburstOf(ctx, def, si, f.weapon, f.feed) : undefined;
-    const air = ab !== undefined && airburstAt(ab, d) && order.fuse !== "impact" && (wantAir || (!isVeh && indoorAt(ctx, x, y) < 0));
+    const air = ab !== undefined && airburstAt(ab, d) && order.fuse !== "impact" && (wantAir || (!isVeh && !hullNear && indoorAt(ctx, x, y) < 0));
     if (wantAir && !air) { noAir = true; continue; }
     const h = air && order.heightM === undefined ? ab.aimHeightM : order.heightM ?? (isVeh ? aimPointsOf(ctx, state, named)[apk]![2] : f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : aimHeightAt(ctx, known));
     setStationTask(ctx, state, vid, si, x, y, h, f.weapon, f.feed, named, false);

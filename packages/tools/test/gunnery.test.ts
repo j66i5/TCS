@@ -173,7 +173,8 @@ describe("vehicle gunnery (M7.3)", () => {
     // Fire HE straight at a standing man's chest: some rounds strike men and burst there.
     const target = [...sim.state.identity.entries()].find(([id, i]) => i.side === "red" && sim.state.soldier.req(id).mount === undefined)!;
     const tt = sim.state.transform.req(target[0]);
-    order(sim, "blue", b.crew, { kind: "fire", x: tt.x, y: tt.y, heightM: 1.2, nature: "he" });
+    // (Balance pass 5: the impact setting asked for; the Puma's round also has an air-burst one.)
+    order(sim, "blue", b.crew, { kind: "fire", x: tt.x, y: tt.y, heightM: 1.2, nature: "he", fuse: "impact" });
     let onBody = 0;
     const hits: { x: number; y: number; tick: number }[] = [];
     run(sim, 30, (e) => {

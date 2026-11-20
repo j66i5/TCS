@@ -1,7 +1,7 @@
 # Balance pass 5: Germany against Russia in the mounted battle (plan)
 
 **Progress:** plan written 2026-11-20 (branch `claude/balance-5`, from main d4bb676, after M12); revised the same day
-with the owner's two new features (section 3) and his order of work. 2026-11-20: the fix list (section 2, F0-F10) built, F8 covered by F1 (no siting change); DECISIONS "Balance pass 5" has what changed and the quick ledger. 2026-11-20: 3A, the mounted assault, built (DECISIONS "Balance pass 5: the mounted assault"; `npm run lab -- mounted-assault`, `--scene assault-mounted`). Next: 3B (area fire with HE / air burst), then section 4.
+with the owner's two new features (section 3) and his order of work. 2026-11-20: the fix list (section 2, F0-F10) built, F8 covered by F1 (no siting change); DECISIONS "Balance pass 5" has what changed and the quick ledger. 2026-11-20: 3A, the mounted assault, built (DECISIONS "Balance pass 5: the mounted assault"; `npm run lab -- mounted-assault`, `--scene assault-mounted`). 2026-11-20: 3B, area fire and air burst, built (DECISIONS "Balance pass 5: area fire and air burst"; `npm run lab -- areafire`, `--scene areafire`). Next: the owner's pause, then section 4.
 
 **Order of work (owner, 2026-11-20, binding):** finish the diagnosis and fix the bugs it found (section 2), pause
 before the final measuring, build the two features the owner asked for (section 3: mounted assault, area fire with

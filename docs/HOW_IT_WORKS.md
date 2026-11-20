@@ -1401,6 +1401,23 @@ a unit takes it out of the drill. The AI commander's attack uses the same dismou
 carriers stop and back to a post as soon as their squad is out, instead of driving on empty). Lab: `npm run lab --
 mounted-assault`.
 
+**Area fire and air burst (balance pass 5, the owner's request).** A vehicle crew that has lost sight of enemy men
+does not go quiet at once: under the fire rule "free" it keeps firing at the places its men last knew them. Each
+such place is a circle round where the men were last seen or reported (their spread plus how far they may have
+moved since), with a weight that halves every 45 s (twice for a man who was firing) and is dropped after two minutes
+or once its weight falls below 0.4 (one man unseen for about a minute). A cannon fires a short burst at a random point of the circle every 20 s divided by the
+weight (at least every 6 s); a tank's main gun fires only at a heavy place (a group, or a firing machine gun), one
+round every 45 s; otherwise the machine gun beside it. Half of each ready belt is kept for enemies it can see
+(ammunition rule "max": none kept; "conserve": no area fire at all), and nothing is fired at a place within 60 m (or
+the round's danger radius) of own men, with own men in the line, or under the rules "return" or "hold". A support
+post of the mounted assault with no enemy known on the objective fires at the objective itself the same way. Where
+the real round has a programmable fuze, the crew sets it to **burst in the air**: the Puma's 30 mm KETF round
+bursts about 15 m short of the laser range and throws its 162 tungsten pellets forward in a narrow cone; the
+Leopard's DM11 bursts 3 m over the point and throws its fragments all round. A seen man in the open gets the air
+burst too; one in a building gets the impact setting. The BMP-2, the T-72B3M, the T-90M and the wheeled carriers fire
+impact-fused high explosive (no source for an air-burst fuze on their rounds yet). The player can pick "Gun: HE air
+burst" in the Fire tray of a hull that has it. Lab: `npm run lab -- areafire`.
+
 **Guns (M7.3).** Each vehicle has a turret with a 30 mm cannon (armour-piercing and high-explosive rounds on two
 ready belts) and a machine gun beside it. Every round is counted: off the ready belt as it is fired, and when a
 belt runs low and the vehicle is standing still, the crew refills it from the rounds stowed in the hull (about

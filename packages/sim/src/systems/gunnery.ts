@@ -245,7 +245,7 @@ type HoldWhy = "why.hold.friends" | "why.hold.dangerClose" | "why.hold.noPierce"
 export function guidedTargets(state: SimState, side: string): EntityId[] | null {
   let out: EntityId[] | null = null;
   for (const [, ov] of state.vehicle.entries()) {
-    if (ov.side !== side) continue;
+    if (ov.side !== side || isOffMap(ov)) continue;
     for (const st of ov.stations) if (st.guide && st.guide.target >= 0) (out ??= []).push(st.guide.target);
   }
   for (const [, u] of state.unit.entries()) {

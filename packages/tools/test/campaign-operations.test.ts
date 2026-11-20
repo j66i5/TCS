@@ -108,6 +108,11 @@ describe("M12.2 choosing forces", () => {
     const strong = withValues({ de: 3, ru: 1 });
     expect(valueRatio(strong, rec)).toBeCloseTo(1 / 3, 9);
     expect(plats(plain)).toBeGreaterThan(plats(strong));
+    // The player three times as good: the enemy's caps grow, at most by `enemyCapScale` (more than a company).
+    const scale = Math.min(rules.battle.enemyCapScale ?? 1, 3);
+    const weakEnemy = withValues({ de: 1, ru: 3 });
+    const many = enemyFor(weakEnemy, rec, "main", 300).filter((k) => sel.get(k)!.what === "platoon").length;
+    expect(many).toBe(Math.min(9, Math.round(rules.battle.platoons * scale)));
     // Equal values cancel whatever they are.
     expect(enemyFor(withValues({ de: 2, ru: 2 }), rec, "main", 120)).toEqual(enemyFor(plain, rec, "main", 120));
   });

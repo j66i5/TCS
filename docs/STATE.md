@@ -5,6 +5,13 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **NEXT (owner answers to balance pass 5, 2026-11-20; not built yet, branch `claude/balance-6` is empty).**
+  Q17 village objective: "Village edge" (already built in pass 5; record in DECISIONS). Q6 Puma 30 mm: "Air-burst
+  only" (KETF / PMC308 only; drop the impact HE the Puma does not carry). Q8 T-90M: "Yes, low confidence" (a separate
+  3OF26 + Ainet air-burst round entry for the T-90M only; T-72B3M keeps impact HE). Q16/Q2 campaign: "Smaller forces
+  vs strong side" (let a much stronger side commit less than a platoon / offer the player a smaller force so DE and
+  RU as player both land in 30-70 % operation success; today RU 0/8, DE 8/8). Then measure (platoon batches, campaign
+  batches), review, fix. Workflow script: balance-6-owner-answers (session scripts dir), stopped before any change.
 - **Balance pass 5, review fixes (2026-11-20, branch `claude/balance-5`; DECISIONS "Balance pass 5: review fixes").**
   origin/main (start menu) merged. Four reviews' findings fixed: platoon-on-foot Assault kept its drill; shift/lift
   every step and each area burst's own point checked; KETF pellet cone holds for own men to ~180 m; riders get out only

@@ -242,6 +242,30 @@ describe("the commander's tanks (M7.6b)", () => {
     expect(hypot2(wp2.x - ex, wp2.y - ey)).toBeGreaterThan(TANKS.atStandoffM);
   });
 
+  it("balance pass 5 (F7): an attacker's tank that fires nothing on its post for idleRelocateSeconds moves on to its next post", () => {
+    const r = start(sc.build(data, 1, 600));
+    const { crews, vids } = tanksOf(r.sim, "blue");
+    const settled = (rr: Run) => {
+      const m = mem(rr.ctrls[0]!), tm = m.tk?.[String(crews[0]!)], p = tm?.posts[tm.post], t = rr.sim.state.transform.get(vids[0]!)!, v = rr.sim.state.vehicle.get(vids[0]!)!;
+      return p !== undefined && hypot2(p[0] - t.x, p[1] - t.y) <= TANKS.arrivedM && v.drive.arrived;
+    };
+    run(r, 300, settled);
+    expect(settled(r)).toBe(true);
+    // It holds its fire from here on (nothing to shoot at, as far as the commander can tell).
+    submitOrder(r.sim, { tick: r.sim.state.tick, issuer: "blue", target: crews[0]!, kind: "rules", fire: "hold" });
+    const tm0 = mem(r.ctrls[0]!).tk![String(crews[0]!)]!;
+    const p0 = tm0.posts[tm0.post]!;
+    let movedOn = -1;
+    const t0 = r.sim.state.tick;
+    run(r, TANKS.idleRelocateSeconds + 20, (rr) => {
+      const tm = mem(rr.ctrls[0]!).tk![String(crews[0]!)]!, p = tm.posts[tm.post]!;
+      if (hypot2(p[0] - p0[0], p[1] - p0[1]) > TANKS.arrivedM) { movedOn = rr.sim.state.tick; return true; }
+      return false;
+    });
+    expect(movedOn).toBeGreaterThan(0);
+    expect(movedOn - t0).toBeLessThanOrEqual((TANKS.idleRelocateSeconds + 20) * 60);
+  });
+
   it("a T-72B3M with its front tiles used up and an enemy man known 400 m off pulls back at least 150 m", () => {
     const sc2 = getScenario("platoon-ru-vehicles");
     const r = start(sc2.build(data, 1, 600));

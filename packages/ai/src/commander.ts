@@ -78,7 +78,10 @@ export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new 
   // at most `overwatchWaitSeconds`, and only while the team can still be set up on its post within that time (its
   // walk at `mtWalkMps` (the last `sneakM` at `mtSneakMps`), packing and set-up; review fix). The attacker's team sites its post on the ground
   // `mtBeyondObjectiveM` beyond the main objective (where the defence's vehicles stand).
-  mtArrivedM: 15, mtResendSeconds: 60, overwatchWaitSeconds: 90, mtWalkMps: 0.9, mtSneakMps: 0.45, mtBeyondObjectiveM: 100,
+  mtArrivedM: 15, mtResendSeconds: 60,
+  // Balance pass 5 (F6, game value, low): a missile team set up on its post that has launched nothing for this long
+  // (no enemy hull in its sight from there) moves on to its next post.
+  mtRepostSeconds: 90, overwatchWaitSeconds: 90, mtWalkMps: 0.9, mtSneakMps: 0.45, mtBeyondObjectiveM: 100,
   // M7.6d: an automatic grenade launcher team's post is this far from the enemy's area (within its engage range;
   // game values, low: about its effective range against point targets).
   aglMinM: 300, aglMaxM: 700,
@@ -181,7 +184,7 @@ interface Memory extends TanksMemory, LogisticsMemory {
   houseLeft?: Record<string, number>;
   /** M9.3b missile teams, per team: its overwatch posts [x, y, facing] (chosen once), the post it holds or goes to,
    *  the last launch it has answered (by moving on), and when it was last sent. */
-  mt?: Record<string, { posts: [number, number, number][]; post: number; launch: number; sent: number }>;
+  mt?: Record<string, { posts: [number, number, number][]; post: number; launch: number; sent: number; ready?: number }>;
   /** M7.5e step "clear": per squad, the house (building id) it was sent to clear and when; houses taken (ids); per
    *  squad, the house in the main ring it holds; per house, when its clearing last failed and when an enemy was last
    *  known in it. */
@@ -508,6 +511,12 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
       const busy = mt.guide !== null || view.action.has(l.carrier);
       // After a launch (the missile's flight over): on to the next post.
       if (mt.lastLaunchTick !== st.launch && !busy) { st.launch = mt.lastLaunchTick; if (st.posts.length > 1) { st.post = (st.post + 1) % st.posts.length; st.sent = -1e9; } }
+      // Balance pass 5 (F6): set up on its post with no launch for `mtRepostSeconds`: on to its next post (another view
+      // over the enemy's ground; it used to sit out the battle where it saw nothing).
+      if (mt.state === "ready") st.ready ??= tick; else delete st.ready;
+      if (!busy && st.ready !== undefined && st.posts.length > 1 && tick - Math.max(st.ready, mt.lastLaunchTick) > COMMANDER.mtRepostSeconds * 60) {
+        st.post = (st.post + 1) % st.posts.length; st.sent = -1e9; delete st.ready;
+      }
       const p = st.posts[st.post];
       const moving = u.moving || u.members.some((m) => (view.mover.get(m)?.waypoints.length ?? 0) > 0);
       if (p && !busy && hypot2(p[0] - lt.x, p[1] - lt.y) > COMMANDER.mtArrivedM && (!moving || st.sent < 0) && tick - st.sent >= COMMANDER.mtResendSeconds * 60) {

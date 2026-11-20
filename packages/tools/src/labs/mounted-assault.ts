@@ -8,7 +8,7 @@
  */
 import { commanderController } from "@tcs/ai";
 import { buildScenario, mountedTanks } from "@tcs/scenario";
-import { builtUpAround, createSim, hypot2, isBuiltUp, step, submitOrder, type BattleInput, type Controller, type EntityId, type SimEvent } from "@tcs/sim";
+import { builtUpAround, createSim, dismountDistance, hypot2, isBuiltUp, step, submitOrder, type BattleInput, type Controller, type EntityId, type SimEvent } from "@tcs/sim";
 import { getScenario, ON_POSTS } from "../scenarios";
 import type { DataSet } from "@tcs/data";
 type LoadedData = DataSet;
@@ -26,6 +26,9 @@ export interface MountedAssaultRow {
   threats: { hullM: number; objM: number; seen: boolean }[];
   /** Player mode, dismounts on a hit: the ammunition of the last enemy hit on an attacker's hull before it. */
   hitBy: Record<string, number>;
+  /** Review fixes: the share of the objective's points each post sees (0: a follow point seeing nothing); carriers
+   *  that made for cover before letting their squads out. */
+  postSeen: number[]; covers: number;
 }
 
 /** The scenario's attacking side: the one not holding the main objective's ground at the start (its defender stands
@@ -58,8 +61,11 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
   const faction = input.forces.find((f) => f.side === atk)!.faction;
   const ctx = { map: input.map, catalog: input.catalog } as Parameters<typeof isBuiltUp>[0];
   const urban = isBuiltUp(ctx, obj.x, obj.y);
-  const fd = input.catalog.factions[faction];
-  const doctrineM = (urban ? fd?.dismountUrbanM ?? fd?.dismountM : fd?.dismountM) ?? 0;
+  // (Review fix H3: the distance in force with the way in, from the attacker's hulls to the objective: a village's edge.)
+  const vp = input.forces.find((f) => f.side === atk)!.vehiclePlacements ?? [];
+  const cx = vp.length > 0 ? vp.reduce((a, p) => a + p.x, 0) / vp.length : obj.x - 1, cy = vp.length > 0 ? vp.reduce((a, p) => a + p.y, 0) / vp.length : obj.y;
+  const L = hypot2(obj.x - cx, obj.y - cy) || 1;
+  const doctrineM = Math.round(dismountDistance(ctx, faction, obj.x, obj.y, undefined, { ux: (obj.x - cx) / L, uy: (obj.y - cy) / L }).dismountM);
   const buildings = builtUpAround(ctx, obj.x, obj.y, input.catalog.behaviour.mounting.mountedAssault?.urban?.radiusM ?? 120).buildings;
   const ctrls: Controller[] = mode === "ai" ? [commanderController(atk, input), commanderController(def, input)] : [commanderController(def, input)];
   if (mode === "player") {
@@ -68,7 +74,7 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
       submitOrder(sim, { tick: 0, issuer: atk, target: id, kind: "assault", x: obj.x, y: obj.y } as never);
     }
   }
-  const row: MountedAssaultRow = { scenario, mode, seed, attacker: atk, doctrineM, map: input.map.meta.kind, urban, buildings, carriers: 0, dismountM: [], early: 0, hitAboard: 0, posts: 0, postM: [], fellBackM: [], rounds: 0, ownHits: 0, taken: false, takenS: null, reasons: {}, threats: [], hitBy: {} };
+  const row: MountedAssaultRow = { scenario, mode, seed, attacker: atk, doctrineM, map: input.map.meta.kind, urban, buildings, carriers: 0, dismountM: [], early: 0, hitAboard: 0, posts: 0, postM: [], fellBackM: [], rounds: 0, ownHits: 0, taken: false, takenS: null, reasons: {}, threats: [], hitBy: {}, postSeen: [], covers: 0 };
   const supporting = new Set<EntityId>();
   const watch: { vid: EntityId; tick: number; d0: number }[] = [];
   const hulls = new Set<EntityId>();
@@ -102,7 +108,8 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
           if (best) row.threats.push(best);
         }
         row.dismountM.push(e.distM); if (e.distM > doctrineM + 50) row.early++; seenVid.add(e.vehicle); supporting.add(e.vehicle); watch.push({ vid: e.vehicle, tick: e.tick, d0: e.distM }); }
-      else if (e.kind === "assault.supportPost") { row.posts++; row.postM.push(Math.round(hypot2(e.x - obj.x, e.y - obj.y))); supporting.add(e.vehicle); }
+      else if (e.kind === "assault.cover") row.covers++;
+      else if (e.kind === "assault.supportPost") { row.posts++; row.postSeen.push(e.seen); row.postM.push(Math.round(hypot2(e.x - obj.x, e.y - obj.y))); supporting.add(e.vehicle); }
       else if (e.kind === "unit.dismounted" && mode === "ai" && sim.state.unit.get(e.unit)?.side === atk && !seenVid.has(e.vehicle)) {
         const t = sim.state.transform.get(e.vehicle);
         if (t) { const d = Math.round(hypot2(t.x - obj.x, t.y - obj.y)); seenVid.add(e.vehicle); row.dismountM.push(d); if (d > doctrineM + 50) row.early++; watch.push({ vid: e.vehicle, tick: e.tick, d0: d }); supporting.add(e.vehicle); }
@@ -140,8 +147,8 @@ export function mountedAssaultLabMarkdown(rows: MountedAssaultRow[]): string {
   const groups = new Map<string, MountedAssaultRow[]>();
   for (const r of rows) { const k = `${r.scenario}|${r.mode}`; groups.set(k, [...(groups.get(k) ?? []), r]); }
   const lines = [
-    "Reasons a carrier let its squads out (player mode): point = at its dismount point; stopped = its drive gave up short of it (jammed); hit = it or a hull within 300 m hit (last 10 s); threatMen / threatVehicle = enemy men / a hull known close; near = within the distance when ordered; late = ride timeout; immobile; empty. Scenario@map: the same mounted platoon battle on that map kind. The attacker's platoons riding in to the main objective: \"player\" = the player's Assault order to each of its top units at the start (the mounted assault drill), the defender's commander as usual; \"ai\" = both commanders. Dismount = the carrier's distance to the objective when its squads got out (doctrine distance in brackets; early = more than 50 m beyond it); posts = support-by-fire posts sited (their distance to the objective); fell back = the hull's distance to the objective 90 s after the dismount minus at the dismount (+ = farther back); rounds = shots by those hulls after the dismount; own hits = hits by the attacker's hulls and crews on its own men. Game values (low): docs/DECISIONS.md, balance pass 5, mounted assault.",
-    "", "| Scenario | Map (buildings within 120 m) | Mode | Battles | Carriers | Dismount m (mean, min-max) | Early | Why out (player) | Hit aboard | Posts | Post m (mean) | Fell back m (mean) | Rounds | Own hits | Taken |", "|---|---|---|---:|---:|---|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+    "Cover first = carriers hit or threatened on the way in that made for a hidden spot before letting their squads out; posts seeing none = follow points with no post seeing the objective, the lane or the enemy near it. Reasons a carrier let its squads out (player mode): point = at its dismount point; stopped = its drive gave up short of it (jammed); hit = it or a hull within 300 m hit (last 10 s); threatMen / threatVehicle = enemy men / a hull known close; near = within the distance when ordered; late = ride timeout; immobile; empty. Scenario@map: the same mounted platoon battle on that map kind. The attacker's platoons riding in to the main objective: \"player\" = the player's Assault order to each of its top units at the start (the mounted assault drill), the defender's commander as usual; \"ai\" = both commanders. Dismount = the carrier's distance to the objective when its squads got out (doctrine distance in brackets; early = more than 50 m beyond it); posts = support-by-fire posts sited (their distance to the objective); fell back = the hull's distance to the objective 90 s after the dismount minus at the dismount (+ = farther back); rounds = shots by those hulls after the dismount; own hits = hits by the attacker's hulls and crews on its own men. Game values (low): docs/DECISIONS.md, balance pass 5, mounted assault.",
+    "", "| Scenario | Map (buildings within 120 m) | Mode | Battles | Carriers | Dismount m (mean, min-max) | Early | Why out (player) | Cover first | Hit aboard | Posts | Posts seeing none | Post m (mean) | Fell back m (mean) | Rounds | Own hits | Taken |", "|---|---|---|---:|---:|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
   ];
   for (const [k, rs] of groups) {
     const [sc, mode] = k.split("|");
@@ -149,7 +156,7 @@ export function mountedAssaultLabMarkdown(rows: MountedAssaultRow[]): string {
     const why: Record<string, number> = {};
     for (const r of rs) for (const [k, n] of Object.entries(r.reasons)) why[k] = (why[k] ?? 0) + n;
     const nb = rs.map((r) => r.buildings);
-    lines.push(`| ${sc} | ${rs[0]!.map}${rs[0]!.urban ? ", built-up" : ""} (${Math.min(...nb)}-${Math.max(...nb)}) | ${mode} | ${rs.length} | ${rs.reduce((s, r) => s + r.carriers, 0)} | ${fmt(mean(d))} (${d.length > 0 ? Math.min(...d) : "-"}-${d.length > 0 ? Math.max(...d) : "-"}; doctrine ${rs[0]!.doctrineM}) | ${rs.reduce((s, r) => s + r.early, 0)} | ${Object.entries(why).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ") || "-"} | ${rs.reduce((s, r) => s + r.hitAboard, 0)} | ${rs.reduce((s, r) => s + r.posts, 0)} | ${fmt(mean(p))} | ${fmt(mean(f))} | ${rs.reduce((s, r) => s + r.rounds, 0)} | ${rs.reduce((s, r) => s + r.ownHits, 0)} | ${rs.filter((r) => r.taken).length} |`);
+    lines.push(`| ${sc} | ${rs[0]!.map}${rs[0]!.urban ? ", built-up" : ""} (${Math.min(...nb)}-${Math.max(...nb)}) | ${mode} | ${rs.length} | ${rs.reduce((s, r) => s + r.carriers, 0)} | ${fmt(mean(d))} (${d.length > 0 ? Math.min(...d) : "-"}-${d.length > 0 ? Math.max(...d) : "-"}; doctrine ${rs[0]!.doctrineM}) | ${rs.reduce((s, r) => s + r.early, 0)} | ${Object.entries(why).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ") || "-"} | ${rs.reduce((s, r) => s + r.covers, 0)} | ${rs.reduce((s, r) => s + r.hitAboard, 0)} | ${rs.reduce((s, r) => s + r.posts, 0)} | ${rs.reduce((s, r) => s + r.postSeen.filter((x) => x <= 0).length, 0)} | ${fmt(mean(p))} | ${fmt(mean(f))} | ${rs.reduce((s, r) => s + r.rounds, 0)} | ${rs.reduce((s, r) => s + r.ownHits, 0)} | ${rs.filter((r) => r.taken).length} |`);
   }
   return lines.join("\n");
 }

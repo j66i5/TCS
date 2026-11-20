@@ -10040,7 +10040,9 @@ to be rerun alone at the end of the pass.
 
 **Owner questions (open):** Q6 (Puma: KETF only, both, impact only; built: one belt with both settings), Q8 (T-90M
 Ainet; built: impact only), Q9 (area fire for the player's hulls: built as "on under fire free", which his hulls get
-only when he sets it; recommended to keep).
+only when he sets it; recommended to keep). (Review fix, realism review: Q6 and Q8 were listed with the built option
+as the recommended one; the plan's recommendations stand: Q6 (a) KETF only, Q8 (a) Ainet for the T-90M. See the entry
+"Balance pass 5: review fixes".)
 
 ## 2026-11-20 — Balance pass 5: the mounted assault on built-up objectives (owner follow-up)
 

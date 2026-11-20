@@ -688,6 +688,14 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   loses 8 of 8 against DE's smallest commitment, one Puma platoon + HQ; `fightingValue` cannot move either) in
   DECISIONS "Balance pass 5: the measurement and the campaign values".
 
+- Balance pass 5, low-confidence data to confirm (review, add-data-entry step 5): the KETF pellet's diameter, drag and
+  penetration, its aim height 1 m, 15 m stand-off and 10 deg cone; DM11's burst height 3 m; `vehicle-night-gen1` 850 m
+  and `vehicle-night-short` 400 m (BMP-2, and since the review the BTR-82A: sources conflict on a thermal channel on
+  later batches); the BMP-2's Konkurs guided through its day sight only (`guideSensors`); the T-72B3M's 3BM60 (one
+  source disagrees); the review fixes' game values (`mountedAssault` cover, lane, hysteresis, blind follow, urban edge
+  margin 50 m). Owner questions Q6 (recommended: KETF only; built: both settings), Q8 (recommended: Ainet for the
+  T-90M; built: impact only), Q9 (area fire for the player's hulls), Q13-Q17: DECISIONS "Balance pass 5: area fire
+  and air burst" and "Balance pass 5: review fixes".
 - Balance pass 5, urban assault (low, game choices): DE `dismount.urbanDistanceM` 150 m, RU 200 m; built-up = a
   building, or 8 buildings / 4 % footprint within 120 m (core/behaviour.json `mountedAssault.urban`); Q13 (hit
   trigger) in DECISIONS "Balance pass 5: the mounted assault on built-up objectives".

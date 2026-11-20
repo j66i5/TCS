@@ -9944,3 +9944,100 @@ none since. The one in AI mode is not the drill's (the commander's own fire orde
 **Golden replays:** updated (`npm run golden:update`) for this intended change (the new behaviour block and strings
 change the catalog fingerprint; the AI's carriers back to support posts). `packages/tools/golden/no-interiors`
 untouched.
+
+## 2026-11-20 — Balance pass 5: area fire and air burst (owner's feature 3B; plan docs/plans/balance-5.md section 3B)
+
+**Owner request (2026-11-20, his words):** "Make vehicles fire more near areas where they believe enemy infantry is,
+even if they don't see them anymore. For this, they can use HE / airburst munitions, as they do in real life." Built
+after the fix list and the mounted assault, before the final measuring (owner's order of work).
+
+**Design (symmetric code, `sim/src/systems/gunnery.ts`; game values in `core/behaviour.json` `gunnery.areaFire`,
+low, the same for every side):**
+- **Places, not memory.** `crewSuspects(ctx, state, crew)` derives the places from the crew's own contacts each time
+  it is needed (nothing new is stored): each enemy man's freshest contact (seen or reported, not known down or given
+  up, at most `maxAgeSeconds` 120 s old = the contacts' own memory, its error within `maxRadiusM`), merged within
+  `gunnery.groupRadiusM` 15 m; weight per man 0.5^(age / `halfLifeSeconds` 45 s), x `firingWeight` 2 if he was
+  firing at or after the moment last seen; places below `minWeight` 0.4 are let go (one man unseen for about a
+  minute); circle = the men's spread plus their position error, `minRadiusM` 8 to `maxRadiusM` 40 m.
+- **When.** Only when `chooseTarget` finds nothing live (seen and reported targets always first), under fire "free"
+  (the crew's governing unit), not with ammunition "conserve", not while an ambush is laid, within the unit's range
+  rule; never at a place a crewman knows protected men at; own men kept the round's danger radius and spread, at
+  least `friendlyClearM` 60 m, clear of the whole circle, none in the line (`stationHeld`); a line from the muzzle
+  into the place (cover within its circle is what it fires into).
+- **How much.** High explosive first, else the coaxial machine gun within its reach. A cannon: one burst every
+  `everySeconds` 20 s / weight, at least `minEverySeconds` 6 s; a main gun (single rounds): only at a weight of
+  `mainGunMinWeight` 3, one round every `mainGunEverySeconds` 45 s. A ready feed fires at a place only while it holds
+  more than `reserveFraction` 0.5 of its capacity ("max": no reserve). Each burst at a random point of the circle
+  (stream "areaFire", created on first use). The station task carries `area` and `fuse`; event `vehicle.areaFire`
+  per burst (review, ledger); why keys `why.target.suspected`, `why.nature.airburst`.
+- **The mounted assault.** A support post with no enemy known on the objective fires at the objective itself the same
+  way (`areaFireOrder`, an ordered task: weight 1, the objective's radius; the far half once the squads are within
+  `shiftM`; none with own men within `ownClearM` + radius).
+- **The programmed fuze (ammo data `airburst`, fuse "programmable").** Fired with it, the round is aimed `aimHeightM`
+  over the point and its fuze is set at the muzzle to burst `standoffM` short of the range the crew believes (laser
+  or eye: its range error goes into the burst point); it still bursts on anything it strikes first. The projectile
+  pool has `burstTick` (0 = none; saved only when a live row has one: states without air bursts hash as before).
+  With `cone` (KETF) the burst throws its payload forward round the flight path (`ejectCone` in explosions.ts:
+  `count` sub-projectiles within `halfAngleDeg`, at `velocityFraction` of the round's speed, an ejection charge's
+  blast and suppression only); without, the round bursts as usual in the air (fragments all round). An air burst is
+  set only for a point at least 30 m beyond the stand-off. The crew's own choice: air burst at men in the open (seen
+  ones too) and at places; impact at a building, a hull, or an ordered point within 15 m of a known enemy hull.
+- **Player.** `fire` orders take `fuse?: "airburst" | "impact"` ("airburst" from a hull without the setting:
+  `radio.noAirburst`); the Fire tray's gun choice cycles through "Gun: HE air burst" on a hull that has it (plain
+  "Gun: HE" is then the impact setting). Automatic area fire follows the fire rule: the player's hulls start on
+  "return" (`decisions.defaultFireRule`), so they do it once he sets "free" (owner Q9 below).
+
+**Data (add-data-entry; search extracts only, pages not opened):**
+- Puma `de-30x173-he`: fuse "programmable", `airburst` {aimHeightM 1, standoffM 15, cone 10 deg, 162 x
+  `de-30-ketf-pellet`, 95-100 % speed, 0.5 g charge}. Rheinmetall data sheets ABM KETF 30x173 PMC308 (Bundeswehr
+  DM21): 162 cylindrical tungsten-alloy sub-projectiles of 1.24 g (201 g payload), 0.5 g ejection charge, fuze
+  programmed inductively at the muzzle, 1100 m/s, ~830 g round, dismounted troops among its targets. Pellet count and
+  mass medium in the note; aim height, stand-off, cone, pellet drag and penetration game values (entry stays low).
+  One belt with two settings is a simplification (the real belt holds KETF; owner Q6 open).
+- Leopard 2A7V `de-120-dm11`: fuse "programmable", `airburst` {aimHeightM 3, standoffM 0}: DM11's point detonation,
+  delay and air burst modes (Rheinmetall IDEX 2013: ahead of and above the target, out to 5000 m; esut.de 2021: first
+  fired from a Leopard 2A7V; Aviation Week / defence24: programming kit); burst height a game value (low).
+- Unchanged, impact only: BMP-2 3UOF8, T-72B3M and T-90M 3OF26 (Ainet / Telnik on the T-90M is owner Q8: thin
+  sources, not added), BTR-82A, GTK Boxer and its GMW.
+
+**Lab `npm run lab -- areafire 4`** (flat field; fuse part: ordered HE at six prone men 3 m apart, 30 s, 4 seeds;
+area part: fire free, six men 600 m off lie down in crops after 8 s, 240 s, 4 seeds):
+
+| hull | 400 m impact / air burst (hit, down) | 800 m | 1200 m |
+|---|---|---|---|
+| Puma (133 rounds) | 10, 3 / 8, 7 | 6, 3 / 8, 7 | 3, 2 / 12, 9 |
+| Leopard 2A7V (16 rounds) | 20, 12 / 24, 13 | 14, 7 / 13, 7 | 11, 5 / 17, 12 |
+| BMP-2 (192 rounds, impact only) | 12, 6 | 6, 5 | 7, 4 |
+| T-90M / T-72B3M (12 rounds, impact only) | 19, 11 | 13-14, 1-2 | 11, 3 |
+
+Area part: area bursts (4 runs) Puma 2 (its thermal sight keeps seeing them: seen fire), Leopard 13, BMP-2 11,
+T-90M 12, T-72B3M 11, BTR-82A 5, GTK-GMW 3; the last area burst at a median 96-142 s (the place fades: it stops by
+itself); ready HE left 50-91 % (the reserve holds). Air burst against prone men: the KETF about doubles the men down
+per round at 400-800 m and triples it at 1200 m; DM11's air burst matters mainly at 1200 m (impact HE of 120/125 mm
+already hurts prone men).
+
+**Quick ledger, A/B on the same code** (seeds 1-3, 1200 s, AI both sides; "off" strips `areaFire` and the `airburst`
+settings from the catalog):
+
+| | platoon-vehicles on / off | platoon-ru-vehicles on / off |
+|---|---|---|
+| attacker wins | 2 / 3 | 3 / 2 |
+| area bursts | Puma 49 HE air burst + 18 MG, BMP-2 8, T-90M 4 MG | BMP-2 30, T-72B3M 10 MG, Puma 10 |
+| RU casualties to Puma HE / KETF | 72 (573 HE rounds) / 38 (952) | 16 (51) / 32 (555) |
+| casualties to own fire | 6 / 6 | 0 / 3 |
+
+Three seeds decide nothing about wins; what shows: Pumas kill RU dismounts with fewer HE rounds (KETF), the BMP-2s
+and T-72B3Ms fire more at places when they attack, no rise in own-fire casualties. Expected (plan, C2): DE gains,
+answered by `fightingValue` after the measurement.
+
+**Performance:** bench-vehicles A/B in one process, alternating (`benchab.mts`, medians of 4): 60 s 9.3x on / 8.6x
+off, 300 s 10.2x / 10.1x: no measurable cost. The timing tests themselves were below their floors on this shared
+machine for every bench, the infantry-only spotting bench too (7.0-7.6x), so they say nothing about this change;
+to be rerun alone at the end of the pass.
+
+**Goldens:** `npm run golden:update`: 12 changed (catalog fingerprint; crews' air bursts and area fire);
+`packages/tools/golden/no-interiors` untouched.
+
+**Owner questions (open):** Q6 (Puma: KETF only, both, impact only; built: one belt with both settings), Q8 (T-90M
+Ainet; built: impact only), Q9 (area fire for the player's hulls: built as "on under fire free", which his hulls get
+only when he sets it; recommended to keep).

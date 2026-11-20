@@ -9791,3 +9791,78 @@ Every finding was checked against the code; the real ones are fixed, three are l
 - The preview waits behind a running auto-resolve in the one worker (code minor): harmless, a second worker costs
   memory on the phone.
 - Folding old service history and consumption entries (behaviour 6): the owner's open save-size question.
+
+## 2026-11-20 — Balance pass 5: Germany against Russia (mounted battle; plan docs/plans/balance-5.md)
+
+**Owner answers recorded (2026-11-20, all already built that way, no change):** wounded keep their real recovery
+times (no campaign scaling); the fittest company is proposed (companies rotate); crews of lost or workshop hulls rest.
+Owner: "Balance pass next" — this pass; the campaign `fightingValue` is set once, after the owner's two features
+(mounted assault, area fire with HE / air burst) are built and measured (plan section 4). Nothing here changes the
+campaign values.
+
+**Bug-fix list (plan section 2), symmetric code, both sides:**
+- **F0 (check, no change).** The sensors duel's "7 Konkurs hits, 0 through" at 1000 m: every Konkurs was lost when
+  the Puma's 30 mm struck the BMP-2 first (`missile.lost.struck` / `.launcher`); the hits counted were 3UBR8 stopped by
+  the Puma's front. No armour or fuse error.
+- **F1 (C5, C6).** A crew may choose its station's missile while its hull moves (`missileReady(..., moving)`); the
+  hull then halts for `gunnery.missileHoldSeconds` 5 s (new `DriveState.fireHoldUntilTick`, route kept) and stays
+  halted while it guides a wire- or beam-guided missile of its own (time of flight + 1 s). Not a hull under a
+  player's move order (`playerHold`); cleared on reverse-out and on a player's move. A crew no longer fires
+  armour-piercing at a face it has no chance to get through (the plate alone, without the reactive tile, beats its
+  best AP round; `apCouldPierce`): it takes another target, else holds (`why.hold.noPierce`). Stopped kinetic rounds
+  do no harm in the model and the shots show the hull (firingFactor 15). Stations with no AP round are not judged.
+- **F2 (C8).** A top-attack missile (Spike LR, `guided.topAttack`) is judged against the roof it dives onto
+  (`faceNeed(..., top)`: the stronger of the hull's and turret's top plates with their tiles), not the face it is
+  fired at. Pumas now take the Spike to a T-90M's or T-72B3M's front.
+- **F3 (C10).** A hull counts as firing for the spotting signature and heat for at least `VEHICLE_SCAN_EVERY` scans
+  (4 s) after a shot, not 2 s (half the crews' looks for vehicles missed a single shot), and for the whole flight of a
+  wire- or beam-guided missile its gunner guides (`vehicleShowsFiring`). The night gun flash keeps the shot's own 2 s.
+  F3b (a missile task on a precise reported hull contact) already existed: `chooseTarget` takes reported contacts
+  within `reportedErrorM` and the missile needs the gunner's own sight of the hull.
+- **F4 (C4).** The AI commander dismounts a squad on a hit to its own carrier or a carrier within `dismountHitNearM`
+  300 m of it (`carrierHitNear`, sim/mount.ts, pure, for the mounted-assault drill later), not the whole side on any
+  hit anywhere. Arrival, anti-tank threat and the ride timeout are unchanged.
+- **F5 (C9).** Fire spread: a hull an own missile is being guided onto scores `guidedTargetFactor` 3 times as far, a
+  hull penetrated within `recentPenSeconds` 10 s `penetratedTargetFactor` 1.5 times (`guidedTargets`).
+- **F6 (C11).** A missile team set up on its post that has launched nothing for `mtRepostSeconds` 90 s moves on to
+  its next post (as the AGL teams do). Its fire at hulls the side reports was already there (the commander's
+  ordered shots); the BP4 "no shot" loop is not reopened.
+- **F7 (C12).** An attacker's tank that has fired nothing on its post for `TANKS.idleRelocateSeconds` 60 s takes
+  its next post (another view over the targets).
+- **F8 (C13).** Not built as a siting change: F1 already keeps hulls that cannot pierce a front from engaging it
+  (the RU ambush's 172 front AP hits came from this). Posts scored by side aspect stay a candidate if the measurement
+  shows ambushes still open on fronts.
+- **F9 (C19-C21; game values, low; search extracts only).** New sensor kinds `vehicle-night-gen1` (850 m: the BMP-2
+  gunner's BPK-2-42, about 400-650 m passive, 800-900 m with its IR searchlight) and `vehicle-night-short` (400 m: the
+  BMP-2 commander's TKN-3B night channel, which he lacked). `vehicle-night-ir` (3000 m) stays on the BTR-82A: sources
+  conflict (some give its sight about 3 km). Missile guidance from a station needs the light, or the best sight of the
+  gunner's seat that reaches the range, at `gunnery.missileNightFloor` 0.3 or more (`stationSightLight`): a day sight
+  in the dark guides nothing. Teams on foot are unchanged. No campaign effect (its battles are by day).
+- **F10 (C16-C18).** T-72B3M carousel round 3BM42 -> 3BM60 (low; Army Recognition, weaponsystems.net, the 125 mm
+  ammunition and 2A46 reference pages: the B3's 2A46M-5 comes with an autoloader modified for the Svinets rods; one
+  forum post disagrees). Relikt on the T-90M's hull side against 30 mm APFSDS: no source beyond game forums, kept.
+  PG-7VL 300 m (manufacturer's sighting range) against PzF3 400 m halted / 300 m moving: both as published, kept.
+
+**Kept as real gaps (answered later by `fightingValue`):** C1 (PMC287 through every BMP-2 face), C2 (Puma fire
+control and HE at range), C3 (no thermal sight on the BMP-2), C14 (meetings open beyond RU's reach), C15 (2A42
+reach), C22 (Leopard's size), C24 (infantry optics).
+
+**Quick ledger, 6 seeds each, 1200 s, day** (`<scratchpad>/bal5/ledger.mts`; seeds 4-6 of the "after" run already had
+F9 / F10 data loaded; light 1, so F9 does not act):
+
+| | platoon-vehicles (DE attacks) before | after F1-F4 | platoon-ru-vehicles (RU attacks) before | after |
+|---|---|---|---|---|
+| attacker wins | 5 of 6 | 5 of 6 | 3 of 6 (2 DE, 1 draw) | 3 of 6 (3 DE) |
+| RU / DE casualties | 179 / 82 | 191 / 78 | 71 / 82 | 101 / 92 |
+| Puma APFSDS hits on tanks (stopped) | 526 (487) on T-90M | 27 (5) | 41 (38) on T-72B3M | 9 (2) |
+| BMP-2 AP hits on Pumas (stopped) | 44 (41) | 0 | 3 (2) | 4 (0) |
+| Spike launches | 0 | 8 (5 T-90M destroyed) | 0 | 3 (3 T-72B3M destroyed) |
+| Konkurs / Metis-M launches | 3 / 2 | 4 / 5 | 0 / 2 | 1 / 2 |
+
+The wasted fire is gone on both sides; the Spike is now used where it belongs; RU still launches its Konkurs rarely
+(the BMP-2s die to the Pumas' first rounds at 550-750 m). The 20-run acceptance batches and the campaign come after
+the owner's features (plan section 4).
+
+**Golden replays:** updated (`npm run golden:update`) for these intended changes (new behaviour values and sensor
+kinds change the catalog fingerprint; crews' target choice, missile halts, the firing window and the commander's
+dismount change replays with vehicles). `packages/tools/golden/no-interiors` untouched.

@@ -1,6 +1,6 @@
 {
   "campaign": {
-    "fightingValue": 2.0,
+    "fightingValue": 3.0,
     "sources": [],
     "confidence": "low",
     "note": "M12.4 game value, no source: the relative fighting value of one man of this faction in the campaign's enemy commitment (the enemy commits its node ratio x the player's men x the player's value / its own value), tuned from operation batches with the AI on both sides so that an operation succeeds 30-70 % of the time for every faction (DECISIONS M12.4). Battles never read it."

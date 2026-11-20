@@ -1041,6 +1041,56 @@ async function assaultScenes(page: Page, name: string, errors: string[], shots: 
 }
 
 /**
+ * Balance pass 5 mounted assault (`--scene assault-mounted`; owner 2026-11-20): the platoon battle with the player
+ * attacking mounted (blue, village). A Puma selected: the order bar offers Assault. The platoon given Assault on the
+ * main objective: the dismount points (squares) a few seconds later, the squads out at a dismount point, the hulls on
+ * their support-by-fire posts (diamonds) and one of them firing on the objective. Photo and flat looks.
+ */
+async function mountedAssaultScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => {
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p = `${outDir}/assault-mounted-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  };
+  const info: object[] = [];
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=platoon&side=blue&attacker=blue&seed=${seed}&look=${look}&map=${args["map"] ?? "village"}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+      const [vid, crew] = t.vehicles()[0]; t.select(crew); const p = s.transform.get(vid); t.focus(p.x + 40, p.y, 200); t.stepTicks(1);`) as () => void);
+    await shot(`${look}-0-hull-bar`);
+    const plat = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; const o = t.sim.ctx.rules.objectives[0];
+      const plat = [...s.unit.entries()].find(([, u]) => u.side === "blue" && u.parent === null && u.vehicle === undefined && u.children.some((c) => s.unit.get(c)?.vehicle !== undefined))[0];
+      t.select(plat); t.assault(o.x, o.y); t.stepTicks(60 * 4);
+      const ma = s.unit.get(plat).mountedAssault; const ps = ma ? ma.carriers.map((c) => [c.dx, c.dy]) : [];
+      let x = o.x, y = o.y; for (const [px, py] of ps) { x += px; y += py; } x /= ps.length + 1; y /= ps.length + 1;
+      t.focus(x - 100, y, 900); t.stepTicks(1); return plat;`) as () => number);
+    await shot(`${look}-1-dismount-points`);
+    const out = await page.evaluate(new Function("plat", `const t = globalThis.__tcs; const s = t.sim.state;
+      for (let i = 0; i < 60 * 240; i += 30) { t.stepTicks(30); const ma = s.unit.get(plat).mountedAssault; if (!ma || ma.carriers.some((c) => c.phase === "dismount" && s.tick - c.phaseTick > 60 * 5)) break; }
+      const ma = s.unit.get(plat).mountedAssault; const c = ma ? ma.carriers.find((k) => k.phase === "dismount") ?? ma.carriers[0] : null;
+      const p = c ? s.transform.get(c.vehicle) : null; if (p) t.focus(p.x, p.y, 180); t.stepTicks(1);
+      return { tick: s.tick, phases: ma ? ma.carriers.map((k) => k.phase + '@' + Math.round(Math.hypot(s.transform.get(k.vehicle).x - ma.x, s.transform.get(k.vehicle).y - ma.y))) : [] };`) as (p: number) => object, plat);
+    await shot(`${look}-2-dismounted`);
+    const post = await page.evaluate(new Function("plat", `const t = globalThis.__tcs; const s = t.sim.state;
+      t.select(plat); t.stepTicks(60 * 25);
+      const ma = s.unit.get(plat).mountedAssault; const ps = ma ? ma.carriers.filter((k) => k.post).map((k) => k.post) : [];
+      let x = 0, y = 0; for (const p of ps) { x += p.x; y += p.y; } if (ps.length > 0) { x /= ps.length; y /= ps.length; t.focus(x + 100, y, 500); } t.stepTicks(1);
+      return { tick: s.tick, posts: ps.map((p) => Math.round(p.x) + ',' + Math.round(p.y)) };`) as (p: number) => object, plat);
+    await shot(`${look}-3-support-posts`);
+    const fire = await page.evaluate(new Function("plat", `const t = globalThis.__tcs; const s = t.sim.state;
+      let fired = null; const ma0 = s.unit.get(plat).mountedAssault; const vids = ma0 ? ma0.carriers.map((k) => k.vehicle) : [];
+      for (let i = 0; i < 60 * 120 && fired === null; i++) { t.stepTicks(1); for (const id of vids) { const v = s.vehicle.get(id); if (!v) continue; for (const st of v.stations) for (const w of st.weapons) if (s.tick - w.lastShotTick === 2) fired = id; } }
+      const p = fired !== null ? s.transform.get(fired) : null; const o = t.sim.ctx.rules.objectives[0];
+      if (p) t.focus((p.x + o.x) / 2, (p.y + o.y) / 2, Math.hypot(o.x - p.x, o.y - p.y) + 150); t.stepTicks(1);
+      return { tick: s.tick, fired };`) as (p: number) => object, plat);
+    await shot(`${look}-4-firing`);
+    info.push({ look, out, post, fire });
+  }
+  console.log(`${name}: assault-mounted scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M7.6b tanks in battle (`--scene tanks-battle`): the platoon battle with a tank section on each side, the player
  * defending (red) so the AI commander plays the attacker's Leopards: the start (tanks in dead ground behind the
  * carriers), the Leopards on their posts at about 200 s close up (zoom 30), a firing frame, and the debug overview
@@ -2296,6 +2346,7 @@ try {
     if (args["scene"] === "recovery") { await recoveryScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks") { await tankScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "assault-mounted") { await mountedAssaultScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "wheeled") { await wheeledScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "assault") { await assaultScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "medical") { await medicalScenes(page, name, errors, shots); await page.close(); continue; }
@@ -2438,7 +2489,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "prisoners" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" || args["scene"] === "campaign" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "supply" || args["scene"] === "prisoners" || args["scene"] === "recovery" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "assault-mounted" || args["scene"] === "wheeled" || args["scene"] === "assault" || args["scene"] === "campaign" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

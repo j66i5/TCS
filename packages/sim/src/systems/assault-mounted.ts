@@ -147,7 +147,8 @@ export function supportReachM(ctx: SimContext, def: VehicleDef, light: number): 
 /**
  * Where a hull goes to support the assault by fire (the drill's and the AI commander's one rule): round `anchor`
  * (behind `behind.minM` along the way out when given) a post seeing `postMinSeen` of the objective; none: round where
- * it stands, no farther forward; none: the same seeing any of it. The stand-off from known enemy men counts up to the
+ * it stands, no farther forward, then up to three `postBackM` steps farther back (enemy men known close); each
+ * seeing `postMinSeen`, else any of it. The stand-off from known enemy men counts up to the
  * objective's near edge (the enemy on it is what it fires at). In the dark the anchor comes forward until the
  * objective lies within its night sight (`supportReachM`), never inside `minObjectiveM`. Null: none (it stays). Pure.
  */
@@ -173,8 +174,14 @@ export function siteSupportPost(ctx: SimContext, def: VehicleDef, o: {
   // Round where it stands, no farther forward than it is.
   const ux = o.behind ? -o.behind.ux : (o.obj.x - o.hull.x) / (hypot2(o.obj.x - o.hull.x, o.obj.y - o.hull.y) || 1);
   const uy = o.behind ? -o.behind.uy : (o.obj.y - o.hull.y) / (hypot2(o.obj.x - o.hull.x, o.obj.y - o.hull.y) || 1);
-  const here = { ...base, anchor: o.hull, standoffM: standoff(o.hull), behind: { x: o.hull.x, y: o.hull.y, ux: -ux, uy: -uy, minM: 0 } };
-  return supportPost(ctx, def, here) ?? supportPost(ctx, def, { ...here, minSeen: 0.01 });
+  // (Enemy men known close to it: farther back, out of their rockets' reach, `postBackM` at a time, up to three.)
+  for (let k = 0; k <= 3; k++) {
+    const a = { x: clampTo(o.hull.x - ux * k * P.postBackM, ctx.map.widthM), y: clampTo(o.hull.y - uy * k * P.postBackM, ctx.map.heightM) };
+    const here = { ...base, anchor: a, standoffM: standoff(a), behind: { x: o.hull.x, y: o.hull.y, ux: -ux, uy: -uy, minM: 0 } };
+    const q = supportPost(ctx, def, here) ?? supportPost(ctx, def, { ...here, minSeen: 0.01 });
+    if (q) return q;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- the order
@@ -424,6 +431,8 @@ function supportFire(ctx: SimContext, state: SimState, events: EventSink, ma: Mo
   const v = state.vehicle.get(c.vehicle);
   if (!v || (v.status !== "ok" && v.status !== "immobilised" && v.status !== "disarmed")) return;
   if (state.tick - c.fireTick < secondsToTicks(P.fireEverySeconds)) return;
+  // (On its post: not while it backs there — a line checked once a second swings with the hull.)
+  if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) return;
   const own = squadMen(state, [...ma.squads, ...ma.carriers.flatMap((k) => k.others)]);
   let near = Infinity;
   for (const m of own) near = Math.min(near, hypot2(m.x - ma.x, m.y - ma.y));

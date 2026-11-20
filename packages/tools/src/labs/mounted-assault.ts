@@ -59,7 +59,7 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
     for (const [id, s] of sim.state.soldier.entries()) if (s.mount !== undefined) aboard.set(id, true);
     const ev: SimEvent[] = step(sim);
     for (const e of ev) {
-      if (e.kind === "assault.dismounted") { row.dismountM.push(e.distM); if (e.distM > doctrineM + 50) row.early++; seenVid.add(e.vehicle); watch.push({ vid: e.vehicle, tick: e.tick, d0: e.distM }); }
+      if (e.kind === "assault.dismounted") { row.dismountM.push(e.distM); if (e.distM > doctrineM + 50) row.early++; seenVid.add(e.vehicle); supporting.add(e.vehicle); watch.push({ vid: e.vehicle, tick: e.tick, d0: e.distM }); }
       else if (e.kind === "assault.supportPost") { row.posts++; row.postM.push(Math.round(hypot2(e.x - obj.x, e.y - obj.y))); supporting.add(e.vehicle); }
       else if (e.kind === "unit.dismounted" && mode === "ai" && sim.state.unit.get(e.unit)?.side === atk && !seenVid.has(e.vehicle)) {
         const t = sim.state.transform.get(e.vehicle);

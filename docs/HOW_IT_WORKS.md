@@ -1377,6 +1377,30 @@ vehicle stops, the ramp opens and the men get out one at a time, landing a few m
 a squad aboard any other order (move, assault, fire ...) and it gets out first, then does it. A man who runs out
 of magazines walks over to a stopped vehicle of his side nearby and takes three from its stowage.
 
+**Assault with the vehicles (balance pass 5, owner 2026-11-20).** Give **Assault** to a squad or platoon that is
+riding, or to a hull, and the vehicles do the drive in. Each carrier goes to its own **dismount point** short of the
+objective: the side's doctrine distance (Germans 300 m, Russians 400 m, from the research on each army's drills),
+on the way in, 60 m apart across it, and if a spot up to 100 m farther back is out of sight of the objective's near
+edge and of the enemy its men know, that one. The map shows each point as a small square at the end of a dashed
+line. The squads get out there, or earlier if their carrier (or one within 300 m) is hit, if the crew knows enemy
+men within 400 m or sees an enemy hull within 600 m, or after five minutes; then they assault on foot as any squad
+does: rushes by halves, the last stretch together. The empty carrier **falls back a little** to a support-by-fire
+post (a diamond on the map): a spot about 20-140 m behind where it let them out from which its sight sees at least a
+quarter of the objective, preferably one where only its turret shows, not within 300 m of enemy men it knows (rocket reach) and
+never within 200 m of the objective. From there it fires every 20 s at the enemy its side knows on the objective (only
+those its gun has a line to, never near its own men); when its squads get within 200 m it shifts its fire to the far
+half, within 100 m it lifts it altogether, and says so on the radio. Russian carriers then follow their squads about
+150 m behind, post to post; German ones stay on their post (each side's doctrine). When the squads are done: if one
+of them stands on the objective, the vehicles close up to 60 m short of it; if not, they go to their squads to pick
+them up. A hull with nobody aboard (a tank, an empty carrier) **assaults by fire**: it goes to a post about 250 m out
+and fires on the objective, but never drives onto it without infantry. At night the post must lie within the
+hull's night sight of the objective (a thermal sight reaches as far as the gun; the BMP-2's image intensifier about
+850 m), so a hull without a good night sight moves closer, never inside 200 m. The card shows the hull's part
+("driving to the dismount point", "squads getting out", "supporting by fire"). Any new move, halt or assault order to
+a unit takes it out of the drill. The AI commander's attack uses the same dismount points and support posts (its
+carriers stop and back to a post as soon as their squad is out, instead of driving on empty). Lab: `npm run lab --
+mounted-assault`.
+
 **Guns (M7.3).** Each vehicle has a turret with a 30 mm cannon (armour-piercing and high-explosive rounds on two
 ready belts) and a machine gun beside it. Every round is counted: off the ready belt as it is fired, and when a
 belt runs low and the vehicle is standing still, the crew refills it from the rounds stowed in the hull (about

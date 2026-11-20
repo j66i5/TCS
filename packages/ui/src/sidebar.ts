@@ -186,6 +186,9 @@ export interface Sidebar {
   /** `part`: the selected unit's drone tile (M9.4a) or headquarters tile (owner 2026-11-15) is selected, not the
    *  unit's. */
   update(tiles: readonly UnitTile[], selected: EntityId | null, part?: TilePart): void;
+  /** Open the folds above a unit's tile (owner 2026-11-20): the app calls it on every explicit selection (map tap,
+   *  Tab, an event, the Wounded tab), even of the unit already selected, before `update`. */
+  reveal(unit: EntityId, part?: TilePart): void;
   setSide(side: "left" | "right"): void;
   /** Open or close the full list (a wide screen keeps it open). */
   setExpanded(on: boolean): void;
@@ -267,6 +270,8 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
     // button stay one tap away.)
     slimWounded.style.display = nWounded > 0 || slimShow ? "" : "none";
   };
+  // (UX review fix: a list made shorter by a fold, or opened from the strip, keeps no stale scroll past its end.)
+  const clampScroll = () => { const max = Math.max(0, list.scrollHeight - list.clientHeight); if (list.scrollTop > max) list.scrollTop = max; };
   const applyExpanded = () => {
     const on = expanded || wide();
     root.classList.toggle("expanded", on);
@@ -275,6 +280,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
     head.setAttribute("aria-label", on && !wide() ? s.t("side.closeTitle") : s.t("side.units"));
     if (!on) tab = "units";
     applyTab();
+    clampScroll();
   };
   head.onclick = () => { if (!wide()) { expanded = !expanded; applyExpanded(); onResize(); } };
   tabUnits.onclick = () => { tab = "units"; applyTab(); };
@@ -282,10 +288,11 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
   slimWounded.onclick = () => { tab = "wounded"; if (!wide()) { expanded = true; } applyExpanded(); tab = "wounded"; applyTab(); onResize(); };
   applyExpanded();
   globalThis.addEventListener("resize", applyExpanded);
-  const els = new Map<string, { row: HTMLDivElement; b: HTMLButtonElement; fold: HTMLButtonElement | null; key: string }>();
+  const els = new Map<string, { row: HTMLDivElement; b: HTMLButtonElement; fold: HTMLButtonElement | null; foldKey: string | null; key: string }>();
   // Owner 2026-11-20: folded units (callsign paths; this battle only), the selection last seen (a new one opens the
   // folds above it) and the last tiles (a fold tapped lays them out again at once).
   let collapsed: ReadonlySet<string> = new Set<string>(), lastSel = "";
+  let want: { unit: EntityId; part: TilePart } | null = null;
   let last: { tiles: readonly UnitTile[]; selected: EntityId | null; part: TilePart } | null = null;
   const chevron = `<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 6 L8 10.5 L12.5 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   /** Review fix: more rows below the bottom edge fade out there (the list scrolls). */
@@ -299,8 +306,25 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
       const sel = `${selected}|${part ?? ""}`;
       if (sel !== lastSel && selected !== null) collapsed = expandTo(tiles, collapsed, selected, part);
       lastSel = sel;
+      // (Review fix: an explicit selection, even of the unit already selected, opens its platoon too.)
+      if (want !== null) { collapsed = expandTo(tiles, collapsed, want.unit, want.part); want = null; }
+      // (Review fix: a tile with the keyboard focus folded away hands the focus to its folded platoon's button.)
+      const active = document.activeElement;
+      let focusedKey: string | null = null;
+      if (active) for (const [k, e] of els) if (e.row.contains(active)) { focusedKey = k; break; }
+      const rows = visibleTiles(tiles, collapsed, { unit: selected, part });
+      let foldOwner: string | null = null;
+      if (focusedKey !== null && !rows.some((r) => tileKey(r.tile) === focusedKey)) {
+        const fi = tiles.findIndex((t) => tileKey(t) === focusedKey);
+        for (const r of rows) {
+          if (!r.collapsed || r.index >= fi) continue;
+          let end = r.index + 1;
+          while (end < tiles.length && tiles[end]!.depth > r.tile.depth) end++;
+          if (fi < end) { foldOwner = tileKey(r.tile); break; }
+        }
+      }
       const keep = new Set<string>();
-      visibleTiles(tiles, collapsed, { unit: selected, part }).forEach((r, i) => {
+      rows.forEach((r, i) => {
         const t = r.tile;
         const tk = tileKey(t), isDrone = t.kind === "drone", tp = tilePart(t);
         keep.add(tk);
@@ -334,18 +358,24 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
             if (expanded && !wide() && tab === "units") { expanded = false; applyExpanded(); onResize(); }
           };
           row.append(b);
-          e = { row, b, fold: null, key: "" };
+          e = { row, b, fold: null, foldKey: null, key: "" };
           els.set(tk, e);
         }
         // The fold button (a unit with sub-units): its own button beside the tile, so a tap on it never selects.
+        // (Review fix: the key is read when tapped, not when the button was made.)
+        e.foldKey = r.fold;
         if (r.fold !== null && !e.fold) {
-          const f = document.createElement("button"), fk = r.fold;
+          const f = document.createElement("button"), entry = e;
           f.className = "hud-tile-fold";
           f.onclick = () => {
+            const fk = entry.foldKey;
+            if (fk === null) return;
             const next = new Set(collapsed);
             if (next.has(fk)) next.delete(fk); else next.add(fk);
             collapsed = next;
             if (last) api.update(last.tiles, last.selected, last.part);
+            clampScroll();
+            markMore();
           };
           e.row.append(f); e.fold = f; e.key = "";
         } else if (r.fold === null && e.fold) { e.fold.remove(); e.fold = null; e.key = ""; }
@@ -355,7 +385,10 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
           : t.kind === "hq" ? `${s.t("side.platoonAll")} · ${s.t(`side.state.${t.state}`)}${moraleChip(s, t)}`
           : `${s.t(`side.state.${t.state}`)}${moraleChip(s, t)}`;
         // (Folded: how many units it hides and the worst state among them, so folding never hides trouble.)
-        const below = r.collapsed ? `${s.t("side.foldedN", { n: r.hidden })}${r.alert ? ` · ${s.t("side.worstBelow", { state: s.t(`side.state.${r.alert}`) })}` : ""}` : "";
+        // (UX review: the count is on the fold button already; the detail line names only the worst state below, the
+        // tile's title has both.)
+        const worst = r.collapsed && r.alert ? s.t("side.worstBelow", { state: s.t(`side.state.${r.alert}`) }) : "";
+        const below = r.collapsed ? `${s.t("side.foldedN", { n: r.hidden })}${worst ? ` · ${worst}` : ""}` : "";
         const key = `${t.callsign}|${t.fit}|${t.total}|${t.state}|${detail}|${t.parent}|${r.fold}|${below}`;
         if (e.key !== key) {
           e.key = key;
@@ -383,10 +416,10 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
           men.textContent = isDrone ? `${t.dronePct ?? 0} %` : s.t("side.men", { fit: t.fit, total: t.total });
           const det = document.createElement("span");
           det.className = "hud-tile-detail";
-          det.textContent = below ? `${detail} · ${below}` : detail;
+          det.textContent = worst ? `${detail} · ${worst}` : detail;
           e.b.append(sym, name, men, det);
           if (r.collapsed && r.alert) { const dot = document.createElement("span"); dot.className = "hud-tile-alert"; dot.setAttribute("aria-hidden", "true"); e.b.append(dot); }
-          e.b.title = `${t.parent ? `${t.parent} · ` : ""}${t.callsign}: ${det.textContent}`;
+          e.b.title = `${t.parent ? `${t.parent} · ` : ""}${t.callsign}: ${below ? `${detail} · ${below}` : detail}`;
           if (e.fold) {
             e.fold.innerHTML = `${chevron}${r.collapsed ? `<span class="hud-fold-n">+${r.hidden}</span>` : ""}`;
             e.fold.setAttribute("aria-expanded", String(!r.collapsed));
@@ -400,6 +433,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
         if (list.children[i] !== e.row) list.insertBefore(e.row, list.children[i] ?? null);
       });
       for (const [k, e] of els) if (!keep.has(k)) { e.row.remove(); els.delete(k); }
+      if (foldOwner !== null && active instanceof HTMLElement && !active.isConnected) els.get(foldOwner)?.fold?.focus({ preventScroll: true });
       // (The fold buttons name the rows they open: the sub-tiles shown right now.)
       for (const e of els.values()) {
         if (!e.fold) continue;
@@ -410,6 +444,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
       }
       markMore();
     },
+    reveal(unit, part) { want = { unit, part }; },
     setWounded(rows, amb) {
       nWounded = rows.filter((r) => r.status !== "evacuated").length;
       slimShow = rows.length > 0 || (amb?.rows.length ?? 0) > 0;

@@ -147,7 +147,8 @@ async function uiScenes(page: Page, name: string, errors: string[], shots: strin
  * The list as it opens (all unfolded); the second platoon folded by its fold button (the selection unchanged, "+n" on
  * the button, a worst-state dot: a man of a hidden squad is set pinned for the shot), on the open list too (phone);
  * the first platoon folded as well; then a squad of the first platoon selected from outside (the hook, as the map or
- * the keys would): its platoon opens, the second stays folded. Checks (thrown): a fold tap never selects, hidden tiles are out of the list, the fold buttons are >= 32 px.
+ * the keys would): its platoon opens, the second stays folded; folded again and the same squad selected again: it opens
+ * again. Checks (thrown): a fold tap never selects, hidden tiles are out of the list, the fold buttons are >= 32 px.
  */
 async function foldScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const info: object[] = [];
@@ -187,12 +188,19 @@ async function foldScenes(page: Page, name: string, errors: string[], shots: str
     await page.click(":nth-match(.hud-side-list .hud-tile-fold, 1)");
     const afterBoth = await count();
     await shot("3-two-platoons-folded");
-    // A squad of the first platoon selected from outside the list: the company and the platoon open.
+    // A squad of the first platoon selected from outside the list: its platoon opens.
     const sq = await page.evaluate(new Function(`const t = globalThis.__tcs; const us = t.units(); const pl = us.filter((u) => u.kind === "hq" && u.depth === 1)[0];
       const i = us.indexOf(pl); const sq = us.slice(i + 1).find((u) => u.kind === "infantry"); t.select(sq.unit); t.stepTicks(1);
       return { unit: sq.unit, callsign: sq.callsign, shown: document.querySelector('.hud-side-list .hud-tile[data-unit="' + sq.unit + '"]:not([data-hq]):not([data-drone])') !== null };`) as () => { unit: number; shown: boolean });
     if (!sq.shown) throw new Error("fold: the selected squad's tile is still folded away");
     await shot("4-selected-opens");
+    // (Review fix) Its platoon folded again with the squad still selected, then the same squad selected again (a second
+    // tap on it on the map): the platoon opens again.
+    const again = await page.evaluate(new Function(`const t = globalThis.__tcs, u = ${sq.unit};
+      const q = () => document.querySelector('.hud-side-list .hud-tile[data-unit="' + u + '"]:not([data-hq]):not([data-drone])') !== null;
+      document.querySelectorAll('.hud-side-list .hud-tile-fold')[0].click(); const hidden = !q();
+      t.select(u); t.stepTicks(1); return { hidden, shown: q() };`) as () => { hidden: boolean; shown: boolean });
+    if (!again.hidden || !again.shown) throw new Error(`fold: selecting the same squad again did not open its platoon ${JSON.stringify(again)}`);
     if (name === "phone") await page.evaluate(new Function("globalThis.__tcs.expandSidebar(false);") as () => void);
     info.push({ look, all, afterPlatoon, afterBoth, folded, opened: await count() });
   }

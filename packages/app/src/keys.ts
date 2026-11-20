@@ -43,8 +43,10 @@ export function attachKeys(a: App): (now: number) => void {
     }
   };
   const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+  // (Owner 2026-11-20, review fix: Enter or Space on a focused sidebar fold button folds, as on any web button.)
+  const onFold = (e: KeyboardEvent) => (e.code === "Space" || e.code === "Enter") && e.target instanceof HTMLElement && e.target.classList.contains("hud-tile-fold");
   window.addEventListener("keydown", (e) => {
-    if (typing(e.target)) return;
+    if (typing(e.target) || onFold(e)) return;
     const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey };
     if (isPanKey(e.code) && !mods.ctrl && !mods.alt && !mods.meta) { panKeys.add(e.code); stopFollow(a); e.preventDefault(); return; }
     const k = keyAction(e.code, e.key, mods);
@@ -55,7 +57,7 @@ export function attachKeys(a: App): (now: number) => void {
     if (e.repeat && k.kind !== "cycle" && k.kind !== "undo") return;
     doKey(k);
   });
-  window.addEventListener("keyup", (e) => { panKeys.delete(e.code); if (e.code === "Space" || e.code === "Enter") e.preventDefault(); });
+  window.addEventListener("keyup", (e) => { panKeys.delete(e.code); if ((e.code === "Space" || e.code === "Enter") && !onFold(e)) e.preventDefault(); });
   window.addEventListener("blur", () => panKeys.clear());
   let panAt = performance.now();
   return (now: number) => {

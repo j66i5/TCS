@@ -3,15 +3,17 @@
  * tile list `unitTiles` builds (depth first) and a set of collapsed keys; the sidebar only lays the rows out.
  *
  * A tile of kind "hq" (a unit with sub-units) can fold its sub-tree: every tile after it that is deeper than it
- * (its HQ group, its drone, its squads and vehicles and theirs). Its key is the callsign path from the top-level
- * unit down ("1. Kp/1. Zug"), so it is the same after a re-render or a save and load. A folded tile shows how many
+ * (its HQ group, its drone, its squads and vehicles and theirs). Its key is the path from the top-level unit down,
+ * each step its callsign and unit id ("1. Kp#3/Zug 1#7"): the same after a re-render, and unique even when two
+ * units share a callsign (a campaign commits "Zug 1" of two companies; review fix). A folded tile shows how many
  * sub-units it hides and the worst state among them (`alert`), so folding never hides trouble; its men count
  * (fit/total) already covers the whole sub-tree (`unitTiles` counts every man of the unit and below).
  */
 import type { EntityId } from "@tcs/sim";
 import { tilePart, type TilePart, type TileState, type UnitTile } from "./sidebar";
 
-/** States worth flagging on a folded tile, worst first (pinned and damaged alike; firing = in contact). */
+/** States worth flagging on a folded tile, worst first (pinned before damaged, both shown yellow; firing = in
+ *  contact). */
 export const ALERT_ORDER: readonly TileState[] = ["broken", "pinned", "damaged", "firing", "lost"];
 
 export interface TileRow {
@@ -40,13 +42,15 @@ export function foldKeys(tiles: readonly UnitTile[]): { keys: (string | null)[];
     ancestors.push([...stack]);
     const sub = tiles[i + 1] !== undefined && tiles[i + 1]!.depth > t.depth;
     if (t.kind === "hq" && sub) {
-      keys.push([...stack.map((j) => tiles[j]!.callsign), t.callsign].join("/"));
+      keys.push([...stack.map((j) => tiles[j]!), t].map(foldStep).join("/"));
       stack.push(i);
     } else keys.push(null);
   });
   return { keys, ancestors };
 }
 
+/** One step of a fold key: callsign and unit id (callsigns repeat between companies and squads). */
+const foldStep = (t: UnitTile) => `${t.callsign}#${t.unit}`;
 const isUnitTile = (t: UnitTile) => t.kind !== "drone" && t.kind !== "hqGroup";
 const rank = (s: TileState) => { const r = ALERT_ORDER.indexOf(s); return r < 0 ? ALERT_ORDER.length : r; };
 

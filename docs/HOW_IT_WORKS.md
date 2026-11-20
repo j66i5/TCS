@@ -1603,15 +1603,16 @@ shows the unit's symbol, callsign and how many of its men are fit (5/6), and a c
 green ready, light blue moving, orange firing, grey riding, yellow pinned (or a damaged vehicle), red broken,
 dimmed out of action. The ☰ at its head opens the full list with the details; on a wide screen it is always open.
 
-**Folding a platoon (owner 2026-11-20).** A platoon (any unit with sub-units) has a small fold button with an arrow:
+**Collapsing a platoon (owner 2026-11-20).** A platoon (any unit with sub-units) has a small fold button with an arrow:
 under its tile on the slim strip, at its right in the open list. Tap it to hide everything under that platoon (its
 HQ, drone, squads and vehicles); tap it again to show them. Tapping the fold button never selects the platoon; tapping
 the tile still does (and holding it still follows). A folded platoon's button shows how many units it hides ("+7"),
 its tile still counts all its men (33/33), and a coloured dot in its corner shows the worst state among the hidden
 units (red broken, yellow pinned or a damaged vehicle, orange firing, grey out of action; the open list also says
-"7 folded · below: pinned"), so folding never hides trouble. Everything starts unfolded. When you pick a hidden unit
-some other way (on the map, with Tab, from an event), its platoon unfolds so its tile shows; Tab still goes through
-every unit, folded or not. The folds are kept for the battle (not after closing the page).
+"below: pinned"), so folding never hides trouble. Everything starts unfolded. When you pick a hidden unit some other
+way (on the map, even tapping the unit already selected, with Tab, from the Wounded tab), its platoon unfolds so its
+tile shows; Tab still goes through every unit, folded or not. On a keyboard, Enter or Space on a focused fold button
+folds it. The folds last until the page reloads (loading a saved battle starts unfolded).
 
 **The platoon, its HQ and its drone (owner 2026-11-15).** Each platoon has three tiles at the top of its block:
 - **Zug 1** (the platoon, "whole platoon" in the open list): an order given here goes to everybody — the squads, the

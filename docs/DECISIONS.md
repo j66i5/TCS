@@ -9900,23 +9900,34 @@ battalion tree already had its own open/closed rows and is not touched. UI only:
 - **Folded shows.** "+n" on the button (n = sub-units hidden, units only: squads, vehicles, platoons; not the HQ group
   or drone tiles); the tile's men count is the whole sub-tree already (`unitTiles` counts every man of the unit and
   below; pinned by a test); a dot in the tile's top-left corner in the colour of the worst state below, in the order
-  broken > pinned = damaged > firing (in contact) > lost, drones left out; moving / aboard / ready are not flagged. The
-  open list's detail line adds "7 folded · below: pinned"; the fold button's label says the same. A folded tile that
+  broken > pinned > damaged (both yellow) > firing (in contact) > lost, drones left out; moving / aboard / ready are not
+  flagged. The open list's detail line adds "below: pinned" (the count is on the button); the tile's title and the
+  fold button's label say "7 hidden · below: pinned". A folded tile that
   holds the selected unit gets a dashed white border.
-- **Keys and memory.** A fold is keyed by the callsign path ("Zug 2", "Kp/1. Zug"), so it survives re-renders and an
-  in-battle Save / Load; it is kept in the sidebar for the battle session, not in localStorage (callsign paths repeat
-  between battles, so a remembered fold would fold the next battle's platoon unasked; owner question below). Everything
-  starts unfolded: the list is as before until the player folds.
-- **Selection opens.** When the selection changes (map tap, Tab, the card, a hook, an event) and its tile is folded
-  away, the folds above it open (`expandTo`); folding the platoon of the unit that stays selected keeps it folded. Tab
-  (`keys.ts`) cycles every unit as before, folded or not.
+- **Keys and memory.** A fold is keyed by the path from the top-level unit, each step callsign and unit id
+  ("Zug 2#14", "Kp#3/1. Zug#7"; review fix: callsigns alone collide, a campaign can commit "Zug 1" of two companies),
+  so it survives the list's re-renders. It is kept in the sidebar for the page, not in localStorage or the save:
+  reloading the page, or an in-battle Load (which reloads it), starts unfolded (review fix: an earlier line here
+  claimed folds survive Load; they do not). Everything starts unfolded: the list is as before until the player folds.
+- **Selection opens.** When the selection changes and its tile is folded away, the folds above it open (`expandTo`).
+  Review fix: every explicit selection (map tap on a man or hull, Tab, the `__tcs.select` hook, the Wounded tab) also
+  asks the sidebar to open the path (`Sidebar.reveal`, `Hud.revealTile`, `refreshTiles(a, true)`), so a second tap on
+  the unit already selected opens its folded platoon; the four-times-a-second refresh never unfolds. Tab (`keys.ts`)
+  cycles every unit as before, folded or not.
+- **Review fixes (focus, keys, scroll, words).** A tile with the keyboard focus that gets folded away hands the focus to
+  its platoon's fold button; Enter / Space on a focused fold button fold it (the game keys let them through there);
+  the fold button reads its key when tapped (not when made); a fold or opening the list clamps a stale scroll. The
+  words follow the owner's: "Collapse" / "Expand" / "n hidden" (were Fold / Unfold / folded; the keys stay `side.fold`
+  etc.). Tiles other than "hq" with sub-tiles (a squad's or HQ group's drone tile) still have no fold: a fold there would
+  hide one tile.
 - **Accessible.** `aria-expanded`, `aria-label` from the string table (`side.fold`, `side.unfold`, `side.foldedN`,
   `side.worstBelow`, core table: faction tables fall back to it), `aria-controls` naming the sub-rows on show.
+  Tests: `ui/test/collapse.test.ts` (12, with two same-named platoons).
 - **Checks.** `--scene ui` gained a company battle part (`&size=company`, both looks, phone and desktop): the list,
   the second platoon folded (a man of a hidden squad set pinned for the shot: its dot), the phone's open list, the
-  first platoon folded too, then a squad of the first platoon selected by the hook: its platoon opens. The scene
-  throws if a fold tap selects, nothing is hidden, the dot is missing, a fold button is under 32 px, or the selected
-  squad stays hidden. Looked at: the first try put the button under the tile in the open list (a `.hud-row` class
+  first platoon folded too, then a squad of the first platoon selected by the hook: its platoon opens; folded again
+  and the same squad selected again: it opens again. The scene throws if a fold tap selects, nothing is hidden, the dot
+  is missing, a fold button is under 32 px, or the selected squad stays hidden. Looked at: the first try put the button under the tile in the open list (a `.hud-row` class
   clash with the rules panel), renamed `.hud-side-row`; the dot moved from the top-right (over the men count) to the
   top-left.
 

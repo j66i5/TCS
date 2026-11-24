@@ -34,7 +34,8 @@ import type { SimState } from "../state";
 import { heightAt, standZ } from "../terrain";
 import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget, unitSoldiers } from "./orders";
-import { isMounted, onRoof } from "../mount";
+import { isMounted, onRoof, onRoofTop } from "../mount";
+import { bodyStrikeT } from "../ballistics";
 import { isGuiding } from "./missile-team";
 import { protectedContact } from "../protection";
 import { beyondSelfDefence, breachActive, noteFireAt, noteShot } from "../conduct";
@@ -206,7 +207,7 @@ function topUnit(state: SimState, soldier: EntityId): EntityId | null {
  * his elbow was shot), and the caller may look `beyondM` past the point fired at (a burst's beaten zone: rounds
  * that miss go on). `from`: as if he were there (a covering man looking for a spot with a clear line).
  */
-export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0, from?: { x: number; y: number }, over?: { mz: number; tz: number }): boolean {
+export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0, from?: { x: number; y: number }, over?: { mz: number; tz: number }, shot?: ShotLine): boolean {
   const side = state.identity.get(id)?.side;
   if (side === undefined) return false;
   const self = state.transform.req(id);
@@ -225,11 +226,16 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
   const ovC = over !== undefined && GN.overClearM !== undefined ? GN.overClearM : -1, ovP = GN.overPerM ?? 0, ovN = GN.overNearM ?? 0;
   // (Men aboard a vehicle are behind armour, M7: their hull blocks, `hullInLine`. A man aboard but working outside
   // it (repairing, hooking up, reloading on the roof) is a body like a man on foot: he blocks, balance pass 3 review.)
+  // (Review 2026-11-24, problem 1: a body a round from his muzzle would strike blocks, dead or alive: a comrade's
+  // corpse lying over a prone man's muzzle took every round he fired. A man on foot only; a gunner aboard as before.)
+  const onFoot = over === undefined && !(isMounted(state.soldier.get(id)) && !onRoof(state, id));
+  if (onFoot && bodyInLine(ctx, state, id, tx, ty, shot, from)) return true;
   for (const [other, ident] of state.identity.entries()) {
     const os = state.soldier.get(other);
     if (ident.side !== side || other === id || (isMounted(os) && !onRoof(state, other))) continue;
-    // (Review fixes 2026-11-14: the dead and prisoners never block his fire; a man lying hit counts only between
-    // the muzzle and the point, as before fire discipline, not at the elbow or in the beaten zone past the point.)
+    // (Review fixes 2026-11-14: the dead and prisoners never block his fire by fire discipline (a body a round would
+    // strike does, `bodyInLine` above); a man lying hit counts only between the muzzle and the point, as before fire
+    // discipline, not at the elbow or in the beaten zone past the point.)
     if (os !== undefined && (!os.physiology.alive || os.captive !== null)) continue;
     const o = state.transform.req(other);
     // (A man on another floor is not in the line: the window places of two floors share x, y. Review fixes.)
@@ -245,6 +251,8 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
     // hold-resupply-ru seed 4, a squad upstairs fired 9 rounds in 4 minutes against 760. A comrade at his elbow, 0.3 m
     // or more off, still counts.)
     // (Only for his own spot: a covering man testing another spot, `from`, is blocked by a comrade standing on it.)
+    // (Review 2026-11-24: only once `bodyInLine` found that no round of his would strike that man's body: a comrade
+    // lying on his spot is in front of a prone man's muzzle.)
     if (from === undefined && along * along + across * across < SAME_SPOT_M * SAME_SPOT_M) continue;
     if (across >= reach + Math.max(0, along) * sinCone) continue;
     if (ovC >= 0 && along > ovN && along < range) {
@@ -255,6 +263,81 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
     return true;
   }
   return hullInLine(ctx, state, side, id, self.z, me.x, me.y, ux, uy, range + beyondM, sinCone);
+}
+
+/** The shot a line check is for: his posture (default: the one he is in) and the world height of the point he aims
+ *  at (default: level with his muzzle). */
+export interface ShotLine { posture?: Posture; tz?: number }
+
+/** Bodies within this of the shooter are tested against the round's path itself (m): muzzle, a prone body's reach
+ *  and a margin. */
+const NEAR_BODY_M = 2;
+/** The body boxes grown by this in the strike test (m): the aim moves a little between the check and the shot. */
+const STRIKE_GROW_M = 0.05;
+/** A comrade's body lying farther out (dead) blocks unless the line passes this far above it, plus `per m` of range. */
+const LYING_CLEAR_M = 0.15, LYING_CLEAR_PER_M = 0.003;
+
+/** The world height of the point a fire task aims at. */
+function aimZ(ctx: SimContext, task: FireTask): number {
+  return heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (a point fired at; a man's floor is in heightM)
+}
+
+/**
+ * Review 2026-11-24, problem 1 (friendly fire): would a round from his muzzle, in posture `shot.posture`, strike the
+ * body of a man of his side? Every man of his side on foot within `NEAR_BODY_M` (alive, hit, dead or a prisoner):
+ * the round's path from the muzzle against his body's box (`bodyStrikeT`, the projectile's own geometry); a dead
+ * man farther out, between the muzzle and the point and within the safety cone: unless the line passes well above
+ * his body. (Before, the dead never blocked: a prone rifleman with a comrade's corpse lying over his muzzle fired 43
+ * rounds into it, platoon seed 1.) Living men farther out are fire discipline's matter (`friendInLine`'s cone).
+ * `from`: as if he were there.
+ */
+export function bodyInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, shot?: ShotLine, from?: { x: number; y: number }): boolean {
+  const side = state.identity.get(id)?.side;
+  const s = state.soldier.get(id);
+  if (side === undefined || s === undefined) return false;
+  const self = state.transform.req(id);
+  const mx0 = from?.x ?? self.x, my0 = from?.y ?? self.y;
+  const range0 = hypot2(tx - mx0, ty - my0);
+  if (range0 < 1e-6) return false;
+  const ux = (tx - mx0) / range0, uy = (ty - my0) / range0;
+  const mx = mx0 + ux * MUZZLE_OUT_M, my = my0 + uy * MUZZLE_OUT_M;
+  const p = shot?.posture ?? s.posture;
+  const mz = standZ(ctx.map, self, mx, my) + ctx.catalog.body.postures[p].muzzleHeightM;
+  const tz = shot?.tz ?? mz;
+  const range = Math.max(0.5, range0 - MUZZLE_OUT_M);
+  const slope = (tz - mz) / range;
+  const B = ctx.ballistics, hbs = B.hitboxes;
+  const near = NEAR_BODY_M + B.bodyReachM;
+  const seg = Math.min(range, near + B.bodyReachM);
+  const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
+  for (const [other, ident] of state.identity.entries()) {
+    if (ident.side !== side || other === id) continue;
+    const os = state.soldier.get(other);
+    if (os === undefined || (isMounted(os) && !onRoof(state, other))) continue;
+    const o = state.transform.get(other);
+    if (o === undefined) continue;
+    const ox = o.x - mx0, oy = o.y - my0;
+    const along = ox * ux + oy * uy;
+    if (along < -B.bodyReachM || along >= range0 + LINE_OF_FIRE_ALLOWANCE_M) continue;
+    const across = Math.abs(ox * -uy + oy * ux);
+    const bgz = standZ(ctx.map, o);
+    if (along <= near && across <= near) {
+      // (The projectile loop's posture rows: a reloader on a hull's roof stands.)
+      const hb = hbs[(isMounted(os) && onRoofTop(state, other)) || os.posture === "standing" ? 0 : os.posture === "crouching" ? 1 : 2]!;
+      const t = bodyStrikeT(hb, o.x, o.y, bgz, cos(o.heading), sin(o.heading), mx, my, mz, ux * seg, uy * seg, slope * seg, STRIKE_GROW_M);
+      if (t <= 1) return true;
+      continue;
+    }
+    if (os.physiology.alive) continue;
+    // A body lying farther out: in the cone, short of the point, and the line passing low over it.
+    if (along <= 0.5 || along >= range0 + LINE_OF_FIRE_ALLOWANCE_M) continue;
+    if (across >= B.bodyReachM + along * sinCone) continue;
+    const lineZ = mz + slope * Math.max(0, along - MUZZLE_OUT_M);
+    const top = bgz + ctx.catalog.body.postures[os.posture].heightM;
+    if (lineZ - top >= LYING_CLEAR_M + LYING_CLEAR_PER_M * along) continue;
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -515,7 +598,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       if (moving || POSTURE_RANK[s.posture] >= POSTURE_RANK[task.duck.up]) delete task.duck;
       else if (w.nextShotTick - tick <= task.duck.riseTicks) {
         // (Down because a comrade was in his line: he stays down while that comrade is still there.)
-        if (task.duck.friend === true && friendInLine(ctx, state, id, task.x, task.y, shotMode(ctx, state, id, task, wd, since > fullTicks, reserve).beyond)) { w.nextShotTick = tick + TICK_HZ / 2 + task.duck.riseTicks; continue; }
+        if (task.duck.friend === true && friendInLine(ctx, state, id, task.x, task.y, shotMode(ctx, state, id, task, wd, since > fullTicks, reserve).beyond, undefined, undefined, { posture: task.duck.up, tz: aimZ(ctx, task) })) { w.nextShotTick = tick + TICK_HZ / 2 + task.duck.riseTicks; continue; }
         requestPosture(ctx, state, id, task.duck.up);
         task.duckTick = tick;
         delete task.duck;
@@ -543,12 +626,18 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       const from = isCowering(s) ? ["prone" as Posture] : moving ? [s.posture] : order.slice(order.indexOf(task.basePosture));
       // (Covering fire, `suppress`: a posture with a clear line first, else one that reaches the cover near the point.)
       const shortM = task.suppress !== undefined ? ctx.catalog.behaviour.drills.suppressShortM : 0;
-      let ok: Posture | undefined, short: Posture | undefined;
+      let ok: Posture | undefined, short: Posture | undefined, body: Posture | undefined;
+      // (Review 2026-11-24, problem 1: a posture whose rounds would strike a comrade's body (dead or alive, lying over
+      // his muzzle) is no line either: he rises to a kneel over it, as over a bank. If none clears it, he takes the
+      // first posture with a line and the friend check holds his fire.)
+      const tz = aimZ(ctx, task);
       for (const p of from) {
         const q = lineOfFireTo(ctx, state, id, task.x, task.y, task.heightM, p, shortM);
+        if (q > 0 && bodyInLine(ctx, state, id, task.x, task.y, { posture: p, tz })) { if (q === 2) body ??= p; continue; }
         if (q === 2) { ok = p; break; }
         if (q === 1) short ??= p;
       }
+      if (ok === undefined && short === undefined) ok = body;
       if (ok === undefined && short !== undefined) { ok = short; task.intoCover = true; } else delete task.intoCover;
       task.lineClear = ok !== undefined;
       task.linePosture = ok ?? s.posture;
@@ -574,7 +663,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     if (w.burstLeft <= 0) {
       // (A burst, or a machine gun's: its beaten zone, friendBeyondM past the point, counts too; a single shot: a
       // man at the point itself.)
-      if (friendInLine(ctx, state, id, task.x, task.y, beyond)) {
+      if (friendInLine(ctx, state, id, task.x, task.y, beyond, undefined, undefined, { tz: aimZ(ctx, task) })) {
         w.nextShotTick = tick + TICK_HZ / 2;
         // (Fire discipline: held by a comrade in his line for a while, he does not wait for him raised up.)
         if (!wd.sustained && tick - w.lastShotTick >= secondsToTicks(S.duckAboveIntervalS) && mayDuck(ctx, state, id, task, s.posture, moving)) {

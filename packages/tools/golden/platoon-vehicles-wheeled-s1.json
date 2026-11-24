@@ -887,32 +887,6 @@
   },
   {
    "tick": 6600,
-   "issuer": "blue",
-   "target": 17,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 471.91299367499295,
-     "y": 564.5998381907732,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 6600,
-   "issuer": "blue",
-   "target": 26,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 471.6652050979404,
-     "y": 570.66700759858,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 6600,
    "issuer": "red",
    "target": 135,
    "kind": "fire",
@@ -948,12 +922,12 @@
   "2400": "dbff38c66657d9bf",
   "3000": "061496f6c5377e0e",
   "3600": "0ae9021f0cfbe7b6",
-  "4200": "bf28dde2a17b54d3",
-  "4800": "f319d814fcdbab25",
-  "5400": "13ffa5836e60fcb5",
-  "6000": "0047e5aaa51c62d5",
-  "6600": "2221b9c1029a19cb",
-  "7200": "98d630df5ba16bd2"
+  "4200": "4b65ceabef5313f0",
+  "4800": "3b85201f1b186a8e",
+  "5400": "c38b21be9cdd20d0",
+  "6000": "ed858532bca87ad2",
+  "6600": "c36c07c7b9ebc9eb",
+  "7200": "74bef7bbe8ebf724"
  },
  "catalogFingerprint": "bf24e77b6421d409"
 }

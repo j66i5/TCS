@@ -10469,3 +10469,51 @@ battalion tree already had its own open/closed rows and is not touched. UI only:
 between battles in this browser / reset at every load; (2) the fold button under the tile on the slim strip (built) /
 fold only from the open list, the strip unchanged; (3) a new selection opens its platoon (built) / never unfold by
 itself, mark the folded platoon instead.
+
+## 2026-11-24 — Friendly fire: a body a round would strike blocks (whole-game review, problem 1)
+
+Branch `claude/friendly-fire`. Review `docs/reviews/2026-11-24-game-review.md`, problem 1: on platoon seed 1 (1200 s)
+one Russian rifleman put 59 of the battle's 149 hits into his own side. Every own-side direct hit in nine measured
+battles was on a body 0.00-0.02 m from the shooter: the fire-safety check (`friendInLine`) skipped the dead, a comrade
+"on the same spot" (within 0.15 m, balance pass 4 G) and a man lying hit at the elbow, while the projectile strikes
+every body but the shooter's own. A prone body (1.75 m long, centred on its position) swallows a prone man's muzzle
+(0.4 m out, 0.25 m up). Three ways a body got there: a comrade bringing a magazine routed to a spot behind the
+receiver that sat in a blocked cell, snapped to the receiver's own cell centre, walked on during the hand-over and lay
+down there (2 hits, killed him); his corpse then took every round the prone rifleman fired for four minutes (43); a
+casualty in a fireman's carry rides on the carrier's own coordinates, died, and was left there (14).
+- **Strike test (`bodyInLine`, systems/fire.ts).** Every man of the side on foot within about 3 m of the shooter
+  (`NEAR_BODY_M` 2 + the body reach), alive, hit, dead or a prisoner, is tested against the round's own path from the
+  muzzle (posture's muzzle height, toward the aimed point's height) with the projectile loop's band geometry, each
+  band grown 0.05 m (`bodyStrikeT` in sim/src/ballistics.ts, pure; the projectile loop keeps its copy for speed). A
+  dead man farther out blocks when he lies in the cone short of the point and the line passes less than
+  0.15 m + 3 mm per m above his body. `friendInLine` calls it first for a man on foot (not a gunner aboard, not a
+  station's `over` check); its cone rules for living comrades are unchanged, and the same-spot exemption now applies
+  only once the strike test found no strike (two men kneeling or standing on one window place: boxes 0.25-0.45 m
+  deep, muzzle 0.4 m out, no strike). `friendInLine` takes an optional `shot` ({ posture, tz }).
+- **Re-site, not freeze.** The once-a-second line check treats a posture whose rounds would strike a body as no line:
+  a prone man with a body over his muzzle rises to a kneel (muzzle 0.95 m over a 0.3 m body), as over a bank. If no
+  posture clears it he takes the first with a line and the burst-start friend check holds his fire (ducks as before).
+- **At the sources.** `stepBringAmmo`: the giver stops when the hand-over starts (up to 2.4 m away; it does not clear
+  the mover by itself) and makes for 1.5 m behind the receiver, else 1.2 m to either side 1 m back, else 2.2 m back:
+  the first whose route's end is at least 1 m from him. `endCarry`: a man carried on the leader's own spot (payload
+  within 0.3 m) is set down 0.9 m back along the leader's trail, lying along it, whatever ended the carry (straight
+  back from his heading outdoors when there is no trail, if the way is clear).
+- **Kept out.** Own-side fragments and blast (danger close) are a separate matter: 1 fragment hit in the nine baseline
+  runs, 4 on platoon s1 after (grenade fragments, the battle took another course).
+- **Measured** (scratchpad `ownhits` script, same battles as `npm run headless`; hits / own-side hits (direct) /
+  rounds fired blue-red; before -> after): platoon s1 1200 s 149 / 60 (59) / 2362-1107 -> 94 / 4 (0) / 678-900
+  (the battle now ends with a side broken); s2 159 / 0 / 995-395 -> 118 / 0 / 1182-700; s3 136 / 0 / 788-245 ->
+  113 / 0 / 1327-230; platoon-ru s1 91 / 0 / 1071-167 -> 97 / 0 / 1215-91; platoon-vehicles s1 900 s 587 / 0 ->
+  598 / 0; hold-resupply s1 54 / 0 / 348-140 -> 31 / 0 / 438-65; assault-group s1 82 / 0 / 824-499 -> 128 / 0 /
+  760-589; hold-resupply-ru s4 (the balance pass 4 G window case) 9 / 0 / 52-28 -> 9 / 0 / 53-25; demo s1 and
+  house-clear s1 unchanged. Platoon seeds 4-8 (900 s): rounds fired blue 7249 -> 7587, red 2631 -> 2869, own direct
+  hits 1 -> 0. Sampled once a second over platoon s1 after, the strike test held a man with a fire task 36 of 3138
+  times (one man, a comrade lying 1.5 m in front of him, whom the cone held before too).
+- **Tests.** `sim/test/friendly-fire.test.ts`: a comrade lying on a prone man's spot blocks (not kneeling or standing
+  on it, the G case); a dead comrade blocks over the muzzle and lying low 8 m in front of a prone man, not for a
+  standing one nor off the line; a prone rifleman with a corpse over his muzzle fires (from a kneel) and never strikes
+  it (8 own hits in 20 s before); a man bringing a magazine stops at the hand-over. All four fail on main.
+  `tools/test/campaign-contract.test.ts` takes seed 4 for its battle 1: seed 3 now leaves no man wounded and awake,
+  which its property test grafts from.
+- **Goldens:** `npm run golden:update`: 7 changed (shootout, platoon-vehicles, village-occupy, platoon-vehicles-tanks,
+  platoon-vehicles-wheeled, hold-resupply, hold-resupply-ru); no catalog change.

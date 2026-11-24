@@ -29,6 +29,7 @@ import { atan2, clamp, cos, hypot2, PI, sin, sqrt } from "../math";
 import { carryLayout, chooseCarryMethod, downUnknown } from "../medical";
 import { isMounted } from "../mount";
 import { navFor } from "../navctx";
+import { clearLine } from "../nav";
 import type { Posture } from "../orders";
 import type { SimState } from "../state";
 import { loadKg, requestPosture } from "./body";
@@ -198,6 +199,7 @@ export function endCarry(ctx: SimContext, state: SimState, events: EventSink, pa
   const pm = state.mover.get(payload);
   if (pm && pm.waypoints.length > 0) { pm.waypoints = []; pm.speedMps = 0; }
   state.carry.delete(payload);
+  setDownOffCarrier(ctx, state, c, payload, lead);
   // Brought to the Verwundetennest (M10.5): he is at it, and the bearers go back to their squad.
   if (c.point !== undefined && reason === "arrived" && ps) {
     ps.atNest = c.point;
@@ -215,6 +217,34 @@ export function endCarry(ctx: SimContext, state: SimState, events: EventSink, pa
     events.emit({ kind: "medical.dragged", tick: state.tick, casualty: payload, by: lead, done: true, distanceM: Math.round(c.totalM) });
   }
   events.emit({ kind: "medical.carried", tick: state.tick, payload, by: lead, method: c.method, carriers: c.carriers.length, phase: "done", distanceM: Math.round(c.totalM), reason });
+}
+
+/** A payload set down closer than this to the leader is moved back off his spot (m). */
+const SET_DOWN_APART_M = 0.3;
+/** ... to this far back along the leader's trail (m). */
+const SET_DOWN_BACK_M = 0.9;
+
+/**
+ * Review 2026-11-24, problem 1: a man carried on the leader's back (fireman's carry: the payload on the leader's own
+ * spot, `carryLayout`) is set down behind him on the way they came, lying along it, whatever ended the carry (his
+ * death too): left on the carrier's spot, his body lay over the carrier's muzzle and took 14 of his rounds.
+ */
+function setDownOffCarrier(ctx: SimContext, state: SimState, c: Carry, payload: EntityId, lead: EntityId): void {
+  if (c.carriers.length === 0 || lead === payload || !state.soldier.has(payload)) return;
+  const pt = state.transform.get(payload), lt = state.transform.get(lead);
+  if (!pt || !lt || hypot2(pt.x - lt.x, pt.y - lt.y) >= SET_DOWN_APART_M || Math.abs(pt.z - lt.z) > 0.5) return;
+  let p: { x: number; y: number; z: number; h: number } | null = null;
+  if (c.trail.length >= 6) {
+    const q = along([lt.x, lt.y, lt.z, ...c.trail], SET_DOWN_BACK_M);
+    if (hypot2(q.x - lt.x, q.y - lt.y) >= SET_DOWN_APART_M * 2) p = q;
+  }
+  if (p === null && indoorAt(ctx, lt.x, lt.y) < 0) {
+    // (No trail behind him: straight back from where he faces, where the ground lets a man lie.)
+    const x = lt.x - cos(lt.heading) * SET_DOWN_BACK_M, y = lt.y - sin(lt.heading) * SET_DOWN_BACK_M;
+    if (clearLine(navFor(ctx, "foot").grid, lt.x, lt.y, x, y)) p = { x, y, z: lt.z, h: lt.heading };
+  }
+  if (p === null) return;
+  pt.x = p.x; pt.y = p.y; pt.z = p.z; pt.heading = p.h;
 }
 
 /** Bearers back with their squad (M10.5, on arrival at the nest; a man returned to duty): each walks to his unit's leader. */

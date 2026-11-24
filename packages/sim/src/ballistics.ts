@@ -110,6 +110,41 @@ export interface HitboxRT {
   bands: { group: number; from: number; to: number; halfWidth: number; armsTo: number }[];
 }
 
+let strikeT0 = 0, strikeT1 = 1;
+function strikeClip(p: number, d: number, lo: number, hi: number): boolean {
+  if (d > -1e-12 && d < 1e-12) return p >= lo && p <= hi;
+  let a = (lo - p) / d, b = (hi - p) / d;
+  if (a > b) { const s = a; a = b; b = s; }
+  if (a > strikeT0) strikeT0 = a;
+  if (b < strikeT1) strikeT1 = b;
+  return strikeT0 <= strikeT1;
+}
+
+/**
+ * Friendly-fire fix (review 2026-11-24, problem 1): where (t in [0, 1]) the segment (x0, y0, z0) + t (dx, dy, dz)
+ * first enters a man's body (posture box `hb`, standing at bx, by on ground height bgz, facing cosH, sinH), each band
+ * grown by `grow` m on every side; 2 if it misses. The same band geometry as the projectile loop's body test
+ * (systems/ballistics.ts, which keeps its own copy for speed): the fire-safety check (`friendInLine`) asks whether a
+ * round would strike a comrade's body, dead or alive, before the shot.
+ */
+export function bodyStrikeT(hb: HitboxRT, bx: number, by: number, bgz: number, cosH: number, sinH: number, x0: number, y0: number, z0: number, dx: number, dy: number, dz: number, grow: number): number {
+  const rx = x0 - bx, ry = y0 - by;
+  const pf = rx * cosH + ry * sinH, pl = -rx * sinH + ry * cosH, pz = z0 - bgz;
+  const df = dx * cosH + dy * sinH, dl = -dx * sinH + dy * cosH;
+  const L = hb.alongLength ? 2 * hb.halfF : hb.height;
+  let best = 2;
+  for (const bd of hb.bands) {
+    const w = (bd.armsTo > bd.halfWidth ? bd.armsTo : bd.halfWidth) + grow;
+    strikeT0 = 0; strikeT1 = 1;
+    if (!strikeClip(pl, dl, -w, w)) continue;
+    if (hb.alongLength) {
+      if (!strikeClip(pf, df, hb.halfF - bd.to * L - grow, hb.halfF - bd.from * L + grow) || !strikeClip(pz, dz, -grow, hb.height + grow)) continue;
+    } else if (!strikeClip(pz, dz, bd.from * L - grow, bd.to * L + grow) || !strikeClip(pf, df, -hb.halfF - grow, hb.halfF + grow)) continue;
+    if (strikeT0 < best) best = strikeT0;
+  }
+  return best;
+}
+
 /** Bits of `BallisticsCtx.near`. */
 export const NEAR_WALL = 1;
 export const NEAR_SOLDIER = 2;

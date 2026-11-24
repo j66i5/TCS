@@ -27,6 +27,7 @@ import { atan2, cos, PI, sin, sqrt } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { cellIndex, heightAt, standZ } from "../terrain";
+import { sight } from "../los";
 import { PROT_CARRYING, PROT_MARKED, PROT_POINT, recognise } from "../protection";
 import { unitSoldiers } from "./orders";
 
@@ -82,6 +83,20 @@ function learn(ctx: SimContext, list: Contact[], c: Omit<Contact, "reportedTick"
   }
   list.splice(-(i + 1), 0, { ...c, reportedTick });
   return true;
+}
+
+/** Does the listener see the shooter's muzzle flash (a line to him, night; review 2026-11-24 problem 2)? */
+function flashSeen(ctx: SimContext, state: SimState, id: EntityId, shooter: EntityId): boolean {
+  const me = state.transform.req(id), st = state.transform.req(shooter);
+  const sz = standZ(ctx.map, st), mz = standZ(ctx.map, me);
+  return sight(ctx, me.x, me.y, mz + 1.5, st.x, st.y, sz + 0.5, -1, state.vehicle.has(shooter) ? shooter : -1).visibility > 0.05;
+}
+
+/** A fixed number in [-1, 1) for a listener and a shooter (an integer hash: deterministic, no random draw). */
+function pairBias(a: number, b: number): number {
+  let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x7f4a7c15, 0xc2b2ae35);
+  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12;
+  return ((h >>> 0) / 4294967296) * 2 - 1;
 }
 
 function topUnit(state: SimState, soldier: EntityId): EntityId | null {
@@ -200,7 +215,9 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
   const shots = (events.events as SimEvent[]).filter((e): e is Extract<SimEvent, { kind: "shot.fired" }> => e.kind === "shot.fired");
   if (shots.length > 0) {
     const hear2 = K.hearingRangeM * K.hearingRangeM, every = secondsToTicks(K.heardEverySeconds);
-    const bearErr = (K.bearingErrorDeg * PI) / 180;
+    const merge = secondsToTicks(K.heardMergeSeconds ?? 0), mergeMax = K.heardMergeMax ?? 1, minErrF = K.heardMinErrorFraction ?? 0;
+    const flashOk = K.flashErrorFactor !== undefined && K.flashBelowLight !== undefined && state.environment.light < K.flashBelowLight, flash2 = (K.flashM ?? 0) * (K.flashM ?? 0);
+    const bearErr = (K.bearingErrorDeg * PI) / 180, bias = ((K.heardBiasDeg ?? 0) * PI) / 180;
     // One sound per shooter per tick is enough (a burst is one sound).
     // (A cannon or coaxial machine gun is heard as its vehicle, M7.3.)
     const shooters = [...new Set(shots.map((e) => e.vehicle ?? e.shooter))].sort((a, b) => a - b);
@@ -224,15 +241,32 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
         const lm = loud.get(shooter);
         if (d2 > (lm !== undefined ? Math.max(hear2, lm * lm) : hear2)) continue;
         const i = findContact(s.contacts, shooter);
+        // (Review 2026-11-24 problem 2: heard again soon after, the guesses add up — their mean, the error / sqrt(n);
+        // at night a muzzle flash he can see places him closer still.)
+        const old = i >= 0 ? s.contacts[i]! : null;
+        if (old !== null && tick - old.tick < every) continue;
         const range = sqrt(d2);
+        const n = merge > 0 && old !== null && old.kind === "heard" && tick - old.tick <= merge ? Math.min((old.heardN ?? 1) + 1, mergeMax) : 1;
+        let err = Math.max(10, K.rangeErrorFraction * range);
+        if (n > 1) err = Math.max(minErrF * range, err / sqrt(n));
+        // (A plain call, no closure: a closure here would put the loop's variables in a heap context for every pair.)
+        const flash = flashOk && d2 <= flash2 && flashSeen(ctx, state, id, shooter);
+        if (flash) err = Math.max(minErrF * range * K.flashErrorFactor!, err * K.flashErrorFactor!);
         // Heard him moments ago, or knows where he is better than a sound could tell: nothing new.
-        if (i >= 0 && (tick - s.contacts[i]!.tick < every || contactErrorM(ctx, s.contacts[i]!, tick) <= Math.max(10, K.rangeErrorFraction * range))) continue;
-        const a = atan2(dy, dx) + bearErr * nextNormal(state.rng, Streams.contacts);
-        const guess = Math.max(10, range * (1 + K.rangeErrorFraction * nextNormal(state.rng, Streams.contacts)));
-        const gx = Math.min(Math.max(me.x + cos(a) * guess, 0), ctx.map.widthM), gy = Math.min(Math.max(me.y + sin(a) * guess, 0), ctx.map.heightM);
-        const c: Omit<Contact, "reportedTick"> = { target: shooter, x: gx, y: gy, errM: Math.max(10, K.rangeErrorFraction * range), kind: "heard" as const, tick, ...(state.vehicle.has(shooter) ? { cls: "vehicle" as const } : {}) };
+        if (old !== null && contactErrorM(ctx, old, tick) <= err) continue;
+        const fk = flash ? K.flashErrorFactor! : 1;
+        // (A bias of this listener for this shooter — echoes, the crack heard from the bullet's path — that merging
+        // his guesses does not average away: review 2026-11-24 verification; a hash, no draw.)
+        const a = atan2(dy, dx) + bearErr * fk * nextNormal(state.rng, Streams.contacts) + (bias !== 0 ? bias * fk * pairBias(id, shooter) : 0);
+        const guess = Math.max(10, range * (1 + K.rangeErrorFraction * fk * nextNormal(state.rng, Streams.contacts)));
+        let gx = Math.min(Math.max(me.x + cos(a) * guess, 0), ctx.map.widthM), gy = Math.min(Math.max(me.y + sin(a) * guess, 0), ctx.map.heightM);
+        if (n > 1 && old !== null) { gx = old.x + (gx - old.x) / n; gy = old.y + (gy - old.y) / n; }
+        const c: Omit<Contact, "reportedTick"> = { target: shooter, x: gx, y: gy, errM: err, kind: "heard" as const, tick, ...(state.vehicle.has(shooter) ? { cls: "vehicle" as const } : {}) };
         const isNew = i < 0;
         learn(ctx, s.contacts, c, -1e9, tick);
+        // (learn() keeps an updated contact at its index and inserts a new one at -(i + 1): no second search. No
+        // `delete`: it turns the contact into a slow dictionary object for the rest of the battle.)
+        if (merge > 0) { const k = s.contacts[i >= 0 ? i : -(i + 1)]; if (k !== undefined && k.kind === "heard" && k.tick === tick) { if (n > 1) k.heardN = n; else if (k.heardN !== undefined) k.heardN = undefined; } }
         fresh.push({ who: id, c, isNew, news: isNew });
       }
     }

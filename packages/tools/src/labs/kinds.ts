@@ -5,11 +5,20 @@
  * vehicles as records). Per battle: how it ended, the winner, men able at the end, down and saved, when each side last
  * fired, and the STALEMATE flag: the battle ran to its time limit, no side fired in its last third, and both sides still
  * had more than half their men able on the map.
+ *
+ * Review 2026-11-24 problem 2 (part 2): only DIRECT fire counts as fighting (a shot by a man or an on-map hull, a
+ * launched grenade; never an off-map or a mortar round). Per side: direct rounds out (of them by men), the first enemy
+ * direct round, men hit, the closest man-to-man distance between the sides, and the longest QUIET stretch (no direct
+ * round and no man hit while both sides have able men on the map, counted from the first time a man of either side saw
+ * an enemy man: the approach march before is no quiet fight; review 2026-11-24 verification). Fail flags: NO RETURN FIRE
+ * (a side took at least `minIncoming` enemy direct rounds or had a man hit, and fired fewer than `minReturn` direct
+ * rounds), QUIET (a quiet stretch of at least `quietS`) and NO FIRE (not one direct round by either side).
+ * `lab -- kinds --strict` exits non-zero on any flag.
  */
 import { planControllers } from "@tcs/ai";
 import type { DataSet } from "@tcs/data";
 import { buildScenario, type MapKind, type ScenarioDef, type ScenarioForces } from "@tcs/scenario";
-import { hasExited, isAble, isAssetUnit, runBattle, TICK_HZ, type BattleInput, type BattleResult, type Sim, type SimEvent, type UnitInput } from "@tcs/sim";
+import { hasExited, isAble, isAssetUnit, isOffMap, isOffMapMan, runBattle, TICK_HZ, type BattleInput, type BattleResult, type Sim, type SimEvent, type UnitInput } from "@tcs/sim";
 import { ON_POSTS } from "../scenarios";
 
 export const KIND_MAPS: readonly MapKind[] = ["village", "farmland", "woodland", "industrial"];
@@ -21,9 +30,35 @@ export interface KindRow {
   lastFireS: [number, number]; stalemate: boolean; wallS: number; speed: number;
   /** Men out by an exit whose roster status is not "fit" or "wounded" (must be 0), and of them how many came out fit. */
   savedBad?: number; savedFit?: number;
+  /** Direct rounds fired (men and on-map hulls, grenades), of them by men; the first enemy direct round at the side (s,
+   *  -1 none); men hit (wounded or worse, each once); the closest distance between able men of the two sides on the map
+   *  (m, -1 never both); the longest quiet stretch (s) and when it began; the fail flags. */
+  direct: [number, number]; menDirect: [number, number]; firstInS: [number, number]; hit: [number, number];
+  closestM: number; quietS: number; quietFromS: number; noReturn: [boolean, boolean]; quiet: boolean;
+  /** When a man of either side first saw an enemy man (s, -1 never); no direct round by either side at all. */
+  firstSeenS: number; noFire: boolean;
 }
 
-const FIRE = new Set(["shot.fired", "grenade.launched", "mortar.fired", "support.round"]);
+/** The fail flags' thresholds (lab options). */
+export interface KindChecks {
+  /** Enemy direct rounds that put a side under fire (a man hit does too). */
+  minIncoming: number;
+  /** Direct rounds a side under fire must fire back. */
+  minReturn: number;
+  /** A quiet stretch this long (s) with both sides on the map fails the battle. */
+  quietS: number;
+}
+export const KIND_CHECKS: KindChecks = { minIncoming: 20, minReturn: 10, quietS: 300 };
+
+/** Direct fire: a shot by a man or an on-map hull (not a mortar's high-angle round), a launched or thrown grenade. */
+const FIRE = new Set(["shot.fired", "grenade.launched"]);
+
+/** The fail flags of a row's measures (pure: the lab's acceptance logic, tested on synthetic rows). */
+export function kindFlags(m: Pick<KindRow, "direct" | "firstInS" | "hit" | "quietS">, c: KindChecks = KIND_CHECKS, incoming?: [number, number]): { noReturn: [boolean, boolean]; quiet: boolean; noFire: boolean } {
+  const inc = incoming ?? [m.direct[1], m.direct[0]];
+  const noReturn = [0, 1].map((i) => (inc[i]! >= c.minIncoming || m.hit[i]! > 0) && m.direct[i]! < c.minReturn) as [boolean, boolean];
+  return { noReturn, quiet: m.quietS >= c.quietS, noFire: m.direct[0] + m.direct[1] === 0 };
+}
 
 /** The scenario of one cell of the matrix (attacker by the seed: odd blue, even red). */
 export function kindScenario(kind: string, map: MapKind, seed: number, seconds: number, o: { vehicles?: boolean; size?: "platoon" | "company"; factions?: [string, string]; forces?: [ScenarioForces, ScenarioForces] } = {}): ScenarioDef {
@@ -46,37 +81,70 @@ export function rosterForcesOf(input: BattleInput): [ScenarioForces, ScenarioFor
 }
 
 /** One battle of the matrix, measured. */
-export function runKind(data: DataSet, def: ScenarioDef, roster: boolean): { row: KindRow; input: BattleInput; result: BattleResult } {
+export function runKind(data: DataSet, def: ScenarioDef, roster: boolean, checks: KindChecks = KIND_CHECKS): { row: KindRow; input: BattleInput; result: BattleResult } {
   const input = buildScenario(data, def, ON_POSTS);
   const lastFire: [number, number] = [-1, -1];
+  const direct: [number, number] = [0, 0], menDirect: [number, number] = [0, 0], firstIn: [number, number] = [-1, -1];
+  const hitMen = [new Set<number>(), new Set<number>()];
+  let closest = Infinity, quietStart = 0, quietMax = 0, quietAt = -1, lastActivity = 0, firstSeen = -1;
   let able: [number, number] = [0, 0];
   let pending: SimEvent[] = [];
   let simRef: Sim | null = null;
   const t0 = performance.now();
   const result = runBattle(input, {
     controllers: planControllers(input),
-    onEvents: (ev) => { for (const e of ev) if (FIRE.has(e.kind)) pending.push(e); },
+    onEvents: (ev) => { for (const e of ev) if (FIRE.has(e.kind) || e.kind === "wound" || e.kind === "casualty") pending.push(e); },
     onTick: (sim: Sim) => {
       simRef = sim;
       const st = sim.state;
       for (const e of pending) {
-        let side: string | undefined;
-        if (e.kind === "shot.fired") side = e.vehicle !== undefined ? st.vehicle.get(e.vehicle)?.side : st.identity.get(e.shooter)?.side;
-        else if (e.kind === "grenade.launched") side = st.identity.get(e.soldier)?.side;
-        else if (e.kind === "mortar.fired") side = e.side;
-        else if (e.kind === "support.round") side = (e as { side?: string }).side;
-        if (side === "blue") lastFire[0] = e.tick; else if (side === "red") lastFire[1] = e.tick;
+        if (e.kind === "wound" || e.kind === "casualty") {
+          const side = st.identity.get(e.soldier)?.side;
+          if (side === "blue" || side === "red") { hitMen[side === "blue" ? 0 : 1]!.add(e.soldier); lastActivity = e.tick; }
+          continue;
+        }
+        let side: string | undefined, man = false;
+        if (e.kind === "shot.fired") {
+          // (An on-map tube's high-angle round is indirect fire; an off-map round never fires a shot.)
+          if (e.indirect === true) continue;
+          const v = e.vehicle !== undefined ? st.vehicle.get(e.vehicle) : undefined;
+          if (v !== undefined && isOffMap(v)) continue;
+          side = v !== undefined ? v.side : st.identity.get(e.shooter)?.side;
+          man = e.vehicle === undefined;
+        } else if (e.kind === "grenade.launched") { side = st.identity.get(e.soldier)?.side; man = true; }
+        if (side !== "blue" && side !== "red") continue;
+        const i = side === "blue" ? 0 : 1;
+        lastFire[i] = e.tick; direct[i]++; if (man) menDirect[i]++; lastActivity = e.tick;
+        if (firstIn[1 - i]! < 0) firstIn[1 - i] = e.tick;
       }
       pending = [];
       if (st.ended === null && st.tick % TICK_HZ !== 0) return;
       const a: [number, number] = [0, 0];
+      const pos: [number[], number[]] = [[], []];
       // mounted: ok (the men on the map, aboard or not)
       for (const [id, ident] of st.identity.entries()) {
         if (isAssetUnit(st, ident.unit)) continue;
         const s = st.soldier.get(id);
-        if (s && isAble(s)) a[ident.side === "blue" ? 0 : 1]++;
+        if (!s || !isAble(s)) continue;
+        const i = ident.side === "blue" ? 0 : 1;
+        a[i]++;
+        if (isOffMapMan(st, s)) continue;
+        if (firstSeen < 0 && s.contacts.some((c) => c.kind === "seen" && st.tick - c.tick < TICK_HZ && c.cls !== "vehicle")) firstSeen = st.tick;
+        const t = st.transform.get(id);
+        if (t && t.x > -1000) pos[i].push(t.x, t.y);
       }
       able = a;
+      // Both sides on the map: the quiet clock runs (once a man of either has seen the enemy, or a round was fired);
+      // else it starts again when they are.
+      if (firstSeen < 0 && lastActivity > 0) firstSeen = lastActivity;
+      if (pos[0].length > 0 && pos[1].length > 0) {
+        for (let p = 0; p < pos[0].length; p += 2) for (let q = 0; q < pos[1].length; q += 2) {
+          const dx = pos[0][p]! - pos[1][q]!, dy = pos[0][p + 1]! - pos[1][q + 1]!, d2 = dx * dx + dy * dy;
+          if (d2 < closest) closest = d2;
+        }
+        const from = Math.max(quietStart, lastActivity, firstSeen);
+        if (firstSeen >= 0 && st.tick - from > quietMax) { quietMax = st.tick - from; quietAt = from; }
+      } else quietStart = st.tick;
     },
   });
   const wallS = (performance.now() - t0) / 1000;
@@ -88,10 +156,14 @@ export function runKind(data: DataSet, def: ScenarioDef, roster: boolean): { row
   const ranOut = result.endReason === "time-limit";
   const quiet = lastFire[0] < quietFrom && lastFire[1] < quietFrom;
   const strong = able[0] * 2 > men[0] && able[1] * 2 > men[1];
+  const m = { direct, firstInS: firstIn.map((t) => (t < 0 ? -1 : Math.round(t / TICK_HZ))) as [number, number], hit: [hitMen[0]!.size, hitMen[1]!.size] as [number, number], quietS: Math.round(quietMax / TICK_HZ) };
+  const flags = kindFlags(m, checks);
   const row: KindRow = {
     kind: def.kind, map: def.mapKind, seed: def.seed, roster, vehicles: def.vehicles === true, endReason: result.endReason, endS: Math.round(result.durationSeconds), winner: result.winner,
     men, ableEnd: able, saved, lastFireS: lastFire.map((t) => (t < 0 ? -1 : Math.round(t / TICK_HZ))) as [number, number],
     stalemate: ranOut && quiet && strong, wallS: Math.round(wallS * 10) / 10, speed: Math.round(result.durationSeconds / Math.max(wallS, 1e-3)),
+    ...m, menDirect, closestM: closest === Infinity ? -1 : Math.round(Math.sqrt(closest)), quietFromS: quietAt < 0 ? -1 : Math.round(quietAt / TICK_HZ),
+    firstSeenS: firstSeen < 0 ? -1 : Math.round(firstSeen / TICK_HZ), ...flags,
   };
   if ((input.rules.exits ?? []).length > 0 && simRef) {
     // Every man out by an exit, as the roster gives him back: "fit" or "wounded", nothing else.
@@ -113,22 +185,39 @@ export function runKind(data: DataSet, def: ScenarioDef, roster: boolean): { row
 }
 
 /** The matrix (kinds x maps x seeds), with or without roster forces. */
-export function kindsLab(data: DataSet, o: { kinds: readonly string[]; maps: readonly MapKind[]; seeds: readonly number[]; seconds: number; vehicles?: boolean; roster?: boolean; size?: "platoon" | "company"; onRow?: (r: KindRow) => void }): KindRow[] {
+export function kindsLab(data: DataSet, o: { kinds: readonly string[]; maps: readonly MapKind[]; seeds: readonly number[]; seconds: number; vehicles?: boolean; roster?: boolean; size?: "platoon" | "company"; checks?: KindChecks; onRow?: (r: KindRow) => void }): KindRow[] {
   const rows: KindRow[] = [];
   for (const kind of o.kinds) for (const map of o.maps) for (const seed of o.seeds) {
     let def = kindScenario(kind, map, seed, o.seconds, { vehicles: o.vehicles === true, ...(o.size ? { size: o.size } : {}) });
     if (o.roster === true) def = { ...def, forces: rosterForcesOf(buildScenario(data, def, ON_POSTS)) };
-    const { row } = runKind(data, def, o.roster === true);
+    const { row } = runKind(data, def, o.roster === true, o.checks ?? KIND_CHECKS);
     rows.push(row);
     o.onRow?.(row);
   }
   return rows;
 }
 
-export function kindsMarkdown(rows: readonly KindRow[]): string {
-  const out = ["| kind | map | seed | roster | end | s | winner | men b/r | able at end | saved | last fire s | stalemate | x real time |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|"];
-  for (const r of rows) out.push(`| ${r.kind} | ${r.map} | ${r.seed} | ${r.roster ? "yes" : ""} | ${r.endReason} | ${r.endS} | ${r.winner ?? "draw"} | ${r.men[0]}/${r.men[1]} | ${r.ableEnd[0]}/${r.ableEnd[1]} | ${r.saved[0]}/${r.saved[1]} | ${r.lastFireS[0]}/${r.lastFireS[1]} | ${r.stalemate ? "**yes**" : ""} | ${r.speed} |`);
+/** The row's fail flags as words ("" none). */
+export function kindFails(r: Pick<KindRow, "noReturn" | "quiet"> & { noFire?: boolean }): string[] {
+  const f: string[] = [];
+  if (r.noFire === true) f.push("no fire");
+  if (r.noReturn[0]) f.push("blue no return fire");
+  if (r.noReturn[1]) f.push("red no return fire");
+  if (r.quiet) f.push("quiet");
+  return f;
+}
+
+export function kindsMarkdown(rows: readonly KindRow[], c: KindChecks = KIND_CHECKS): string {
+  const out = [
+    "| kind | map | seed | roster | veh | end | s | winner | men b/r | able at end | saved | direct rounds b/r (by men) | first fired on s | men hit b/r | last direct s | closest m | longest quiet s (from) | stalemate | fails | x real time |",
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+  ];
+  for (const r of rows) {
+    const fails = kindFails(r);
+    out.push(`| ${r.kind} | ${r.map} | ${r.seed} | ${r.roster ? "yes" : ""} | ${r.vehicles ? "yes" : ""} | ${r.endReason} | ${r.endS} | ${r.winner ?? "draw"} | ${r.men[0]}/${r.men[1]} | ${r.ableEnd[0]}/${r.ableEnd[1]} | ${r.saved[0]}/${r.saved[1]} | ${r.direct[0]} (${r.menDirect[0]}) / ${r.direct[1]} (${r.menDirect[1]}) | ${r.firstInS[0]}/${r.firstInS[1]} | ${r.hit[0]}/${r.hit[1]} | ${r.lastFireS[0]}/${r.lastFireS[1]} | ${r.closestM} | ${r.quietS} (${r.quietFromS}) | ${r.stalemate ? "**yes**" : ""} | ${fails.length > 0 ? `**${fails.join(", ")}**` : ""} | ${r.speed} |`);
+  }
   const n = rows.length, st = rows.filter((r) => r.stalemate).length;
-  out.push("", `${n} battles, ${st} stalemates.`);
+  const nr = rows.filter((r) => r.noReturn[0] || r.noReturn[1]).length, q = rows.filter((r) => r.quiet).length;
+  out.push("", `${n} battles, ${st} stalemates, ${nr} with a side that never fired back (took ${c.minIncoming}+ enemy direct rounds or a man hit, fired under ${c.minReturn}), ${q} with a quiet stretch of ${c.quietS} s or more (no direct round, nobody hit, both sides on the map, from the first sighting), ${rows.filter((r) => r.noFire).length} with no direct round at all. Direct fire only: off-map and mortar rounds are not counted.`);
   return out.join("\n");
 }

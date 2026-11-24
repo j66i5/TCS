@@ -648,7 +648,12 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       task.lineCheckTick = tick;
       // Firing at a contact: follow it as his picture of the enemy changes (target movement in the aiming
       // error is still to come: he aims at the last known position).
-      if (task.contact !== undefined) {
+      if (task.spot !== undefined) {
+        // (Area return fire, review 2026-11-24 problem 2: a new point of the circle for each shot or burst; the circle
+        // itself follows his picture of the place, decisions.ts.)
+        const sp = task.spot, rho = sp.r * sqrt(nextFloat(state.rng, Streams.fire)), th = 2 * PI * nextFloat(state.rng, Streams.fire);
+        task.x = Math.min(Math.max(sp.cx + rho * cos(th), 0), ctx.map.widthM); task.y = Math.min(Math.max(sp.cy + rho * sin(th), 0), ctx.map.heightM);
+      } else if (task.contact !== undefined) {
         const c = s.contacts.find((k) => k.target === task.contact);
         if (c && (c.x !== task.x || c.y !== task.y)) { task.x = c.x; task.y = c.y; }
         // (His aim height follows the posture he sees the man in, package A, unless the order gave one.)
@@ -664,15 +669,23 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       // his muzzle) is no line either: he rises to a kneel over it, as over a bank. If none clears it, he takes the
       // first posture with a line and the friend check holds his fire.)
       const tz = aimZ(ctx, task);
-      for (const p of from) {
-        const q = lineOfFireTo(ctx, state, id, task.x, task.y, task.heightM, p, shortM);
-        if (q > 0 && bodyInLine(ctx, state, id, task.x, task.y, { posture: p, tz })) { if (q === 2) body ??= p; continue; }
-        if (q === 2) { ok = p; break; }
-        if (q === 1) short ??= p;
+      for (let pass = 0; pass < 2; pass++) {
+        for (const p of from) {
+          const q = lineOfFireTo(ctx, state, id, task.x, task.y, task.heightM, p, shortM);
+          if (q > 0 && bodyInLine(ctx, state, id, task.x, task.y, { posture: p, tz })) { if (q === 2) body ??= p; continue; }
+          if (q === 2) { ok = p; break; }
+          if (q === 1) short ??= p;
+        }
+        // (Area fire, review 2026-11-24 verification: no line to the point drawn — a wall, a house in the circle — he
+        // tries the circle's centre before he holds his fire.)
+        if (pass > 0 || ok !== undefined || short !== undefined || body !== undefined || task.spot === undefined || (task.x === task.spot.cx && task.y === task.spot.cy)) break;
+        task.x = task.spot.cx; task.y = task.spot.cy;
       }
       if (ok === undefined && short === undefined) ok = body;
       if (ok === undefined && short !== undefined) { ok = short; task.intoCover = true; } else delete task.intoCover;
       task.lineClear = ok !== undefined;
+      // (Return or area fire with no line: since when, so the decision gives it up, decisions.ts keepArea.)
+      if (task.suppress === "area" || task.suppress === "return") { if (ok !== undefined) { if (task.noLineTick !== undefined) task.noLineTick = undefined; } else task.noLineTick ??= tick; }
       task.linePosture = ok ?? s.posture;
       if (ok !== undefined && ok !== s.posture) { requestPosture(ctx, state, id, ok); continue; }
       if (ok === undefined) {
@@ -723,7 +736,10 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       const sustained = task.intoCover === true || (task.suppress === "drill" && task.contact === undefined);
       // (Fire at a known place, M11.1 point 7b: one shot per suppressKnown.intervalS, a burst per mgIntervalS.)
       // (Return fire at a shooter's known place, balance pass 4: returnFire.intervalS / mgIntervalS.)
-      const SK = task.suppress === "known" ? ctx.catalog.behaviour.soldier.suppressKnown : task.suppress === "return" ? ctx.catalog.behaviour.soldier.returnFire : undefined;
+      const RF = ctx.catalog.behaviour.soldier.returnFire;
+      // (Area return fire, review 2026-11-24 problem 2: returnFire.areaIntervalS / areaMgIntervalS.)
+      const SK = task.suppress === "known" ? ctx.catalog.behaviour.soldier.suppressKnown : task.suppress === "return" ? RF
+        : task.suppress === "area" && RF !== undefined ? { intervalS: RF.areaIntervalS ?? RF.intervalS, mgIntervalS: RF.areaMgIntervalS ?? RF.mgIntervalS } : undefined;
       const interval = SK ? Math.max(interval0, su ? SK.mgIntervalS : SK.intervalS) : sustained ? Math.max(interval0, ctx.catalog.behaviour.drills.suppressIntervalS) : interval0;
       // +-15 % so men do not fire in step.
       // Ammunition discipline of his unit (M5): conserve stretches the pause, maximum shortens it.

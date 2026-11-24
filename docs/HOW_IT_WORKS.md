@@ -14,7 +14,8 @@ his squad's place (the spot that sees most of the ground the attack must cross, 
 5 m from the next man, the squads at an objective inside its ring), lies down facing what he sees and fires at will
 out to 300 m, pulls
 back a squad that has lost half its men once the enemy is close (a known enemy within 150 m, its objective
-assaulted, or enemies on two sides; until then it holds) to a rally point of its own 80-150 m behind it, away from
+assaulted, or enemies on two sides; until then it holds), or a squad losing men to fire it cannot answer (a man down
+in the last 30 s, none of its men firing: cannon from out of rifle range; review 2026-11-24), to a rally point of its own 80-150 m behind it, away from
 the enemy it knows, in cover and seeing its objective, where each man takes a fire position facing the enemy's way
 (a remnant of three or fewer goes back in one rush, all together, instead of by bounds; yours too), and
 counterattacks a lost objective while it is strong enough (a squad holding its rally point counts toward that); in
@@ -1262,6 +1263,38 @@ unit breaks ("falling back!"): every man runs about 150 m away from the enemy th
 not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
 ("rallied"), still shaken (their shock cut to 60 %). Since the morale rework (2026-11-15) this holds for squads too,
 not only for the whole platoon (see "Morale" above).
+
+**The contact drill (review 2026-11-24).** Coming under fire on the move now starts an immediate-action drill for
+every squad on foot, also one told to "push on" (only vehicle crews and missile or grenade-launcher teams on their way
+to a post keep going). The men stop and go down where they are, each in the lowest posture from which he can fire
+toward the shots (lying, else kneeling). The squad works out where the fire comes from: the enemy its men know best
+who is firing, else the direction the rounds came from. The radio calls the bearing ("contact! Taking fire from bearing
+95, returning fire."). A man with no line of fire (a wall, a bank, a comrade in the way) dashes a few metres aside once.
+Every man returns fire: aimed at an enemy he sees, otherwise at the area where the shooters are believed to be, one shot
+every 4 s (a machine gun a burst every 5 s), each at a different point in a circle the size of the guess (at most 30 m).
+After about 15 s, and every 10 s after, the squad leader decides. He assaults an enemy known to be within 50 m. He breaks
+contact, falling back 100 m under smoke, when a third of his men are down or most of them stay pinned. Under "push on"
+he goes on to where the squad was going once the fire has slackened. Otherwise he holds and fights until it goes quiet
+or an order comes. Any order ends the drill: the player or the AI commander takes the decision for him. The values are
+in `behaviour.json` (`drills.contact`) and in each faction's doctrine (`contactAssaultM`, `contactBreakLossShare`,
+`contactBreakPinnedShare`). **Fire at shooters he cannot see.** A man shot at by an enemy he only heard, or was told about,
+fires back at that area as long as its position is known to within 120 m, or 40 % of the range. He also does this when
+he is halted, pinned but not panicked, or defending, and when his squad was fired on even though no round passed him.
+This counts as returning fire, so it is allowed under the player's default rule "return fire". Shots from the same shooter
+heard again within 10 s narrow down his position: up to six guesses are averaged. At night, a muzzle flash in sight
+narrows it further. `npm run lab -- contact` measures the drill.
+
+**Delay and pursuit (the withdrawal battle, review 2026-11-24).** The side that must withdraw first delays: it opens
+fire at will out to 600 m (to make the enemy deploy early) and stays on its objectives until it has fought for a minute
+(fired on, an enemy seen close, or one placed within 400 m by a comrade or its drone), or the enemy is within 150 m;
+it never stays later than the time it needs to get its farthest man out at 2 m/s plus a minute. Then squads near their
+carriers mount, and squads in contact break it by bounds under covering fire (the withdraw drill, 150 m toward the
+exit: the rear guard) before everyone runs for the exit. The follower attacks the objectives as usual; once the enemy
+has broken contact (nobody of its side has seen him or been fired on for 30 s), or two minutes after the delay's time
+without any contact, it takes up the pursuit at once with every unit: squads near their carriers mount, everyone goes
+for the nearest enemy the side knows within 500 m (else on toward his exit), running while the contact is less than
+90 s old, firing at will and fighting through contact by the drill; the goals follow the enemy as reports come in. On
+foot the follower starts 400 m short of the main objective, just beyond its support line.
 
 ## Surrender
 

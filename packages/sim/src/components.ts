@@ -579,6 +579,9 @@ export interface Contact {
   errM: number;
   /** seen: he saw him; heard: shots from that direction; reported: told by a comrade. */
   kind: "seen" | "heard" | "reported";
+  /** Heard: how many guesses from shots heard in quick succession make up this place (review 2026-11-24 problem 2;
+   *  absent = one). */
+  heardN?: number;
   tick: number;
   /** When he last passed this contact on (reports are not passed on again: no gossip chains). */
   reportedTick: number;
@@ -676,10 +679,18 @@ export interface Unit {
    *  sight goes by it, as by `ownContactTick`. Optional (absent = never). */
   seenContactTick?: number;
   seenSpellTick?: number;
+  /** Review 2026-11-24 verification (`drills.contact.seenM`): a man of it under fire rule "free" saw an enemy within
+   *  `seenM` (and its range rule): last tick, and the start of that spell (the contact drill halts a move on it). */
+  farSeenTick?: number;
+  farSeenSpellTick?: number;
   /** Tick of the last order delivered to this unit or one of its men (M6.6: no prisoner errands right after). */
   orderTick: number;
   /** A drill in progress (M4.3), and whether the unit has broken and is running back. */
   drill: Drill | null;
+  /** The immediate-action contact drill in progress (review 2026-11-24 problem 2, systems/drills.ts). Absent: none. */
+  contactDrill?: ContactDrill;
+  /** Its last "contact" call: tick and bearing (degrees), review 2026-11-24 verification (`drills.contact.radioEveryS`). */
+  contactCall?: [number, number];
   /** Broken (any echelon, morale rework): its men run back (the rout drill) until it rallies. */
   broken: boolean;
   /** Its quality level (core/qualities.json; absent: `morale.defaultQuality`) and its morale (morale rework). */
@@ -764,6 +775,30 @@ export interface Unit {
   /** M11.9c standing rule: the unit's prisoners get escorts on their own ("auto") or only on the player's
    *  `escortPrisoners` ("ask"). Absent: "auto" (its top unit's rule when it has none). */
   prisonerRule?: "auto" | "ask";
+}
+
+/**
+ * The immediate-action contact drill (review 2026-11-24 problem 2): a unit on foot fired on while on the move has
+ * halted, its men down and returning fire; its leader decides (every `drills.contact.decideS`) whether to assault, break
+ * contact, go on or hold. Plain data.
+ */
+export interface ContactDrill {
+  startTick: number;
+  /** The next decision. */
+  decideTick: number;
+  /** The squad's guess of where the fire comes from: x, y and its error (m); when it was last worked out. */
+  src?: [number, number, number];
+  srcTick: number;
+  /** Able men at the start (for the losses), decisions in a row with too many pinned. */
+  men: number;
+  pinnedRuns: number;
+  /** Where each man was going (id, x, y) and at what pace: rule "push" goes on there. */
+  goals: [EntityId, number, number][];
+  mode: string;
+  /** Men who have looked for a spot a few metres aside with a line of fire to the place (once each, or once each
+   *  `drills.contact.sidestepEveryS` since `steppedTick`). */
+  stepped?: EntityId[];
+  steppedTick?: number;
 }
 
 /**
@@ -885,7 +920,16 @@ export interface FireTask {
    * line may end in cover up to `drills.suppressShortM` short of the point (he fires into it). A drill's covering
    * fire at a point (no enemy named) is fired at the sustained rate too.
    */
-  suppress?: "order" | "drill" | "known" | "return";
+  suppress?: "order" | "drill" | "known" | "return" | "area";
+  /**
+   * Area return fire by a man (review 2026-11-24 problem 2, `suppress` "area"): a shooter he knows only roughly, or his
+   * squad's guess of where the fire comes from (`Unit.contactDrill.src`): each shot goes at a point drawn in the circle
+   * of `r` m round (cx, cy) (the point is written to x, y). With `contact`, the circle follows his picture of that man.
+   */
+  spot?: { cx: number; cy: number; r: number };
+  /** Return or area fire (`suppress` "return"/"area"): the tick since which he has had no line of fire to it
+   *  (review 2026-11-24 verification; decisions.ts drops the task after `returnFire.noLineS`). */
+  noLineTick?: number;
   /** His line reaches only the cover near the point (`suppress`): he fires into it at the sustained rate. */
   intoCover?: true;
   /** Assault fire (package D): he fires while moving (with a heavy aiming penalty), from the posture he moves in. */

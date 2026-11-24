@@ -10,10 +10,13 @@
     "coverPreference": 0.0,
     "boundM": 20,
     "finalAssaultM": 15,
-    "casualtyCarePriority": 0.5
+    "casualtyCarePriority": 0.5,
+    "contactAssaultM": 50,
+    "contactBreakLossShare": 0.3,
+    "contactBreakPinnedShare": 0.6
   },
   "sources": [],
   "confidence": "low",
-  "note": "Made-up test fixture. M10.3a casualtyCarePriority (how readily a man leaves the fight for a wounded comrade, a factor in core/medical.json carers willingness): 0.5, the same for every side, game value (no public source for a national difference), low.",
+  "note": "Made-up test fixture. M10.3a casualtyCarePriority (how readily a man leaves the fight for a wounded comrade, a factor in core/medical.json carers willingness): 0.5, the same for every side, game value (no public source for a national difference), low. Contact drill (review 2026-11-24 problem 2, game values, low, the same for every side: no public source gives a national difference): a squad fired on on the move assaults the place the fire comes from within contactAssaultM 50 m (a near ambush is assaulted at once: search extracts of FM 3-21.8-style battle drills), breaks contact with contactBreakLossShare 0.3 of its men down or contactBreakPinnedShare 0.6 of them pinned.",
   "defaultFormation": "file"
 }

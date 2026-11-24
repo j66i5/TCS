@@ -500,6 +500,39 @@ export interface BehaviourDef {
      */
     clearOfM: number; clearShieldM: number; clearThrowMinM: number; clearAimInM: number; clearStackRankM: number; clearThrowAsideM: number;
     clearEntrySeenW: number; clearEntrySeenM: number; clearKnownS: number; clearMoveAwayM: number; clearStackNearM: number;
+    /**
+     * The immediate-action contact drill (review 2026-11-24 problem 2): a unit on foot on the move that comes under
+     * fire anew (any contact rule but "back", which withdraws at once; not a crew or a missile or grenade-launcher team
+     * on its way to its post) halts; each man goes down where he is in the lowest posture that has a line to where the
+     * fire comes from (prone, else kneeling) and returns fire at what he sees or, unseen, at the place as an area
+     * (`soldier.returnFire`). The squad's guess of that place (the freshest firing enemy its men know, else the
+     * direction the rounds came from at `guessM`) is renewed every `srcEveryS`, from enemies firing within `srcWithinS`.
+     * After `immediateS` + `decideS` (and every `decideS` after) its leader decides by the doctrine's contact values:
+     * assault the place when it is within `contactAssaultM` (known to within that) and less than
+     * `contactBreakPinnedShare` of his men are pinned; break contact (the withdraw drill `drills.fallBackM` away from
+     * it, hand smoke) when `contactBreakLossShare` of the men he had are down, or the pinned share has been at least
+     * `contactBreakPinnedShare` at `breakChecks` decisions in a row; under rule "push", go on to where they were going
+     * (at the move's own pace) once fewer than `continuePinnedShare` are pinned and no round has passed for
+     * `continueQuietS`; otherwise hold and fight. The drill ends after `quietS` without a round past them (rule
+     * "push": they go on), after `maxS` (push: they go on unless pinned), or with any order. Absent: the old react to
+     * contact (halt, prone; rule "push" ignores contact).
+     */
+    contact?: {
+      immediateS: number; decideS: number; quietS: number; maxS: number; srcEveryS: number; srcWithinS: number; guessM: number;
+      continuePinnedShare: number; continueQuietS: number; breakChecks: number;
+      contactAssaultM: number; contactBreakLossShare: number; contactBreakPinnedShare: number;
+      /** Review 2026-11-24 verification: a man with no line to the place looks for one a few metres aside again every
+       *  `sidestepEveryS` (absent: once); the squad calls "contact" again only after `radioEveryS`, unless the
+       *  bearing has turned by `radioTurnDeg`; a squad that broke contact turns to fight `regroupS` after its withdrawal
+       *  (absent: as before). */
+      sidestepEveryS?: number; radioEveryS?: number; radioTurnDeg?: number; regroupS?: number;
+      /** A unit on the move under contact rule "push" and fire rule "free" halts into the drill on an enemy seen within
+       *  `seenM` (and its range rule); its drill is quiet only when no enemy has been seen so (absent: `reactSeenM`
+       *  alone). */
+      seenM?: number;
+      /** Contact is not broken while at least this share of the men left have a fire task (absent: no such check). */
+      breakFiringShare?: number;
+    };
   };
   /**
    * Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off.
@@ -708,7 +741,19 @@ export interface BehaviourDef {
      *  under fire); no faster than one shot per `intervalS` (a machine gun one burst per `mgIntervalS`); it ends
      *  `firedOnS` after the last round past him, when that place grows older than `withinS`, or when he sees an enemy
      *  (aimed fire then). Every side. Absent: off. */
-    returnFire?: { firedOnS: number; withinS: number; maxErrM: number; bearingDeg: number; intervalS: number; mgIntervalS: number };
+    returnFire?: {
+      firedOnS: number; withinS: number; maxErrM: number; bearingDeg: number; intervalS: number; mgIntervalS: number;
+      /** Area return fire (review 2026-11-24 problem 2, contact drill): a shooter he knows only roughly (heard, or told
+       *  of: its place known to within `areaMaxErrM`, or `areaMaxErrShare` of its distance, whichever is larger) is
+       *  fired at as an area: each shot at a point drawn in a circle round the place (its radius the place's error, at
+       *  most `areaMaxRadiusM`), one shot per `areaIntervalS` (a machine gun one burst per `areaMgIntervalS`), only
+       *  while he has at least `areaMinSpareMags` spare magazines or belts. A pinned man (not panicked) whose
+       *  suppression is below `pinnedBelow` returns fire too, lying where he is. Absent: off. */
+      areaMaxErrM?: number; areaMaxErrShare?: number; areaMaxRadiusM?: number; areaIntervalS?: number; areaMgIntervalS?: number; areaMinSpareMags?: number; pinnedBelow?: number;
+      /** Review 2026-11-24 verification: a pinned machine gunner returns fire below `pinnedSustainedBelow` (absent:
+       *  `pinnedBelow`); return or area fire with no line of fire to it for `noLineS` is given up (absent: kept). */
+      pinnedSustainedBelow?: number; noLineS?: number;
+    };
     friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
     /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
     stepAsideM: number[];
@@ -800,6 +845,11 @@ export interface SpottingDef {
     seenErrorM: number; seenErrorPerM: number; hearingRangeM: number; bearingErrorDeg: number; rangeErrorFraction: number;
     heardEverySeconds: number; forgetSeconds: number; driftMps: number; reportEverySeconds: number; reportedErrorM: number;
     voiceDelaySeconds: number; callEverySeconds: number;
+    /** Repeated shots narrow a heard place; a muzzle flash at night more (review 2026-11-24 problem 2). Absent: off. */
+    heardMergeSeconds?: number; heardMergeMax?: number; heardMinErrorFraction?: number; flashBelowLight?: number; flashM?: number; flashErrorFactor?: number;
+    /** Review 2026-11-24 verification: a fixed bearing bias of up to this many degrees per listener and shooter
+     *  (echoes, the crack from the bullet's path), which merging does not average away (absent: none). */
+    heardBiasDeg?: number;
   };
 }
 

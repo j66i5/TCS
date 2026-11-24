@@ -37,7 +37,9 @@ describe("M7.6c review fixes", () => {
   // taken or the crew saying why it holds for its own men (review fix: chooseTarget skips targets it cannot fire at),
   // not for a shot.)
   it("a GTK Boxer whose commander falls: a passenger takes his seat and the FLW 200 takes targets again", () => {
-    const input = buildScenario(data, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["de", "ru"], attacker: "blue", vehicles: true, carriers: "wheeled", missileTeams: false });
+    // (Review 2026-11-24 problem 2: seed 2. Since the contact drill, seed 1's GTK is abandoned (hit) at about 20 s,
+    // before it can take a target; the test is about the seat swap, not that battle.)
+    const input = buildScenario(data, { kind: "platoon-attack", seed: 2, mapKind: "village", factions: ["de", "ru"], attacker: "blue", vehicles: true, carriers: "wheeled", missileTeams: false });
     const sim = createSim(input);
     const st = sim.state, cat = input.catalog;
     const [vid, v] = [...st.vehicle.entries()].find(([, x]) => x.side === "blue" && x.offMap === undefined && x.def === "de-boxer-gtk")!;

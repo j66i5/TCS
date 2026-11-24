@@ -27,6 +27,7 @@ import { atan2, cos, PI, sin, sqrt } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { cellIndex, heightAt, standZ } from "../terrain";
+import { sight } from "../los";
 import { PROT_CARRYING, PROT_MARKED, PROT_POINT, recognise } from "../protection";
 import { unitSoldiers } from "./orders";
 
@@ -200,6 +201,8 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
   const shots = (events.events as SimEvent[]).filter((e): e is Extract<SimEvent, { kind: "shot.fired" }> => e.kind === "shot.fired");
   if (shots.length > 0) {
     const hear2 = K.hearingRangeM * K.hearingRangeM, every = secondsToTicks(K.heardEverySeconds);
+    const merge = secondsToTicks(K.heardMergeSeconds ?? 0), mergeMax = K.heardMergeMax ?? 1, minErrF = K.heardMinErrorFraction ?? 0;
+    const flashOk = K.flashErrorFactor !== undefined && K.flashBelowLight !== undefined && state.environment.light < K.flashBelowLight, flash2 = (K.flashM ?? 0) * (K.flashM ?? 0);
     const bearErr = (K.bearingErrorDeg * PI) / 180;
     // One sound per shooter per tick is enough (a burst is one sound).
     // (A cannon or coaxial machine gun is heard as its vehicle, M7.3.)
@@ -225,14 +228,26 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
         if (d2 > (lm !== undefined ? Math.max(hear2, lm * lm) : hear2)) continue;
         const i = findContact(s.contacts, shooter);
         const range = sqrt(d2);
+        // (Review 2026-11-24 problem 2: heard again soon after, the guesses add up — their mean, the error / sqrt(n);
+        // at night a muzzle flash he can see places him closer still.)
+        const old = i >= 0 ? s.contacts[i]! : null;
+        if (old !== null && tick - old.tick < every) continue;
+        const n = merge > 0 && old !== null && old.kind === "heard" && tick - old.tick <= merge ? Math.min((old.heardN ?? 1) + 1, mergeMax) : 1;
+        let err = Math.max(10, K.rangeErrorFraction * range);
+        if (n > 1) err = Math.max(minErrF * range, err / sqrt(n));
+        const flash = flashOk && d2 <= flash2 && (() => { const sz = standZ(ctx.map, st), mz = standZ(ctx.map, state.transform.req(id)); return sight(ctx, me.x, me.y, mz + 1.5, st.x, st.y, sz + 0.5, -1, state.vehicle.has(shooter) ? shooter : -1).visibility > 0.05; })();
+        if (flash) err = Math.max(minErrF * range * K.flashErrorFactor!, err * K.flashErrorFactor!);
         // Heard him moments ago, or knows where he is better than a sound could tell: nothing new.
-        if (i >= 0 && (tick - s.contacts[i]!.tick < every || contactErrorM(ctx, s.contacts[i]!, tick) <= Math.max(10, K.rangeErrorFraction * range))) continue;
-        const a = atan2(dy, dx) + bearErr * nextNormal(state.rng, Streams.contacts);
-        const guess = Math.max(10, range * (1 + K.rangeErrorFraction * nextNormal(state.rng, Streams.contacts)));
-        const gx = Math.min(Math.max(me.x + cos(a) * guess, 0), ctx.map.widthM), gy = Math.min(Math.max(me.y + sin(a) * guess, 0), ctx.map.heightM);
-        const c: Omit<Contact, "reportedTick"> = { target: shooter, x: gx, y: gy, errM: Math.max(10, K.rangeErrorFraction * range), kind: "heard" as const, tick, ...(state.vehicle.has(shooter) ? { cls: "vehicle" as const } : {}) };
+        if (old !== null && contactErrorM(ctx, old, tick) <= err) continue;
+        const fk = flash ? K.flashErrorFactor! : 1;
+        const a = atan2(dy, dx) + bearErr * fk * nextNormal(state.rng, Streams.contacts);
+        const guess = Math.max(10, range * (1 + K.rangeErrorFraction * fk * nextNormal(state.rng, Streams.contacts)));
+        let gx = Math.min(Math.max(me.x + cos(a) * guess, 0), ctx.map.widthM), gy = Math.min(Math.max(me.y + sin(a) * guess, 0), ctx.map.heightM);
+        if (n > 1 && old !== null) { gx = old.x + (gx - old.x) / n; gy = old.y + (gy - old.y) / n; }
+        const c: Omit<Contact, "reportedTick"> = { target: shooter, x: gx, y: gy, errM: err, kind: "heard" as const, tick, ...(state.vehicle.has(shooter) ? { cls: "vehicle" as const } : {}) };
         const isNew = i < 0;
         learn(ctx, s.contacts, c, -1e9, tick);
+        if (merge > 0) { const k = s.contacts[findContact(s.contacts, shooter)]; if (k !== undefined && k.kind === "heard" && k.tick === tick) { if (n > 1) k.heardN = n; else delete k.heardN; } }
         fresh.push({ who: id, c, isNew, news: isNew });
       }
     }

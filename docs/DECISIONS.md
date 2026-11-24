@@ -10534,3 +10534,79 @@ casualty in a fireman's carry rides on the carrier's own coordinates, died, and 
   task and fires kneeling, no own hit (fails on the earlier branch head). Goldens: none changed (`golden:update`
   reports all 12 unchanged). Platoon s1 1200 s after: 97 hits / 4 own (0 direct, grenade fragments) / 683-972; platoon
   s4 900 s: 74 / 0 / 1863-100.
+
+## 2026-11-24 — The contact drill and fire at unseen shooters (whole-game review, problem 2, part 1)
+
+Owner 2026-11-24: fix and accept before new milestones, realism first. Review finding: the ambushed German platoon on
+foot walked on and fired 0 rounds against 1042 (village) and 571:0 (farmland). The cause: a moving man fires only
+within 75 m, return fire needed him halted, the transit side's rule "push" skipped react-to-contact, and an unseen
+shooter was known only by sound (error 0.35 x range), which return fire refused above 30 m.
+
+- **Contact drill** (`systems/drills.ts`, `Unit.contactDrill`, `behaviour.json drills.contact`, doctrine
+  `contactAssaultM` / `contactBreakLossShare` / `contactBreakPinnedShare`, the same 50 / 0.3 / 0.6 for DE, RU and
+  xf). It replaces react to contact for units on foot when the data has it. It runs under rule "push" too when the unit
+  is fired on (a sighting alone does not stop a push), but not for crews or missile/AGL teams on their way to a post.
+  1. The men halt. Each goes down in the lowest posture with a line of fire to the squad's guess of the source: the
+     best-placed firing enemy its men know, else the mean direction the rounds came from at `guessM` 200 m.
+  2. The radio says `radio.contactFire` with the bearing.
+  3. A man with no line of fire (wall, bank, comrade) dashes 2-6 m aside, once.
+  4. After 15 s, and every 10 s after, the leader decides. He assaults (the assault drill) a source within 50 m known
+     to within 50 m. He breaks contact (withdraw drill, `fallBackM` away, hand smoke) with 30 % of his men down, or 60 %
+     pinned at two decisions in a row. Under "push" he goes on once fewer than 25 % are pinned and it has been quiet
+     for 8 s. Otherwise he holds.
+  5. The drill ends after 20 s quiet, after 120 s, or with any order (the order is the leader's decision, taken for
+     him).
+- **AI:** the posture commanders' `sendOn` no longer sends on a unit that is in a contact, assault or withdrawal
+  drill. Without this, the transit side's 20 s idle rule walked the squads back into the kill zone.
+- **Area return fire** (`decisions.ts` `returnFire` / `areaTask` / `fireAtContactSource` / `keepArea`, `FireTask.spot`,
+  fire.ts).
+  - A shooter known only to within `returnFire.areaMaxErrM` 120 m, or 0.4 of his range, is fired at as an area. Each
+    shot goes to a point drawn (stream `fire`) in a circle of his error, at most 30 m. Rate: one shot per 4 s, an MG
+    burst per 5 s. Only with at least one spare magazine. Rule "return" allows it: it is returning fire.
+  - A man whose squad is in the drill, or was fired on within 30 s, joins in at the squad's guess (or at the firing
+    enemy he knows best), even when no round passed him.
+  - A pinned man (not panicked) below suppression 0.75 returns fire, lying, at the pinned rate.
+  - The task ends when he sees an enemy (aimed fire then), when the place goes stale, or when the fire stops.
+- **Locating by sound** (`contacts.ts`, `spotting.json contacts`).
+  - The same shooter heard again within 10 s: his position becomes the mean of up to 6 guesses, with error / sqrt(n),
+    never below 0.1 x range (`Contact.heardN`).
+  - At night (light below 0.3), a muzzle flash in line of sight within 800 m cuts the error to 0.4 x.
+- **Numbers.** `npm run lab -- contact 3` (600 s, AI v AI on foot; direct rounds blue:red; killed+wounded blue:red):
+
+  | Battle | Before: rounds | Before: casualties | After: rounds | After: casualties |
+  |---|---|---|---|---|
+  | Ambush village s1 | 1:941 | 17:0 (blue gone 282 s) | 57:981 | 13:6 (blue gone 410 s) |
+  | Ambush village s2 (DE ambushes) | 696:0 | 0:13 | 303:252 | 14:9 |
+  | Ambush village s3 | 0:684 | 17:0 | 64:538 | 15:3 |
+  | Ambush farmland s1 | 0:582 | 16:0 (blue gone 259 s) | 557:214 | 7:18 (blue wins) |
+  | Ambush farmland s2 (DE ambushes) | 774:1 | 0:18 | 968:171 | 5:13 |
+  | Ambush farmland s3 | 1:898 | 17:0 | 205:776 | 9:8 |
+
+  - Sides fired on that never fired back: 4 of 12 before, 1 after (meeting village s2, below).
+  - First return round after the first incoming: 1-2 s.
+  - Meeting (village 1-3, farmland 1-3): unchanged in kind. The platoons halt about 650 m apart, out of rifle range,
+    and village s1/s3 fire no direct round in 600 s. Meeting village s2: red fires 427 rounds from beyond rifle range
+    at halted squads, and blue fires 2 (farmland s1: 815 to 2). That is the approach problem (part 2 of the design), not this drill.
+  - Platoon (600 s, shots; blue killed+wounded / red): s1 955; 7 / 2 -> 1112; 13 / 5. s2 406; 15 / 1 -> 308; 10 / 0.
+    s3 3; 3 / 0 -> 44; 2 / 0.
+  - Platoon attack 1200 s, AI v AI, seeds 1-4 (village), before the throttles below: before red 4/4; after red 3,
+    blue 1 (seed 4, side eliminated at 950 s).
+- **Tests.**
+  - `sim/test/contact-drill.test.ts`: a "push" squad fired on goes down, calls the bearing (about 90), fires back, saves
+    and loads mid-drill identically, and goes on once it is quiet; an order ends the drill; men nobody can see are
+    answered with area fire round the heard place; repeated shots narrow the heard place below 63 m.
+  - Seeds changed where the battle changed, with the behaviour checked unchanged:
+    - `commander.test` seed 2 -> 3 (seed 2 makes no assault in 1200 s);
+    - `gtk-seatswap` seed 1 -> 2 (the GTK is abandoned at about 20 s);
+    - `mounted-assault` (player) seed 1 -> 2.
+- **Open (gunnery, not this change):** in `mounted-assault` seed 1 at 224 s, a Puma's 30 mm HE aimed 580 m out grazed
+  a rise 120 m from the muzzle (the line 0.8 m above the ground) and burst 11 m from a man of its platoon lying 14 m
+  off the line. That is beyond the danger radius `stationHeld` holds for. Listed for a gunnery look.
+- **Cost.** A pinned man looks for where the fire comes from, and a halted man for his squad's guess, once every
+  `returnFire.intervalS` 3 s, not at every decision: a man lying in a firefight hears scores of shooters. Spotting
+  bench (304 men all firing, `perf.test`), four interleaved runs: main 10.3 / 10.0 / 10.7 / 9.7x, this branch
+  8.1 / 8.4 / 9.1 / 10.1x. Most of the gap goes away with the heard-place merge or the area fire off, so it is the
+  extra fire the men now return. That bench is now near its 8x floor on this noisy machine. Headless `bench` (120 s):
+  6.0 / 6.5 s on main, 6.1 / 6.4 s here. `bench-vehicles`: 9.9 / 13.1 s on main, 10.6 / 11.2 s here. bench-combined:
+  4.4 / 4.3x on main, 3.9 / 4.2x here.
+- **Goldens:** `npm run golden:update`, all 12 changed (catalog fingerprint: behaviour, spotting, doctrine data).

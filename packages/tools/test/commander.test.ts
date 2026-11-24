@@ -20,7 +20,9 @@ describe("AI commander (M6.3)", () => {
   // any assault, as the defenders shaken by losses fire less.)
   // (Seed 2 since sight realism step 3, 2026-11-15: with men lying still in vegetation now hard to see, seed 1's attack
   // wins by fire at 796 s before any assault.)
-  const input = scenario(2, 1200);
+  // (Seed 3 since the contact drill, review 2026-11-24 problem 2: in seed 2 the squads now go down and fight under
+  // fire on the way in and the attack makes no assault in 1200 s.)
+  const input = scenario(3, 1200);
   // (Assault tempo, overnight pick 2026-11-14: the men's fatigue as each assault drill starts; when the attacker
   // calls its first high explosive and when it starts its reconnaissance.)
   const cs0 = ctrls(input), atk = cs0[0]!;

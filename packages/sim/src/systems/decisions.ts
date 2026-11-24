@@ -24,7 +24,7 @@ import { interruptAction, startAction } from "../actions";
 import { refillDecision } from "./refill";
 import { stepBack, stepTake } from "./consolidate";
 import { stepBear, stepResupply } from "./supply";
-import type { Contact, Intent, SoldierState, Unit } from "../components";
+import type { Contact, ContactDrill, FireTask, Intent, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import { countItems, type Container } from "../items";
 import type { SimContext } from "../context";
@@ -1338,8 +1338,11 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     // (His own fire as he went ends with the move: a later move — a crawl, a side-step — is not fired on by it.)
     if (halted && task?.self === true && task.onTheMove === true) delete task.onTheMove;
 
+    // ---- area return fire (review 2026-11-24 problem 2): kept while the place is fresh and fire still comes
+    if (task?.self === true && task.suppress === "area") {
+      if (!keepArea(ctx, state, id, s, ident.unit, unit, task, reach)) { state.fire.delete(id); if (s.intent?.kind === "engage") s.intent = null; }
     // ---- his own fire: keep it up while he sees the enemy, stop when he has lost him
-    if (task?.self) {
+    } else if (task?.self) {
       const c = s.contacts.find((k) => k.target === task.contact);
       const es = task.contact !== undefined ? state.soldier.get(task.contact) : undefined;
       const me = state.transform.req(id);
@@ -1387,6 +1390,19 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
         const cur = state.fire.get(id), c = near.all.c;
         if ((!cur || (cur.self === true && cur.contact !== c.target)) && !friendHolds(ctx, state, id, c.x, c.y)
           && lineOfFireTo(ctx, state, id, c.x, c.y, aimHeightAt(ctx, c), "prone") > 0 && selfFire(ctx, state, id, c, false)) s.intent = { kind: "engage", tick: state.tick, target: c.target };
+      }
+      // ---- pinned (not panicked) and the fire easing (below returnFire.pinnedBelow), no enemy in sight: he returns
+      // fire at where it comes from, lying where he is, at his pinned rate (review 2026-11-24 problem 2)
+      const RF = S.returnFire;
+      // (He looks for it once every returnFire.intervalS, not at every decision: a man lying in a firefight hears a
+      // great many shooters, and the look goes through them all.)
+      if (RF?.pinnedBelow !== undefined && halted && s.mental.behaviour === "pinned" && s.mental.suppression < RF.pinnedBelow && !state.fire.has(id) && reach > 0 && unit.ambush === undefined
+        && Math.floor(state.tick / every) % Math.max(1, Math.round(RF.intervalS / D.stepSeconds)) === 0) {
+        const range = Math.min(reach, unitCap(unit, state, ctx), engageRange(ctx, state, id));
+        if (!lowOnAmmo(ctx, state, id, RF.areaMinSpareMags ?? 0)) {
+          returnFire(ctx, state, id, s, range, RF);
+          if (!state.fire.has(id)) fireAtContactSource(ctx, state, id, ident.unit, range);
+        }
       }
       // Nothing else while he is pinned or panicked: he fires back once he is no longer pinned (from the cover he
       // crawled to; a fire task he already had goes on at his pinned rate).
@@ -1454,7 +1470,12 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
         }
       } else if (onMove && current && current.self && pick && current.contact === pick.target) current.onTheMove = true;
       // ---- no enemy in sight, rounds cracking past him: he returns fire at the known place of the shooter (balance pass 4)
-      if (halted && !pick && !reserve && !current && unit.ambush === undefined && S.returnFire !== undefined) returnFire(ctx, state, id, s, range, S.returnFire);
+      if (halted && !pick && !reserve && !current && unit.ambush === undefined && S.returnFire !== undefined && !lowOnAmmo(ctx, state, id, S.returnFire.areaMinSpareMags ?? 0)) {
+        returnFire(ctx, state, id, s, range, S.returnFire);
+        // ---- his squad is in a contact drill: he joins its fire at where the fire comes from (review 2026-11-24 problem 2;
+        // looked at once every returnFire.intervalS)
+        if (!state.fire.has(id) && Math.floor(state.tick / every) % Math.max(1, Math.round(S.returnFire.intervalS / D.stepSeconds)) === 0) fireAtContactSource(ctx, state, id, ident.unit, range);
+      }
       // ---- no enemy in sight: a defender fires at the known place of one (M11.1 point 7b, suppressive fire)
       if (halted && !pick && !reserve && !current && !state.fire.has(id) && unit.ambush === undefined && S.suppressKnown !== undefined && !inDark
         && state.sides.find((x) => x.id === ident.side)?.posture === "defend") suppressKnown(ctx, state, id, s, range, S.suppressKnown);
@@ -1509,13 +1530,151 @@ function returnFire(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
     if (ew === undefined || tick - ew.lastShotTick > firedOn) continue;
     const dx = c.x - me.x, dy = c.y - me.y, d = hypot2(dx, dy);
     if (d < 1 || d > range || d >= bd || (dx * ff.dx + dy * ff.dy) < cosMax * d) continue;
-    if (contactErrorM(ctx, c, tick) > RF.maxErrM || !inArc(state, id, me, c.x, c.y)) continue;
+    const e = contactErrorM(ctx, c, tick);
+    if ((e > RF.maxErrM && !areaErrOk(RF, e, d)) || !inArc(state, id, me, c.x, c.y)) continue;
     best = c; bd = d;
   }
   if (!best || friendHolds(ctx, state, id, best.x, best.y)) return;
+  const err = contactErrorM(ctx, best, tick);
+  // (Known only roughly — a sound, a comrade's word: fire at the area round the place, review 2026-11-24 problem 2.)
+  if (err > RF.maxErrM) { areaTask(ctx, state, id, best.x, best.y, err, best.target); return; }
   if (!assignFireTask(ctx, state, id, best.x, best.y, aimHeightAt(ctx, best))) return;
   const ft = state.fire.get(id)!;
   ft.contact = best.target; ft.self = true; ft.aimAuto = true; ft.suppress = "return";
+}
+
+/** May a place known to within `e` m at `d` m be fired at as an area (`returnFire.areaMaxErrM` / `areaMaxErrShare`)? */
+function areaErrOk(RF: NonNullable<SimContext["catalog"]["behaviour"]["soldier"]["returnFire"]>, e: number, d: number): boolean {
+  if (RF.areaMaxErrM === undefined) return false;
+  return e <= Math.max(RF.areaMaxErrM, (RF.areaMaxErrShare ?? 0) * d);
+}
+
+/** Has he fewer spare magazines or belts than `n` (area fire spends what he would keep)? */
+function lowOnAmmo(ctx: SimContext, state: SimState, id: EntityId, n: number): boolean {
+  if (n <= 0) return false;
+  const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
+  return wd === undefined || spareCount(state.container.get(id), wd.feed.magazine) < n;
+}
+
+/**
+ * Area return fire (review 2026-11-24 problem 2): a fire task at the circle of `err` m (at most
+ * `returnFire.areaMaxRadiusM`) round (x, y); fire.ts draws a point in it for each shot. `target`: the enemy whose place
+ * it is (the circle follows his picture of him); absent: his squad's guess of the source (`Unit.contactDrill.src`).
+ */
+function areaTask(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, err: number, target?: EntityId): boolean {
+  const RF = ctx.catalog.behaviour.soldier.returnFire!;
+  if (!assignFireTask(ctx, state, id, x, y, 0.5)) return false;
+  const ft = state.fire.get(id)!;
+  ft.self = true; ft.suppress = "area";
+  ft.spot = { cx: x, cy: y, r: Math.min(err, RF.areaMaxRadiusM ?? err) };
+  if (target !== undefined) ft.contact = target;
+  return true;
+}
+
+/**
+ * Where the squad believes the fire comes from: of the enemy men its men know (seen, told of or heard within
+ * `srcWithinS`) who fired within `srcWithinS` (they hear him), the one best placed (least error, then nearest); else
+ * the mean direction the rounds came from, `guessM` out, known to half that. x, y, error (m); undefined: no idea.
+ */
+export function contactSource(ctx: SimContext, state: SimState, men: readonly EntityId[], guess = true): [number, number, number] | undefined {
+  const C = ctx.catalog.behaviour.drills.contact;
+  if (C === undefined || men.length === 0) return undefined;
+  const tick = state.tick, within = secondsToTicks(C.srcWithinS);
+  const b = bestFiring(ctx, state, men, C.srcWithinS);
+  if (b !== null) return [b.c.x, b.c.y, b.e];
+  let sx = 0, sy = 0, fx = 0, fy = 0, nf = 0;
+  for (const m of men) {
+    const t = state.transform.req(m); sx += t.x; sy += t.y;
+    const ff = state.soldier.get(m)?.fireFrom;
+    if (ff !== undefined && tick - ff.tick <= within) { fx += ff.dx; fy += ff.dy; nf++; }
+  }
+  const c0 = { x: sx / men.length, y: sy / men.length };
+  const L = hypot2(fx, fy);
+  if (!guess || nf === 0 || L < 1e-6) return undefined;
+  const x = Math.min(Math.max(c0.x + (fx / L) * C.guessM, 1), ctx.map.widthM - 1), y = Math.min(Math.max(c0.y + (fy / L) * C.guessM, 1), ctx.map.heightM - 1);
+  return [x, y, C.guessM / 2];
+}
+
+/** Of the enemy men these men know (seen, told of or heard within `withinS`) who fired within `withinS` (they hear
+ *  him), the one best placed: least error plus a tenth of his distance from them. */
+function bestFiring(ctx: SimContext, state: SimState, men: readonly EntityId[], withinS: number): { c: Contact; e: number } | null {
+  const tick = state.tick, within = secondsToTicks(withinS);
+  let sx = 0, sy = 0;
+  for (const m of men) { const t = state.transform.req(m); sx += t.x; sy += t.y; }
+  const cx = sx / men.length, cy = sy / men.length;
+  let best: Contact | null = null, bs = Infinity, be = 0;
+  for (const m of men) {
+    const s = state.soldier.get(m);
+    if (!s) continue;
+    for (const c of s.contacts) {
+      if (spared(c) || c.cls === "vehicle" || tick - c.tick > within) continue;
+      const ew = state.weapon.get(c.target);
+      if (ew === undefined || tick - ew.lastShotTick > within || (state.soldier.get(c.target)?.casualty ?? "none") !== "none") continue;
+      const e = contactErrorM(ctx, c, tick), score = e + 0.1 * hypot2(c.x - cx, c.y - cy);
+      if (score < bs) { bs = score; best = c; be = e; }
+    }
+  }
+  return best !== null ? { c: best, e: be } : null;
+}
+
+/** The contact drill of his unit or of a unit above it (review 2026-11-24 problem 2). */
+export function contactDrillOf(state: SimState, unitId: EntityId): ContactDrill | undefined {
+  for (let u: EntityId | null = unitId; u !== null; u = state.unit.get(u)?.parent ?? null) {
+    const d = state.unit.get(u)?.contactDrill;
+    if (d !== undefined) return d;
+  }
+  return undefined;
+}
+
+/**
+ * His squad is in a contact drill with a guess of where the fire comes from (review 2026-11-24 problem 2): with no
+ * enemy in sight he fires at that area too, though no round passed him (the squad returns fire together), within his
+ * engage range and his unit's arc, not through a comrade.
+ */
+function fireAtContactSource(ctx: SimContext, state: SimState, id: EntityId, unitId: EntityId, range: number): void {
+  const C = ctx.catalog.behaviour.drills.contact;
+  if (C === undefined || ctx.catalog.behaviour.soldier.returnFire?.areaMaxErrM === undefined) return;
+  const d = contactDrillOf(state, unitId);
+  let src = d !== undefined && state.tick - d.srcTick <= secondsToTicks(C.srcWithinS) ? d.src : undefined;
+  let target: EntityId | undefined;
+  // (No drill, but his squad was fired on lately: the firing enemy he himself knows best.)
+  if (src === undefined && state.tick - (state.unit.get(unitId)?.ownFireTick ?? -1e9) <= secondsToTicks(ctx.catalog.behaviour.decisions.underFireMemorySeconds)) {
+    const b = bestFiring(ctx, state, [id], C.srcWithinS);
+    if (b !== null) { src = [b.c.x, b.c.y, b.e]; target = b.c.target; }
+  }
+  if (src === undefined) return;
+  const me = state.transform.req(id), dist = hypot2(src[0] - me.x, src[1] - me.y);
+  if (dist < 1 || dist > range || !inArc(state, id, me, src[0], src[1]) || friendHolds(ctx, state, id, src[0], src[1])) return;
+  areaTask(ctx, state, id, src[0], src[1], src[2], target);
+}
+
+/**
+ * Keep his area return fire? While its place is fresh (his contact within `returnFire.withinS`, not down, given up or
+ * protected; or his squad's contact drill still has a guess), within his range and arc, and fire still comes (rounds
+ * past him within `firedOnS`, or his squad in its contact drill). The circle follows the contact.
+ */
+function keepArea(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, unitId: EntityId, unit: Unit, task: FireTask, reach: number): boolean {
+  const RF = ctx.catalog.behaviour.soldier.returnFire, tick = state.tick;
+  if (RF === undefined || task.spot === undefined || reach <= 0 || unit.ambush !== undefined) return false;
+  const me = state.transform.req(id);
+  const drill = contactDrillOf(state, unitId);
+  const firedOn = s.fireFrom !== undefined && tick - s.fireFrom.tick <= secondsToTicks(RF.firedOnS);
+  const squadFiredOn = tick - (unit.ownFireTick ?? -1e9) <= secondsToTicks(ctx.catalog.behaviour.decisions.underFireMemorySeconds);
+  if (!firedOn && drill === undefined && !squadFiredOn) return false;
+  if (task.contact !== undefined) {
+    const c = s.contacts.find((k) => k.target === task.contact);
+    if (!c || spared(c) || tick - c.tick > secondsToTicks(RF.withinS) || (state.soldier.get(c.target)?.casualty ?? "none") !== "none") return false;
+    const e = contactErrorM(ctx, c, tick);
+    task.spot.cx = c.x; task.spot.cy = c.y; task.spot.r = Math.min(e, RF.areaMaxRadiusM ?? e);
+  } else {
+    const src = drill?.src;
+    if (src === undefined) return false;
+    task.spot.cx = src[0]; task.spot.cy = src[1]; task.spot.r = Math.min(src[2], RF.areaMaxRadiusM ?? src[2]);
+  }
+  const range = Math.min(reach, unitCap(unit, state, ctx), engageRange(ctx, state, id));
+  if (hypot2(task.spot.cx - me.x, task.spot.cy - me.y) > range || !inArc(state, id, me, task.spot.cx, task.spot.cy)) return false;
+  task.reasonTick = tick;
+  return true;
 }
 
 /**

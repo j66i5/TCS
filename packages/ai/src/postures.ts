@@ -9,8 +9,9 @@
  * - "ambush": every unit lays an ambush (D4b `ambush` order) where it stands and holds; once it is sprung and
  *   `AMBUSH_AI.pursueAfterS` have passed with the enemy still near, its squads close on the enemy they know.
  * - "transit": every unit makes for the side's exit zone across the map (crews drive, squads aboard ride, the rest
- *   walk), fire free and pushing on through contact; a unit standing still, or on its way without moving, is sent on
- *   again (the drill against an ambush: keep going).
+ *   walk), fire free and pushing on through contact (rule "push": the contact drill first, then on); a unit standing
+ *   still, or on its way without moving, is sent on again (the drill against an ambush: keep going), but not while
+ *   it is in its contact drill or an assault or withdrawal drill (review 2026-11-24 problem 2).
  * - "withdraw": the platoon commander's defence until `untilS`; then squads near their carriers mount, the hulls wait
  *   for them a little, and everyone makes for the exit zone at its own edge.
  * - "follow": the platoon commander's attack until `untilS`; then every unit follows the enemy up toward his exit
@@ -96,6 +97,16 @@ interface PostureMemory { last: Record<string, number>; phase?: string; phaseTic
   /** Crews of hulls that got stuck and were told to let their riders out (once each). */
   dismounted?: EntityId[] }
 
+/** Is the unit (or one above it) in its contact drill or a drill (assault, withdrawal; review 2026-11-24 problem 2)?
+ *  Its leader is fighting it out; it is not sent on meanwhile (rule "push" goes on by itself once the fire slackens). */
+function inContactDrill(view: SimView, id: EntityId): boolean {
+  for (let u: EntityId | null = id; u !== null; u = view.unit.get(u)?.parent ?? null) {
+    const x = view.unit.get(u);
+    if (x?.contactDrill !== undefined || (x?.drill !== null && x?.drill !== undefined && x.drill.kind !== "rout")) return true;
+  }
+  return false;
+}
+
 /** Orders that send units toward `goal(x, y)` (null: leave it), each again once it has stood still `idleS`. */
 function sendOn(view: SimView, side: SideId, tick: number, mem: PostureMemory, goal: (x: number, y: number) => { x: number; y: number } | null, footMode: string, hold?: (id: EntityId) => boolean): Order[] {
   const out: Order[] = [];
@@ -103,7 +114,7 @@ function sendOn(view: SimView, side: SideId, tick: number, mem: PostureMemory, g
   const stuckT = secondsToTicks(POSTURES_AI.stuckS);
   mem.pos ??= {};
   for (const u of movers(view, side)) {
-    if (hold?.(u.id) === true) continue;
+    if (hold?.(u.id) === true || inContactDrill(view, u.id)) continue;
     const key = String(u.id), last = mem.last[key] ?? -1e9;
     // (On its way but not moved `stuckM` in `stuckS`: sent on again, as if it stood still.)
     const p = mem.pos[key];

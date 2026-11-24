@@ -648,7 +648,12 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       task.lineCheckTick = tick;
       // Firing at a contact: follow it as his picture of the enemy changes (target movement in the aiming
       // error is still to come: he aims at the last known position).
-      if (task.contact !== undefined) {
+      if (task.spot !== undefined) {
+        // (Area return fire, review 2026-11-24 problem 2: a new point of the circle for each shot or burst; the circle
+        // itself follows his picture of the place, decisions.ts.)
+        const sp = task.spot, rho = sp.r * sqrt(nextFloat(state.rng, Streams.fire)), th = 2 * PI * nextFloat(state.rng, Streams.fire);
+        task.x = Math.min(Math.max(sp.cx + rho * cos(th), 0), ctx.map.widthM); task.y = Math.min(Math.max(sp.cy + rho * sin(th), 0), ctx.map.heightM);
+      } else if (task.contact !== undefined) {
         const c = s.contacts.find((k) => k.target === task.contact);
         if (c && (c.x !== task.x || c.y !== task.y)) { task.x = c.x; task.y = c.y; }
         // (His aim height follows the posture he sees the man in, package A, unless the order gave one.)
@@ -723,7 +728,10 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       const sustained = task.intoCover === true || (task.suppress === "drill" && task.contact === undefined);
       // (Fire at a known place, M11.1 point 7b: one shot per suppressKnown.intervalS, a burst per mgIntervalS.)
       // (Return fire at a shooter's known place, balance pass 4: returnFire.intervalS / mgIntervalS.)
-      const SK = task.suppress === "known" ? ctx.catalog.behaviour.soldier.suppressKnown : task.suppress === "return" ? ctx.catalog.behaviour.soldier.returnFire : undefined;
+      const RF = ctx.catalog.behaviour.soldier.returnFire;
+      // (Area return fire, review 2026-11-24 problem 2: returnFire.areaIntervalS / areaMgIntervalS.)
+      const SK = task.suppress === "known" ? ctx.catalog.behaviour.soldier.suppressKnown : task.suppress === "return" ? RF
+        : task.suppress === "area" && RF !== undefined ? { intervalS: RF.areaIntervalS ?? RF.intervalS, mgIntervalS: RF.areaMgIntervalS ?? RF.mgIntervalS } : undefined;
       const interval = SK ? Math.max(interval0, su ? SK.mgIntervalS : SK.intervalS) : sustained ? Math.max(interval0, ctx.catalog.behaviour.drills.suppressIntervalS) : interval0;
       // +-15 % so men do not fire in step.
       // Ammunition discipline of his unit (M5): conserve stretches the pause, maximum shortens it.

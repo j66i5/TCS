@@ -1263,6 +1263,26 @@ not take orders ("unable"). Once they are there and nothing has been fired at th
 ("rallied"), still shaken (their shock cut to 60 %). Since the morale rework (2026-11-15) this holds for squads too,
 not only for the whole platoon (see "Morale" above).
 
+**The contact drill (review 2026-11-24).** Coming under fire on the move now starts an immediate-action drill for
+every squad on foot, also one told to "push on" (only vehicle crews and missile or grenade-launcher teams on their way
+to a post keep going). The men stop and go down where they are, each in the lowest posture from which he can fire
+toward the shots (lying, else kneeling). The squad works out where the fire comes from: the enemy its men know best
+who is firing, else the direction the rounds came from. The radio calls the bearing ("contact! Taking fire from bearing
+95, returning fire."). A man with no line of fire (a wall, a bank, a comrade in the way) dashes a few metres aside once.
+Every man returns fire: aimed at an enemy he sees, otherwise at the area where the shooters are believed to be, one shot
+every 4 s (a machine gun a burst every 5 s), each at a different point in a circle the size of the guess (at most 30 m).
+After about 15 s, and every 10 s after, the squad leader decides. He assaults an enemy known to be within 50 m. He breaks
+contact, falling back 100 m under smoke, when a third of his men are down or most of them stay pinned. Under "push on"
+he goes on to where the squad was going once the fire has slackened. Otherwise he holds and fights until it goes quiet
+or an order comes. Any order ends the drill: the player or the AI commander takes the decision for him. The values are
+in `behaviour.json` (`drills.contact`) and in each faction's doctrine (`contactAssaultM`, `contactBreakLossShare`,
+`contactBreakPinnedShare`). **Fire at shooters he cannot see.** A man shot at by an enemy he only heard, or was told about,
+fires back at that area as long as its position is known to within 120 m, or 40 % of the range. He also does this when
+he is halted, pinned but not panicked, or defending, and when his squad was fired on even though no round passed him.
+This counts as returning fire, so it is allowed under the player's default rule "return fire". Shots from the same shooter
+heard again within 10 s narrow down his position: up to six guesses are averaged. At night, a muzzle flash in sight
+narrows it further. `npm run lab -- contact` measures the drill.
+
 ## Surrender
 
 A man who is wounded and can no longer fight gives himself up when an enemy he knows of is within about 50 m

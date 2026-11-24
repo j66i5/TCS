@@ -1009,7 +1009,7 @@ function clearOwn(state: SimState, uid: EntityId, men: readonly EntityId[]): voi
     if (u.drill.groups.every((g) => g.length === 0)) u.drill = null;
   }
   if (u.boarding && u.boarding.kind !== "bailOut") delete u.boarding;
-  delete u.contactDrill; // (review 2026-11-24 problem 2: the order is the leader's decision)
+  u.contactDrill = undefined; // (review 2026-11-24 problem 2: the order is the leader's decision)
 }
 
 /** Crew units under a unit (not the unit itself), ID order. */

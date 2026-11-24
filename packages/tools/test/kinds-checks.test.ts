@@ -34,6 +34,10 @@ describe("kinds lab fail flags", () => {
     expect(kindFlags(row([500, 500], [3, 3], 200), { ...KIND_CHECKS, quietS: 120 }).quiet).toBe(true);
     expect(kindFails({ noReturn: [true, false], quiet: true })).toEqual(["blue no return fire", "quiet"]);
     expect(kindFails({ noReturn: [false, false], quiet: false })).toEqual([]);
+    // Not one direct round by either side (review 2026-11-24 verification: a meeting that never met).
+    expect(kindFlags(row([0, 0], [0, 0], 0)).noFire).toBe(true);
+    expect(kindFlags(row([1, 0], [0, 0], 0)).noFire).toBe(false);
+    expect(kindFails({ noReturn: [false, false], quiet: false, noFire: true })).toEqual(["no fire"]);
   });
 });
 

@@ -159,7 +159,7 @@ export function clearDrills(state: SimState, uid: EntityId): void {
 export function clearDrill(u: Unit): void {
   if (u.drill?.kind !== "rout") u.drill = null;
   // (The contact drill too: an order is the leader's decision taken for him, review 2026-11-24 problem 2.)
-  delete u.contactDrill;
+  u.contactDrill = undefined;
   // Getting in or out (M7.2) is replaced by the new order too (bailing out is not).
   if (u.boarding && u.boarding.kind !== "bailOut") delete u.boarding;
 }
@@ -513,7 +513,7 @@ function breakUnit(ctx: SimContext, state: SimState, uid: EntityId, events: Even
   const rx = Math.min(Math.max(c.x + ax * D.rallyDistanceM, 5), ctx.map.widthM - 5), ry = Math.min(Math.max(c.y + ay * D.rallyDistanceM, 5), ctx.map.heightM - 5);
   u.broken = true;
   u.morale.state = "broken";
-  delete u.contactDrill;
+  u.contactDrill = undefined;
   for (const k of u.children) clearDrills(state, k);
   // (D4b: running back, they defend no arc any more.)
   clearArcsUnder(state, uid);
@@ -564,18 +564,18 @@ function enteringHouse(ctx: SimContext, state: SimState, uid: EntityId): boolean
  * within `drills.reactSeenM` (`Unit.seenSpellTick`, set by decisions.ts; sight realism step 2). A halted squad under
  * the platoon is not part of its headquarters' move.
  */
-function moveGroup(state: SimState, uid: EntityId, out: EntityId[], sub = false, seen = true): number {
+function moveGroup(state: SimState, uid: EntityId, out: EntityId[], sub = false, seen = true, far = false): number {
   const u = state.unit.get(uid);
   if (!u) return -1e9;
   const n0 = out.length;
   for (const m of u.members) if (state.soldier.get(m)?.mount === undefined && (!sub || (state.mover.get(m)?.waypoints.length ?? 0) > 0)) out.push(m);
   // (Fired on anew, or an enemy seen anew close by: sight realism step 2, `drills.reactSeenM`.)
-  let t = out.length > n0 || !sub ? Math.max(u.ownContactTick ?? -1e9, seen ? u.seenSpellTick ?? -1e9 : -1e9) : -1e9;
+  let t = out.length > n0 || !sub ? Math.max(u.ownContactTick ?? -1e9, seen ? Math.max(u.seenSpellTick ?? -1e9, far ? u.farSeenSpellTick ?? -1e9 : -1e9) : -1e9) : -1e9;
   if (u.vehicle !== undefined && u.contactTick > t) t = u.contactTick;
   for (const c of u.children) {
     const cu = state.unit.get(c);
     if (!cu || cu.moving || cu.drill) continue;
-    const ct = moveGroup(state, c, out, true, seen);
+    const ct = moveGroup(state, c, out, true, seen, far);
     if (ct > t) t = ct;
   }
   return t;
@@ -627,8 +627,11 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
     if (D.reactToContact && u.moving && !u.drill && !u.broken && u.contactDrill === undefined && (u.onContact !== "push" || pushReacts)) {
       const group: EntityId[] = [];
       const fresh = (t: number) => t > u.moveTick && state.tick - t <= secondsToTicks(2 * D.stepSeconds);
-      // (Rule "push": only fire stops it, not the sight of an enemy.)
-      if ((fresh(moveGroup(state, uid, group, false, u.onContact !== "push")) || neighbourInContact(state, uid, group, fresh, D.reactNeighbourM)) && !enteringHouse(ctx, state, uid)) {
+      // (Rule "push" under fire rule "free" halts on a sighting within `reactSeenM` too when the contact drill is on,
+      // and on one within `contact.seenM`: a platoon pushing through does not walk on into an enemy it has seen,
+      // it engages him and goes on; review 2026-11-24 verification.)
+      const pushSees = u.onContact === "push" && pushReacts && u.fireRule === "free";
+      if ((fresh(moveGroup(state, uid, group, false, u.onContact !== "push" || pushSees, pushSees)) || neighbourInContact(state, uid, group, fresh, D.reactNeighbourM)) && !enteringHouse(ctx, state, uid)) {
         u.moving = false;
         const goals = new Map<EntityId, { x: number; y: number }>();
         let mode = "walk";
@@ -707,15 +710,23 @@ function startContact(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, 
     state.soldier.req(m).homePosture = p; // (his fire position now, package C)
   }
   const tick = state.tick;
+  // (A near ambush, the fire's source placed within `contactAssaultM`: the leader decides after `immediateS`, not
+  // `decideS` later; review 2026-11-24 verification.)
+  const near = src !== undefined && men.length > 0 && src[2] <= C.contactAssaultM && (() => { const c = centroid(state, men); return hypot2(src[0] - c.x, src[1] - c.y) <= C.contactAssaultM; })();
   u.contactDrill = {
-    startTick: tick, decideTick: tick + secondsToTicks(C.immediateS + C.decideS), srcTick: tick, men: men.length, pinnedRuns: 0,
+    startTick: tick, decideTick: tick + secondsToTicks(C.immediateS + (near ? 0 : C.decideS)), srcTick: tick, men: men.length, pinnedRuns: 0,
     goals: [...goals.entries()].sort((a, b) => a[0] - b[0]).map(([m, g]) => [m, g.x, g.y] as [EntityId, number, number]), mode,
     ...(src !== undefined ? { src } : {}),
   } satisfies ContactDrill;
-  if (src !== undefined && men.length > 0) {
-    const c = centroid(state, men);
-    radioWith(state, uid, "radio.contactFire", { bearing: bearingDeg(src[0] - c.x, src[1] - c.y) }, events);
-  } else radio(state, uid, "radio.contactReact", events);
+  // (One call per `radioEveryS` unless the bearing has turned by `radioTurnDeg`: the drill starts again on each new
+  // spell of fire, the call need not.)
+  const b = src !== undefined && men.length > 0 ? (() => { const c = centroid(state, men); return bearingDeg(src[0] - c.x, src[1] - c.y); })() : -1;
+  const last = u.contactCall;
+  if (C.radioEveryS !== undefined && last !== undefined && tick - last[0] < secondsToTicks(C.radioEveryS)
+    && (b < 0 || last[1] < 0 || Math.min(Math.abs(b - last[1]), 360 - Math.abs(b - last[1])) < (C.radioTurnDeg ?? 180))) return;
+  if (C.radioEveryS !== undefined) u.contactCall = [tick, b];
+  if (b >= 0) radioWith(state, uid, "radio.contactFire", { bearing: b }, events);
+  else radio(state, uid, "radio.contactReact", events);
 }
 
 /** The last tick a man of this unit or of a unit under it was under fire. */
@@ -729,7 +740,7 @@ function firedTick(state: SimState, uid: EntityId): number {
 
 /** Go on to where they were going (rule "push"), at the move's pace; the drill ends. */
 function goOn(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, d: ContactDrill, events: EventSink): void {
-  delete u.contactDrill;
+  u.contactDrill = undefined;
   let any = false;
   for (const [m, x, y] of d.goals) {
     const s = state.soldier.get(m);
@@ -744,19 +755,22 @@ function goOn(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, d: Conta
 /** The drill, every drill step: the guess of the source renewed; the leader's decision every `decideS`. */
 function stepContact(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, events: EventSink): void {
   const C = ctx.catalog.behaviour.drills.contact, d = u.contactDrill!, tick = state.tick;
-  if (C === undefined || u.broken || u.drill) { delete u.contactDrill; return; }
+  if (C === undefined || u.broken || u.drill) { u.contactDrill = undefined; return; }
   const men = footSoldiers(state, uid).filter((m) => able(state.soldier.get(m)));
-  if (men.length === 0) { delete u.contactDrill; return; }
+  if (men.length === 0) { u.contactDrill = undefined; return; }
   if (tick - d.srcTick >= secondsToTicks(C.srcEveryS)) {
     const src = contactSource(ctx, state, men);
     if (src !== undefined) { d.src = src; d.srcTick = tick; }
   }
-  const since = tick - d.startTick, quiet = tick - firedTick(state, uid);
+  // (Quiet: no round past them and, with the drill started on a sighting, no enemy seen close; review 2026-11-24.)
+  const since = tick - d.startTick, quiet = tick - Math.max(firedTick(state, uid), u.seenContactTick ?? -1e9, u.onContact === "push" ? u.farSeenTick ?? -1e9 : -1e9);
   const push = u.onContact === "push";
   // A man with no line of fire to the place (a wall, a bank, a comrade in it) dashes a few metres aside for one.
   const RT = ctx.catalog.behaviour.drills.coverRetaskS;
   if (d.src !== undefined && RT > 0 && ctx.catalog.behaviour.drills.sidestep && since >= secondsToTicks(C.immediateS) && tick % secondsToTicks(RT) === 0) {
     const src = d.src, at = { x: src[0], y: src[1] }, postures: Posture[] = ["prone", "crouching"];
+    // (Again every `sidestepEveryS`: the place moves, and the spot found may lose its line; review 2026-11-24 verification.)
+    if (C.sidestepEveryS !== undefined && d.stepped !== undefined && tick - (d.steppedTick ?? d.startTick) >= secondsToTicks(C.sidestepEveryS)) { delete d.stepped; d.steppedTick = tick; }
     for (const m of men) {
       if (d.stepped?.includes(m) === true) continue;
       const s = state.soldier.req(m), ft = state.fire.get(m);
@@ -767,7 +781,7 @@ function stepContact(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, e
     }
   }
   // Quiet again: the drill is over (rule "push": on to where they were going).
-  if (since >= secondsToTicks(C.immediateS) && quiet >= secondsToTicks(C.quietS)) { if (push) goOn(ctx, state, uid, u, d, events); else delete u.contactDrill; return; }
+  if (since >= secondsToTicks(C.immediateS) && quiet >= secondsToTicks(C.quietS)) { if (push) goOn(ctx, state, uid, u, d, events); else u.contactDrill = undefined; return; }
   if (tick < d.decideTick) return;
   d.decideTick = tick + secondsToTicks(C.decideS);
   const assaultM = doctrine(ctx, state, uid, "contactAssaultM", C.contactAssaultM);
@@ -782,14 +796,16 @@ function stepContact(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, e
   if (src !== undefined && srcD <= assaultM && src[2] <= assaultM && pinned < breakPinned) {
     const groups = drillGroups(state, uid);
     if (groups.length > 0) {
-      delete u.contactDrill;
+      u.contactDrill = undefined;
       u.drill = { kind: "assault", x: src[0], y: src[1], groups, mover: 0, phaseTick: -1, final: false };
       radio(state, uid, "radio.contactAssault", events);
       return;
     }
   }
-  // Too many down or pinned: break contact, away from the fire, under smoke.
-  if (lost >= breakLoss || d.pinnedRuns >= C.breakChecks) {
+  // Too many down or pinned: break contact, away from the fire, under smoke. (Review 2026-11-24 verification: not
+  // while a third of the men left are still firing back — the squad is fighting, not losing the fire fight.)
+  const firing = men.filter((m) => state.fire.has(m)).length / men.length;
+  if ((lost >= breakLoss || d.pinnedRuns >= C.breakChecks) && (C.breakFiringShare === undefined || firing < C.breakFiringShare)) {
     const groups = drillGroups(state, uid);
     if (groups.length > 0) {
       // (Away from the fire; fired on from nowhere placed: back the way they came, away from where they were going.)
@@ -797,7 +813,7 @@ function stepContact(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, e
       const L = hypot2(c.x - from.x, c.y - from.y) || 1, ax = (c.x - from.x) / L, ay = (c.y - from.y) / L;
       const fb = ctx.catalog.behaviour.drills.fallBackM;
       const rx = Math.min(Math.max(c.x + ax * fb, 5), ctx.map.widthM - 5), ry = Math.min(Math.max(c.y + ay * fb, 5), ctx.map.heightM - 5);
-      delete u.contactDrill;
+      u.contactDrill = undefined;
       u.drill = { kind: "withdraw", x: rx, y: ry, groups, mover: 0, phaseTick: -1, final: false };
       clearArcsUnder(state, uid);
       radio(state, uid, "radio.contactBreak", events);
@@ -808,5 +824,5 @@ function stepContact(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, e
   // Rule "push": on once the fire has slackened, or at the drill's end unless pinned down.
   if (push && ((pinned < C.continuePinnedShare && quiet >= secondsToTicks(C.continueQuietS)) || (since >= secondsToTicks(C.maxS) && pinned < breakPinned))) { goOn(ctx, state, uid, u, d, events); return; }
   // Otherwise hold and fight; after `maxS` the drill is over (orders take it on).
-  if (since >= secondsToTicks(C.maxS)) delete u.contactDrill;
+  if (since >= secondsToTicks(C.maxS)) u.contactDrill = undefined;
 }

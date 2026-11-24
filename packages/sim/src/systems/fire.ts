@@ -669,15 +669,23 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       // his muzzle) is no line either: he rises to a kneel over it, as over a bank. If none clears it, he takes the
       // first posture with a line and the friend check holds his fire.)
       const tz = aimZ(ctx, task);
-      for (const p of from) {
-        const q = lineOfFireTo(ctx, state, id, task.x, task.y, task.heightM, p, shortM);
-        if (q > 0 && bodyInLine(ctx, state, id, task.x, task.y, { posture: p, tz })) { if (q === 2) body ??= p; continue; }
-        if (q === 2) { ok = p; break; }
-        if (q === 1) short ??= p;
+      for (let pass = 0; pass < 2; pass++) {
+        for (const p of from) {
+          const q = lineOfFireTo(ctx, state, id, task.x, task.y, task.heightM, p, shortM);
+          if (q > 0 && bodyInLine(ctx, state, id, task.x, task.y, { posture: p, tz })) { if (q === 2) body ??= p; continue; }
+          if (q === 2) { ok = p; break; }
+          if (q === 1) short ??= p;
+        }
+        // (Area fire, review 2026-11-24 verification: no line to the point drawn — a wall, a house in the circle — he
+        // tries the circle's centre before he holds his fire.)
+        if (pass > 0 || ok !== undefined || short !== undefined || body !== undefined || task.spot === undefined || (task.x === task.spot.cx && task.y === task.spot.cy)) break;
+        task.x = task.spot.cx; task.y = task.spot.cy;
       }
       if (ok === undefined && short === undefined) ok = body;
       if (ok === undefined && short !== undefined) { ok = short; task.intoCover = true; } else delete task.intoCover;
       task.lineClear = ok !== undefined;
+      // (Return or area fire with no line: since when, so the decision gives it up, decisions.ts keepArea.)
+      if (task.suppress === "area" || task.suppress === "return") { if (ok !== undefined) { if (task.noLineTick !== undefined) task.noLineTick = undefined; } else task.noLineTick ??= tick; }
       task.linePosture = ok ?? s.posture;
       if (ok !== undefined && ok !== s.posture) { requestPosture(ctx, state, id, ok); continue; }
       if (ok === undefined) {

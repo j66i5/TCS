@@ -436,7 +436,7 @@ export const SpottingFile = withProv({
      *  of the range); at night (light below flashBelowLight) a muzzle flash in his line of sight within flashM gives
      *  the place to flashErrorFactor x that error. Absent: each sound is a fresh guess. */
     heardMergeSeconds: Num(0, 600).optional(), heardMergeMax: z.number().int().min(1).max(100).optional(), heardMinErrorFraction: Num(0, 1).optional(),
-    flashBelowLight: Num(0, 1).optional(), flashM: Num(0, 5000).optional(), flashErrorFactor: Num(0, 1).optional(),
+    flashBelowLight: Num(0, 1).optional(), flashM: Num(0, 5000).optional(), flashErrorFactor: Num(0, 1).optional(), heardBiasDeg: Num(0, 90).optional(),
   }).strict(),
 });
 export type SpottingT = z.infer<typeof SpottingFile>;
@@ -493,6 +493,7 @@ export const BehaviourFile = withProv({
       immediateS: Num(0, 120), decideS: Num(0.5, 600), quietS: Num(1, 600), maxS: Num(1, 3600), srcEveryS: Num(0.5, 60), srcWithinS: Num(0, 600), guessM: Num(0, 2000),
       continuePinnedShare: Num(0, 1), continueQuietS: Num(0, 600), breakChecks: z.number().int().min(1).max(20),
       contactAssaultM: Num(0, 500), contactBreakLossShare: Num(0, 1), contactBreakPinnedShare: Num(0, 1),
+      sidestepEveryS: Num(0, 600).optional(), radioEveryS: Num(0, 600).optional(), radioTurnDeg: Num(0, 180).optional(), regroupS: Num(0, 600).optional(), seenM: Num(0, 3000).optional(), breakFiringShare: Num(0, 1).optional(),
     }).strict().optional(),
   }).strict(),
   /** Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off. */
@@ -609,7 +610,7 @@ export const BehaviourFile = withProv({
     suppressKnown: z.object({ withinS: Num(0, 600), intervalS: Num(0.5, 60), mgIntervalS: Num(0.5, 60), minM: Num(0, 1000), maxErrM: Num(0, 1000) }).strict().optional(),
     returnFire: z.object({ firedOnS: Num(0, 600), withinS: Num(0, 600), maxErrM: Num(0, 1000), bearingDeg: Num(0, 180), intervalS: Num(0.5, 60), mgIntervalS: Num(0.5, 60),
       areaMaxErrM: Num(0, 2000).optional(), areaMaxErrShare: Num(0, 2).optional(), areaMaxRadiusM: Num(0, 500).optional(), areaIntervalS: Num(0.5, 60).optional(), areaMgIntervalS: Num(0.5, 60).optional(),
-      areaMinSpareMags: z.number().int().min(0).max(50).optional(), pinnedBelow: Num(0, 2).optional() }).strict().optional(),
+      areaMinSpareMags: z.number().int().min(0).max(50).optional(), pinnedBelow: Num(0, 2).optional(), pinnedSustainedBelow: Num(0, 2).optional(), noLineS: Num(0, 600).optional() }).strict().optional(),
     moveEngageM: Num(0, 500).optional(), pinnedSelfDefenceM: Num(0, 500).optional(), closeThreatM: Num(0, 500).optional(), closeThreatTaskFactor: Num(1, 100).optional(),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), stepAsideM: z.array(Num(0.5, 20)).min(1).max(4), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
     hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),

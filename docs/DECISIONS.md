@@ -10761,3 +10761,69 @@ before: 80 battles, 30 failing (17 no return fire, 20 quiet); after: 80 battles,
   (seed 1, 900 s): closest under 300 m and both sides firing in at least 3 of 4 (all 4 today).
 - **Goldens:** unchanged (no data change; the golden scenarios run without these postures, and their defence never
   triggers the new fall-back).
+
+### Review 2026-11-24 problem 2, part 3: verification fixes (2026-11-24)
+
+Independent verifiers re-measured parts 1-2. What they found, and what was done:
+
+- **Fixed (critical): area or return fire with no line of fire was kept for good.** A man behind a building held a
+  `suppress: "area"` task whose every drawn point was blocked; `keepArea` never looked at the line, so whole squads sat
+  silent (ambush, industrial, s5). Now: a return or area task is taken up only if some posture has a line to the place
+  (into the cover near it, `drills.suppressShortM`); fire.ts tries the circle's centre when the drawn point has none and
+  records since when there has been no line (`FireTask.noLineTick`); the decision drops the task after
+  `returnFire.noLineS` 6 s. The drill's side step for a line repeats every `drills.contact.sidestepEveryS` 15 s
+  (was once per man). Regression test `tools/test/contact-noline.test.ts` (that battle: no task kept without a line
+  beyond noLineS + a decision step). Seed 5 itself still has blue firing almost nothing: probed, its men lie behind
+  walls 8 m in front of them with no line to red at all (red's rounds strike the same walls) - geometry, not a stuck
+  task.
+- **Fixed (major): break contact at the first decision, machine gunners silent while pinned.** Contact is broken only
+  while fewer than `breakFiringShare` 0.34 of the men left are firing (a squad fighting back holds); a pinned machine
+  gunner returns fire below suppression `returnFire.pinnedSustainedBelow` 0.95 (riflemen 0.75 as before).
+- **Fixed (major): rule "push" walked into an enemy it had watched for two minutes.** Under rule "push" and fire rule
+  "free" (the AI's transit and follow plans) a sighting within `reactSeenM` 150 m, and one within
+  `drills.contact.seenM` 300 m and the range rule (`Unit.farSeenTick`/`farSeenSpellTick`), halts the move into the
+  contact drill; the drill counts as quiet only once no enemy has been seen so, so the unit fights while it sees him
+  and goes on after `continueQuietS` without sight or at `maxS`. Not for other rules (a unit ordered to move under
+  "ground" keeps the 150 m react, unchanged) and not under fire "hold"/"return" (movement tests push through on
+  purpose). Test: "rule push, fire free: a sighting within seenM halts the move".
+- **Fixed (major): the blind fall-back pulled defenders out after one casualty.** Now it needs `blindMinLost` 2 men
+  down and `blindLossShare` 0.25, fired on lately, no man of the squad firing nor having seen an enemy within
+  `blindSeenS` 60 s, and no man of it in a dug fighting position. hold-resupply s9/s10 (1200 s): no early pull-back,
+  red 19/19 and 16/19 hit, blue 0 and 3.
+- **Fixed (major): spotting bench below its floor.** Two causes found by profiling, both in part 1's contacts.ts
+  change: the night muzzle-flash check was an inline closure, which put the heard-shot loop's variables into a heap
+  context for every listener-shooter pair; and `delete contact.heardN` / `delete unit.contactDrill` /
+  `delete task.noLineTick` turned those objects into slow dictionary objects for the rest of the battle. Now a plain
+  function (`flashSeen`) and assignments of `undefined` (the state hash skips undefined fields), the second
+  `findContact` after `learn()` is gone, and the range's square root comes after the "heard him moments ago"
+  early-out. Bench (spotb, 304 men): branch before 6.7-6.9x, now 9.5-9.6x; main 9.8x on the same machine.
+  `npm run test:perf` alone: 24 of 25 pass (spotting, bench-caches, bench-company included); the spotting bench with
+  30 smoke clouds is at 7.2-7.8x against main's 7.9x on the same machine (main fails that floor here too).
+- **Fixed (minor):** an area or return task at a man now seen clearly becomes aimed fire at him (was kept at the area
+  rate); a near ambush (the source placed within `contactAssaultM`) is decided after `immediateS`, not 10 s later; the
+  contact call is made once per `radioEveryS` 60 s per unit unless the bearing turned by `radioTurnDeg` 30; a heard
+  shooter's bearing carries a fixed bias of up to `contacts.heardBiasDeg` 8 per listener and shooter (an integer hash,
+  no draw) that merging does not average away, and merged guesses are never better than `heardMinErrorFraction` 0.15
+  of the range (was 0.1).
+- **Meeting "silent" (major): not a behaviour bug.** Probed: the two platoons start 1150 m apart and need 300-650 s to
+  close; at the verifier's 600 s they were still 270-570 m apart. Run at the lab's own default (1200 s) every meeting
+  on foot fights: 16 of 16 with direct fire from both sides, closest 10-281 m. The kinds lab now starts its quiet
+  clock at the first sighting by either side (the approach march is no quiet fight) and adds a NO FIRE flag (not one
+  direct round in the battle); tests in `kinds-checks.test.ts`. Not done: long-range inaccurate fire still suppresses
+  only within `nearMissRadiusM` 4 m (widening it is per-round work in the projectile loop); industrial s4 blue 18
+  rounds against 534 remains.
+- **Defence-counterattack quiet (major): measured, left.** At 1200 s all 16 battles have direct fire from both sides
+  (closest 0-216 m); 6 keep a quiet stretch of 300-490 s after the first sighting - the lull between the attack and
+  the reserve's counter-attack (`reserveAtS`). Left for the owner to judge.
+- **Rejected / left:** the withdrawal on foot (minor): the follower closes in all 16 (closest 29-116 m) and the
+  delaying side now gets men out in 7 of 12 test battles at 900 s (farmland s1: 9 men); whether a delay should
+  usually be caught is the owner's call. The balance shift in platoon-ru-vehicles (minor): not re-measured here; the
+  campaign `fightingValue` batch and the mounted-assault lab are due before the next milestone.
+- **Final numbers.** Ambush on foot, the ambushed side with the player's rules (AI moves only), 4 maps x seeds 3-10:
+  first return fire 1-6 s after the first incoming round in 25 of 32 (median 2 s); 9 of 32 under a quarter of the
+  enemy's rounds (seeds 3-6: 5 of 16; the verifier had 7 of 16); rounds out 10108 against 16495. Ambush AI against AI
+  (900 s, seeds 3-6): 15 of 16 with the ambushed side over a quarter (industrial s5 33:506), no kinds flags.
+  Withdrawal (1200 s): 16 of 16 in contact, no flags. Meeting (1200 s): 16 of 16 fight, 3 quiet flags
+  (village s4, s5, industrial s4).
+- **Goldens:** regenerated (data and behaviour change). `overwatch-bound.test` moved to seed 3 (on seed 2 the first
+  bound's order is no longer on the tick its memory notes); `scenario-kinds.test` withdrawal moved to farmland s1.

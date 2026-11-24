@@ -679,12 +679,18 @@ export interface Unit {
    *  sight goes by it, as by `ownContactTick`. Optional (absent = never). */
   seenContactTick?: number;
   seenSpellTick?: number;
+  /** Review 2026-11-24 verification (`drills.contact.seenM`): a man of it under fire rule "free" saw an enemy within
+   *  `seenM` (and its range rule): last tick, and the start of that spell (the contact drill halts a move on it). */
+  farSeenTick?: number;
+  farSeenSpellTick?: number;
   /** Tick of the last order delivered to this unit or one of its men (M6.6: no prisoner errands right after). */
   orderTick: number;
   /** A drill in progress (M4.3), and whether the unit has broken and is running back. */
   drill: Drill | null;
   /** The immediate-action contact drill in progress (review 2026-11-24 problem 2, systems/drills.ts). Absent: none. */
   contactDrill?: ContactDrill;
+  /** Its last "contact" call: tick and bearing (degrees), review 2026-11-24 verification (`drills.contact.radioEveryS`). */
+  contactCall?: [number, number];
   /** Broken (any echelon, morale rework): its men run back (the rout drill) until it rallies. */
   broken: boolean;
   /** Its quality level (core/qualities.json; absent: `morale.defaultQuality`) and its morale (morale rework). */
@@ -789,8 +795,10 @@ export interface ContactDrill {
   /** Where each man was going (id, x, y) and at what pace: rule "push" goes on there. */
   goals: [EntityId, number, number][];
   mode: string;
-  /** Men who have looked for a spot a few metres aside with a line of fire to the place (once each). */
+  /** Men who have looked for a spot a few metres aside with a line of fire to the place (once each, or once each
+   *  `drills.contact.sidestepEveryS` since `steppedTick`). */
   stepped?: EntityId[];
+  steppedTick?: number;
 }
 
 /**
@@ -919,6 +927,9 @@ export interface FireTask {
    * of `r` m round (cx, cy) (the point is written to x, y). With `contact`, the circle follows his picture of that man.
    */
   spot?: { cx: number; cy: number; r: number };
+  /** Return or area fire (`suppress` "return"/"area"): the tick since which he has had no line of fire to it
+   *  (review 2026-11-24 verification; decisions.ts drops the task after `returnFire.noLineS`). */
+  noLineTick?: number;
   /** His line reaches only the cover near the point (`suppress`): he fires into it at the sustained rate. */
   intoCover?: true;
   /** Assault fire (package D): he fires while moving (with a heavy aiming penalty), from the posture he moves in. */

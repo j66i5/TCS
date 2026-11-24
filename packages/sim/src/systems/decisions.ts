@@ -1304,6 +1304,13 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       unit.seenContactTick = state.tick; top.seenContactTick = state.tick;
     }
     const reach = fireReach(state, ctx, unit, top);
+    // (Fire free, an enemy in sight within `drills.contact.seenM` and the range rule: the contact drill halts the
+    // unit's move on it, review 2026-11-24 verification — a platoon does not walk on into an enemy it has seen.)
+    const farM = ctx.catalog.behaviour.drills.contact?.seenM;
+    if (farM !== undefined && reach === Infinity && near.all !== null && near.all.d <= farM && near.all.d <= rangeRule(unit, state, ctx)) {
+      if (state.tick - (unit.farSeenTick ?? -1e9) > secondsToTicks(D.contactLostSeconds)) unit.farSeenSpellTick = state.tick;
+      unit.farSeenTick = state.tick;
+    }
     // ---- an enemy close in front of him: he fires at him whatever else he is doing (a carrier: carrierSelfDefence)
     const CT = Math.min(S.closeThreatM ?? 0, reach, unitCap(unit, state, ctx));
     if (CT > 0 && near.front !== null && near.front.d <= CT && s.carrying === undefined && s.mental.behaviour !== "panicked") {
@@ -1352,7 +1359,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       // (Fire at a known place, M11.1 point 7b: it lasts while the place is fresh, `suppressKnown.withinS`.)
       const lostS = task.suppress === "known" ? S.suppressKnown?.withinS ?? D.contactLostSeconds : task.suppress === "return" ? S.returnFire?.withinS ?? D.contactLostSeconds : D.contactLostSeconds;
       // (Return fire, balance pass 4: it ends `returnFire.firedOnS` after the last round past him.)
-      const quiet = task.suppress === "return" && (s.fireFrom === undefined || state.tick - s.fireFrom.tick > secondsToTicks(S.returnFire?.firedOnS ?? 0));
+      const quiet = task.suppress === "return" && (s.fireFrom === undefined || state.tick - s.fireFrom.tick > secondsToTicks(S.returnFire?.firedOnS ?? 0) || noLineLong(ctx, state, task));
       if (!c || (spared(c) && !breachActive(s, c.target, state.tick)) || !es || es.casualty !== "none" || beyond || quiet || state.tick - c.tick > secondsToTicks(lostS) || reach <= 0 || hypot2(c.x - me.x, c.y - me.y) > reach) {
         state.fire.delete(id);
         if (s.intent?.kind === "engage") s.intent = null;
@@ -1396,7 +1403,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const RF = S.returnFire;
       // (He looks for it once every returnFire.intervalS, not at every decision: a man lying in a firefight hears a
       // great many shooters, and the look goes through them all.)
-      if (RF?.pinnedBelow !== undefined && halted && s.mental.behaviour === "pinned" && s.mental.suppression < RF.pinnedBelow && !state.fire.has(id) && reach > 0 && unit.ambush === undefined
+      // (A machine gunner up to `pinnedSustainedBelow`: the gun is the squad's fire, review 2026-11-24 verification.)
+      const pw = state.weapon.get(id), pinBelow = pw !== undefined && ctx.catalog.weapons[pw.weapon]?.sustained !== undefined ? RF?.pinnedSustainedBelow ?? RF?.pinnedBelow : RF?.pinnedBelow;
+      if (RF !== undefined && pinBelow !== undefined && halted && s.mental.behaviour === "pinned" && s.mental.suppression < pinBelow && !state.fire.has(id) && reach > 0 && unit.ambush === undefined
         && Math.floor(state.tick / every) % Math.max(1, Math.round(RF.intervalS / D.stepSeconds)) === 0) {
         const range = Math.min(reach, unitCap(unit, state, ctx), engageRange(ctx, state, id));
         if (!lowOnAmmo(ctx, state, id, RF.areaMinSpareMags ?? 0)) {
@@ -1461,7 +1470,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
         const cs = cc && cc.kind === "seen" && inArc(state, id, state.transform.req(id), cc.x, cc.y) && state.tick - cc.tick <= secondsToTicks(ctx.catalog.behaviour.soldier.keepTargetSeenSeconds) ? targetScore(ctx, state, cc, state.transform.req(id), range, shooterOf(ctx, state, id)) : null;
         keep = cs !== null && pick.score >= ctx.catalog.behaviour.soldier.keepTargetFactor * cs;
       }
-      if (pick && !keep && (!current || current.contact !== pick.target)) {
+      // (Area or return fire at a man he now sees clearly: aimed fire at him, review 2026-11-24 verification.)
+      if (pick && !keep && (!current || current.contact !== pick.target || current.spot !== undefined || current.suppress === "return")) {
         if (assignFireTask(ctx, state, id, pick.x, pick.y, aimHeightAt(ctx, pick))) {
           const ft = state.fire.get(id)!;
           ft.contact = pick.target; ft.self = true; ft.aimAuto = true;
@@ -1535,6 +1545,8 @@ function returnFire(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
     best = c; bd = d;
   }
   if (!best || friendHolds(ctx, state, id, best.x, best.y)) return;
+  // (No posture gives him a line to it: he does not take the task up, review 2026-11-24 verification.)
+  if (!lineToPlace(ctx, state, id, best.x, best.y)) return;
   const err = contactErrorM(ctx, best, tick);
   // (Known only roughly — a sound, a comrade's word: fire at the area round the place, review 2026-11-24 problem 2.)
   if (err > RF.maxErrM) { areaTask(ctx, state, id, best.x, best.y, err, best.target); return; }
@@ -1542,6 +1554,19 @@ function returnFire(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
   const ft = state.fire.get(id)!;
   ft.contact = best.target; ft.self = true; ft.aimAuto = true; ft.suppress = "return";
 }
+
+/**
+ * Has he a line of fire to the place (into the cover near it, `drills.suppressShortM`) from some posture? Only with
+ * `returnFire.noLineS` (review 2026-11-24 verification: a man behind a house took up area fire he could never fire,
+ * and kept it); without it, always.
+ */
+function lineToPlace(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number): boolean {
+  if (ctx.catalog.behaviour.soldier.returnFire?.noLineS === undefined) return true;
+  const shortM = ctx.catalog.behaviour.drills.suppressShortM;
+  for (const p of LINE_POSTURES) if (lineOfFireTo(ctx, state, id, x, y, 0.5, p, shortM) > 0) return true;
+  return false;
+}
+const LINE_POSTURES: readonly Posture[] = ["prone", "crouching", "standing"];
 
 /** May a place known to within `e` m at `d` m be fired at as an area (`returnFire.areaMaxErrM` / `areaMaxErrShare`)? */
 function areaErrOk(RF: NonNullable<SimContext["catalog"]["behaviour"]["soldier"]["returnFire"]>, e: number, d: number): boolean {
@@ -1563,6 +1588,7 @@ function lowOnAmmo(ctx: SimContext, state: SimState, id: EntityId, n: number): b
  */
 function areaTask(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, err: number, target?: EntityId): boolean {
   const RF = ctx.catalog.behaviour.soldier.returnFire!;
+  if (!lineToPlace(ctx, state, id, x, y)) return false;
   if (!assignFireTask(ctx, state, id, x, y, 0.5)) return false;
   const ft = state.fire.get(id)!;
   ft.self = true; ft.suppress = "area";
@@ -1673,8 +1699,17 @@ function keepArea(ctx: SimContext, state: SimState, id: EntityId, s: SoldierStat
   }
   const range = Math.min(reach, unitCap(unit, state, ctx), engageRange(ctx, state, id));
   if (hypot2(task.spot.cx - me.x, task.spot.cy - me.y) > range || !inArc(state, id, me, task.spot.cx, task.spot.cy)) return false;
+  // (No line of fire to it for `noLineS` — a wall, a house, a crest: he gives it up, and the drill's side step or his
+  // next look finds him another; review 2026-11-24 verification.)
+  if (noLineLong(ctx, state, task)) return false;
   task.reasonTick = tick;
   return true;
+}
+
+/** Return or area fire with no line of fire to it for `returnFire.noLineS`. */
+function noLineLong(ctx: SimContext, state: SimState, task: FireTask): boolean {
+  const n = ctx.catalog.behaviour.soldier.returnFire?.noLineS;
+  return n !== undefined && task.noLineTick !== undefined && state.tick - task.noLineTick >= secondsToTicks(n);
 }
 
 /**

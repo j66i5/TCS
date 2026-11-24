@@ -73,7 +73,7 @@ export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new 
   // near misses that tell men they are under fire) or fired on then for `blindS` since the spell began, `blindLossShare`
   // of its men down, none of its men firing — pulls back to its rally point too (covered, out of the fire, still
   // seeing its objective; the withdraw drill throws hand smoke), whatever the enemy's distance.
-  fallback: { blindFireS: 30, blindS: 20, blindLossShare: 0.1, threatM: 150, assaultSlackM: 30, flankM: 300, flankDeg: 120, enemyNearM: 400, rallyM: [100, 80, 125, 150], rallyMinM: 60,
+  fallback: { blindFireS: 30, blindS: 20, blindLossShare: 0.25, blindMinLost: 2, blindSeenS: 60, threatM: 150, assaultSlackM: 30, flankM: 300, flankDeg: 120, enemyNearM: 400, rallyM: [100, 80, 125, 150], rallyMinM: 60,
     rallyAsideDeg: [0, -15, 15, -30, 30], rallyMaxDeg: 30, rallyCoverM: 30, coverW: 0.3, offW: 0.2, openExposure: 0.9, rallySpreadM: 25, rallySiteM: 20,
     counterMinMen: 2, drillStartSeconds: 30 },
   // Anti-tank tasks (M7.4b): how often the commander looks for a shot, how fresh a vehicle contact must be, how
@@ -1084,7 +1084,13 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
           if (!lw || up < lw[0]) mem.losses[String(sq)] = [up, lw ? tick : -1e9];
           const lostAt = mem.losses[String(sq)]![1];
           const firedOn = su !== undefined && tick - (su.ownFireTick ?? -1e9) <= F.blindFireS * 60 && tick - (su.ownContactTick ?? tick) >= F.blindS * 60;
-          const blind = su !== undefined && f <= 1 - F.blindLossShare && (tick - lostAt <= F.blindFireS * 60 || firedOn) && !men.some((m) => view.fire.has(m));
+          // (Review 2026-11-24 verification: real evidence it cannot answer — at least `blindMinLost` men and
+          // `blindLossShare` of them down, fired on lately, no man of it firing nor having seen an enemy within
+          // `blindSeenS`, and not dug in: a squad in prepared positions stays under fire it cannot answer.)
+          const down = members(view, sq).length - up;
+          const blind = su !== undefined && f <= 1 - F.blindLossShare && down >= F.blindMinLost && (tick - lostAt <= F.blindFireS * 60 || firedOn) && !men.some((m) => view.fire.has(m))
+            && !men.some((m) => (view.soldier.get(m) as SoldierState).contacts.some((c) => c.kind === "seen" && tick - c.tick <= F.blindSeenS * 60))
+            && !men.some((m) => { const t = view.transform.get(m)!; return t.z === 0 && positionAt(ground(), view, t.x, t.y) >= 0; });
           if (f >= 0.5 && !blind) continue;
           const cx = men.reduce((a, m) => a + view.transform.get(m)!.x, 0) / men.length, cy = men.reduce((a, m) => a + view.transform.get(m)!.y, 0) / men.length;
           if (!blind && !fallbackThreat(cx, cy)) continue;

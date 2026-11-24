@@ -23,8 +23,8 @@ function setup(o: { blind?: boolean; x?: number } = {}): BattleInput {
     ...c,
     behaviour: {
       ...b,
-      drills: { ...b.drills, contact: { immediateS: 5, decideS: 10, quietS: 20, maxS: 120, srcEveryS: 2, srcWithinS: 20, guessM: 200, continuePinnedShare: 0.25, continueQuietS: 8, breakChecks: 2, contactAssaultM: 50, contactBreakLossShare: 0.3, contactBreakPinnedShare: 0.6 } },
-      soldier: { ...b.soldier, returnFire: { firedOnS: 10, withinS: 20, maxErrM: 30, bearingDeg: 30, intervalS: 3, mgIntervalS: 4, areaMaxErrM: 120, areaMaxErrShare: 0.4, areaMaxRadiusM: 30, areaIntervalS: 4, areaMgIntervalS: 5, areaMinSpareMags: 1, pinnedBelow: 0.75 } },
+      drills: { ...b.drills, contact: { immediateS: 5, decideS: 10, quietS: 20, maxS: 120, srcEveryS: 2, srcWithinS: 20, guessM: 200, continuePinnedShare: 0.25, continueQuietS: 8, breakChecks: 2, contactAssaultM: 50, contactBreakLossShare: 0.3, contactBreakPinnedShare: 0.6, sidestepEveryS: 15, radioEveryS: 60, radioTurnDeg: 30, seenM: 300, breakFiringShare: 0.34 } },
+      soldier: { ...b.soldier, returnFire: { firedOnS: 10, withinS: 20, maxErrM: 30, bearingDeg: 30, intervalS: 3, mgIntervalS: 4, areaMaxErrM: 120, areaMaxErrShare: 0.4, areaMaxRadiusM: 30, areaIntervalS: 4, areaMgIntervalS: 5, areaMinSpareMags: 1, pinnedBelow: 0.75, pinnedSustainedBelow: 0.95, noLineS: 6 } },
     },
     spotting: { ...c.spotting, ...(o.blind ? { baseRatePerS: 0 } : {}), contacts: { ...c.spotting.contacts, heardMergeSeconds: 10, heardMergeMax: 6, heardMinErrorFraction: 0.1 } },
   };
@@ -37,7 +37,8 @@ describe("contact drill (review 2026-11-24 problem 2)", () => {
     const sim = createSim(input);
     const [bid, blue] = unitOf(sim, "blue");
     const [rid] = unitOf(sim, "red");
-    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "rules", onContact: "push", fire: "free" });
+    // (Fire rule "return": under "free" the sight of red, before a round is fired, would start the drill.)
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "rules", onContact: "push", fire: "return" });
     submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "move", waypoints: [{ x: 10, y: 190, mode: "walk" }] });
     run(sim, 5);
     submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: rid, kind: "fire", x: 10, y: 32, heightM: 1 });
@@ -65,6 +66,59 @@ describe("contact drill (review 2026-11-24 problem 2)", () => {
       expect(Math.max(...blue.members.filter((m) => sim.state.soldier.req(m).casualty === "none").map((m) => sim.state.transform.req(m).y))).toBeGreaterThan(yHalt + 10);
     }
     expect(sim.state.unit.req(bid).contactDrill).toBeUndefined();
+  });
+
+  it("a near ambush (the fire within contactAssaultM) is assaulted after immediateS, not decideS later", () => {
+    const sim = createSim(setup({ x: 45 }));
+    const [bid] = unitOf(sim, "blue");
+    const [rid] = unitOf(sim, "red");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "rules", onContact: "push", fire: "return" });
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "move", waypoints: [{ x: 10, y: 190, mode: "walk" }] });
+    let start = -1;
+    const ev = run(sim, 25, () => {
+      if (start < 0 && sim.state.unit.req(bid).contactDrill !== undefined) {
+        start = sim.state.tick;
+        // (The decision is due at immediateS: the leader goes in at once at an enemy this close.)
+        expect(sim.state.unit.req(bid).contactDrill!.decideTick - start).toBeLessThanOrEqual(secondsToTicks(5));
+      }
+      if (sim.state.tick === secondsToTicks(3)) submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: rid, kind: "fire", x: 10, y: 32, heightM: 1 });
+    });
+    expect(start).toBeGreaterThanOrEqual(0);
+    const assault = radios(ev, "blue").find((e) => e.key === "radio.contactAssault");
+    if (assault !== undefined) expect(assault.tick - start).toBeLessThanOrEqual(secondsToTicks(6));
+  });
+
+  it("the contact call is not repeated within radioEveryS on the same bearing", () => {
+    const sim = createSim(setup());
+    const [bid] = unitOf(sim, "blue");
+    const [rid] = unitOf(sim, "red");
+    const ev: SimEvent[] = [];
+    for (let k = 0; k < 3; k++) {
+      submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: bid, kind: "move", waypoints: [{ x: 10, y: 190 - k * 20, mode: "walk" }] });
+      ev.push(...run(sim, 2));
+      submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: rid, kind: "fire", x: 10, y: 32, heightM: 1 });
+      ev.push(...run(sim, 4));
+      submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: rid, kind: "ceaseFire" });
+      ev.push(...run(sim, 3));
+    }
+    const calls = radios(ev, "blue").filter((e) => e.key === "radio.contactFire");
+    expect(calls.length).toBeGreaterThan(0);
+    for (let i = 1; i < calls.length; i++) {
+      const db = Math.abs(Number(calls[i]!.params.bearing) - Number(calls[i - 1]!.params.bearing));
+      if (calls[i]!.tick - calls[i - 1]!.tick < secondsToTicks(60)) expect(Math.min(db, 360 - db)).toBeGreaterThanOrEqual(30);
+    }
+  });
+
+  it("rule push, fire free: a sighting within seenM halts the move into the drill before a round is fired", () => {
+    const sim = createSim(setup({ x: 250 }));
+    const [bid] = unitOf(sim, "blue");
+    const [rid] = unitOf(sim, "red");
+    submitOrder(sim, { tick: 0, issuer: "red", target: rid, kind: "rules", fire: "hold" });
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "rules", onContact: "push", fire: "free" });
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "move", waypoints: [{ x: 10, y: 190, mode: "walk" }] });
+    let drill = false;
+    run(sim, 30, () => { if (sim.state.unit.req(bid).contactDrill !== undefined) drill = true; });
+    expect(drill).toBe(true);
   });
 
   it("an order ends the drill: the leader's decision is taken for him", () => {

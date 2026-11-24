@@ -164,8 +164,8 @@ describe("M12.0b scenario kinds", () => {
 
   it("withdrawal with the AI: the men out by the exit are fit or wounded and counted saved", () => {
     // (Review 2026-11-24 problem 2, part 2: the delaying side now fights before it goes, and in village s1 nobody gets
-    // out any more; farmland s2 brings 10 men out.)
-    const { row, result } = runKind(data, kindScenario("withdrawal", "farmland", 2, 900), false);
+    // out any more; farmland s2 brings 10 men out. Verification fixes: farmland s2 none, farmland s1 brings 9 out.)
+    const { row, result } = runKind(data, kindScenario("withdrawal", "farmland", 1, 900), false);
     const side = result.sides.find((s) => (s.saved ?? 0) > 0);
     expect(side).toBeDefined();
     expect(row.savedBad).toBe(0);

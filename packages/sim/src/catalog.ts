@@ -521,6 +521,17 @@ export interface BehaviourDef {
       immediateS: number; decideS: number; quietS: number; maxS: number; srcEveryS: number; srcWithinS: number; guessM: number;
       continuePinnedShare: number; continueQuietS: number; breakChecks: number;
       contactAssaultM: number; contactBreakLossShare: number; contactBreakPinnedShare: number;
+      /** Review 2026-11-24 verification: a man with no line to the place looks for one a few metres aside again every
+       *  `sidestepEveryS` (absent: once); the squad calls "contact" again only after `radioEveryS`, unless the
+       *  bearing has turned by `radioTurnDeg`; a squad that broke contact turns to fight `regroupS` after its withdrawal
+       *  (absent: as before). */
+      sidestepEveryS?: number; radioEveryS?: number; radioTurnDeg?: number; regroupS?: number;
+      /** A unit on the move under contact rule "push" and fire rule "free" halts into the drill on an enemy seen within
+       *  `seenM` (and its range rule); its drill is quiet only when no enemy has been seen so (absent: `reactSeenM`
+       *  alone). */
+      seenM?: number;
+      /** Contact is not broken while at least this share of the men left have a fire task (absent: no such check). */
+      breakFiringShare?: number;
     };
   };
   /**
@@ -739,6 +750,9 @@ export interface BehaviourDef {
        *  while he has at least `areaMinSpareMags` spare magazines or belts. A pinned man (not panicked) whose
        *  suppression is below `pinnedBelow` returns fire too, lying where he is. Absent: off. */
       areaMaxErrM?: number; areaMaxErrShare?: number; areaMaxRadiusM?: number; areaIntervalS?: number; areaMgIntervalS?: number; areaMinSpareMags?: number; pinnedBelow?: number;
+      /** Review 2026-11-24 verification: a pinned machine gunner returns fire below `pinnedSustainedBelow` (absent:
+       *  `pinnedBelow`); return or area fire with no line of fire to it for `noLineS` is given up (absent: kept). */
+      pinnedSustainedBelow?: number; noLineS?: number;
     };
     friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
     /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
@@ -833,6 +847,9 @@ export interface SpottingDef {
     voiceDelaySeconds: number; callEverySeconds: number;
     /** Repeated shots narrow a heard place; a muzzle flash at night more (review 2026-11-24 problem 2). Absent: off. */
     heardMergeSeconds?: number; heardMergeMax?: number; heardMinErrorFraction?: number; flashBelowLight?: number; flashM?: number; flashErrorFactor?: number;
+    /** Review 2026-11-24 verification: a fixed bearing bias of up to this many degrees per listener and shooter
+     *  (echoes, the crack from the bullet's path), which merging does not average away (absent: none). */
+    heardBiasDeg?: number;
   };
 }
 

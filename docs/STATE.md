@@ -5,6 +5,13 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Whole-game review (2026-11-24):** realism, function, fun, AI and plan, with ranked problems, next steps and owner
+  questions: [docs/reviews/2026-11-24-game-review.md](reviews/2026-11-24-game-review.md).
+  **Owner answers (2026-11-24):** Q1 "Fix & accept first": review steps 1-7 (friendly fire, contact drill, battle
+  end, balance pass 6, quick-battle polish, infantry attack, plan gates), then the owner's recorded phone play test,
+  before any new milestone. Q2 "M13 first" (then M14). Q3 auto-end when objectives are held with no contact for a
+  few minutes, plus a "Claim victory" button. Q4 default fire rule "At will" when attacking, "Return" when
+  defending (replaces the 2026-11-12 "Return" everywhere).
 - **NEXT (owner answers to balance pass 5, 2026-11-20; not built yet, branch `claude/balance-6` is empty).**
   Q17 village objective: "Village edge" (already built in pass 5; record in DECISIONS). Q6 Puma 30 mm: "Air-burst
   only" (KETF / PMC308 only; drop the impact HE the Puma does not carry). Q8 T-90M: "Yes, low confidence" (a separate

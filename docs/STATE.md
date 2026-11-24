@@ -5,6 +5,8 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Whole-game review (2026-11-24):** realism, function, fun, AI and plan, with ranked problems, next steps and owner
+  questions: [docs/reviews/2026-11-24-game-review.md](reviews/2026-11-24-game-review.md).
 - **NEXT (owner answers to balance pass 5, 2026-11-20; not built yet, branch `claude/balance-6` is empty).**
   Q17 village objective: "Village edge" (already built in pass 5; record in DECISIONS). Q6 Puma 30 mm: "Air-burst
   only" (KETF / PMC308 only; drop the impact HE the Puma does not carry). Q8 T-90M: "Yes, low confidence" (a separate

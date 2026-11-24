@@ -5,10 +5,10 @@
  * muzzle, which the fire-safety check skipped (dead, or "on the same spot"). Now a body a round would strike blocks.
  */
 import { describe, expect, it } from "vitest";
-import { bodyInLine, createSim, friendInLine, hypot2, secondsToTicks, step, submitOrder, type Sim, type SimEvent } from "../src/index";
+import { bodyInLine, createSim, flatMap, friendHolds, friendInLine, hypot2, secondsToTicks, step, submitOrder, type Catalog, type Sim, type SimEvent } from "../src/index";
 import { stepBringAmmo } from "../src/systems/decisions";
 import { EventSink } from "../src/events";
-import { armedInput } from "./helpers";
+import { armedInput, testCatalog } from "./helpers";
 
 const PI = Math.PI;
 
@@ -107,5 +107,62 @@ describe("a body a round would strike blocks (review 2026-11-24, problem 1)", ()
     expect(m.waypoints).toHaveLength(0);
     run(sim, 4);
     expect(hypot2(a.x - b.x, a.y - b.y)).toBeGreaterThan(1.5);
+  });
+
+  it("a corpse lying 6 m off the line 150 m out does not block; one in the line does (over-block fix)", () => {
+    const input = armedInput();
+    input.map = flatMap("t", 1600, 200);
+    const sim = createSim(input);
+    const s = sim.state;
+    const shooter = idOf(sim, "a.0"), mate = idOf(sim, "a.1");
+    const me = s.transform.req(shooter), t = s.transform.req(mate);
+    kill(sim, mate);
+    s.soldier.req(shooter).posture = "prone";
+    // (Platoon s4: a man held 25 s by two corpses 5.8 m off his line at 146 m; the safety cone there is 10 m wide.)
+    for (const heading of [0, PI / 2]) {
+      t.x = me.x + 150; t.y = me.y + 6; t.heading = heading;
+      expect(friendInLine(sim.ctx, s, shooter, me.x + 300, me.y)).toBe(false);
+      t.y = me.y;
+      expect(friendInLine(sim.ctx, s, shooter, me.x + 300, me.y)).toBe(true);
+    }
+  });
+
+  it("a prone man with a body over his muzzle takes a return-fire task and fires kneeling, never striking it", () => {
+    const input = armedInput(1, 600);
+    const soldier = { ...testCatalog.behaviour.soldier } as Catalog["behaviour"]["soldier"];
+    soldier.returnFire = { firedOnS: 10, withinS: 20, maxErrM: 30, bearingDeg: 30, intervalS: 3, mgIntervalS: 4 };
+    delete soldier.suppressKnown;
+    input.catalog = { ...testCatalog, behaviour: { ...testCatalog.behaviour, soldier } };
+    input.forces[0]!.posture = "defend";
+    input.map = flatMap("t", 1600, 200);
+    input.forces[1]!.placements = input.forces[1]!.placements.map((p, i) => ({ ...p, x: 1550, y: 150 + i * 4 }));
+    const sim = createSim(input);
+    const s = sim.state;
+    const [uid] = [...s.unit.entries()].find(([, u]) => u.side === "blue")!;
+    s.unit.req(uid).fireRule = "free";
+    const shooter = idOf(sim, "a.0"), dead = idOf(sim, "a.1"), red = idOf(sim, "b.0");
+    submitOrder(sim, { tick: s.tick, issuer: "blue", target: uid, kind: "posture", posture: "prone" });
+    const ev = run(sim, 4);
+    const me = s.transform.req(shooter), t = s.transform.req(dead);
+    kill(sim, dead);
+    t.x = me.x + 0.02; t.y = me.y; t.z = me.z; t.heading = PI;
+    // (Lying, his rounds would strike the body; kneeling, they clear it.)
+    expect(friendInLine(sim.ctx, s, shooter, me.x + 300, me.y)).toBe(true);
+    expect(friendHolds(sim.ctx, s, shooter, me.x + 300, me.y)).toBe(false);
+    let returned = false, kneeling = 0;
+    for (let k = 0; k < 20; k++) {
+      const tick = s.tick;
+      s.weapon.req(red).lastShotTick = tick;
+      const ss = s.soldier.req(shooter);
+      ss.contacts = [{ target: red, x: me.x + 300, y: me.y, errM: 5, kind: "reported", tick, reportedTick: tick }];
+      ss.fireFrom = { dx: 1, dy: 0, tick };
+      const out = run(sim, 1);
+      if (s.fire.get(shooter)?.suppress === "return") returned = true;
+      kneeling += out.filter((e) => e.kind === "shot.fired" && e.shooter === shooter && ss.posture !== "prone").length;
+      ev.push(...out);
+    }
+    expect(returned).toBe(true);
+    expect(kneeling).toBeGreaterThan(2);
+    expect(ownHits(sim, ev)).toHaveLength(0);
   });
 });

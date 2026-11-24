@@ -39,7 +39,7 @@ import { bestCoverNear, exposureAt, navCostAt, type findPath } from "../nav";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { standZ } from "../terrain";
-import { aimHeightAt, assignFireTask, friendInLine, lineOfFireTo, reserveTargetOk } from "./fire";
+import { aimHeightAt, assignFireTask, friendHolds, lineOfFireTo, reserveTargetOk } from "./fire";
 import { isCowering } from "./morale";
 import { footSoldiers } from "../mount";
 import { stepFetchAmmo, vehicleSource } from "./boarding";
@@ -1385,7 +1385,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const PS = Math.min(S.pinnedSelfDefenceM ?? 0, reach, unitCap(unit, state, ctx));
       if (PS > 0 && halted && s.mental.behaviour === "pinned" && near.all !== null && near.all.d <= PS) {
         const cur = state.fire.get(id), c = near.all.c;
-        if ((!cur || (cur.self === true && cur.contact !== c.target)) && !friendInLine(ctx, state, id, c.x, c.y)
+        if ((!cur || (cur.self === true && cur.contact !== c.target)) && !friendHolds(ctx, state, id, c.x, c.y)
           && lineOfFireTo(ctx, state, id, c.x, c.y, aimHeightAt(ctx, c), "prone") > 0 && selfFire(ctx, state, id, c, false)) s.intent = { kind: "engage", tick: state.tick, target: c.target };
       }
       // Nothing else while he is pinned or panicked: he fires back once he is no longer pinned (from the cover he
@@ -1512,7 +1512,7 @@ function returnFire(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
     if (contactErrorM(ctx, c, tick) > RF.maxErrM || !inArc(state, id, me, c.x, c.y)) continue;
     best = c; bd = d;
   }
-  if (!best || friendInLine(ctx, state, id, best.x, best.y)) return;
+  if (!best || friendHolds(ctx, state, id, best.x, best.y)) return;
   if (!assignFireTask(ctx, state, id, best.x, best.y, aimHeightAt(ctx, best))) return;
   const ft = state.fire.get(id)!;
   ft.contact = best.target; ft.self = true; ft.aimAuto = true; ft.suppress = "return";
@@ -1534,7 +1534,7 @@ function suppressKnown(ctx: SimContext, state: SimState, id: EntityId, s: Soldie
     if (!inArc(state, id, me, c.x, c.y)) continue;
     best = c; bd = d;
   }
-  if (!best || friendInLine(ctx, state, id, best.x, best.y)) return;
+  if (!best || friendHolds(ctx, state, id, best.x, best.y)) return;
   if (!assignFireTask(ctx, state, id, best.x, best.y, aimHeightAt(ctx, best))) return;
   const ft = state.fire.get(id)!;
   ft.contact = best.target; ft.self = true; ft.aimAuto = true; ft.suppress = "known";

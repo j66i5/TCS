@@ -209,10 +209,11 @@ export function aglTeamSystem(ctx: SimContext, state: SimState, events: EventSin
       mt.relayTick = state.tick + secondsToTicks(l.def.relaySeconds);
       continue;
     }
+    // (Review 2026-11-24: its rounds are lobbed, `lob`: a body lying farther out does not block them.)
     // (Own men in the line, or past the point within the burst and the range error: no burst. Balance pass 4: nor
     // with one within that of the point on any side, danger close.)
     const dz = aglDangerM(ctx, hypot2(pick.x - l.x, pick.y - l.y), ctx.catalog.items[l.def.round]?.chargeItem);
-    if (friendInLine(ctx, state, l.carrier, pick.x, pick.y, dz, { x: l.x, y: l.y }) || ownMenWithin(state, state.identity.get(l.carrier)?.side ?? "", pick.x, pick.y, dz)) continue;
+    if (friendInLine(ctx, state, l.carrier, pick.x, pick.y, dz, { x: l.x, y: l.y }, undefined, { lob: true }) || ownMenWithin(state, state.identity.get(l.carrier)?.side ?? "", pick.x, pick.y, dz)) continue;
     if (mt.queued) {
       // An ordered series: one burst now, the rest stay queued.
       const left = (mt.queued.bursts ?? ORDER_BURSTS) - 1;

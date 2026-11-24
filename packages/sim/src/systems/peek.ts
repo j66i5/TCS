@@ -14,14 +14,14 @@ import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
 import type { Posture } from "../orders";
 import type { SimState } from "../state";
-import { friendInLine, lineOfFireTo } from "./fire";
+import { friendHolds, lineOfFireTo } from "./fire";
 
 /**
  * His best line of fire to a point from any of `postures` (2 clear, 1 into cover near it, 0 none), none with a
  * comrade in it (another squad bounding beside his, a man of his own half); `from`: as if he were there.
  */
 export function lineFor(ctx: SimContext, state: SimState, m: EntityId, x: number, y: number, h: number, postures: Posture[], from?: { x: number; y: number; z: number }): number {
-  if (friendInLine(ctx, state, m, x, y, 0, from)) return 0;
+  if (friendHolds(ctx, state, m, x, y, 0, from)) return 0;
   let q = 0;
   for (const p of postures) { q = Math.max(q, lineOfFireTo(ctx, state, m, x, y, h, p, ctx.catalog.behaviour.drills.suppressShortM, from)); if (q === 2) break; }
   return q;

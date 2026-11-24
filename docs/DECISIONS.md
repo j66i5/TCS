@@ -10517,3 +10517,20 @@ casualty in a fireman's carry rides on the carrier's own coordinates, died, and 
   which its property test grafts from.
 - **Goldens:** `npm run golden:update`: 7 changed (shootout, platoon-vehicles, village-occupy, platoon-vehicles-tanks,
   platoon-vehicles-wheeled, hold-resupply, hold-resupply-ru); no catalog change.
+- **Over-blocking (verifiers' two minor findings, fixed on the branch).** (1) A dead body farther out was tested
+  against the 4 degree safety cone across the line: two corpses 5.8 m off a man's line at 146 m held him 25 s on
+  platoon s4 (t 817-828 s; 25 false blocks of 7308 once-a-second checks, a block where no straight round would strike
+  a body). Now the round's path against the body's own hitbox (prone: 0.3 m high, not the posture's height), each
+  band grown 0.05 m + 2 spreads per m of range (his aiming error in that posture firing fast, `aim.baseMrad` x
+  `postureFactor` x `rapidFactor`, with the weapon's `dispersionMrad`: about 4 mm per m lying, 8 standing; at 150 m
+  0.64 m lying, against the old 0.15 + 0.45 m above it and 10 m across). Platoon s4 after: 2 false blocks of 7308
+  (both the near strike test's 0.05 m margin on a living comrade 0.9 m beside a prone man). (2) The checks made
+  before a fire task is given (return fire, fire at a known place, pinned self-defence, drills' covering men, the
+  peek, the AI commander's siting) asked `friendInLine` for his posture only and dropped tasks that the fire system
+  would have taken from a kneel. They now ask `friendHolds` (systems/fire.ts): blocked in his posture only by a body,
+  the task stands when a higher posture clears it (not for a pinned man nor one on the move, who do not rise). The
+  AGL team's rounds are lobbed (`ShotLine.lob`): a body lying farther out does not hold them. Tests: a corpse 6 m
+  off the line at 150 m does not block, one in it does; a prone man with a corpse over his muzzle takes a return-fire
+  task and fires kneeling, no own hit (fails on the earlier branch head). Goldens: none changed (`golden:update`
+  reports all 12 unchanged). Platoon s1 1200 s after: 97 hits / 4 own (0 direct, grenade fragments) / 683-972; platoon
+  s4 900 s: 74 / 0 / 1863-100.

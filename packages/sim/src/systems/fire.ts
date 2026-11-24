@@ -265,17 +265,41 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
   return hullInLine(ctx, state, side, id, self.z, me.x, me.y, ux, uy, range + beyondM, sinCone);
 }
 
+/**
+ * Review 2026-11-24 (over-blocking): does his own side hold this fire, as the fire system will judge it? The checks
+ * made before a fire task is given (return fire, fire at a known place, self-defence, drills, the commander's siting)
+ * use this, not `friendInLine` alone: blocked in his posture only by a body over his muzzle, he rises to a kneel or
+ * to his feet if that clears it (`fireSystem`, as over a bank), so the task stands. A pinned man or one on the move
+ * does not rise (a man to fire `from` another spot is taken as halted there). `from`, `shot`: as `friendInLine`.
+ */
+export function friendHolds(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0, from?: { x: number; y: number }, shot?: ShotLine): boolean {
+  if (!friendInLine(ctx, state, id, tx, ty, beyondM, from, undefined, shot)) return false;
+  const s = state.soldier.get(id);
+  if (s === undefined || isCowering(s) || (from === undefined && (state.mover.get(id)?.waypoints.length ?? 0) > 0)) return true;
+  const p0 = shot?.posture ?? s.posture;
+  // (Held by a living comrade in the cone or a hull: no posture clears that.)
+  if (POSTURE_RANK[p0] >= POSTURE_RANK.standing || isMounted(s) || !bodyInLine(ctx, state, id, tx, ty, { ...shot, posture: p0 }, from)) return true;
+  for (const p of RISE_ORDER) {
+    if (POSTURE_RANK[p] <= POSTURE_RANK[p0]) continue;
+    if (!friendInLine(ctx, state, id, tx, ty, beyondM, from, undefined, { ...shot, posture: p })) return false;
+  }
+  return true;
+}
+const RISE_ORDER: readonly Posture[] = ["crouching", "standing"];
+
 /** The shot a line check is for: his posture (default: the one he is in) and the world height of the point he aims
  *  at (default: level with his muzzle). */
-export interface ShotLine { posture?: Posture; tz?: number }
+export interface ShotLine { posture?: Posture; tz?: number; /** A lobbed round (an automatic grenade launcher's): it
+ *  passes high over a body lying farther out, so only the bodies at his muzzle count. */ lob?: boolean }
 
 /** Bodies within this of the shooter are tested against the round's path itself (m): muzzle, a prone body's reach
  *  and a margin. */
 const NEAR_BODY_M = 2;
 /** The body boxes grown by this in the strike test (m): the aim moves a little between the check and the shot. */
 const STRIKE_GROW_M = 0.05;
-/** A comrade's body lying farther out (dead) blocks unless the line passes this far above it, plus `per m` of range. */
-const LYING_CLEAR_M = 0.15, LYING_CLEAR_PER_M = 0.003;
+/** A comrade's body lying farther out (dead) is struck when the round's path passes within its box grown by
+ *  `STRIKE_GROW_M` plus this many of his spreads (aim and weapon, one standard deviation each) per m of range. */
+const LYING_SPREADS = 2;
 
 /** The world height of the point a fire task aims at. */
 function aimZ(ctx: SimContext, task: FireTask): number {
@@ -286,8 +310,8 @@ function aimZ(ctx: SimContext, task: FireTask): number {
  * Review 2026-11-24, problem 1 (friendly fire): would a round from his muzzle, in posture `shot.posture`, strike the
  * body of a man of his side? Every man of his side on foot within `NEAR_BODY_M` (alive, hit, dead or a prisoner):
  * the round's path from the muzzle against his body's box (`bodyStrikeT`, the projectile's own geometry); a dead
- * man farther out, between the muzzle and the point and within the safety cone: unless the line passes well above
- * his body. (Before, the dead never blocked: a prone rifleman with a comrade's corpse lying over his muzzle fired 43
+ * man farther out, between the muzzle and the point: the same against his body's box grown by the spread of the
+ * rounds at that range (not for a lobbed round, `shot.lob`). (Before, the dead never blocked: a prone rifleman with a comrade's corpse lying over his muzzle fired 43
  * rounds into it, platoon seed 1.) Living men farther out are fire discipline's matter (`friendInLine`'s cone).
  * `from`: as if he were there.
  */
@@ -309,7 +333,9 @@ export function bodyInLine(ctx: SimContext, state: SimState, id: EntityId, tx: n
   const B = ctx.ballistics, hbs = B.hitboxes;
   const near = NEAR_BODY_M + B.bodyReachM;
   const seg = Math.min(range, near + B.bodyReachM);
-  const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
+  // (Over-block fix: the spread per m of range a body farther out is grown by, worked out at the first such body.)
+  let perM = -1;
+  const lob = shot?.lob === true;
   for (const [other, ident] of state.identity.entries()) {
     if (ident.side !== side || other === id) continue;
     const os = state.soldier.get(other);
@@ -328,14 +354,21 @@ export function bodyInLine(ctx: SimContext, state: SimState, id: EntityId, tx: n
       if (t <= 1) return true;
       continue;
     }
-    if (os.physiology.alive) continue;
-    // A body lying farther out: in the cone, short of the point, and the line passing low over it.
-    if (along <= 0.5 || along >= range0 + LINE_OF_FIRE_ALLOWANCE_M) continue;
-    if (across >= B.bodyReachM + along * sinCone) continue;
-    const lineZ = mz + slope * Math.max(0, along - MUZZLE_OUT_M);
-    const top = bgz + ctx.catalog.body.postures[os.posture].heightM;
-    if (lineZ - top >= LYING_CLEAR_M + LYING_CLEAR_PER_M * along) continue;
-    return true;
+    if (os.physiology.alive || lob) continue;
+    // A body lying farther out, short of the point: the round's path against his body's box (the hitbox of his
+    // posture, 0.3 m high lying), grown by the spread of his rounds at that range: his aiming error in that posture
+    // when firing fast and the weapon's dispersion, `LYING_SPREADS` standard deviations. (Review 2026-11-24, over-
+    // blocking: the safety cone, 4 degrees, held a man for a corpse 5.8 m off his line at 146 m, platoon seed 4.)
+    if (along <= 0.5 || along >= range0) continue;
+    if (perM < 0) {
+      const A = ctx.catalog.shooting.aim, wd = ctx.catalog.weapons[state.weapon.get(id)?.weapon ?? ""];
+      const aim = A.baseMrad * A.postureFactor[p] * A.rapidFactor, disp = wd?.dispersionMrad ?? 0;
+      perM = (LYING_SPREADS * sqrt(aim * aim + disp * disp)) / 1000;
+    }
+    const grow = STRIKE_GROW_M + perM * along;
+    if (across >= B.bodyReachM + grow) continue;
+    const hb = hbs[os.posture === "standing" ? 0 : os.posture === "crouching" ? 1 : 2]!;
+    if (bodyStrikeT(hb, o.x, o.y, bgz, cos(o.heading), sin(o.heading), mx, my, mz, ux * range, uy * range, tz - mz, grow) <= 1) return true;
   }
   return false;
 }

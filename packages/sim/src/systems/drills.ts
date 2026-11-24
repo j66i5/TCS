@@ -32,7 +32,7 @@ import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
 import { firedOnTick, isCowering, scaleWhy } from "./morale";
-import { aimHeightAt, assignFireTask, friendInLine, spareMagazines } from "./fire";
+import { aimHeightAt, assignFireTask, friendHolds, spareMagazines } from "./fire";
 import { freeSpotNear } from "./decisions";
 import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
@@ -417,7 +417,7 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
       if (moving(m) || state.action.has(m) || isCowering(state.soldier.req(m))) return;
       const f = state.fire.get(m), w = state.weapon.get(m), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
       if (!w || !wd) return;
-      if (f && f.lineClear && !friendInLine(ctx, state, m, f.x, f.y)) return;
+      if (f && f.lineClear && !friendHolds(ctx, state, m, f.x, f.y)) return;
       if (!wd.sustained && spareMagazines(state.container.get(m), wd.feed.magazine) <= 0) return;
       if (coverFire(ctx, state, m, at, true, i, house)) return;
       // (No shot from where he lies: a few metres aside, once a bound.)

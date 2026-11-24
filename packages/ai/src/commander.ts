@@ -25,7 +25,7 @@
  */
 import { withDrones } from "./drone";
 import {
-  atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
+  atan2, backblastBlocked, friendHolds, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
   positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
   cacheHolds, carrierHitNear, dismountDistance, dismountSpot, mountedAssaultDef, threatMenFor, siteSupportPost, supportPost, supportReachM, type VehicleState,
 } from "@tcs/sim";
@@ -1883,7 +1883,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
                 const open = aims.filter((p) => fireLine(mt.x, mt.y, p.x, p.y, p.h) > 0);
                 if (open.length === 0) continue;
                 lined++;
-                const line = open.map((p) => friendInLine(ground(), st, m, p.x, p.y));
+                const line = open.map((p) => friendHolds(ground(), st, m, p.x, p.y));
                 if (open.every((p, j) => lifted(p.x, p.y) || line[j])) masked++;
                 if (line.every((x) => x)) blockedMen.push([m, open[0]!, base]);
                 // (Masked by men in his line itself, the lift aside.)
@@ -1927,7 +1927,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
                 if (d >= dc - 1) continue;
                 const x = clamp(tgt.x + cos(a) * d, W), y = clamp(tgt.y + sin(a) * d, H);
                 if (navCostAt(foot, x, y) <= 0 || indoorAt(ground(), x, y) >= 0) continue;
-                const score = aims.reduce((n, p) => n + (fireLine(x, y, p.x, p.y, p.h) > 0 && !friendInLine(ground(), st, shooter, p.x, p.y, 0, { x, y }) ? 1 : 0), 0)
+                const score = aims.reduce((n, p) => n + (fireLine(x, y, p.x, p.y, p.h) > 0 && !friendHolds(ground(), st, shooter, p.x, p.y, 0, { x, y }) ? 1 : 0), 0)
                   - hypot2(x - c.x, y - c.y) * 0.002;
                 if (score > bestScore) { bestScore = score; best = { x, y }; }
               }
@@ -1999,7 +1999,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
                 const x = mt.x + px * off, y = mt.y + py * off;
                 if (x < 1 || y < 1 || x > W - 1 || y > H - 1 || navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
                 if (ours.some((o) => o !== mt && hypot2(o.x - x, o.y - y) < minM)) continue;
-                const to = maskAims.find((p) => !lifted(p.x, p.y) && fireLine(x, y, p.x, p.y, p.h) > 0 && !friendInLine(ctx, st, m, p.x, p.y, 0, { x, y }));
+                const to = maskAims.find((p) => !lifted(p.x, p.y) && fireLine(x, y, p.x, p.y, p.h) > 0 && !friendHolds(ctx, st, m, p.x, p.y, 0, { x, y }));
                 if (!to) continue;
                 order(m, { kind: "move", waypoints: [{ x, y, mode: "run" }], facing: atan2(to.y - y, to.x - x) });
                 mem.stepAside[String(m)] = tick;

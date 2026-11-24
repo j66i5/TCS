@@ -44,7 +44,7 @@ import { resupplyLab, resupplyLabMarkdown, vehicleResupplyLab, vehicleResupplyLa
 import { rearmLab, rearmLabMarkdown } from "../labs/rearm";
 import { escapeLab, escapeLabMarkdown, fireLab, fireLabMarkdown, mpLab, mpLabMarkdown, prisonersLab, prisonersLabMarkdown } from "../labs/prisoners";
 import { loadData, SCENARIOS } from "../scenarios";
-import { KIND_MAPS, kindsLab, kindsMarkdown } from "../labs/kinds";
+import { KIND_CHECKS, KIND_MAPS, kindFails, kindsLab, kindsMarkdown, type KindChecks } from "../labs/kinds";
 import { contactLab, contactLine, contactMarkdown } from "../labs/contact";
 import { SCENARIO_KINDS, type MapKind } from "@tcs/scenario";
 
@@ -56,17 +56,24 @@ function argOf(name: string): string | undefined {
 
 const LABS: Record<string, () => string> = {
   // M12.0b: `lab -- kinds [seeds] [--kinds a,b] [--maps a,b] [--seconds s] [--vehicles] [--roster] [--company]`: every
-  // scenario kind AI against AI on every map kind; stalemates flagged.
+  // scenario kind AI against AI on every map kind; stalemates flagged. Review 2026-11-24 problem 2: direct fire only;
+  // `--quiet-min m` (default 5), `--min-incoming n`, `--min-return n` set the fail flags (a side that never fired back,
+  // a quiet stretch with both sides on the map); `--strict` exits non-zero when any battle has one.
   kinds: () => {
     const n = Number(process.argv[3] !== undefined && !process.argv[3].startsWith("--") ? process.argv[3] : 10);
     const kinds = (argOf("kinds") ?? SCENARIO_KINDS.join(",")).split(",");
     const maps = (argOf("maps") ?? KIND_MAPS.join(",")).split(",") as MapKind[];
+    const checks: KindChecks = {
+      quietS: Number(argOf("quiet-min") ?? KIND_CHECKS.quietS / 60) * 60,
+      minIncoming: Number(argOf("min-incoming") ?? KIND_CHECKS.minIncoming), minReturn: Number(argOf("min-return") ?? KIND_CHECKS.minReturn),
+    };
     const rows = kindsLab(loadData(), {
-      kinds, maps, seeds: Array.from({ length: n }, (_, i) => i + 1), seconds: Number(argOf("seconds") ?? 1200),
+      kinds, maps, seeds: Array.from({ length: n }, (_, i) => i + 1), seconds: Number(argOf("seconds") ?? 1200), checks,
       vehicles: process.argv.includes("--vehicles"), roster: process.argv.includes("--roster"), ...(process.argv.includes("--company") ? { size: "company" as const } : {}),
-      onRow: (r) => console.error(`${r.kind} ${r.map} ${r.seed}${r.roster ? " roster" : ""}: ${r.endReason} ${r.endS}s winner ${r.winner ?? "draw"} able ${r.ableEnd.join("/")} of ${r.men.join("/")} saved ${r.saved.join("/")} fire ${r.lastFireS.join("/")}${r.stalemate ? " STALEMATE" : ""}${r.savedBad ? ` SAVED-NOT-FIT ${r.savedBad}` : ""} (${r.speed}x)`),
+      onRow: (r) => { const f = kindFails(r); console.error(`${r.kind} ${r.map} ${r.seed}${r.roster ? " roster" : ""}: ${r.endReason} ${r.endS}s winner ${r.winner ?? "draw"} able ${r.ableEnd.join("/")} of ${r.men.join("/")} saved ${r.saved.join("/")} direct ${r.direct.join("/")} (men ${r.menDirect.join("/")}) hit ${r.hit.join("/")} closest ${r.closestM} quiet ${r.quietS}${r.stalemate ? " STALEMATE" : ""}${f.length > 0 ? ` FAIL: ${f.join(", ")}` : ""}${r.savedBad ? ` SAVED-NOT-FIT ${r.savedBad}` : ""} (${r.speed}x)`); },
     });
-    return `# Scenario kinds lab (M12.0b)\n\n${kindsMarkdown(rows)}\n`;
+    if (process.argv.includes("--strict") && rows.some((r) => kindFails(r).length > 0)) process.exitCode = 1;
+    return `# Scenario kinds lab (M12.0b)\n\n${kindsMarkdown(rows, checks)}\n`;
   },
   // Review 2026-11-24 problem 2: `lab -- contact [seeds] [--kinds ambush,meeting] [--maps village,farmland] [--seconds s]`:
   // battles on foot, per side the time from the first enemy direct round to its first one back, rounds, men hit.

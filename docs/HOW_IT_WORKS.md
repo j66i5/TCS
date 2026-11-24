@@ -14,7 +14,8 @@ his squad's place (the spot that sees most of the ground the attack must cross, 
 5 m from the next man, the squads at an objective inside its ring), lies down facing what he sees and fires at will
 out to 300 m, pulls
 back a squad that has lost half its men once the enemy is close (a known enemy within 150 m, its objective
-assaulted, or enemies on two sides; until then it holds) to a rally point of its own 80-150 m behind it, away from
+assaulted, or enemies on two sides; until then it holds), or a squad losing men to fire it cannot answer (a man down
+in the last 30 s, none of its men firing: cannon from out of rifle range; review 2026-11-24), to a rally point of its own 80-150 m behind it, away from
 the enemy it knows, in cover and seeing its objective, where each man takes a fire position facing the enemy's way
 (a remnant of three or fewer goes back in one rush, all together, instead of by bounds; yours too), and
 counterattacks a lost objective while it is strong enough (a squad holding its rally point counts toward that); in
@@ -1282,6 +1283,18 @@ he is halted, pinned but not panicked, or defending, and when his squad was fire
 This counts as returning fire, so it is allowed under the player's default rule "return fire". Shots from the same shooter
 heard again within 10 s narrow down his position: up to six guesses are averaged. At night, a muzzle flash in sight
 narrows it further. `npm run lab -- contact` measures the drill.
+
+**Delay and pursuit (the withdrawal battle, review 2026-11-24).** The side that must withdraw first delays: it opens
+fire at will out to 600 m (to make the enemy deploy early) and stays on its objectives until it has fought for a minute
+(fired on, an enemy seen close, or one placed within 400 m by a comrade or its drone), or the enemy is within 150 m;
+it never stays later than the time it needs to get its farthest man out at 2 m/s plus a minute. Then squads near their
+carriers mount, and squads in contact break it by bounds under covering fire (the withdraw drill, 150 m toward the
+exit: the rear guard) before everyone runs for the exit. The follower attacks the objectives as usual; once the enemy
+has broken contact (nobody of its side has seen him or been fired on for 30 s), or two minutes after the delay's time
+without any contact, it takes up the pursuit at once with every unit: squads near their carriers mount, everyone goes
+for the nearest enemy the side knows within 500 m (else on toward his exit), running while the contact is less than
+90 s old, firing at will and fighting through contact by the drill; the goals follow the enemy as reports come in. On
+foot the follower starts 400 m short of the main objective, just beyond its support line.
 
 ## Surrender
 

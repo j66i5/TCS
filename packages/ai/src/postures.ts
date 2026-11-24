@@ -12,10 +12,18 @@
  *   walk), fire free and pushing on through contact (rule "push": the contact drill first, then on); a unit standing
  *   still, or on its way without moving, is sent on again (the drill against an ambush: keep going), but not while
  *   it is in its contact drill or an assault or withdrawal drill (review 2026-11-24 problem 2).
- * - "withdraw": the platoon commander's defence until `untilS`; then squads near their carriers mount, the hulls wait
- *   for them a little, and everyone makes for the exit zone at its own edge.
- * - "follow": the platoon commander's attack until `untilS`; then every unit follows the enemy up toward his exit
- *   (the nearest enemy its side knows within `followNearM`, else the exit zone, stopping short of it).
+ * - "withdraw": the platoon commander's defence (fire at will out to `delayRangeM`) until `untilS` AND until it has fought: a delay makes the enemy deploy,
+ *   so the side goes only once it has been in contact for `delayContactS` (fired on, an enemy seen near, or one
+ *   placed within `delayKnownM` by a comrade or its drone), or the
+ *   enemy is within `withdrawCloseM`, or at the latest when it would only just get out before the time limit
+ *   (review 2026-11-24 problem 2: it left unseen and the pursuer never closed). Then squads near their carriers
+ *   mount, the hulls wait for them a little, squads in contact break it by bounds under covering fire (the withdraw
+ *   drill, `rearGuardM` toward the exit: the rear guard), and everyone makes for the exit zone at its own edge.
+ * - "follow": the platoon commander's attack until `untilS`, and on while it is in contact; once the enemy is out of
+ *   sight for `followQuietS` (it has broken contact), or `followLateS` after `untilS` without contact, every unit
+ *   follows him up at once: squads near their carriers mount, everyone goes for the nearest enemy its side knows
+ *   within `followNearM` (else on toward his exit zone, stopping short of it), at a run while the contact is hot
+ *   (`followRunS`), fire free under rule "push" (the contact drill, then on); the goals are kept up to date.
  * - break-off (`plan.breakOff`): once the platoon commander has broken its attack off (`phase()` "withdraw") for
  *   `breakOffAfterS`, the side leaves by its own map edge (the break-off exit zone), and the battle ends when it is out.
  *
@@ -31,6 +39,17 @@ export const POSTURES_AI = {
   mountWithinM: 250, mountWaitS: 60,
   /** Follow-up: the nearest known enemy within this distance is followed, else the exit; units stop this far short of it. */
   followNearM: 500, followShortM: 80,
+  /** Review 2026-11-24 problem 2 (the pursuit). The withdrawing side holds until it has been in contact this long (s),
+   *  or the enemy is this close (m); at the latest it goes when the time left would only just get its farthest man out
+   *  at `withdrawPaceMps` plus `withdrawMarginS`. Squads in contact at the start break it by the withdraw drill this
+   *  far toward the exit (the rear guard), then run on. */
+  delayContactS: 60, withdrawCloseM: 150, delayKnownM: 400,
+  /** The delaying side's range of fire at will (m; the defence's own is `COMMANDER.defenceRangeM`). */
+  delayRangeM: 600, withdrawPaceMps: 2, withdrawMarginS: 60, rearGuardM: 150,
+  /** The follower takes up the pursuit once no man of its side has seen an enemy (nor been fired on) for this long
+   *  after `untilS`, or this long after `untilS` without any contact yet; it runs while its last contact is this
+   *  recent (s), else walks; a unit's goal is re-sent when it moves this far (m), at most every `followResendS`. */
+  followQuietS: 30, followLateS: 120, followRunS: 90, followRetargetM: 60, followResendS: 10,
   /** Ambush: once sprung and this long after, squads close on the enemy they know within `pursueM` of the ambush. */
   pursueAfterS: 120, pursueM: 350,
   /** Break-off: once the platoon commander has broken the attack off this long (its men remounting), the side leaves by
@@ -90,6 +109,9 @@ function knownEnemies(view: SimView, side: SideId): { x: number; y: number }[] {
 }
 
 interface PostureMemory { last: Record<string, number>; phase?: string; phaseTick?: number; mountUntil?: number; sprung?: number; fireFree?: true;
+  /** Review 2026-11-24 problem 2: the side's first and latest tick in contact (fired on, or an enemy seen near), the
+   *  latest an own man saw an enemy, the withdrawal's latest start, each follower's last goal (x, y, tick). */
+  contact?: number; lastContact?: number; lastSeen?: number; latest?: number; goals?: Record<string, [number, number, number]>;
   /** Break-off: when the commander was first seen withdrawing, and whether the side is leaving. */
   brokeOff?: number; leaving?: true;
   /** Where each unit was when last looked at (x, y, tick): one on its way that has not moved is sent on again. */
@@ -105,6 +127,31 @@ function inContactDrill(view: SimView, id: EntityId): boolean {
     if (x?.contactDrill !== undefined || (x?.drill !== null && x?.drill !== undefined && x.drill.kind !== "rout")) return true;
   }
   return false;
+}
+
+/** Notes the side's contact this look (review 2026-11-24 problem 2): a unit of it fired on, or a man of it seeing an
+ *  enemy near (`seenContactTick`, on top units) within the last look; the latest tick an own man saw an enemy. */
+function noteContact(view: SimView, side: SideId, tick: number, mem: PostureMemory, every: number, knownM = 0): void {
+  let hit = false;
+  for (const [, u] of view.unit.entries()) {
+    if (u.side !== side || u.parent !== null || u.asset !== undefined) continue;
+    const fired = u.underFireTick > 0 && tick - u.underFireTick <= every;
+    const seen = u.seenContactTick !== undefined && tick - u.seenContactTick <= every;
+    if (fired || seen) hit = true;
+  }
+  for (const [id, idn] of view.identity.entries()) {
+    if (idn.side !== side) continue;
+    const s = view.soldier.get(id) as SoldierState | undefined;
+    if (!s || isOut(s)) continue;
+    const t = knownM > 0 ? view.transform.get(id) : undefined;
+    for (const c of s.contacts) {
+      if (c.surrendered === true || c.down === true || tick - c.tick > every) continue;
+      if (c.kind === "seen" && (mem.lastSeen ?? -1) < c.tick) mem.lastSeen = c.tick;
+      // (`knownM`: an enemy placed — seen, or reported by a comrade or a drone — this close counts as contact too.)
+      if (t !== undefined && c.kind !== "heard" && hypot2(c.x - t.x, c.y - t.y) <= knownM) hit = true;
+    }
+  }
+  if (hit) { mem.contact ??= tick; mem.lastContact = tick; }
 }
 
 /** Orders that send units toward `goal(x, y)` (null: leave it), each again once it has stood still `idleS`. */
@@ -154,8 +201,10 @@ export function sideCommander(side: SideId, input: BattleInput): Controller {
   const W = input.map.widthM, H = input.map.heightM;
   const every = secondsToTicks(POSTURES_AI.stepS);
   // The main commander (all but the reserve) and one per reserve unit (attacking when it comes).
+  // (A delaying side opens fire at long range, `delayRangeM`: it is there to make the enemy deploy, then go.)
+  const scope = { ...(reserve.length > 0 ? { except: reserve } : {}), ...(plan.posture === "withdraw" ? { defenceRangeM: POSTURES_AI.delayRangeM } : {}) };
   const main = plan.posture === "attack" || plan.posture === "defend" || plan.posture === "meeting" || plan.posture === "withdraw" || plan.posture === "follow"
-    ? commanderController(side, input, reserve.length > 0 ? { except: reserve } : undefined) : null;
+    ? commanderController(side, input, Object.keys(scope).length > 0 ? scope : undefined) : null;
   const subs = reserve.map((cs) => ({ cs, c: commanderController(side, input, { callsign: cs, attack: true }) }));
   let mem: PostureMemory = { last: {} };
   const exit = plan.exit;
@@ -175,6 +224,72 @@ export function sideCommander(side: SideId, input: BattleInput): Controller {
     if (tree.size === 0) return [];
     return c.think(view, tick).filter((o) => tree.has(o.target));
   });
+  /** The withdrawal's latest start (tick): the time limit less the farthest own man's way to the exit at the
+   *  withdrawal's pace and a margin; never before `untilS`. */
+  const withdrawLatest = (view: SimView, tick: number): number => {
+    const T = secondsToTicks(input.rules.timeLimitSeconds);
+    if (!exit || T <= 0) return untilT ?? tick;
+    let far = 0;
+    for (const u of movers(view, side)) { const g = zonePoint(exit, u.x, u.y, W, H); far = Math.max(far, hypot2(g.x - u.x, g.y - u.y)); }
+    return Math.max(untilT ?? 0, T - secondsToTicks(far / POSTURES_AI.withdrawPaceMps + POSTURES_AI.withdrawMarginS));
+  };
+  /** Does the delaying side go now? After `untilS` once it has fought `delayContactS` or the enemy is close; at the
+   *  latest start in any case. */
+  const withdrawNow = (view: SimView, tick: number): boolean => {
+    if (untilT === null) return true;
+    if (tick >= (mem.latest ?? untilT)) return true;
+    if (tick < untilT) return false;
+    if (mem.contact !== undefined && tick - mem.contact >= secondsToTicks(POSTURES_AI.delayContactS)) return true;
+    const near = knownEnemies(view, side);
+    for (const u of movers(view, side)) for (const e of near) if (hypot2(e.x - u.x, e.y - u.y) <= POSTURES_AI.withdrawCloseM) return true;
+    return false;
+  };
+  /** Does the follower take up the pursuit now? After `untilS`, once the enemy has broken contact (none seen and not
+   *  fired on for `followQuietS`), or `followLateS` after it without any contact. */
+  const followNow = (tick: number): boolean => {
+    if (untilT === null) return true;
+    if (tick < untilT) return false;
+    if (mem.contact === undefined) return tick - untilT >= secondsToTicks(POSTURES_AI.followLateS);
+    return tick - Math.max(mem.lastContact ?? -1e9, mem.lastSeen ?? -1e9) >= secondsToTicks(POSTURES_AI.followQuietS);
+  };
+  /** Squads with a man on foot within `mountWithinM` of their carrier mount it (the ids ordered). */
+  const mountNear = (view: SimView, tick: number, out: Order[]): Set<EntityId> => {
+    const ids = new Set<EntityId>();
+    for (const [id, u] of view.unit.entries()) {
+      if (u.side !== side || u.carrier === undefined || u.vehicle !== undefined) continue;
+      const v = view.vehicle.get(u.carrier), vt = view.transform.get(u.carrier);
+      if (!v || !vt || isOffMap(v) || (v.status !== "ok" && v.status !== "disarmed")) continue;
+      const near = u.members.some((m) => { const s = view.soldier.get(m) as SoldierState | undefined, t = view.transform.get(m); return able(s) && s!.mount === undefined && t !== undefined && hypot2(t.x - vt.x, t.y - vt.y) <= POSTURES_AI.mountWithinM; });
+      if (near) { ids.add(id); out.push({ tick, issuer: side, target: id, kind: "mount", vehicle: u.carrier }); mem.last[String(id)] = tick + secondsToTicks(POSTURES_AI.mountWaitS); }
+    }
+    return ids;
+  };
+  /** A hull waits while riders of its squads are still walking to it (until `mountUntil`). */
+  const waitingRiders = (view: SimView, tick: number, id: EntityId): boolean => {
+    if (tick >= (mem.mountUntil ?? 0)) return false;
+    const vid = view.unit.get(id)?.vehicle;
+    if (vid === undefined) return false;
+    for (const [, u] of view.unit.entries()) if (u.side === side && u.carrier === vid && u.members.some((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined; })) return true;
+    return false;
+  };
+  /** The pursuit's orders: every mover (not in a drill, not mounting, no hull waiting for riders) is sent toward
+   *  `goal` when it first starts, when it stands idle, and when its goal has moved `followRetargetM`. */
+  const followOn = (view: SimView, tick: number, goal: (x: number, y: number) => { x: number; y: number } | null, footMode: string, all: boolean): Order[] => {
+    const out: Order[] = [];
+    mem.goals ??= {};
+    for (const u of movers(view, side)) {
+      const key = String(u.id);
+      if (inContactDrill(view, u.id) || tick < (mem.last[key] ?? -1e9) || waitingRiders(view, tick, u.id)) continue;
+      const g = goal(u.x, u.y);
+      if (!g || hypot2(g.x - u.x, g.y - u.y) < 15) continue;
+      const was = mem.goals[key];
+      const moved = was === undefined || hypot2(g.x - was[0], g.y - was[1]) >= POSTURES_AI.followRetargetM;
+      if (!all && !u.idle && was !== undefined && !(moved && tick - was[2] >= secondsToTicks(POSTURES_AI.followResendS))) continue;
+      mem.goals[key] = [g.x, g.y, tick]; mem.last[key] = tick;
+      out.push({ tick, issuer: side, target: u.id, kind: "move", waypoints: [{ x: g.x, y: g.y, mode: u.vehicle !== undefined ? "run" : footMode }], ...(u.hasKids ? { own: true as const } : {}) } as Order);
+    }
+    return out;
+  };
   const think = (view: SimView, tick: number): Order[] => {
     const out: Order[] = [];
     // Break-off: the commander has given the attack up (before any "follow" phase): the side leaves by its own edge.
@@ -198,46 +313,62 @@ export function sideCommander(side: SideId, input: BattleInput): Controller {
         out.push(...main!.think(view, tick));
         break;
       case "withdraw": {
-        if (untilT === null || tick < untilT) { out.push(...main!.think(view, tick)); break; }
+        if (mem.phase === undefined) {
+          if (tick % every === 0) noteContact(view, side, tick, mem, every, POSTURES_AI.delayKnownM);
+          if (mem.latest === undefined) mem.latest = withdrawLatest(view, tick);
+          if (!withdrawNow(view, tick)) { out.push(...main!.think(view, tick)); break; }
+        }
         if (tick % every !== 0 || !exit) break;
         if (mem.phase === undefined) {
           // Squads near their carrier mount it; the hulls wait for them a little.
           mem.phase = "mount"; mem.phaseTick = tick; mem.mountUntil = tick + secondsToTicks(POSTURES_AI.mountWaitS);
           out.push(...fireFree(view, side, tick, true));
-          for (const [id, u] of view.unit.entries()) {
-            if (u.side !== side || u.carrier === undefined || u.vehicle !== undefined) continue;
-            const v = view.vehicle.get(u.carrier), vt = view.transform.get(u.carrier);
-            if (!v || !vt || isOffMap(v) || (v.status !== "ok" && v.status !== "disarmed")) continue;
-            const near = u.members.some((m) => { const s = view.soldier.get(m) as SoldierState | undefined, t = view.transform.get(m); return able(s) && s!.mount === undefined && t !== undefined && hypot2(t.x - vt.x, t.y - vt.y) <= POSTURES_AI.mountWithinM; });
-            if (near) { out.push({ tick, issuer: side, target: id, kind: "mount", vehicle: u.carrier }); mem.last[String(id)] = tick + secondsToTicks(POSTURES_AI.mountWaitS); }
+          const mounting = mountNear(view, tick, out);
+          // Squads on foot in contact break it by bounds under covering fire (the rear guard), the rest run.
+          const fresh = secondsToTicks(POSTURES_AI.followQuietS);
+          for (const u of movers(view, side)) {
+            if (u.vehicle !== undefined || mounting.has(u.id)) continue;
+            const x = view.unit.get(u.id)!;
+            const hot = (x.underFireTick > 0 && tick - x.underFireTick <= fresh) || (x.seenContactTick !== undefined && tick - x.seenContactTick <= fresh);
+            if (!hot) continue;
+            const g = zonePoint(exit, u.x, u.y, W, H), d = hypot2(g.x - u.x, g.y - u.y);
+            if (d < 30) continue;
+            const k = Math.min(1, POSTURES_AI.rearGuardM / d);
+            out.push({ tick, issuer: side, target: u.id, kind: "withdraw", x: u.x + (g.x - u.x) * k, y: u.y + (g.y - u.y) * k });
+            mem.last[String(u.id)] = tick;
           }
         }
-        // A hull waits while riders of its squads are still walking to it (until mountUntil).
-        const waiting = (id: EntityId): boolean => {
-          if (tick >= (mem.mountUntil ?? 0)) return false;
-          const vid = view.unit.get(id)?.vehicle;
-          if (vid === undefined) return false;
-          for (const [, u] of view.unit.entries()) if (u.side === side && u.carrier === vid && u.members.some((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined; })) return true;
-          return false;
-        };
-        out.push(...sendOn(view, side, tick, mem, (x, y) => zonePoint(exit, x, y, W, H), "run", waiting));
+        out.push(...sendOn(view, side, tick, mem, (x, y) => zonePoint(exit, x, y, W, H), "run", (id) => waitingRiders(view, tick, id)));
         break;
       }
       case "follow": {
-        if (untilT === null || tick < untilT) { out.push(...main!.think(view, tick)); break; }
+        if (mem.phase === undefined) {
+          if (tick % every === 0) noteContact(view, side, tick, mem, every);
+          if (!followNow(tick)) { out.push(...main!.think(view, tick)); break; }
+        }
         if (tick % every !== 0 || !exit) break;
-        if (mem.fireFree !== true) { mem.fireFree = true; out.push(...fireFree(view, side, tick)); }
+        noteContact(view, side, tick, mem, every);
+        const first = mem.phase === undefined;
+        if (first) {
+          // The pursuit: fire free, on through contact by the drill; squads near their carriers mount (the hulls wait
+          // for them a little); every unit is sent at once, not only the idle ones.
+          mem.phase = "follow"; mem.phaseTick = tick; mem.mountUntil = tick + secondsToTicks(POSTURES_AI.mountWaitS);
+          out.push(...fireFree(view, side, tick, true));
+          mountNear(view, tick, out);
+        }
         const enemies = knownEnemies(view, side);
         const zx = (Math.min(exit.x0, exit.x1) + Math.max(exit.x0, exit.x1)) / 2;
         const dir = zx > W / 2 ? 1 : -1;
-        out.push(...sendOn(view, side, tick, mem, (x, y) => {
+        const hot = mem.lastContact !== undefined && tick - Math.max(mem.lastContact, mem.lastSeen ?? -1) <= secondsToTicks(POSTURES_AI.followRunS);
+        const goal = (x: number, y: number): { x: number; y: number } | null => {
           let best: { x: number; y: number } | null = null, bd: number = POSTURES_AI.followNearM;
           for (const e of enemies) { const d = hypot2(e.x - x, e.y - y); if (d < bd) { bd = d; best = e; } }
           if (best) return { x: clampTo(best.x, 1, W - 1), y: clampTo(best.y, 1, H - 1) };
           const stop = dir > 0 ? Math.min(exit.x0, exit.x1) - POSTURES_AI.followShortM : Math.max(exit.x0, exit.x1) + POSTURES_AI.followShortM;
           const tx = dir > 0 ? Math.max(x, stop) : Math.min(x, stop);
           return Math.abs(tx - x) < 15 ? null : { x: clampTo(tx, 1, W - 1), y: clampTo(y, 1, H - 1) };
-        }, "walk"));
+        };
+        out.push(...followOn(view, tick, goal, hot ? "run" : "walk", first));
         break;
       }
       case "transit": {

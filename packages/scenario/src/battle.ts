@@ -49,6 +49,10 @@ export const SCENARIO_KIND = {
   /** The ambush on foot: a smaller map, and the moving side starts this share of the map in from its edge (a walk to
    *  the ambush of about 400 m, not 800). */
   ambushFootM: [1200, 900] as const, ambushFootStartShare: 0.2,
+  /** The withdrawal on foot: the following side starts this far (m) short of the main objective, a little beyond its
+   *  commander's support line (review 2026-11-24 problem 2: from 8 % of the map it walked 13 minutes to reach the
+   *  delaying side, which had gone by then; the battle is the pursuit). */
+  followFootStartM: 400,
   menPerBase: 90, maxScale: 2, companyScale: 1.6,
   /** Platoons per side by kind (attacker, defender) at platoon size; a company: 3 each (the defender's third the reserve
    *  in a counter-attack battle). */
@@ -253,6 +257,12 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   const stanceOf = (side: string): Stance => (kind === "meeting" || side === def.attacker ? "edge" : kind === "ambush" ? "ambush" : "defend");
   // Where a side at its edge starts on foot (x): 8 % in; the ambushed side on foot further in.
   const edgeX = (side: string): number => {
+    // (The withdrawal on foot: the follower starts `followFootStartM` short of the main objective, never nearer its
+    // own edge than the 8 % line.)
+    if (kind === "withdrawal" && side === def.attacker && !scenarioMounted(def)) {
+      const x = mainP.x - dx * SCENARIO_KIND.followFootStartM;
+      return side === "blue" ? Math.max(W * 0.08, x) : Math.min(W * 0.92, x);
+    }
     const k = kind === "ambush" && side === def.attacker && !scenarioMounted(def) ? SCENARIO_KIND.ambushFootStartShare : 0.08;
     return side === "blue" ? W * k : W * (1 - k);
   };

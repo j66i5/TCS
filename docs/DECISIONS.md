@@ -10610,3 +10610,154 @@ shooter was known only by sound (error 0.35 x range), which return fire refused 
   6.0 / 6.5 s on main, 6.1 / 6.4 s here. `bench-vehicles`: 9.9 / 13.1 s on main, 10.6 / 11.2 s here. bench-combined:
   4.4 / 4.3x on main, 3.9 / 4.2x here.
 - **Goldens:** `npm run golden:update`, all 12 changed (catalog fingerprint: behaviour, spotting, doctrine data).
+
+## 2026-11-24 — Withdrawal pursuit, the mounted defence, the kinds lab's fail flags (whole-game review, problem 2, part 2)
+
+Owner 2026-11-24: fix and accept, realism first. Review findings: in the withdrawal battle the pursuer never made
+contact (closest 518 m, no shot in 600 s on all four maps); in the mounted defence 37 defenders fired 23 rifle rounds in
+12 minutes; the kinds lab counted off-map mortar rounds as fighting and passed battles with no rifle shot.
+
+- **Withdrawal: the delay** (`ai/src/postures.ts`, values in `POSTURES_AI`, low). Diagnosis: the delaying side left on a
+  clock (`untilS`, 35 % of the time limit) before the follower, walking from 8 % of the map at about 0.9 m/s, was near;
+  the follow posture's `sendOn` re-ordered only idle units, so the pursuit walked behind a side running at 3.5 m/s.
+  1. The delaying side fires at will out to `delayRangeM` 600 m (the commander's new `CommanderScope.defenceRangeM`;
+     the defence's own stays 300 m): a delay makes the enemy deploy early.
+  2. It goes only after `untilS` AND after it has been in contact for `delayContactS` 60 s (fired on, an enemy seen
+     near, or one placed within `delayKnownM` 400 m by a comrade or its drone), or with the enemy within
+     `withdrawCloseM` 150 m; at the latest when its farthest man would just get out at `withdrawPaceMps` 2 m/s plus
+     `withdrawMarginS` 60 s before the time limit.
+  3. At the start squads in contact break it by the withdraw drill `rearGuardM` 150 m toward the exit (bounds under
+     covering fire, hand smoke): the rear guard. The rest run; squads near carriers mount as before.
+- **Withdrawal: the pursuit.** The follower runs the commander's attack until `untilS` and on while in contact; once
+  nobody of its side has seen the enemy or been fired on for `followQuietS` 30 s (he broke contact), or `followLateS`
+  120 s after `untilS` without any contact, every unit is sent at once (not only idle ones): squads near carriers
+  mount, fire free under rule "push" (the contact drill, then on), to the nearest enemy the side knows within 500 m,
+  else on toward his exit; at a run while the last contact is under `followRunS` 90 s old; a unit's goal is re-sent
+  when it moves `followRetargetM` 60 m (at most every `followResendS` 10 s).
+- **Withdrawal on foot: the start** (`scenario/src/battle.ts`, `SCENARIO_KIND.followFootStartM` 400). On farmland and in
+  woods the men on foot did not see each other beyond about 250 m (only the drones did), so a follower 700 m out could
+  not make contact before the delay's latest start. The follower on foot now starts 400 m short of the main objective,
+  just beyond its commander's support line (330 m); mounted it starts at its edge as before.
+- **Mounted defence** (`ai/src/commander.ts`, `COMMANDER.fallback.blind*`). Diagnosis (tool `platoon-vehicles` s1, kinds
+  attack `--vehicles`): the dismounted defenders die to 30 mm fire from IFVs 500-800 m out, beyond their rifles; the
+  attacker's dismounts stay mostly at 250-550 m, unseen in crops; and a cannon kill raises no near misses, so the squad
+  is not even "under fire" (`ownFireTick`). Fix: a defending squad that lost a man in the last `blindFireS` 30 s (the
+  commander counts its men each look) or was fired on for `blindS` 20 s, with `blindLossShare` 0.1 of its men down and
+  none of its men firing, pulls back to its rally point (covered, away from the enemy it knows, still seeing its
+  objective; the withdraw drill throws hand smoke), once, whatever the enemy's distance; from there it fights when the
+  enemy comes. Tool `platoon-vehicles` s1 720 s: red rifle rounds 9 -> 262, closest man to man 326 -> 134 m, red able
+  at the end 2 -> 5 of 37; blue lost 17 -> 16. In the kinds lab the effect is mixed (below): more defenders' rounds on
+  farmland s1 (20 -> 57), none at all in village s1 (30 -> 0: the attacker's men never came within 460 m of the rally
+  points); the mounted battles stay decided by the hulls (open: the vehicle half of the design, `crewSuspects` with
+  heard hulls and hulls moving to see the source).
+- **Kinds lab** (`tools/src/labs/kinds.ts`, `cli/lab.ts`). Only direct fire counts as fighting: `shot.fired` by men or
+  on-map hulls (not a mortar's high-angle shot) and `grenade.launched`; off-map and mortar rounds never do. New per-side
+  measures: direct rounds (of them by men), first enemy direct round, men hit (wound or casualty, each once), closest
+  man-to-man distance (able men on the map, each second), longest quiet stretch (no direct round, nobody hit, while
+  both sides have able men on the map) and when it began. Fail flags (`kindFlags`, pure): **no return fire** (a side
+  took `--min-incoming` 20 enemy direct rounds or had a man hit, and fired fewer than `--min-return` 10) and **quiet**
+  (a stretch of `--quiet-min` 5 minutes). `--strict` exits non-zero on any flag; otherwise they are report columns. The
+  quiet stretch counts from the start: a 5-minute approach with nobody firing is flagged too (its "from" is 0).
+- **Numbers.** `npm run lab -- kinds 2 --seconds 900` and `--vehicles`, all kinds x 4 maps x seeds 1-2. Before = part 1
+  (commit 858a2f9) with the new lab. Direct rounds blue / red (by men); hit = men wounded or worse.
+
+| kind | map | seed | mounted | before: end, winner | before: direct b/r (by men) | before: hit b/r | before: closest m | before: quiet s | before: fails | after: end, winner | after: direct b/r (by men) | after: hit b/r | after: closest m | after: quiet s | after: fails |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| attack | village | 1 |  | time-limit 900 s, red | 1055 (1055) / 710 (710) | 22/6 | 144 | 143 | - | time-limit 900 s, red | 1258 (1258) / 611 (611) | 15/12 | 151 | 143 | - |
+| attack | village | 2 |  | time-limit 900 s, blue | 850 (850) / 3013 (3013) | 12/12 | 51 | 111 | - | time-limit 900 s, blue | 852 (852) / 3018 (3018) | 13/12 | 51 | 111 | - |
+| attack | farmland | 1 |  | time-limit 900 s, red | 207 (207) / 208 (208) | 7/2 | 182 | 134 | - | time-limit 900 s, red | 207 (207) / 208 (208) | 7/2 | 182 | 134 | - |
+| attack | farmland | 2 |  | time-limit 900 s, blue | 991 (991) / 1343 (1343) | 11/31 | 209 | 203 | - | time-limit 900 s, blue | 816 (816) / 1421 (1421) | 14/31 | 190 | 203 | - |
+| attack | woodland | 1 |  | time-limit 900 s, red | 1681 (1681) / 514 (514) | 18/4 | 152 | 552 | quiet | time-limit 900 s, red | 1681 (1681) / 514 (514) | 18/4 | 152 | 552 | quiet |
+| attack | woodland | 2 |  | time-limit 900 s, blue | 187 (187) / 2068 (2068) | 3/10 | 149 | 641 | quiet | time-limit 900 s, blue | 187 (187) / 2068 (2068) | 3/10 | 149 | 641 | quiet |
+| attack | industrial | 1 |  | time-limit 900 s, red | 684 (684) / 301 (301) | 17/1 | 72 | 277 | - | time-limit 900 s, red | 684 (684) / 301 (301) | 17/1 | 72 | 277 | - |
+| attack | industrial | 2 |  | time-limit 900 s, blue | 857 (857) / 540 (540) | 12/21 | 268 | 207 | - | time-limit 900 s, blue | 860 (860) / 560 (560) | 11/21 | 268 | 207 | - |
+| defence-counterattack | village | 1 |  | time-limit 900 s, red | 1359 (1359) / 719 (719) | 24/13 | 119 | 143 | - | time-limit 900 s, red | 1221 (1221) / 706 (706) | 25/10 | 105 | 143 | - |
+| defence-counterattack | village | 2 |  | time-limit 900 s, blue | 854 (854) / 2525 (2525) | 7/14 | 145 | 111 | - | time-limit 900 s, blue | 855 (855) / 2525 (2525) | 7/15 | 145 | 111 | - |
+| defence-counterattack | farmland | 1 |  | time-limit 900 s, red | 348 (348) / 474 (474) | 9/8 | 134 | 134 | - | time-limit 900 s, red | 345 (345) / 565 (565) | 9/10 | 169 | 134 | - |
+| defence-counterattack | farmland | 2 |  | side-eliminated 787 s, blue | 2258 (2258) / 930 (930) | 4/32 | 95 | 203 | - | side-eliminated 787 s, blue | 2258 (2258) / 930 (930) | 4/32 | 95 | 203 | - |
+| defence-counterattack | woodland | 1 |  | time-limit 900 s, red | 1404 (1404) / 238 (238) | 5/8 | 46 | 551 | quiet | time-limit 900 s, red | 1644 (1644) / 208 (208) | 7/7 | 38 | 551 | quiet |
+| defence-counterattack | woodland | 2 |  | time-limit 900 s, blue | 371 (371) / 1153 (1153) | 1/9 | 126 | 641 | quiet | time-limit 900 s, blue | 371 (371) / 1153 (1153) | 1/9 | 126 | 641 | quiet |
+| defence-counterattack | industrial | 1 |  | time-limit 900 s, red | 985 (985) / 848 (848) | 17/17 | 15 | 253 | - | time-limit 900 s, red | 991 (991) / 871 (871) | 17/17 | 10 | 253 | - |
+| defence-counterattack | industrial | 2 |  | time-limit 900 s, blue | 748 (748) / 517 (517) | 9/26 | 203 | 207 | - | time-limit 900 s, blue | 821 (821) / 304 (304) | 6/24 | 61 | 207 | - |
+| meeting | village | 1 |  | time-limit 900 s, red | 556 (556) / 116 (116) | 6/8 | 139 | 617 | quiet | time-limit 900 s, red | 556 (556) / 116 (116) | 6/8 | 139 | 617 | quiet |
+| meeting | village | 2 |  | time-limit 900 s, red | 9 (9) / 1720 (1720) | 14/0 | 171 | 302 | blue no return fire, quiet | time-limit 900 s, red | 9 (9) / 1720 (1720) | 14/0 | 171 | 302 | blue no return fire, quiet |
+| meeting | farmland | 1 |  | time-limit 900 s, blue | 534 (534) / 1506 (1506) | 8/1 | 94 | 431 | quiet | time-limit 900 s, blue | 534 (534) / 1506 (1506) | 8/1 | 94 | 431 | quiet |
+| meeting | farmland | 2 |  | time-limit 900 s, blue | 1176 (1176) / 318 (318) | 0/13 | 168 | 517 | quiet | time-limit 900 s, blue | 1176 (1176) / 318 (318) | 0/13 | 168 | 517 | quiet |
+| meeting | woodland | 1 |  | time-limit 900 s, red | 831 (831) / 1265 (1265) | 7/6 | 90 | 401 | quiet | time-limit 900 s, red | 831 (831) / 1265 (1265) | 7/6 | 90 | 401 | quiet |
+| meeting | woodland | 2 |  | time-limit 900 s, blue | 689 (689) / 334 (334) | 7/8 | 108 | 633 | quiet | time-limit 900 s, blue | 689 (689) / 334 (334) | 7/8 | 108 | 633 | quiet |
+| meeting | industrial | 1 |  | time-limit 900 s, blue | 750 (750) / 89 (89) | 4/1 | 142 | 426 | quiet | time-limit 900 s, blue | 750 (750) / 89 (89) | 4/1 | 142 | 426 | quiet |
+| meeting | industrial | 2 |  | time-limit 900 s, red | 437 (437) / 234 (234) | 0/5 | 208 | 651 | quiet | time-limit 900 s, red | 437 (437) / 234 (234) | 0/5 | 208 | 651 | quiet |
+| ambush | village | 1 |  | side-eliminated 410 s, red | 57 (57) / 981 (981) | 14/6 | 145 | 161 | - | side-eliminated 410 s, red | 57 (57) / 981 (981) | 14/6 | 145 | 161 | - |
+| ambush | village | 2 |  | time-limit 900 s, red | 349 (349) / 315 (315) | 15/10 | 60 | 157 | - | time-limit 900 s, red | 349 (349) / 315 (315) | 15/10 | 60 | 157 | - |
+| ambush | farmland | 1 |  | side-eliminated 360 s, blue | 557 (557) / 214 (214) | 7/18 | 135 | 137 | - | side-eliminated 360 s, blue | 557 (557) / 214 (214) | 7/18 | 135 | 137 | - |
+| ambush | farmland | 2 |  | side-eliminated 422 s, blue | 968 (968) / 171 (171) | 5/15 | 134 | 142 | - | side-eliminated 422 s, blue | 968 (968) / 171 (171) | 5/15 | 134 | 142 | - |
+| ambush | woodland | 1 |  | time-limit 900 s, blue | 306 (306) / 580 (580) | 16/14 | 22 | 268 | - | time-limit 900 s, blue | 306 (306) / 580 (580) | 16/14 | 22 | 268 | - |
+| ambush | woodland | 2 |  | side-eliminated 805 s, blue | 618 (618) / 155 (155) | 5/14 | 0 | 311 | quiet | side-eliminated 805 s, blue | 618 (618) / 155 (155) | 5/14 | 0 | 311 | quiet |
+| ambush | industrial | 1 |  | side-eliminated 397 s, red | 430 (430) / 702 (702) | 20/16 | 75 | 138 | - | side-eliminated 397 s, red | 430 (430) / 702 (702) | 20/16 | 75 | 138 | - |
+| ambush | industrial | 2 |  | side-eliminated 679 s, blue | 333 (333) / 253 (253) | 18/12 | 98 | 153 | - | side-eliminated 679 s, blue | 333 (333) / 253 (253) | 18/12 | 98 | 153 | - |
+| withdrawal | village | 1 |  | side-withdrew 702 s, red | 300 (300) / 0 (0) | 0/0 | 407 | 332 | red no return fire, quiet | side-eliminated 696 s, blue | 1259 (1259) / 662 (662) | 23/15 | 276 | 10 | - |
+| withdrawal | village | 2 |  | time-limit 900 s, blue | 589 (589) / 0 (0) | 0/0 | 387 | 591 | red no return fire, quiet | time-limit 900 s, blue | 306 (306) / 1378 (1378) | 16/17 | 18 | 56 | - |
+| withdrawal | farmland | 1 |  | side-withdrew 726 s, red | 103 (103) / 0 (0) | 0/0 | 451 | 610 | red no return fire, quiet | time-limit 900 s, red | 2839 (2839) / 936 (936) | 15/11 | 78 | 123 | - |
+| withdrawal | farmland | 2 |  | side-withdrew 806 s, blue | 0 (0) / 229 (229) | 0/2 | 364 | 256 | blue no return fire | time-limit 900 s, blue | 1455 (1455) / 208 (208) | 2/30 | 291 | 117 | - |
+| withdrawal | woodland | 1 |  | side-withdrew 567 s, red | 0 (0) / 0 (0) | 0/0 | 537 | 567 | quiet | side-withdrew 573 s, red | 3027 (3027) / 275 (275) | 3/13 | 44 | 119 | - |
+| withdrawal | woodland | 2 |  | side-withdrew 824 s, blue | 0 (0) / 96 (96) | 0/0 | 445 | 622 | blue no return fire, quiet | time-limit 900 s, blue | 1843 (1843) / 3173 (3173) | 6/23 | 65 | 47 | - |
+| withdrawal | industrial | 1 |  | side-withdrew 681 s, red | 0 (0) / 768 (768) | 0/0 | 368 | 381 | blue no return fire, quiet | side-eliminated 529 s, blue | 758 (758) / 86 (86) | 7/15 | 0 | 211 | - |
+| withdrawal | industrial | 2 |  | time-limit 900 s, blue | 801 (801) / 9 (9) | 0/1 | 84 | 522 | red no return fire, quiet | side-eliminated 128 s, red | 74 (74) / 872 (872) | 15/4 | 220 | 5 | - |
+| attack | village | 1 | yes | side-eliminated 271 s, blue | 92 (0) / 75 (30) | 6/20 | 315 | 30 | - | side-eliminated 270 s, blue | 81 (0) / 41 (0) | 6/21 | 464 | 42 | - |
+| attack | village | 2 | yes | side-withdrew 167 s, blue | 169 (0) / 26 (26) | 0/49 | 575 | 18 | - | side-withdrew 167 s, blue | 169 (0) / 26 (26) | 0/49 | 575 | 18 | - |
+| attack | farmland | 1 | yes | side-broken 238 s, blue | 668 (154) / 20 (20) | 0/20 | 121 | 62 | - | side-eliminated 627 s, blue | 1696 (549) / 57 (57) | 1/26 | 61 | 62 | - |
+| attack | farmland | 2 | yes | side-withdrew 424 s, blue | 362 (178) / 191 (18) | 3/33 | 280 | 62 | - | time-limit 900 s, blue | 315 (173) / 701 (349) | 10/28 | 280 | 302 | quiet |
+| attack | woodland | 1 | yes | time-limit 900 s, red | 150 (116) / 1454 (601) | 31/6 | 132 | 72 | - | time-limit 900 s, red | 194 (149) / 927 (311) | 25/9 | 96 | 87 | - |
+| attack | woodland | 2 | yes | time-limit 900 s, blue | 727 (262) / 145 (145) | 0/29 | 219 | 151 | - | time-limit 900 s, blue | 727 (262) / 145 (145) | 0/29 | 219 | 151 | - |
+| attack | industrial | 1 | yes | side-eliminated 646 s, blue | 810 (590) / 177 (130) | 5/22 | 64 | 59 | - | time-limit 900 s, blue | 496 (250) / 256 (213) | 2/23 | 34 | 84 | - |
+| attack | industrial | 2 | yes | side-broken 162 s, red | 152 (96) / 665 (133) | 20/26 | 117 | 25 | - | side-broken 161 s, red | 179 (93) / 550 (116) | 21/25 | 117 | 25 | - |
+| defence-counterattack | village | 1 | yes | time-limit 900 s, blue | 737 (404) / 139 (88) | 7/45 | 80 | 68 | - | time-limit 900 s, blue | 459 (253) / 41 (0) | 9/50 | 217 | 70 | - |
+| defence-counterattack | village | 2 | yes | side-withdrew 167 s, blue | 169 (0) / 26 (26) | 0/49 | 575 | 18 | - | side-withdrew 167 s, blue | 169 (0) / 26 (26) | 0/49 | 575 | 18 | - |
+| defence-counterattack | farmland | 1 | yes | time-limit 900 s, blue | 3358 (866) / 293 (285) | 2/51 | 28 | 62 | - | time-limit 900 s, blue | 2782 (1154) / 599 (245) | 19/38 | 43 | 62 | - |
+| defence-counterattack | farmland | 2 | yes | side-withdrew 424 s, blue | 362 (178) / 191 (18) | 3/33 | 280 | 62 | - | side-withdrew 585 s, blue | 237 (53) / 554 (194) | 12/30 | 280 | 31 | - |
+| defence-counterattack | woodland | 1 | yes | side-broken 791 s, red | 111 (90) / 1318 (486) | 32/6 | 127 | 72 | - | time-limit 900 s, red | 208 (139) / 1370 (406) | 28/13 | 96 | 72 | - |
+| defence-counterattack | woodland | 2 | yes | side-withdrew 853 s, blue | 1041 (276) / 91 (91) | 0/30 | 219 | 150 | - | side-withdrew 853 s, blue | 1041 (276) / 91 (91) | 0/30 | 219 | 150 | - |
+| defence-counterattack | industrial | 1 | yes | side-eliminated 672 s, blue | 772 (294) / 385 (347) | 4/52 | 66 | 106 | - | side-eliminated 746 s, blue | 943 (211) / 245 (207) | 1/54 | 120 | 106 | - |
+| defence-counterattack | industrial | 2 | yes | side-withdrew 271 s, blue | 678 (465) / 292 (35) | 9/52 | 214 | 25 | - | side-broken 246 s, blue | 687 (480) / 292 (35) | 9/52 | 214 | 25 | - |
+| meeting | village | 1 | yes | side-withdrew 392 s, blue | 219 (26) / 3 (3) | 1/22 | 69 | 70 | red no return fire | side-withdrew 392 s, blue | 219 (26) / 3 (3) | 1/22 | 69 | 70 | red no return fire |
+| meeting | village | 2 | yes | side-eliminated 227 s, blue | 108 (1) / 32 (32) | 0/22 | 638 | 77 | - | side-eliminated 227 s, blue | 108 (1) / 32 (32) | 0/22 | 638 | 77 | - |
+| meeting | farmland | 1 | yes | time-limit 900 s, red | 582 (331) / 388 (124) | 12/13 | 245 | 122 | - | time-limit 900 s, red | 582 (331) / 388 (124) | 12/13 | 245 | 122 | - |
+| meeting | farmland | 2 | yes | side-broken 311 s, blue | 91 (10) / 32 (32) | 0/20 | 730 | 60 | - | side-broken 311 s, blue | 91 (10) / 32 (32) | 0/20 | 730 | 60 | - |
+| meeting | woodland | 1 | yes | side-withdrew 442 s, blue | 156 (93) / 129 (121) | 1/15 | 574 | 232 | - | side-withdrew 442 s, blue | 156 (93) / 129 (121) | 1/15 | 574 | 232 | - |
+| meeting | woodland | 2 | yes | side-withdrew 564 s, blue | 285 (84) / 107 (107) | 0/16 | 400 | 259 | - | side-withdrew 564 s, blue | 285 (84) / 107 (107) | 0/16 | 400 | 259 | - |
+| meeting | industrial | 1 | yes | side-eliminated 173 s, blue | 80 (0) / 39 (25) | 1/26 | 364 | 51 | - | side-eliminated 173 s, blue | 80 (0) / 39 (25) | 1/26 | 364 | 51 | - |
+| meeting | industrial | 2 | yes | side-eliminated 186 s, blue | 165 (39) / 18 (6) | 0/28 | 466 | 61 | - | side-eliminated 186 s, blue | 165 (39) / 18 (6) | 0/28 | 466 | 61 | - |
+| ambush | village | 1 | yes | side-broken 170 s, blue | 434 (0) / 2 (1) | 5/24 | 124 | 49 | red no return fire | side-broken 170 s, blue | 434 (0) / 2 (1) | 5/24 | 124 | 49 | red no return fire |
+| ambush | village | 2 | yes | side-eliminated 134 s, blue | 199 (92) / 20 (12) | 1/27 | 63 | 81 | - | side-eliminated 134 s, blue | 199 (92) / 20 (12) | 1/27 | 63 | 81 | - |
+| ambush | farmland | 1 | yes | side-withdrew 188 s, blue | 30 (0) / 4 (0) | 0/8 | 320 | 116 | red no return fire | side-withdrew 188 s, blue | 30 (0) / 4 (0) | 0/8 | 320 | 116 | red no return fire |
+| ambush | farmland | 2 | yes | side-eliminated 134 s, blue | 215 (102) / 13 (0) | 3/27 | 248 | 71 | - | side-eliminated 134 s, blue | 215 (102) / 13 (0) | 3/27 | 248 | 71 | - |
+| ambush | woodland | 1 | yes | side-withdrew 223 s, blue | 702 (0) / 3 (2) | 2/18 | 80 | 86 | red no return fire | side-withdrew 223 s, blue | 702 (0) / 3 (2) | 2/18 | 80 | 86 | red no return fire |
+| ambush | woodland | 2 | yes | side-eliminated 44 s, blue | 117 (0) / 92 (0) | 5/27 | 453 | 4 | - | side-eliminated 44 s, blue | 117 (0) / 92 (0) | 5/27 | 453 | 4 | - |
+| ambush | industrial | 1 | yes | side-eliminated 69 s, blue | 253 (0) / 0 (0) | 0/27 | 139 | 2 | red no return fire | side-eliminated 69 s, blue | 253 (0) / 0 (0) | 0/27 | 139 | 2 | red no return fire |
+| ambush | industrial | 2 | yes | side-eliminated 80 s, blue | 45 (0) / 3 (0) | 0/28 | 262 | 33 | red no return fire | side-eliminated 80 s, blue | 45 (0) / 3 (0) | 0/28 | 262 | 33 | red no return fire |
+| withdrawal | village | 1 | yes | side-broken 202 s, blue | 746 (123) / 44 (18) | 8/26 | 94 | 42 | - | side-eliminated 164 s, blue | 487 (8) / 50 (41) | 1/26 | 103 | 42 | - |
+| withdrawal | village | 2 | yes | side-withdrew 871 s, blue | 175 (32) / 9 (9) | 0/37 | 556 | 179 | red no return fire | time-limit 900 s, blue | 167 (25) / 8 (8) | 0/35 | 556 | 332 | red no return fire, quiet |
+| withdrawal | farmland | 1 | yes | side-eliminated 309 s, blue | 614 (116) / 114 (54) | 9/25 | 184 | 82 | - | side-eliminated 217 s, blue | 1237 (548) / 193 (139) | 9/23 | 176 | 82 | - |
+| withdrawal | farmland | 2 | yes | time-limit 900 s, blue | 576 (387) / 9 (0) | 0/40 | 299 | 245 | red no return fire | time-limit 900 s, blue | 751 (565) / 9 (0) | 0/40 | 299 | 159 | red no return fire |
+| withdrawal | woodland | 1 | yes | side-withdrew 475 s, red | 632 (110) / 66 (18) | 7/17 | 7 | 84 | - | side-withdrew 484 s, red | 574 (24) / 41 (13) | 5/17 | 3 | 84 | - |
+| withdrawal | woodland | 2 | yes | time-limit 900 s, blue | 464 (189) / 317 (71) | 5/27 | 134 | 106 | - | time-limit 900 s, blue | 513 (228) / 514 (88) | 11/31 | 5 | 106 | - |
+| withdrawal | industrial | 1 | yes | side-eliminated 366 s, blue | 282 (79) / 1 (1) | 0/24 | 95 | 70 | red no return fire | side-eliminated 418 s, blue | 152 (0) / 4 (4) | 0/24 | 374 | 70 | red no return fire |
+| withdrawal | industrial | 2 | yes | side-eliminated 172 s, blue | 270 (117) / 87 (7) | 2/48 | 245 | 41 | - | side-broken 183 s, blue | 307 (174) / 304 (3) | 4/34 | 173 | 41 | - |
+
+before: 80 battles, 30 failing (17 no return fire, 20 quiet); after: 80 battles, 23 failing (10 no return fire, 15 quiet)
+
+  - Fixed: every withdrawal on foot (8 of 8 failed, now 8 of 8 pass: closest 0-291 m, both sides firing, quiet at most
+    211 s).
+  - Still failing, not this change: the meeting on foot (quiet 300-650 s from the start: both platoons move to support
+    lines about 650 m apart and only then close; village s2 blue never fires back); attack and counter-attack in
+    woodland (quiet 550-640 s from the start, the approach); the mounted ambush (the ambushers lose to the IFVs'
+    thermal sights before they fire, 5 of 8); the mounted withdrawal on seed 2 / industrial s1 (the follower's
+    hulls lose the duel). New: mounted attack farmland s2 now runs to the time limit with a 302 s quiet stretch
+    (the defence's squads at their rally points out of sight).
+  - Side effect: the delaying side on foot now rarely gets out (saved men in 1 of 8 foot withdrawals, 10 men; before 6
+    of 8 got everyone or most out unseen): it fights, and the follower catches it. `scenario-kinds.test` "withdrawal
+    with the AI" moved from village s1 (nobody out now) to farmland s2.
+- **Tests:** `tools/test/kinds-checks.test.ts`: the flags on synthetic rows; the withdrawal on foot on the four maps
+  (seed 1, 900 s): closest under 300 m and both sides firing in at least 3 of 4 (all 4 today).
+- **Goldens:** unchanged (no data change; the golden scenarios run without these postures, and their defence never
+  triggers the new fall-back).

@@ -5,8 +5,9 @@
  * and acts only through orders, every few seconds. Squads (the platoon's sub-units) fight with the M4 drills
  * and decisions; the commander decides what each squad does.
  *
- * Defence: everyone down in his position, fire at will out to `defenceRangeM`; a squad that has lost half its
- *   men pulls back once the enemy is close (within `fallback.threatM`, its objective assaulted, or enemies on two
+ * Defence: everyone down in his position, fire at will out to `defenceRangeM`; a squad under fire it cannot answer
+ *   (losses, none of its men firing; review 2026-11-24 problem 2), or one that has lost half its
+ *   men once the enemy is close (within `fallback.threatM`, its objective assaulted, or enemies on two
  *   sides) to a covered rally point of its own behind it that still sees its objective, and holds there; if the main
  *   objective is lost while two squads are still fit (a squad holding its rally point counts as the second), or one
  *   nearly whole, the strongest counterattacks it. A squad whose men left a house on their own (a trap, the enemy
@@ -67,7 +68,12 @@ export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new 
   // within `rallySpreadM` of another squad's. There each man takes a fire position within `rallySiteM` (siting.ts);
   // a squad holding there with `counterMinMen` able men counts for the counter-attack. `drillStartSeconds`: an order
   // whose drill never showed counts as done after this.
-  fallback: { threatM: 150, assaultSlackM: 30, flankM: 300, flankDeg: 120, enemyNearM: 400, rallyM: [100, 80, 125, 150], rallyMinM: 60,
+  // Review 2026-11-24 problem 2 (the mounted defence: riflemen killed by cannon from out of their reach, firing
+  // nothing): a squad under fire it cannot answer — a man of it lost within `blindFireS` (a cannon kills without the
+  // near misses that tell men they are under fire) or fired on then for `blindS` since the spell began, `blindLossShare`
+  // of its men down, none of its men firing — pulls back to its rally point too (covered, out of the fire, still
+  // seeing its objective; the withdraw drill throws hand smoke), whatever the enemy's distance.
+  fallback: { blindFireS: 30, blindS: 20, blindLossShare: 0.1, threatM: 150, assaultSlackM: 30, flankM: 300, flankDeg: 120, enemyNearM: 400, rallyM: [100, 80, 125, 150], rallyMinM: 60,
     rallyAsideDeg: [0, -15, 15, -30, 30], rallyMaxDeg: 30, rallyCoverM: 30, coverW: 0.3, offW: 0.2, openExposure: 0.9, rallySpreadM: 25, rallySiteM: 20,
     counterMinMen: 2, drillStartSeconds: 30 },
   // Anti-tank tasks (M7.4b): how often the commander looks for a shot, how fresh a vehicle contact must be, how
@@ -181,7 +187,9 @@ interface Memory extends TanksMemory, LogisticsMemory {
   places?: Record<string, [number, number]>; placesFor?: number;
   /** Defence (overnight pick "defence-fallback"): the way the attack is expected (rad); each squad's rally point
    *  [x, y, objective index, tick ordered]; squads seen in their withdraw drill; squads rallied and placed. */
-  front?: number; rally?: Record<string, [number, number, number, number]>; rallySeen?: number[]; rallied?: number[];
+  front?: number; rally?: Record<string, [number, number, number, number]>;
+  /** Review 2026-11-24 problem 2: each defending squad's men not out at the last look and when that last fell. */
+  losses?: Record<string, [number, number]>; rallySeen?: number[]; rallied?: number[];
   /** M7.5e step "leave": per squad, the tick of the house leaving it has been re-sited after. */
   houseLeft?: Record<string, number>;
   /** M9.3b missile teams, per team: its overwatch posts [x, y, facing] (chosen once), the post it holds or goes to,
@@ -296,7 +304,10 @@ function launcherReady(view: SimView, input: BattleInput, m: EntityId): { range:
 
 /** Which of a side's units a commander leads (M11.1 waves: `callsign`, one platoon; M12.0b: `except`, all but these;
  *  `attack`: it attacks even where its side holds the objectives, a reserve's counter-attack). */
-export interface CommanderScope { callsign?: string; except?: readonly string[]; attack?: boolean }
+export interface CommanderScope { callsign?: string; except?: readonly string[]; attack?: boolean;
+  /** The defence's range of fire at will by day (default `COMMANDER.defenceRangeM`; review 2026-11-24 problem 2: a
+   *  delaying side opens fire at long range, to make the enemy deploy early). */
+  defenceRangeM?: number }
 
 /** M12.0b: the platoon commander, with its current phase readable ("withdraw": it has broken the attack off). */
 export type CommanderController = Controller & { phase(): string };
@@ -307,6 +318,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
   const force = input.forces.find((f) => f.side === side)!;
   const doctrine = input.catalog.factions[force.faction]?.doctrine ?? {};
   const tolerance = doctrine["casualtyToleranceBeforeWithdrawal"] ?? 0.3;
+  const defenceRangeM = only?.defenceRangeM ?? COMMANDER.defenceRangeM;
   // (Step fire-support: until the volleys for effect, after the ranging rounds.)
   const fsDef = input.catalog.factions[force.faction]?.fireSupport;
   const fireDelayS = fsDef ? secondsToEffect(fsDef) : 0;
@@ -1015,7 +1027,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
       if (defending) {
         { const f = mem.front ?? front0(); tanks(cos(f), sin(f), () => ({ kind: "move", waypoints: [{ x: clamp(sx, W), y: clamp(sy, H), mode: "run" }] })); }
         if (mem.phase === "start") {
-          toAll({ kind: "rules", fire: "free", maxEngageM: dark ? N.defenceRangeM : COMMANDER.defenceRangeM });
+          toAll({ kind: "rules", fire: "free", maxEngageM: dark ? N.defenceRangeM : defenceRangeM });
           mem.darkRules = dark;
           // Each man to a fire position of his own near his group's place (overnight pick "defence-siting"):
           // field of fire over the approach, cover, spacing (siting.ts); the rest lie down where they are.
@@ -1044,7 +1056,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
         }
         mem.front ??= front0();
         // Night (M9.6): its range of fire at will follows the light (sent again when it crosses the threshold).
-        if ((mem.darkRules ?? false) !== dark) { toAll({ kind: "rules", fire: "free", maxEngageM: dark ? N.defenceRangeM : COMMANDER.defenceRangeM }); mem.darkRules = dark; }
+        if ((mem.darkRules ?? false) !== dark) { toAll({ kind: "rules", fire: "free", maxEngageM: dark ? N.defenceRangeM : defenceRangeM }); mem.darkRules = dark; }
         // An illumination round over the enemy men its men know closing on an objective (M9.6).
         if (dark) {
           // (Men seen or reported, not only heard, near the main objective or close to any; at least `illumMinMen`.)
@@ -1062,11 +1074,20 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
         const F = COMMANDER.fallback;
         for (const sq of squads) {
           const f = fitShare(sq);
-          if (f >= 0.5 || f <= 0 || mem.pulledBack.includes(sq)) continue;
+          if (f <= 0 || mem.pulledBack.includes(sq)) continue;
           const men = members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined) && view.transform.has(m) && (view.soldier.get(m) as SoldierState).mount === undefined);
           if (men.length === 0) continue;
+          // (Under fire it cannot answer: no man of it firing, losses, fired on for a while.)
+          const su = view.unit.get(sq);
+          const up = members(view, sq).filter((m) => { const s = view.soldier.get(m); return s !== undefined && !isOut(s); }).length;
+          const lw = (mem.losses ??= {})[String(sq)];
+          if (!lw || up < lw[0]) mem.losses[String(sq)] = [up, lw ? tick : -1e9];
+          const lostAt = mem.losses[String(sq)]![1];
+          const firedOn = su !== undefined && tick - (su.ownFireTick ?? -1e9) <= F.blindFireS * 60 && tick - (su.ownContactTick ?? tick) >= F.blindS * 60;
+          const blind = su !== undefined && f <= 1 - F.blindLossShare && (tick - lostAt <= F.blindFireS * 60 || firedOn) && !men.some((m) => view.fire.has(m));
+          if (f >= 0.5 && !blind) continue;
           const cx = men.reduce((a, m) => a + view.transform.get(m)!.x, 0) / men.length, cy = men.reduce((a, m) => a + view.transform.get(m)!.y, 0) / men.length;
-          if (!fallbackThreat(cx, cy)) continue;
+          if (!blind && !fallbackThreat(cx, cy)) continue;
           const oi = ownObjective(cx, cy);
           const rp = rallyPoint(cx, cy, men, oi);
           order(sq, { kind: "withdraw", x: rp.x, y: rp.y });
@@ -1120,7 +1141,7 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
           if (mem.resited) delete mem.resited[String(sq)];
         }
         // (The platoon headquarters' own men are a group of their own, as the squads.)
-        reacquire(view, tick, [...topIds.map((id): [EntityId, EntityId[]] => [id, [...view.unit.get(id)!.members]]), ...squads.map((sq): [EntityId, EntityId[]] => [sq, members(view, sq)])], order, known, dark ? N.defenceRangeM : COMMANDER.defenceRangeM);
+        reacquire(view, tick, [...topIds.map((id): [EntityId, EntityId[]] => [id, [...view.unit.get(id)!.members]]), ...squads.map((sq): [EntityId, EntityId[]] => [sq, members(view, sq)])], order, known, dark ? N.defenceRangeM : defenceRangeM);
         // Mortars on attackers its men have seen out in the open (not near its own men).
         if (supportLeft(view, side, "he", input.catalog) > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.defenceHeEverySeconds * 60) {
           let sx2 = 0, sy2 = 0, n = 0;

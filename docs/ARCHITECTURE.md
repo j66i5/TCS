@@ -414,7 +414,11 @@ touches a flagged bucket is tested against each nearby man's body bands in his o
 body / wall / ground wins. The owner of a projectile is skipped; side is never looked at (friendly fire is
 physical). On a body hit the projectile is removed and `resolveBodyHit` is called with the round's
 penetration capacity and kinetic energy. A projectile leaving the map flies to the edge first, so targets near
-the edge can be struck.
+the edge can be struck. The same band test, as a pure function (`bodyStrikeT` in `sim/src/ballistics.ts`; the
+projectile loop keeps its own copy for speed), serves the fire-safety check before a shot: `bodyInLine`
+(`systems/fire.ts`, called by `friendInLine` and by the posture loop of the once-a-second line check) tests every
+own-side body within about 3 m of the shooter, dead or alive, against the path from his muzzle, and dead bodies
+farther out against the line's height (review 2026-11-24, problem 1).
 
 ## 16f. Explosives (SPEC 6.3) — `sim/src/systems/grenades.ts`, `systems/explosions.ts`, `systems/ballistics.ts`
 

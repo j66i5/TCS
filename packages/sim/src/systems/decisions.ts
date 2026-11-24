@@ -28,7 +28,7 @@ import type { Contact, Intent, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import { countItems, type Container } from "../items";
 import type { SimContext } from "../context";
-import { indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
+import { indoorAt, indoorSpots, routeBetween, routeWaypoints, type RouteResult } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { requestPosture } from "./body";
@@ -39,7 +39,7 @@ import { bestCoverNear, exposureAt, navCostAt, type findPath } from "../nav";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { standZ } from "../terrain";
-import { aimHeightAt, assignFireTask, friendInLine, lineOfFireTo, reserveTargetOk } from "./fire";
+import { aimHeightAt, assignFireTask, friendHolds, lineOfFireTo, reserveTargetOk } from "./fire";
 import { isCowering } from "./morale";
 import { footSoldiers } from "../mount";
 import { stepFetchAmmo, vehicleSource } from "./boarding";
@@ -649,6 +649,11 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   stepBringAmmo(ctx, state, events, giver);
 }
 
+/** Where a man bringing ammunition makes for (m behind the receiver, m to his left), in order; and how far from the
+ *  receiver the route's end must be (a blocked spot is snapped to the nearest open cell). */
+const BRING_SPOTS: readonly (readonly [number, number])[] = [[1.5, 0], [1, 1.2], [1, -1.2], [2.2, 0]];
+const BRING_APART_M = 1;
+
 /** The giver: walk over, then hand the magazine or belt over. (M11.2: also a consolidation hand-over, consolidate.ts.) */
 export function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: EntityId): void {
   const gs = state.soldier.req(g), it = gs.intent!;
@@ -666,6 +671,10 @@ export function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSin
   const a = state.transform.req(g), b = state.transform.req(to);
   const d = hypot2(a.x - b.x, a.y - b.y);
   if (d <= 2.4) {
+    // (Review 2026-11-24, problem 1: he hands it over from where he is; before, he walked on during the hand-over
+    // onto the receiver's own spot and lay down over his muzzle.)
+    const gm = state.mover.get(g);
+    if (gm && gm.waypoints.length > 0) { gm.waypoints = []; gm.speedMps = 0; }
     startAction(state, events, g, "transferItems", secondsToTicks(ctx.catalog.behaviour.decisions.passSeconds), it.consolidate === true ? { to, item, count: 1, c: 1 } : { to, item, count: 1 });
     gs.intent = it.consolidate === true && it.x !== undefined ? { ...it, back: true } : null;
     return;
@@ -675,9 +684,17 @@ export function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSin
   const last = m.waypoints[m.waypoints.length - 1];
   if (last && hypot2(last.x - b.x, last.y - b.y) < 2.5) return; // already on his way
   const { search } = navFor(ctx, "foot");
-  // He comes up behind him (not into his line of fire).
-  const bx = b.x - cos(b.heading) * 1.5, by = b.y - sin(b.heading) * 1.5;
-  const leg = routeBetween(ctx, search, a.x, a.y, bx, by, { maxExpansions: 4000, snapCells: 2 }, { sz: a.z, gz: b.z });
+  // He comes up behind him (not into his line of fire). (Review 2026-11-24, problem 1: a spot behind him in a blocked
+  // cell snapped to the nearest open cell's centre, the receiver's own; then beside him, or farther back.)
+  let leg: RouteResult | null = null;
+  for (const [back, side] of BRING_SPOTS) {
+    const ch = cos(b.heading), sh = sin(b.heading);
+    const bx = b.x - ch * back - sh * side, by = b.y - sh * back + ch * side;
+    const r = routeBetween(ctx, search, a.x, a.y, bx, by, { maxExpansions: 4000, snapCells: 2 }, { sz: a.z, gz: b.z });
+    if (!r) continue;
+    if (leg === null) leg = r;
+    if (hypot2(r.goalX - b.x, r.goalY - b.y) >= BRING_APART_M) { leg = r; break; }
+  }
   if (!leg) { gs.intent = null; return; }
   m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
   m.formation = null; m.endPosture = "prone"; m.endHeading = null;
@@ -1368,7 +1385,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const PS = Math.min(S.pinnedSelfDefenceM ?? 0, reach, unitCap(unit, state, ctx));
       if (PS > 0 && halted && s.mental.behaviour === "pinned" && near.all !== null && near.all.d <= PS) {
         const cur = state.fire.get(id), c = near.all.c;
-        if ((!cur || (cur.self === true && cur.contact !== c.target)) && !friendInLine(ctx, state, id, c.x, c.y)
+        if ((!cur || (cur.self === true && cur.contact !== c.target)) && !friendHolds(ctx, state, id, c.x, c.y)
           && lineOfFireTo(ctx, state, id, c.x, c.y, aimHeightAt(ctx, c), "prone") > 0 && selfFire(ctx, state, id, c, false)) s.intent = { kind: "engage", tick: state.tick, target: c.target };
       }
       // Nothing else while he is pinned or panicked: he fires back once he is no longer pinned (from the cover he
@@ -1495,7 +1512,7 @@ function returnFire(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
     if (contactErrorM(ctx, c, tick) > RF.maxErrM || !inArc(state, id, me, c.x, c.y)) continue;
     best = c; bd = d;
   }
-  if (!best || friendInLine(ctx, state, id, best.x, best.y)) return;
+  if (!best || friendHolds(ctx, state, id, best.x, best.y)) return;
   if (!assignFireTask(ctx, state, id, best.x, best.y, aimHeightAt(ctx, best))) return;
   const ft = state.fire.get(id)!;
   ft.contact = best.target; ft.self = true; ft.aimAuto = true; ft.suppress = "return";
@@ -1517,7 +1534,7 @@ function suppressKnown(ctx: SimContext, state: SimState, id: EntityId, s: Soldie
     if (!inArc(state, id, me, c.x, c.y)) continue;
     best = c; bd = d;
   }
-  if (!best || friendInLine(ctx, state, id, best.x, best.y)) return;
+  if (!best || friendHolds(ctx, state, id, best.x, best.y)) return;
   if (!assignFireTask(ctx, state, id, best.x, best.y, aimHeightAt(ctx, best))) return;
   const ft = state.fire.get(id)!;
   ft.contact = best.target; ft.self = true; ft.aimAuto = true; ft.suppress = "known";

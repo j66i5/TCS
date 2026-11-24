@@ -21,11 +21,12 @@ import { loadData, ON_POSTS } from "../src/scenarios";
 const data = loadData(true);
 
 const def = (over: Partial<ScenarioDef> = {}): ScenarioDef => ({
-  kind: "platoon-attack", seed: 3, mapKind: "village", factions: ["de", "ru"], attacker: "blue", attackerPlatoons: 1, vehicles: true,
+  kind: "platoon-attack", seed: 4, mapKind: "village", factions: ["de", "ru"], attacker: "blue", attackerPlatoons: 1, vehicles: true,
   timeLimitSeconds: 420, campaignOut: true, ...over,
 });
 
-/** Battle 1 with the AI, once for the file. */
+/** Battle 1 with the AI, once for the file. (Seed 4 since the friendly-fire fix, 2026-11-24: seed 3 no longer left a
+ *  man wounded and awake, which the property test grafts from.) */
 let first: { input: BattleInput; result: BattleResult } | null = null;
 function battle1(): { input: BattleInput; result: BattleResult } {
   if (first) return first;

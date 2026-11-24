@@ -1219,6 +1219,17 @@ up again fits in, when he changes magazine, when no posture gives him a line of 
 line; he rises again just in time for the next shot, so his rate of fire is the same. He keeps each posture at least
 1 s for this. Machine gunners firing bursts and men at windows are left as they are.
 
+**Bodies in the line (2026-11-24).** Before a burst a man also checks whether his round would strike the body of a man
+of his side: every comrade within about 3 m (standing, kneeling, lying, wounded or dead) is tested against the round's
+own path from the muzzle, with the same body shapes the bullets hit; a dead comrade farther out counts when he lies in
+the line short of the point and the line passes low over him. A comrade's body lying over a prone man's muzzle makes
+him rise to his knees to fire over it, as over a bank; if no posture clears it, he holds his fire. Two men kneeling or
+standing on one window place still fire side by side. A man bringing a magazine stops and hands it over from where he
+is (up to 2.4 m away) and makes for a spot behind or beside the receiver, never the receiver's own; a casualty carried
+on a man's back is set down a step behind him on the way they came. Before, one rifleman put 59 of a battle's 149
+hits into his own side: a comrade who crawled onto his spot with a magazine, that comrade's corpse, and later a man
+he had carried and set down on his own spot.
+
 ## Squad drills
 
 **Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover

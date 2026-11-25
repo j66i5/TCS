@@ -10912,3 +10912,19 @@ ran out"), because only a side wholly broken or with nobody standing ended a bat
   `tools/test/battle-end-campaign.test.ts` (a claimed and a spent battle through the campaign flow: the node won, the
   books balance). `commander.test.ts` and `attack-d4a.test.ts` rig a defence spent from the start to watch the attack's
   phases: they switch the decided ends off.
+- **Part 2, the interface** (same day). A "Claim victory" button in the top bar (behind "⋯" on a narrow screen, as
+  the other rare buttons; "⋯" carries an accent dot while the claim is offered behind it). It is never `disabled`:
+  greyed (dashed, faded) it still takes a tap and the radio says why not ("Claim victory not possible yet: ..."; a
+  phone shows no tooltip), its label and title carry the reason; offered it turns accent, the radio says so once
+  (`claim.available`), and a tap asks first (`claim.confirm`, like the Menu button) and then issues the
+  `claimVictory` order to the player's top unit (paused: one step carries it, the battle ends at reception). The state
+  comes from `claimStatus` on the app's 500 ms status tick (`panels.ts showClaim`). An announced end (`state.ending`
+  once `noticeTick` is set) leads the score line as an accent notice with the countdown ("The battle ends in 56 s:
+  Russia ... is spent"; it wraps on a phone; also in battles without objectives), beside the sim's radio lines. The review's reason line:
+  "Victory claimed: {winner} held the field and ended the battle.", "Battle decided: {winner} held the field and the
+  enemy's resistance had ceased." (the scores' winner, as the end has no loser). Checks: `npm run e2e:claim`
+  (`tools/src/claim-e2e.ts`, Playwright, phone: greyed at the start with its reason, a greyed tap, greyed in contact,
+  offered after the quiet minute with "⋯" marked, claim -> review; a spent enemy -> notice -> automatic end -> review;
+  a campaign's first battle claimed -> "Back to the campaign" -> what changed); its pictures in
+  `npm run screenshot -- --scene ui` (`claim-<phone|landscape|desktop>-<look>-*.png`). Debug hooks: `__tcs.claim()`,
+  `ended()`, `ending()`, `objectives()`, `playerSide()`, `aiOff()`.

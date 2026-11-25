@@ -5,7 +5,7 @@
  * are screenshot-only shortcuts, as before.
  */
 import { buildAppearance, type DataSet } from "@tcs/data";
-import { detonate, EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, newCache, refreshStatus, simHash, startCarry, supportLeft, surrender, type EntityId, type Wound } from "@tcs/sim";
+import { claimStatus, detonate, EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, newCache, refreshStatus, simHash, startCarry, supportLeft, surrender, type EntityId, type Wound } from "@tcs/sim";
 import { enemyMenInSight, SIDE_COLOURS, worldToScreen } from "@tcs/render";
 import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
@@ -204,6 +204,15 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     }),
     moveUnit: (uid: EntityId, x: number, y: number) => issue(a, { ...now(a, uid), kind: "move", waypoints: [{ x, y, mode: "walk" }] }),
     hash: () => simHash(sim),
+    /** Claim victory (review 2026-11-24 problem 3): may the player claim now (the button's state), how the battle
+     *  ended (null: still running), the end announced (null: none), the objectives' holders; `aiOff` stops the enemy
+     *  commander (e2e: a quiet field to claim). */
+    claim: () => claimStatus(sim.ctx, sim.state, playerSide),
+    ended: () => (sim.state.ended ? { reason: sim.state.ended.reason, loser: sim.state.endLoser ?? null, tick: sim.state.tick } : null),
+    ending: () => (sim.state.ending ? { ...sim.state.ending } : null),
+    objectives: () => sim.state.objectives.map((o) => ({ ...o })),
+    playerSide: () => playerSide,
+    aiOff: () => { a.ai.length = 0; },
     ready: true,
   };
 }

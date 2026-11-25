@@ -78,6 +78,8 @@ export interface App {
   floorPick: number | null;
   /** Screenshots (M7.5e): draw the enemy as he is, without Debug's grid and sight overlays. */
   revealAll: boolean;
+  /** Claim victory was offered (the radio said so once; review 2026-11-24 problem 3). */
+  claimOffered?: boolean;
   /** Debug sight overlay: the tick it was last drawn. */
   sightAt: number;
   /** S8 "last seen" pins and S11 ranging falls (from the side's own contacts and events). */

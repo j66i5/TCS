@@ -11,7 +11,7 @@
 import { buildAppearance, formatErrors, Strings } from "@tcs/data";
 import { MAP_KINDS } from "@tcs/scenario";
 import {
-  battleResultOf, DT, emptyLogistics, logisticsFromEvents, tracerMap, isOffMapMan, navFor, newBattleRecord, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
+  battleResultOf, claimStatus, DT, emptyLogistics, logisticsFromEvents, tracerMap, isOffMapMan, navFor, newBattleRecord, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
@@ -27,7 +27,7 @@ import { installHooks } from "./hooks";
 import { attachPerfOverlay, FramePerf } from "./perf";
 import { attachKeys } from "./keys";
 import { endPlan, fetchAmmo, forUnit, goPlan, issue, issueAi, now, resupply, sendBearers, setFormation, takeKit, undoPlanPoint } from "./orders";
-import { refreshTiles, showCard, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
+import { claimReasonText, refreshTiles, showCard, showClaim, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
 import { loadOrCreate, reloadSaved, saveNow, setCampaignKey } from "./save";
 import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
@@ -185,6 +185,17 @@ async function main(): Promise<void> {
     onMenu: () => {
       if (campaign && sim.state.ended) { void returnToCampaign(data, campaign, battleResultOf(sim, input, a.orderLog, campLogistics), look); return; }
       if (sim.state.ended || confirm(strings.t("menu.leaveConfirm"))) location.assign(menuUrl());
+    },
+    // Claim victory (review 2026-11-24 problem 3, owner Q3): refused, the radio says why; offered, asked first, then the
+    // order (the sim checks it again and ends the battle at reception; paused: one step carries it).
+    onClaim: () => {
+      const c = claimStatus(sim.ctx, sim.state, playerSide);
+      if (!c.ok) { if (c.reason !== "ended") hud.radio(strings.t("claim.notYet", { reason: claimReasonText(a, c) }), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
+      if (!confirm(strings.t("claim.confirm"))) return;
+      const top = [...sim.state.unit.entries()].find(([, u]) => u.side === playerSide && u.parent === null && u.asset === undefined)?.[0];
+      if (top === undefined) return;
+      issue(a, { ...now(a, top), kind: "claimVictory" });
+      if (a.speed === 0) stepOnce();
     },
     onLoad: () => reloadSaved(a),
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
@@ -387,7 +398,7 @@ async function main(): Promise<void> {
     const d0 = performance.now();
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     const drawMs = performance.now() - d0;
-    if (t - statusAt >= 500) { statusAt = t; showUnit(a); showObjectives(a); }
+    if (t - statusAt >= 500) { statusAt = t; showUnit(a); showObjectives(a); showClaim(a); }
     if (sim.state.ended && !aarShown) showAar();
     frames++;
     if (t - fpsT0 >= 1000) {

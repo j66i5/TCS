@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "../args";
 import { campaignE2e, type E2ePage } from "../campaign-e2e";
 import { menuE2e, type MenuPage } from "../menu-e2e";
+import { claimE2e, type ClaimPage } from "../claim-e2e";
 
 const ROOT = fileURLToPath(new URL("../../../..", import.meta.url));
 const args = parseArgs(process.argv.slice(2));
@@ -2493,7 +2494,22 @@ try {
     if (args["scene"] === "medevac") { await medevacScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "rearrun") { await rearRunScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
-    if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "ui") {
+      await uiScenes(page, name, errors, shots); await page.close();
+      // Review 2026-11-24 problem 3: Claim victory and the automatic end (claim-e2e.ts, with its checks): the phone in
+      // portrait (photo) and landscape (flat), the desktop in both looks; the campaign part once (phone).
+      const views: [string, { width: number; height: number }, "photo" | "flat", ("claim" | "auto" | "campaign")[]][] = name === "phone"
+        ? [["phone", vp, "photo", ["claim", "auto", "campaign"]], ["landscape", { width: 844, height: 390 }, "flat", ["claim", "auto"]]]
+        : [["desktop", vp, "photo", ["claim", "auto"]], ["desktop", vp, "flat", ["claim"]]];
+      for (const [vn, v, look, parts] of views) {
+        const p2 = await browser.newPage({ viewport: v, deviceScaleFactor: scale, hasTouch: name === "phone" });
+        p2.on("pageerror", (e) => errors.push(e.message));
+        const passed = await claimE2e(p2 as unknown as ClaimPage, { base: `http://localhost:${port}`, shots: { dir: outDir, name: vn, list: shots }, look, parts, log: () => undefined });
+        console.log(`${vn} ${look}: claim scene, ${passed.length} checks passed; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+        await p2.close();
+      }
+      continue;
+    }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "photo") { await photoScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }

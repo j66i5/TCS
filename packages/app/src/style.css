@@ -190,6 +190,16 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   .hud-score { white-space: normal; overflow: visible; line-height: 1.35; }
   .hud-score-part { white-space: nowrap; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 }
+/* Review 2026-11-24 problem 3: the battle's end announced (first on the score line). */
+.hud-score-part.hud-score-ending { color: #1b241a; background: var(--accent); border-radius: 4px; padding: 0 6px; font-weight: 700; }
+/* (It wraps rather than lose its end on a phone: the countdown and who.) */
+.hud-score .hud-score-part.hud-score-ending { white-space: normal; overflow: visible; display: inline; }
+/* Claim victory: greyed (still tappable: the app says why not) or offered (accent); the "⋯" marked while it is behind it. */
+.hud-claim-btn { font-weight: 700; }
+.hud-claim-btn:not(.off) { background: #5f5a22; border-color: var(--accent); color: #fff6c8; }
+.hud-claim-btn.off { opacity: 0.55; border-style: dashed; }
+.hud-more-btn.attn { position: relative; border-color: var(--accent); }
+.hud-more-btn.attn::after { content: ""; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .hud-score-mark { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: 0; border: 1px solid rgba(0, 0, 0, 0.5); }
 /* M7.5b: the top bar is one row; the rare buttons in a menu under "⋯" on a narrow screen. */
 .hud-bar { flex-wrap: nowrap; }

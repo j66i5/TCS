@@ -28,6 +28,7 @@
     "screenshot": "tsx packages/tools/src/cli/screenshot.ts",
     "e2e:campaign": "tsx packages/tools/src/cli/e2e-campaign.ts",
     "e2e:menu": "tsx packages/tools/src/cli/e2e-menu.ts",
+    "e2e:claim": "tsx packages/tools/src/cli/e2e-claim.ts",
     "phoneperf": "tsx packages/tools/src/cli/phoneperf.ts",
     "map": "tsx packages/tools/src/cli/map.ts",
     "probe": "tsx packages/tools/src/cli/probe.ts",

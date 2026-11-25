@@ -8,8 +8,8 @@ import type { App } from "./app";
 import { fmtClock, localClock, sideColour, sideName } from "./units";
 
 /** The loser's and the winner's names for an end reason's line (the winner: the other side of a loser). */
-function endNames(a: App, loser: string | null): { loser: string; winner: string } {
-  const winner = loser === null ? null : a.sim.state.sides.find((x) => x.id !== loser)?.id ?? null;
+function endNames(a: App, loser: string | null, winnerIfNone: string | null = null): { loser: string; winner: string } {
+  const winner = loser === null ? winnerIfNone : a.sim.state.sides.find((x) => x.id !== loser)?.id ?? null;
   return { loser: loser ? sideName(a, loser) : "", winner: winner ? sideName(a, winner) : "" };
 }
 
@@ -46,7 +46,7 @@ export function reviewModel(a: App): AarModel {
   return {
     title: s.t("aar.title"),
     summary: [
-      `${sc.winner ? s.t("aar.winner", { side: sideName(a, sc.winner) }) : s.t("aar.draw")} ${(reason === "side-broken" || reason === "side-eliminated") && st.endLoser === null ? s.t("aar.reason.both") : s.t(`aar.reason.${reason}`, endNames(a, st.endLoser))}`,
+      `${sc.winner ? s.t("aar.winner", { side: sideName(a, sc.winner) }) : s.t("aar.draw")} ${(reason === "side-broken" || reason === "side-eliminated") && st.endLoser === null ? s.t("aar.reason.both") : s.t(`aar.reason.${reason}`, endNames(a, st.endLoser, sc.winner))}`,
       ...sc.scores.map((x) => s.t("aar.score", { side: sideName(a, x.side), objectives: x.objectivePoints, down: x.menDown, score: x.score })),
       // M9.6: the local time at the end and the light at the start and its lowest (a battle with a sky, M9.1).
       ...(st.environment.sky && record.review.light ? [s.t("aar.light", { time: localClock(st.environment.timeOfDaySeconds), start: Math.round(record.review.light.start * 100), min: Math.round(record.review.light.min * 100) })] : []),

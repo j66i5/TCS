@@ -2,10 +2,10 @@
  * The HUD's panels from the state (from the `main.ts` split, D2): the order bar, the unit sidebar and card, the
  * rules panel's status text and the score line. All read-only; all text from the string table.
  */
-import { atRuleOf, fuelLitres, isOut, launcherOf, aglRoundsLeft, mortarTeams, teamRounds, navFor, repairWorkers, supportLeft, ticksToSeconds, vehicleItems, workRate, type EntityId } from "@tcs/sim";
+import { atRuleOf, claimStatus, fuelLitres, isOut, launcherOf, aglRoundsLeft, mortarTeams, teamRounds, navFor, repairWorkers, supportLeft, ticksToSeconds, vehicleItems, workRate, type EntityId } from "@tcs/sim";
 import { shownCallsigns } from "@tcs/render";
 import { endPlan } from "./orders";
-import { ambulanceRows, droneOrders, manDetail, prisonerCardText, prisonerSummary, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleFuel, vehicleGuns, woundedRows, settleRules, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
+import { type ScorePart, ambulanceRows, droneOrders, manDetail, prisonerCardText, prisonerSummary, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleFuel, vehicleGuns, woundedRows, settleRules, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
 import type { App } from "./app";
 import { centreOn, startFollow } from "./camera";
 import { ambulanceCallerName, droneMode, fmtClock, hqMode, localClock, selectedMen, selPart, sideColour, sideName, vehicleClassOf } from "./units";
@@ -211,7 +211,9 @@ export function showUnit(a: App): void {
 export function showObjectives(a: App): void {
   const defs = a.input.rules.objectives, st = a.sim.state, t = a.strings.t.bind(a.strings), side = a.playerSide, cat = a.sim.ctx.catalog;
   a.overlay.objectives = defs.map((o, i) => ({ x: o.x, y: o.y, radiusM: o.radiusM, holder: st.objectives[i]?.holder ?? null, contested: st.objectives[i]?.contested ?? false, label: t(o.nameKey) }));
-  if (defs.length === 0) { a.hud.setScore([]); return; }
+  // (Review 2026-11-24 problem 3: a decided battle's end announced, first on the line, also without objectives.)
+  const ending = endingPart(a);
+  if (defs.length === 0) { a.hud.setScore(ending ? [ending] : []); return; }
   const left = Math.max(0, a.input.rules.timeLimitSeconds - ticksToSeconds(st.tick));
   const sup = st.support.some((x) => x.side === side) || mortarTeams(st, side).length > 0;
   const he = supportLeft(st, side, "he", cat), smoke = supportLeft(st, side, "smoke", cat);
@@ -220,6 +222,7 @@ export function showObjectives(a: App): void {
   // the rounds come first (review fix: at the end of the line they were cut off on a phone); the objectives'
   // names may run out of room, their coloured marks stay.
   a.hud.setScore([
+    ...(ending ? [ending] : []),
     { text: t("score.time", { left: fmtClock(left) }) },
     // Night and light (M9.1): with a sky, the local time and how light it is.
     ...(st.environment.sky ? [{ text: t("score.localTime", { time: localClock(st.environment.timeOfDaySeconds) }), title: t("score.light", { pct: Math.round(st.environment.light * 100) }) }] : []),
@@ -229,4 +232,32 @@ export function showObjectives(a: App): void {
       return { text: t("score.objective", { objective: t(o.nameKey) }) + (os?.contested ? t("score.contestedMark") : ""), colour: os?.holder ? sideColour(a, os.holder) : "#8a8a8a", title: os?.holder ? sideName(a, os.holder) : t("score.nobody") };
     }),
   ]);
+}
+
+/** The battle's end announced (`state.ending`, a countdown; review 2026-11-24 problem 3) as a score line part. */
+function endingPart(a: App): ScorePart | null {
+  const st = a.sim.state, e = st.ending;
+  if (!e || e.noticeTick === undefined || st.ended) return null; // (a spent side's minute before the notice: nothing yet)
+  const left = Math.max(0, Math.ceil(ticksToSeconds(e.endTick - st.tick)));
+  const other = st.sides.find((x) => x.id !== e.side)?.id;
+  const names = e.reason === "side-spent" ? { loser: sideName(a, e.side), winner: other ? sideName(a, other) : "" } : { winner: sideName(a, e.side), loser: other ? sideName(a, other) : "" };
+  const text = a.strings.t(`notice.battleEnding.${e.reason}`, { ...names, s: left });
+  return { text, title: a.strings.t("notice.battleEnding", { s: left }), cls: "hud-score-ending" };
+}
+
+/** Claim victory (owner Q3): the button offered, greyed with why not, or hidden (no victory rules, the battle over).
+ *  The first time it is offered a radio line says so (on a phone the button sits behind "⋯"). */
+export function showClaim(a: App): void {
+  const c = claimStatus(a.sim.ctx, a.sim.state, a.playerSide);
+  if (!c.ok && (c.reason === "unavailable" || c.reason === "ended")) { a.hud.setClaim(null); return; }
+  a.hud.setClaim({ ok: c.ok, reason: c.ok ? "" : claimReasonText(a, c) });
+  if (c.ok && !a.claimOffered) {
+    a.claimOffered = true;
+    a.hud.radio(a.strings.t(a.hud.claimInMenu() ? "claim.availableMore" : "claim.available"), ticksToSeconds(a.sim.state.tick), "#f5d061");
+  }
+}
+
+/** Why a claim is refused now, in words. */
+export function claimReasonText(a: App, c: { reason: string; secondsLeft?: number }): string {
+  return a.strings.t(`claim.reason.${c.reason}`, { s: c.secondsLeft ?? 0 });
 }

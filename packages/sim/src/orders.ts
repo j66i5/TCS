@@ -168,7 +168,11 @@ export type OrderBody =
   | { kind: "releaseGuard"; confirm?: boolean }
   /** Call the military police (M11.9b): the target's platoon calls its side's MP team to its prisoner collection point.
    *  Refused on the radio: no prisoners, one already on its way, none left. */
-  | { kind: "callMp" };
+  | { kind: "callMp" }
+  /** Claim victory (review 2026-11-24 problem 3, owner Q3; a player order, the AI never gives it): the target is any own
+   *  unit. Accepted only while `claimStatus` allows it (else rejected "not-decided"); it ends the battle at once, at
+   *  reception (no comms delay), the other side losing ("victory-claimed"). */
+  | { kind: "claimVictory" };
 
 export type OrderKind = OrderBody["kind"];
 
@@ -218,4 +222,6 @@ export type OrderRejectReason =
   | "no-comms"
   /** A later order to the same men replaced it while they were still hesitating over it (D4b): not a refusal, the
    *  order is just over (no radio text; the renderer drops its marker). */
-  | "superseded";
+  | "superseded"
+  /** A claim of victory while the battle is not decided (`claimStatus` says why). */
+  | "not-decided";

@@ -37,6 +37,23 @@ battle, **Medical** and **Conduct**; the last two say "not recorded here yet" un
 they happen (`packages/sim/src/record.ts`); the batch report reads the same record, so the two cannot disagree.
 `?scenario=demo` opens the old one-squad sandbox.
 
+**When a decided battle ends (review 2026-11-24 problem 3, owner Q3).** A battle no longer runs on to the time limit
+once it is decided. A side whose standing men (able, not running, on the map) stay under a quarter of the men it has
+put on the map (less those it got out by an exit) for a minute, with no reinforcements still to come, is **spent**: the
+radio says the battle ends in 60 s, and then that side loses (a side whose task is to get out by its exit, the
+delay in a withdrawal or the ambushed, loses nothing by it: the points decide). Rallying back to 30 % calls it off. A side that holds
+**every objective**, none contested, after there has been fighting and then three minutes without a shot or a hit,
+has **the field**: after the same minute's notice the points decide, as at the time limit (a defender that has held
+them from the start also needs the attacker beaten down under half its men, so the lull before an attack does not end
+it). Renewed fire or an objective lost calls it off. **Claim victory** (an order, `claimVictory`; the AI never gives
+it) ends the battle at once when your side holds every objective uncontested (a battle without objectives: the enemy
+spent or gone), no enemy man stands within 250 m of one, none are still to come on either side, nobody has fired for
+a minute and you lead on points; a side that has held every objective from the start (the defender) also needs the
+enemy under half its men, objectives that count at a set time (the withdrawal) must have reached it, and an enemy whose
+task is to get out by its exit must be spent; otherwise it is refused and the interface says why. Values in `core/behaviour.json` `battleEnd`;
+`systems/battle-end.ts`; every end (these, the defeats, the time limit) settles the wounded and the hulls left on the
+field the same way.
+
 **Mortars and smoke (M6.5; ranging since the "fire-support" step).** The attacker has two platoons. Each side can
 call mortar fire (the line under the top bar shows the rounds left; the attacker has more, and more smoke): pick
 **Fire support** (under Fire), hold or tap the target and choose **HE** or **Smoke** in the little box that opens
@@ -1287,14 +1304,15 @@ narrows it further. `npm run lab -- contact` measures the drill.
 **Delay and pursuit (the withdrawal battle, review 2026-11-24).** The side that must withdraw first delays: it opens
 fire at will out to 600 m (to make the enemy deploy early) and stays on its objectives until it has fought for a minute
 (fired on, an enemy seen close, or one placed within 400 m by a comrade or its drone), or the enemy is within 150 m;
-it never stays later than the time it needs to get its farthest man out at 2 m/s plus a minute. Then squads near their
-carriers mount, and squads in contact break it by bounds under covering fire (the withdraw drill, 150 m toward the
-exit: the rear guard) before everyone runs for the exit. The follower attacks the objectives as usual; once the enemy
-has broken contact (nobody of its side has seen him or been fired on for 30 s), or two minutes after the delay's time
-without any contact, it takes up the pursuit at once with every unit: squads near their carriers mount, everyone goes
-for the nearest enemy the side knows within 500 m (else on toward his exit), running while the contact is less than
-90 s old, firing at will and fighting through contact by the drill; the goals follow the enemy as reports come in. On
-foot the follower starts 400 m short of the main objective, just beyond its support line.
+it never stays later than the time it needs to get its farthest man out at 1.4 m/s (nearer its real pace
+with halts and bounds than a run) plus a minute. Then squads near their carriers mount, and one squad in contact, the nearest the enemy, breaks
+it by bounds under covering fire (the withdraw drill, 150 m toward the exit: the rear guard) while everyone else runs
+for the exit at once. The follower attacks the objectives as usual; once the enemy has broken contact (nobody of its
+side has seen him or been fired on for 90 s), or two minutes after the delay's time without any contact, it takes up
+the pursuit at once with every unit: squads near their carriers mount, everyone goes for the nearest enemy the side
+knows within 300 m (else on toward his exit), running while the contact is less than 30 s old, firing at will and
+fighting through contact by the drill; the goals follow the enemy as reports come in. On
+foot the follower starts 800 m short of the main objective (a delay usually escapes, owner 2026-11-25).
 
 ## Surrender
 

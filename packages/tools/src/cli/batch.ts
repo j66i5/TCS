@@ -29,6 +29,8 @@ const noRepair = args["no-repair"] !== undefined;
 const noRecovery = args["no-recovery"] !== undefined;
 /** `--no-mp` (M11.9b): no military police off the map (none built), for comparison batches. */
 const noMp = args["no-mp"] !== undefined;
+/** `--no-decided` (review 2026-11-24 problem 3): the decided ends off (a side spent, the field held and quiet). */
+const noDecided = args["no-decided"] !== undefined;
 /** `--no-resupply` (M11.1): no supply chain (`rules.resupply: false`: no supply point use, bearers, deliveries or
  *  top-up). Balance pass 3: the men still refill from their own loose rounds and even out within the squad. */
 const noResupply = args["no-resupply"] !== undefined;
@@ -131,6 +133,7 @@ for (let i = 0; i < runs; i++) {
   if (noRepair) input.rules.repair = false;
   if (noRecovery) withoutRecovery(input);
   if (noMp) withoutMp(input);
+  if (noDecided && input.rules.victory) input.rules.victory.decided = false;
   if (noResupply) input.rules.resupply = false;
   if (noRefill) input.rules.refill = false;
   if (noDeliveries) input.rules.deliveries = false;
@@ -310,6 +313,7 @@ const md = [
   `- Field repair: ${noRepair ? "off (--no-repair)" : "on"}`,
   `- Recovery: ${noRecovery ? "off (--no-recovery)" : "on"}`,
   `- Military police: ${noMp ? "off (--no-mp)" : "on"}`,
+  `- Decided ends: ${noDecided ? "off (--no-decided)" : "on where the scenario has them"}`,
   `- Resupply: ${noResupply ? "supply chain off (--no-resupply)" : noDeliveries ? "on foot only (--no-deliveries)" : "on"}${noPoint ? ", supply point empty (--no-point)" : ""}${noRefill ? ", no refilling from own loose rounds or in the squad (--no-refill)" : ""}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   ...(timeOfDay !== null ? [`- Local time at the start: ${args["time"]} (moon ${args["moon"] ?? 0.5}; M9.1, light from the clock)`] : []),
@@ -476,7 +480,7 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noMp ? "-no-mp" : ""}${noResupply ? "-no-resupply" : ""}${noRefill ? "-no-refill" : ""}${noDeliveries ? "-no-deliveries" : ""}${noPoint ? "-no-point" : ""}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}${noRecovery ? "-no-recovery" : ""}${noMp ? "-no-mp" : ""}${noDecided ? "-no-decided" : ""}${noResupply ? "-no-resupply" : ""}${noRefill ? "-no-refill" : ""}${noDeliveries ? "-no-deliveries" : ""}${noPoint ? "-no-point" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
 console.log(md.split("\n").slice(0, 21).join("\n"));

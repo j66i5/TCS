@@ -51,8 +51,10 @@ export const SCENARIO_KIND = {
   ambushFootM: [1200, 900] as const, ambushFootStartShare: 0.2,
   /** The withdrawal on foot: the following side starts this far (m) short of the main objective, a little beyond its
    *  commander's support line (review 2026-11-24 problem 2: from 8 % of the map it walked 13 minutes to reach the
-   *  delaying side, which had gone by then; the battle is the pursuit). */
-  followFootStartM: 400,
+   *  delaying side, which had gone by then; the battle is the pursuit). Review 2026-11-24 problem 3, owner 2026-11-25
+   *  ("a delay usually escapes"): 800 m, from 400 (at 400 the 2:1 attack fell on the delay at once and destroyed 5
+   *  platoons of 12 before their time; men out of more than half in 2 of 12 battles, 8 of 12 now). */
+  followFootStartM: 800,
   menPerBase: 90, maxScale: 2, companyScale: 1.6,
   /** Platoons per side by kind (attacker, defender) at platoon size; a company: 3 each (the defender's third the reserve
    *  in a counter-attack battle). */
@@ -517,7 +519,8 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
     observers = observersOf(forces[dIdx]!);
   }
   forces[aIdx] = buildSide(def.attacker, aIdx);
-  rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true };
+  // (Review 2026-11-24 problem 3, owner Q3: a decided battle ends: a side spent, or the field held and quiet.)
+  rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true, decided: true };
   // A prepared defence (balance pass after M11; SPEC M4: "a prepared defence"): the defenders dig in where their
   // commander sites them, as in the hold battle (owner 2026-11-16).
   // Balance pass 2: a hasty dig-in (`SCENARIO_HASTY_DEPTH_M`), shallower than the hold battle's prepared holes.

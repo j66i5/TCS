@@ -135,7 +135,7 @@ function houseClearBattle(data: DataSet, seed: number, seconds: number): BattleI
     });
   }
   input.rules.objectives = [{ id: "main", nameKey: "objective.main", x: hx, y: hy, radiusM: 30, points: 100, holder: "blue" }];
-  input.rules.victory = { casualtyPoints: 5, endOnDefeat: true };
+  input.rules.victory = { casualtyPoints: 5, endOnDefeat: true, decided: true };
   input.rules.support = [{ side: "red", he: 12, smoke: 4 }];
   return input;
 }

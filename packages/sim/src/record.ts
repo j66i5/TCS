@@ -39,6 +39,8 @@ export interface TimelineEntry {
   /** `timeline.ended`: the end reason and the side that lost by breaking or being wiped out. */
   reason?: string;
   loser?: string;
+  /** `timeline.ending` (review 2026-11-24 problem 3): the side holding the field. */
+  winner?: string;
   /** Vehicle lines: the crew's callsign (or the hull's roster id). */
   vehicle?: string;
 }
@@ -311,6 +313,10 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         break;
       case "battle.ended":
         rec.timeline.push({ tick: e.tick, side: null, key: "timeline.ended", reason: e.reason, ...(e.loser ? { loser: e.loser } : {}) });
+        break;
+      case "battle.ending":
+        // (Review 2026-11-24 problem 3: a decided end announced, or called off.)
+        rec.timeline.push({ tick: e.tick, side: null, key: e.cancelled ? "timeline.endingCancelled" : "timeline.ending", reason: e.reason, ...(e.loser ? { loser: e.loser } : {}), ...(e.winner ? { winner: e.winner } : {}) });
         break;
       case "medical.treated": {
         const r = side(sideOfMan(e.casualty));

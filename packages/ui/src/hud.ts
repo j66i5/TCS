@@ -97,6 +97,8 @@ export interface HudCallbacks {
   onLoad(): void;
   /** Start menu: back to the main menu (the app asks first while the battle runs). */
   onMenu?(): void;
+  /** Claim victory (review 2026-11-24 problem 3, owner Q3): the button tapped, offered or not (the app says why not). */
+  onClaim?(): void;
   /** A tap on a unit's tile in the sidebar (M7.5a). */
   /** `part`: the unit's drone tile (M9.4a) or its headquarters tile (owner 2026-11-15) was tapped. */
   onSelectUnit(unit: EntityId, part?: TilePart): void;
@@ -122,7 +124,10 @@ export interface HudCallbacks {
   onLayout?(): void;
 }
 
-export interface ScorePart { text: string; colour?: string; title?: string }
+export interface ScorePart { text: string; colour?: string; title?: string; /** A class for the part (the battle's end notice). */ cls?: string }
+
+/** The Claim victory button (review 2026-11-24 problem 3): offered now or not, with why not (a text); null hides it. */
+export interface ClaimView { ok: boolean; reason: string }
 
 export interface HudStats {
   simSeconds: number;
@@ -202,6 +207,10 @@ export interface Hud {
   setFollowing(text: string | null): void;
   /** S14: the contour toggle as on or off (and tell the app). */
   setContours(on: boolean): void;
+  /** Claim victory: the button offered or greyed with its reason (null: hidden, e.g. the battle is over). */
+  setClaim(c: ClaimView | null): void;
+  /** Whether the Claim victory button sits behind "⋯" now (a narrow screen). */
+  claimInMenu(): boolean;
 }
 
 export interface ContextAction { icon: string; key: string; x: number; y: number; run(): void }
@@ -263,7 +272,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const menuBtn = el("button", "hud-btn hud-menu-btn", s.t("app.mainMenu"));
   menuBtn.dataset["act"] = "menu";
   menuBtn.onclick = () => cb.onMenu?.();
-  const rare = [contourBtn, helpBtn, saveBtn, loadBtn, mapBtn, dbgBtn, ...(cb.onMenu ? [menuBtn] : [])];
+  // Claim victory (review 2026-11-24 problem 3): greyed with its reason until the battle is decided for the player;
+  // a tap on a greyed button still reaches the app (which says why on the radio): a phone shows no tooltip. (So not
+  // `disabled` nor `aria-disabled`: its label carries the reason.)
+  const claimBtn = el("button", "hud-btn hud-claim-btn off", s.t("claim.button"));
+  claimBtn.dataset["act"] = "claim";
+  claimBtn.hidden = true;
+  claimBtn.onclick = () => cb.onClaim?.();
+  const rare = [contourBtn, helpBtn, saveBtn, loadBtn, mapBtn, dbgBtn, ...(cb.onClaim ? [claimBtn] : []), ...(cb.onMenu ? [menuBtn] : [])];
+  /** The "⋯" button marked while the claim is offered behind it (a phone). */
+  const claimMark = () => barMoreBtn.classList.toggle("attn", !claimBtn.hidden && !claimBtn.classList.contains("off") && claimBtn.parentElement === barMenu);
   for (const b of rare) b.addEventListener("click", () => { if (b.parentElement === barMenu) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); } });
   bar.append(title, clock, ...speedBtns, ...rare, barMoreBtn, barMenu);
   const score = el("div", "hud-score");
@@ -628,10 +646,11 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     barMoreBtn.hidden = true;
     title.hidden = false;
     const over = () => bar.scrollWidth > bar.clientWidth + 1 || bar.offsetHeight > 60;
-    if (!over()) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); return; }
+    if (!over()) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); claimMark(); return; }
     barMoreBtn.hidden = false;
     barMenu.append(...rare);
     if (over()) title.hidden = true;
+    claimMark();
   };
   const layout = () => {
     fitBar();
@@ -796,6 +815,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
         if (p.colour) { const m = el("span", "hud-score-mark"); m.style.background = p.colour; sp.append(m); }
         sp.append(document.createTextNode(p.text));
         if (p.title) sp.title = p.title;
+        if (p.cls) sp.classList.add(p.cls);
         if (i > 0) sp.prepend(document.createTextNode(" · "));
         return sp;
       }));
@@ -803,6 +823,20 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       // (D3: on a phone the line wraps; a second line moves everything under it down.)
       if (was !== score.hidden || score.offsetHeight !== wasH) layout();
     },
+    setClaim(c) {
+      const key = c === null ? "" : `${c.ok}|${c.reason}`;
+      if (key === claimBtn.dataset["key"]) return;
+      claimBtn.dataset["key"] = key;
+      const wasHidden = claimBtn.hidden;
+      claimBtn.hidden = c === null;
+      if (c) {
+        claimBtn.classList.toggle("off", !c.ok);
+        claimBtn.title = c.ok ? s.t("claim.hint") : c.reason;
+        claimBtn.setAttribute("aria-label", c.ok ? s.t("claim.button") : `${s.t("claim.button")}: ${c.reason}`);
+      }
+      if (wasHidden !== claimBtn.hidden) layout(); else claimMark();
+    },
+    claimInMenu: () => claimBtn.parentElement === barMenu,
     setTiles(tiles, selected, part) { sidebar.update(tiles, selected, part); },
     revealTile(unit, part) { sidebar.reveal(unit, part); },
     setWounded(rows, amb) { sidebar.setWounded(rows, amb); },

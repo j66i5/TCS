@@ -13,6 +13,8 @@ interface Mem { phase: string; reserve?: number; maskedRun?: Record<string, numb
 /** The defence gone (one man left, far off, holding fire), as in the commander test: the attack runs its phases. */
 function weakDefence(seed: number, seconds: number, mapKind: "village" | "farmland" = "village"): { input: BattleInput; sim: Sim } {
   const input = scenario(seed, seconds, mapKind);
+  // (The defence is spent from the start: without this the battle would end as "side-spent" after two minutes.)
+  input.rules.victory!.decided = false;
   const sim = createSim(input);
   const reds = [...sim.state.identity.entries()].filter(([, i]) => i.side === "red").map(([id]) => id);
   reds.slice(1).forEach((m) => { const s = sim.state.soldier.req(m); s.physiology.alive = false; s.casualty = "killed"; s.mental.behaviour = "incapacitated"; });

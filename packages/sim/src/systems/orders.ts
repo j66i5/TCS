@@ -17,6 +17,7 @@ import { kitSource, takeKitOrder } from "./consolidate";
 import { resupplyAtOrder, sendBearers, supplyPointOrder } from "./supply";
 import { escortPrisonersOrder, prisonerPointOrder, releaseGuardOrder } from "./prisoners";
 import { callMpOrder } from "./mp";
+import { claimStatus, claimVictory } from "./battle-end";
 import { aglOf, crewServedKind, startSetup } from "./mortars";
 import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
@@ -215,6 +216,9 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       // A vehicle crew's hull (M11.7a).
       if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
       return ctx.catalog.repair !== undefined && ctx.rules.repair !== false ? null : "not-applicable";
+    case "claimVictory":
+      // (Review 2026-11-24 problem 3: only while the battle is decided for the issuer.)
+      return claimStatus(ctx, state, o.issuer).ok ? null : "not-decided";
     case "callRecovery":
       // (M11.7b) A hull named, or the target crew's (or the one it left).
       if (o.vehicle !== undefined && !state.vehicle.has(o.vehicle)) return "invalid-params";
@@ -277,6 +281,12 @@ export function receiveOrders(ctx: SimContext, state: SimState, events: EventSin
     const reason = validate(ctx, state, order);
     if (reason !== null) {
       events.emit({ kind: "order.rejected", tick: state.tick, seq, issuer: order.issuer, target: order.target, reason });
+      continue;
+    }
+    // A claim of victory ends the battle at reception (no comms delay: it cannot be lost on the way).
+    if (order.kind === "claimVictory") {
+      events.emit({ kind: "order.received", tick: state.tick, seq, issuer: order.issuer, target: order.target, orderKind: order.kind, deliverTick: state.tick });
+      claimVictory(ctx, state, events, order.issuer);
       continue;
     }
     const delay = ctx.comms.orderDelayTicks(state, ctx.rules.comms, order);

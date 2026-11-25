@@ -594,5 +594,18 @@
     "note": "M11.2 (slice 44; game values, low; the owner's answers 2026-11-16 'taking kit' and 'no ammunition at the red cross'). Consolidation (the 'redistribute ammunition' step of consolidation and reorganisation in infantry manuals; search extracts only, no figures): a squad not fired on for 60 s and halted for 20 s (not on the march) evens out its able men's ammunition, looked at every 2 s, at most 2 hand-overs at once, between men within 50 m: belts first (a machine gunner below 2 spare belts gets one from a man carrying belts), then magazines (no man 2 or more spare magazines above another), then packages of loose rounds (2 or more). Own casualties: once treated (a treatment done and nothing more the line can do) or dead, the nearest able man of his squad within 30 m who is low (below 3 spare magazines, or a gunner's belts), else the man who treated him if the squad's mean is below 3, takes his magazines, belts, loose rounds, grenades and rockets in 8 s, leaving a man who can still use his arms 1 magazine. At the Verwundetennest the nearest able man of his platoon within 30 m (not a man with the red cross) takes it, else it is left in a pile 30 m from the nest. 'Take enemy kit' (player order only): a man within 150 m goes and takes it in 10 s. The men who walked over for a hand-over or a taking walk back to where they stood.",
     "sources": [],
     "confidence": "low"
+  },
+  "battleEnd": {
+    "quietS": 180,
+    "noticeS": 60,
+    "spentShare": 0.25,
+    "spentForS": 60,
+    "spentCancelShare": 0.3,
+    "defenderEnemyShare": 0.5,
+    "claimQuietS": 60,
+    "claimClearM": 250,
+    "note": "Review 2026-11-24 problem 3, owner Q3 (2026-11-25): a battle that is decided ends. A side whose standing men (able, not routed, on the map) stay below spentShare of the men it has committed (on the map so far, less those saved by an exit) for spentForS, with no wave still to come, is spent: after noticeS of notice it loses; the end is called off only once it is back to spentCancelShare (a margin: routed men rallying and running again made it flap around a quarter). A side holding every objective uncontested, after contact and then none for quietS, wins the field: after noticeS of notice the scores decide (a defender holding them from the start also needs the enemy below defenderEnemyShare of its men). Claim victory (a player order): the side holds every objective uncontested (no objectives: the enemy spent or gone), no enemy standing within claimClearM of one, none to come, no contact for claimQuietS, and it leads on points. Game values, measured offline on 53 battles (11 % of battle time saved, no winner changed).",
+    "sources": [],
+    "confidence": "low"
   }
 }

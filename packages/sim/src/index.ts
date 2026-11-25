@@ -30,6 +30,7 @@ export { componentIndex, plateNeed, resolveVehicleHit, vehicleDamageSystem } fro
 export { reactiveAdd, tileFor } from "./tiles";
 export { flightStep, type FlightState } from "./flight";
 export { battleScore, type BattleScore, type SideScore } from "./systems/objectives";
+export { claimStatus, lastContactTick, sideStrength, type ClaimRefusal, type ClaimStatus } from "./systems/battle-end";
 export { exitedOf, hasExited, inExit } from "./systems/exits";
 export { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM, type Observer, type ObserverKind } from "./systems/observers";
 export { airborneDroneOf, droneChargeWh, droneDefOf, droneHitChance, droneInSight, droneRiderOf, FLY_ACTION, hasDrone } from "./systems/drones";

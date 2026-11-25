@@ -38,7 +38,7 @@ export const POSTURES_AI = {
   /** Withdrawal: squads within this distance of their carrier mount it; the hulls wait at most this long. */
   mountWithinM: 250, mountWaitS: 60,
   /** Follow-up: the nearest known enemy within this distance is followed, else the exit; units stop this far short of it. */
-  followNearM: 500, followShortM: 80,
+  followNearM: 300, followShortM: 80,
   /** Review 2026-11-24 problem 2 (the pursuit). The withdrawing side holds until it has been in contact this long (s),
    *  or the enemy is this close (m); at the latest it goes when the time left would only just get its farthest man out
    *  at `withdrawPaceMps` plus `withdrawMarginS`. Squads in contact at the start break it by the withdraw drill this
@@ -48,8 +48,10 @@ export const POSTURES_AI = {
   delayRangeM: 600, withdrawPaceMps: 2, withdrawMarginS: 60, rearGuardM: 150,
   /** The follower takes up the pursuit once no man of its side has seen an enemy (nor been fired on) for this long
    *  after `untilS`, or this long after `untilS` without any contact yet; it runs while its last contact is this
-   *  recent (s), else walks; a unit's goal is re-sent when it moves this far (m), at most every `followResendS`. */
-  followQuietS: 30, followLateS: 120, followRunS: 90, followRetargetM: 60, followResendS: 10,
+   *  recent (s), else walks; a unit's goal is re-sent when it moves this far (m), at most every `followResendS`.
+   *  Owner 2026-11-25 ("a delay usually escapes"): a more cautious pursuit (quiet 30 -> 90 s, runs 90 -> 30 s,
+   *  re-targets at 60 -> 100 m, re-sends every 10 -> 20 s, the nearest enemy within 500 -> 300 m). */
+  followQuietS: 90, followLateS: 120, followRunS: 30, followRetargetM: 100, followResendS: 20,
   /** Ambush: once sprung and this long after, squads close on the enemy they know within `pursueM` of the ambush. */
   pursueAfterS: 120, pursueM: 350,
   /** Break-off: once the platoon commander has broken the attack off this long (its men remounting), the side leaves by

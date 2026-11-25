@@ -580,6 +580,17 @@ export interface BehaviourDef {
    * takes it, else it is left as a pile `nestCacheM` from the nest. `takeKit` (player order): a man within `kitM`
    * takes enemy kit in `kitS`. Absent: none of it.
    */
+  /**
+   * Review 2026-11-24 problem 3 (owner Q3, systems/battle-end.ts): a decided battle ends. "side-spent": a side's standing
+   * men (able, not routed, on the map) below `spentShare` of its committed men (on the map so far, less those saved by
+   * an exit) for `spentForS`, no wave to come: after `noticeS` it loses (called off only once it is back to
+   * `spentCancelShare`, a margin against flapping). "battle-decided": one side holds every
+   * objective uncontested, there has been contact and then none for `quietS`: after `noticeS` the scores decide (a side
+   * that held them all from the start also needs the enemy below `defenderEnemyShare` of its committed men). Claim
+   * victory: no contact for `claimQuietS`, no enemy standing within `claimClearM` of an objective. Absent: neither (and
+   * no claim).
+   */
+  battleEnd?: { quietS: number; noticeS: number; spentShare: number; spentForS: number; spentCancelShare: number; defenderEnemyShare: number; claimQuietS: number; claimClearM: number };
   consolidate?: {
     quietS: number; haltS: number; stepS: number; maxParallel: number; rangeM: number; beltsMin: number; magGap: number; packageGap: number;
     casualtyM: number; lowMags: number; takeS: number; leaveMags: number; nestHandM: number; nestCacheM: number; kitM: number; kitS: number;

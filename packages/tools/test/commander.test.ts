@@ -107,6 +107,8 @@ describe("AI commander (M6.3)", () => {
   it("with the defence gone (one man left, far off, holding fire) the attacker takes the main objective, and the second, and holds them", () => {
     // (Its whole sequence of phases, not the balance: against a real defence the AI attack fails, see DECISIONS.md.)
     const weak = scenario(2, 1500);
+    // (The defence is spent from the start: without this the battle would end as "side-spent" after two minutes.)
+    weak.rules.victory!.decided = false;
     const sim = createSim(weak);
     const reds = [...sim.state.identity.entries()].filter(([, i]) => i.side === "red").map(([id]) => id);
     reds.slice(1).forEach((m) => { const s = sim.state.soldier.req(m); s.physiology.alive = false; s.casualty = "killed"; s.mental.behaviour = "incapacitated"; });

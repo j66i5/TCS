@@ -244,6 +244,10 @@ export type SimEvent =
   | { kind: "action.completed"; tick: number; actor: EntityId; action: string }
   | { kind: "action.interrupted"; tick: number; actor: EntityId; action: string; reason: string }
   | { kind: "battle.ended"; tick: number; reason: BattleEndReason; /** The side that lost by breaking or being wiped out. */ loser?: SideId }
+  /** Review 2026-11-24 problem 3: the battle is decided and ends at `endTick` ("side-spent": `loser` has too few men
+   *  left; "battle-decided": `winner` holds the field and the enemy's fire has ceased, the scores decide); `cancelled`:
+   *  that end is off again (the spent side rallied or was reinforced, renewed contact, an objective lost or contested). */
+  | { kind: "battle.ending"; tick: number; reason: "side-spent" | "battle-decided"; winner?: SideId; loser?: SideId; endTick: number; cancelled?: true }
   | { kind: "support.smoke"; tick: number; x: number; y: number; radiusM: number; side: SideId }
   /** A hand smoke grenade starts to smoke (D1). */
   | { kind: "smoke.grenade"; tick: number; x: number; y: number; radiusM: number; ammo: DefId; owner: EntityId }
@@ -356,7 +360,10 @@ export type SimEvent =
 export type SimEventKind = SimEvent["kind"];
 
 /** M12.0b: "side-withdrew": a side with an exit zone has nobody left on the map (all out by the exit or down). */
-export type BattleEndReason = "time-limit" | "side-eliminated" | "side-broken" | "scenario" | "side-withdrew";
+export type BattleEndReason = "time-limit" | "side-eliminated" | "side-broken" | "scenario" | "side-withdrew"
+  /** Review 2026-11-24 problem 3 (systems/battle-end.ts): a side spent (it loses), the field held with the fighting
+   *  over (the scores decide), a side's claim of victory accepted (the other side loses). */
+  | "side-spent" | "battle-decided" | "victory-claimed";
 
 /** Collects events during a tick. */
 export class EventSink {

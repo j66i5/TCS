@@ -37,6 +37,20 @@ battle, **Medical** and **Conduct**; the last two say "not recorded here yet" un
 they happen (`packages/sim/src/record.ts`); the batch report reads the same record, so the two cannot disagree.
 `?scenario=demo` opens the old one-squad sandbox.
 
+**When a decided battle ends (review 2026-11-24 problem 3, owner Q3).** A battle no longer runs on to the time limit
+once it is decided. A side whose standing men (able, not running, on the map) stay under a quarter of the men it has
+put on the map (less those it got out by an exit) for a minute, with no reinforcements still to come, is **spent**: the
+radio says the battle ends in 60 s, and then that side loses. Rallying back to 30 % calls it off. A side that holds
+**every objective**, none contested, after there has been fighting and then three minutes without a shot or a hit,
+has **the field**: after the same minute's notice the points decide, as at the time limit (a defender that has held
+them from the start also needs the attacker beaten down under half its men, so the lull before an attack does not end
+it). Renewed fire or an objective lost calls it off. **Claim victory** (an order, `claimVictory`; the AI never gives
+it) ends the battle at once when your side holds every objective uncontested (a battle without objectives: the enemy
+spent or gone), no enemy man stands within 250 m of one, none are still to come, nobody has fired for a minute and you
+lead on points; otherwise it is refused and the interface says why. Values in `core/behaviour.json` `battleEnd`;
+`systems/battle-end.ts`; every end (these, the defeats, the time limit) settles the wounded and the hulls left on the
+field the same way.
+
 **Mortars and smoke (M6.5; ranging since the "fire-support" step).** The attacker has two platoons. Each side can
 call mortar fire (the line under the top bar shows the rounds left; the attacker has more, and more smoke): pick
 **Fire support** (under Fire), hold or tap the target and choose **HE** or **Smoke** in the little box that opens

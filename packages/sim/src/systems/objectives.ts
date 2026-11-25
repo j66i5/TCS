@@ -12,8 +12,7 @@ import type { EventSink } from "../events";
 import { TICK_HZ, type EntityId, type SideId } from "../ids";
 import { isAble, isOut } from "../impair";
 import { isAssetUnit } from "../offmap";
-import { settleBattle } from "./aftercare";
-import { settleVehicles } from "./recovery";
+import { endBattle } from "./battle-end";
 import { latePending } from "../setup";
 import { exitedOf } from "./exits";
 import type { SimState, SimView } from "../state";
@@ -78,25 +77,13 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
     if (!anyStanding && exits.some((z) => z.side === sd.id) && !latePending(ctx, state, sd.id) && exitedOf(state, sd.id).men > 0) { withdrew.push(sd.id); continue; }
     if ((!anyStanding || allBroken) && !latePending(ctx, state, sd.id)) defeated.push({ side: sd.id, reason: !anyStanding ? "side-eliminated" : "side-broken" });
   }
-  if (defeated.length === 0 && withdrew.length > 0) {
-    state.ended = { tick: state.tick, reason: "side-withdrew" };
-    events.emit({ kind: "battle.ended", tick: state.tick, reason: "side-withdrew" });
-    state.endLoser = null;
-    settleBattle(ctx, state, events);
-    settleVehicles(ctx, state, events);
-    return;
-  }
+  if (defeated.length === 0 && withdrew.length > 0) { endBattle(ctx, state, events, "side-withdrew", null); return; }
   if (defeated.length === 0) return;
   // Both at once: nobody wins by default (the scores decide; a tie is a draw).
   const one = defeated.length === 1 ? defeated[0]! : null;
   const reason = one ? one.reason : defeated.every((d) => d.reason === "side-broken") ? "side-broken" : "side-eliminated";
-  state.ended = { tick: state.tick, reason };
-  events.emit(one ? { kind: "battle.ended", tick: state.tick, reason, loser: one.side } : { kind: "battle.ended", tick: state.tick, reason });
-  state.endLoser = one ? one.side : null;
-  // The wounded still on the field are settled (M10.6b, owner Q-1e / Q-10).
-  settleBattle(ctx, state, events);
-  // The hulls left on the field (M11.7b).
-  settleVehicles(ctx, state, events);
+  // (endBattle settles the wounded and the hulls left on the field.)
+  endBattle(ctx, state, events, reason, one ? one.side : null);
 }
 
 /** The score as it stands (or at the end), and the winner: the side that did not lose early, else the higher score (null = a draw). */

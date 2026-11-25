@@ -659,6 +659,12 @@ export const BehaviourFile = withProv({
     takeS: Num(0.5, 120), leaveMags: z.number().int().min(0).max(10), nestHandM: Num(1, 500), nestCacheM: Num(1, 500), kitM: Num(1, 2000), kitS: Num(0.5, 120),
     note: z.string().optional(), sources: z.array(z.string()).optional(), confidence: z.enum(["high", "medium", "low"]).optional(),
   }).strict().optional(),
+  /** Review 2026-11-24 problem 3: when a decided battle ends, and when a side may claim victory. See BehaviourDef.battleEnd. */
+  battleEnd: z.object({
+    quietS: Num(1, 3600), noticeS: Num(0, 600), spentShare: Num(0, 1), spentForS: Num(0, 600), spentCancelShare: Num(0, 1), defenderEnemyShare: Num(0, 1),
+    claimQuietS: Num(0, 3600), claimClearM: Num(0, 5000),
+    note: z.string().optional(), sources: z.array(z.string()).optional(), confidence: z.enum(["high", "medium", "low"]).optional(),
+  }).strict().optional(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
 

@@ -109,6 +109,9 @@ export interface VictoryRules {
   endOnDefeat: boolean;
   /** Vehicles (M7.4a, owner Q9): points off for each own vehicle destroyed or abandoned (`lost`) or immobilised. */
   vehiclePoints?: { lost: number; immobilised: number };
+  /** Review 2026-11-24 problem 3 (owner Q3): a decided battle ends early ("side-spent", "battle-decided";
+   *  systems/battle-end.ts, `behaviour.battleEnd`). Absent or false: only the defeats above and the time limit. */
+  decided?: boolean;
 }
 
 export interface SimContext {

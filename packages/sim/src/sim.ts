@@ -35,9 +35,9 @@ import { surrenderSystem } from "./systems/surrender";
 import { medicalSystem } from "./systems/medical";
 import { nestSystem } from "./systems/nest";
 import { evacuationSystem } from "./systems/evacuation";
-import { settleBattle } from "./systems/aftercare";
+import { battleEndSystem, endBattle } from "./systems/battle-end";
 import { rearRunSystem } from "./systems/rearrun";
-import { recoverySystem, settleVehicles, towSystem } from "./systems/recovery";
+import { recoverySystem, towSystem } from "./systems/recovery";
 import { mpSystem } from "./systems/mp";
 import { consolidateSystem } from "./systems/consolidate";
 import { requestSystem, supplySystem } from "./systems/supply";
@@ -133,6 +133,8 @@ export function step(sim: Sim): SimEvent[] {
   if (state.vehicle.size > 0 || ctx.ballistics.vehicles.n > 0) rebuildVehicleGrid(ctx, state);
   if (state.tick % TICK_HZ === 0) ctx.comms.update(state, ctx.rules.comms, ctx.catalog);
   receiveOrders(ctx, state, events);
+  // (A claim of victory accepted at reception ended the battle: nothing more happens in it.)
+  if (state.ended) return events.events;
   deliverOrders(ctx, state, events);
   actionSystem(ctx, state, events);
   postureSystem(ctx, state, events);
@@ -205,6 +207,8 @@ export function step(sim: Sim): SimEvent[] {
   boardingSystem(ctx, state, events);
   if (ctx.rules.exits !== undefined && ctx.rules.exits.length > 0) exitSystem(ctx, state, events); // (M12.0b)
   objectiveSystem(ctx, state, events);
+  // A decided battle ends (review 2026-11-24 problem 3; once a second, only with `rules.victory.decided`).
+  battleEndSystem(ctx, state, events);
   if (ctx.rules.prepared !== undefined) positionsSystem(ctx, state, events); // (M11 hold battle)
   // Late arrivals (M11.1): a wave enters at its time (once a second; nothing without late units).
   if (ctx.late.length > 0) arrivalSystem(ctx, state, events);
@@ -220,10 +224,7 @@ export function step(sim: Sim): SimEvent[] {
 
   if (state.ended) return events.events;
   if (state.tick >= secondsToTicks(ctx.rules.timeLimitSeconds)) {
-    state.ended = { tick: state.tick, reason: "time-limit" };
-    events.emit({ kind: "battle.ended", tick: state.tick, reason: "time-limit" });
-    settleBattle(ctx, state, events);
-    settleVehicles(ctx, state, events);
+    endBattle(ctx, state, events, "time-limit", null);
   }
   return events.events;
 }

@@ -218,7 +218,14 @@ export interface SimState {
   stock: Store<Stock>;
   /** M11.1: keys of the late units (`UnitInput.arriveS`) that have entered. Absent: none (or none late). */
   arrived?: string[];
+  /** Review 2026-11-24 problem 3 (systems/battle-end.ts): a decided end under way. `side`: the spent side
+   *  ("side-spent") or the side holding the field ("battle-decided"); `sinceTick`: when its condition first held;
+   *  `noticeTick`: when it was announced (absent: not yet: a spent side's `spentForS`); `endTick`: when it ends.
+   *  Absent: none (saved only when present, so states without one hash as before). */
+  ending?: BattleEnding;
 }
+
+export interface BattleEnding { reason: "side-spent" | "battle-decided"; side: SideId; sinceTick: number; noticeTick?: number; endTick: number }
 
 const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire", "vehicle", "carry", "drone", "rear", "cache", "stock"] as const;
 type StoreKey = (typeof STORE_KEYS)[number];
@@ -300,6 +307,8 @@ export interface SerializedState {
   stores: Record<StoreKey, [EntityId, unknown][]>;
   /** M11.1 (optional, absent in older saves). */
   arrived?: string[];
+  /** Review 2026-11-24 problem 3 (optional: only while an end is under way). */
+  ending?: BattleEnding;
 }
 
 export function serializeState(s: SimState): SerializedState {
@@ -332,6 +341,7 @@ export function serializeState(s: SimState): SerializedState {
       ended: s.ended,
       stores,
       ...(s.arrived !== undefined ? { arrived: s.arrived } : {}),
+      ...(s.ending !== undefined ? { ending: s.ending } : {}),
     },
     "state",
   ) as SerializedState;
@@ -377,6 +387,7 @@ export function deserializeState(data: SerializedState): SimState {
     smoke: d.smoke,
     ended: d.ended,
     ...(d.arrived !== undefined ? { arrived: d.arrived } : {}),
+    ...(d.ending !== undefined ? { ending: d.ending } : {}),
     catalogFingerprint: d.catalogFingerprint,
     mapFingerprint: d.mapFingerprint,
     terrain: d.terrain,

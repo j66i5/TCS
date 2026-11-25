@@ -58,7 +58,8 @@ const LABS: Record<string, () => string> = {
   // M12.0b: `lab -- kinds [seeds] [--kinds a,b] [--maps a,b] [--seconds s] [--vehicles] [--roster] [--company]`: every
   // scenario kind AI against AI on every map kind; stalemates flagged. Review 2026-11-24 problem 2: direct fire only;
   // `--quiet-min m` (default 5), `--min-incoming n`, `--min-return n` set the fail flags (a side that never fired back,
-  // a quiet stretch with both sides on the map); `--strict` exits non-zero when any battle has one.
+  // a quiet stretch with both sides on the map); `--strict` exits non-zero when any battle has one. Review 2026-11-24
+  // problem 3: `--no-decided` switches the decided ends off (the before/after comparison).
   kinds: () => {
     const n = Number(process.argv[3] !== undefined && !process.argv[3].startsWith("--") ? process.argv[3] : 10);
     const kinds = (argOf("kinds") ?? SCENARIO_KINDS.join(",")).split(",");
@@ -70,7 +71,8 @@ const LABS: Record<string, () => string> = {
     const rows = kindsLab(loadData(), {
       kinds, maps, seeds: Array.from({ length: n }, (_, i) => i + 1), seconds: Number(argOf("seconds") ?? 1200), checks,
       vehicles: process.argv.includes("--vehicles"), roster: process.argv.includes("--roster"), ...(process.argv.includes("--company") ? { size: "company" as const } : {}),
-      onRow: (r) => { const f = kindFails(r); console.error(`${r.kind} ${r.map} ${r.seed}${r.roster ? " roster" : ""}: ${r.endReason} ${r.endS}s winner ${r.winner ?? "draw"} able ${r.ableEnd.join("/")} of ${r.men.join("/")} saved ${r.saved.join("/")} direct ${r.direct.join("/")} (men ${r.menDirect.join("/")}) hit ${r.hit.join("/")} closest ${r.closestM} quiet ${r.quietS}${r.stalemate ? " STALEMATE" : ""}${f.length > 0 ? ` FAIL: ${f.join(", ")}` : ""}${r.savedBad ? ` SAVED-NOT-FIT ${r.savedBad}` : ""} (${r.speed}x)`); },
+      noDecided: process.argv.includes("--no-decided"),
+      onRow: (r) => { const f = kindFails(r); console.error(`${r.kind} ${r.map} ${r.seed}${r.roster ? " roster" : ""}: ${r.endReason} ${r.endS}s${r.endingS >= 0 ? ` (ending ${r.endingReason} at ${r.endingS}s)` : ""} tail ${r.tailS}s winner ${r.winner ?? "draw"} able ${r.ableEnd.join("/")} of ${r.men.join("/")} saved ${r.saved.join("/")} direct ${r.direct.join("/")} (men ${r.menDirect.join("/")}) hit ${r.hit.join("/")} closest ${r.closestM} quiet ${r.quietS}${r.stalemate ? " STALEMATE" : ""}${f.length > 0 ? ` FAIL: ${f.join(", ")}` : ""}${r.savedBad ? ` SAVED-NOT-FIT ${r.savedBad}` : ""} (${r.speed}x)`); },
     });
     if (process.argv.includes("--strict") && rows.some((r) => kindFails(r).length > 0)) process.exitCode = 1;
     return `# Scenario kinds lab (M12.0b)\n\n${kindsMarkdown(rows, checks)}\n`;

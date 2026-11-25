@@ -10827,3 +10827,88 @@ Independent verifiers re-measured parts 1-2. What they found, and what was done:
   (village s4, s5, industrial s4).
 - **Goldens:** regenerated (data and behaviour change). `overwatch-bound.test` moved to seed 3 (on seed 2 the first
   bound's order is no longer on the tick its memory notes); `scenario-kinds.test` withdrawal moved to farmland s1.
+
+## 2026-11-25 — The end of a decided battle, Claim victory, the withdrawal's escape (whole-game review, problem 3)
+
+Owner 2026-11-24/25 (Q3): a battle ends on its own once one side has held the objectives with no contact for a few
+minutes, plus a "Claim victory" button; the withdrawal: "a delay usually escapes". Review finding: battles were
+decided early but ran on (the German mounted attack had both objectives by minute 27, then 13 empty minutes to "Time
+ran out"), because only a side wholly broken or with nobody standing ended a battle early; one BMP crew kept it going.
+
+- **Two decided ends** (`sim/src/systems/battle-end.ts`, values in `core/behaviour.json` `battleEnd`, game values,
+  low; on with `rules.victory.decided`, which `buildScenario` and the house-clear battle set: every scenario kind and
+  the campaign; absent in tests and older inputs). Checked once a second after the objectives.
+  - **"side-spent"**: a side's standing men (able, not routed, not a prisoner, on the map) below `spentShare` 0.25 of
+    its committed men (on the map so far, late units that came included, less the men saved by an exit) for
+    `spentForS` 60 s, with no wave of it still to come: a notice (`battle.ending`, a radio line from each side's top
+    leader), then after `noticeS` 60 s it loses (as a broken side). Called off when it is back to `spentCancelShare`
+    0.3 (a margin added in the build: attack farmland s2 flapped around the line, announced at 608 s, called off, again
+    at 708 s and 942 s, ending at 1002 s; with the margin it ends at 668 s).
+  - **"battle-decided"**: one side holds every objective, none contested; there has been contact and then none for
+    `quietS` 180 s; no enemy wave still to come; a side that held them all from the start (the defender in the lull
+    before an attack) also needs the enemy under `defenderEnemyShare` 0.5 of its committed men. Notice, then after
+    60 s the end with no loser: the scores decide, as at the time limit. Called off by renewed contact or an objective
+    lost or contested. Not for objectives that score at a time (the withdrawal) nor battles without objectives (the
+    ambush): the spent rule, the exits and the time limit end those.
+  - Contact is derived, never stored: the latest tick a top unit came under fire, a man on the map fired a direct
+    weapon (mortar tubes excluded), a hull's station fired or the hull was hit.
+  - The countdown is `SimState.ending` (`reason`, `side`, `sinceTick`, `noticeTick`, `endTick`), saved only while
+    present: states without one hash as before. Events: `battle.ending` (`reason`, `winner`/`loser`, `endTick`,
+    `cancelled`); radio keys `radio.battleEnding` ({s}) and `radio.battleEndingCancelled`; timeline lines
+    `timeline.ending.<reason>` / `timeline.endingCancelled.<reason>`.
+  - Every end now goes through `endBattle` (the defeats, the withdrawal, the time limit, these two, the claim): it sets
+    the end and the loser, emits `battle.ended` and settles the wounded and the hulls left on the field
+    (`settleBattle`, `settleVehicles`). `BattleEndReason` gains "side-spent", "battle-decided", "victory-claimed".
+- **Claim victory**: a new order `{ kind: "claimVictory" }` to any own unit (the AI never gives it). `claimStatus(ctx,
+  state, side)` (exported, pure) says whether the side may claim: refusals in order "ended", "unavailable", "no-contact-
+  yet", "exit-side" (its goal is an exit that scores: the delay, the ambushed; a break-off exit, worth nothing, is no
+  goal: found in the build, the attacker's break-off exit had blocked every attacker's claim), "objectives" (every
+  objective held uncontested; without objectives: the enemy spent or gone), "enemy-near" (an enemy man standing within
+  `claimClearM` 250 m of an objective), "late-enemy", "contact" (within `claimQuietS` 60 s; `secondsLeft`), "score"
+  (it must lead on points, so a claim never gives the battle to a side the scores would not). Refused orders are
+  rejected "not-decided"; an accepted one ends the battle at reception (no comms delay), the other side losing. It is
+  in the order stream: replays and saves reproduce it.
+- **The review's reason line** (`app/src/review.ts`): "Both sides were finished at once" only for side-broken or
+  side-eliminated with no loser (it mislabelled "side-withdrew" before, and would have "battle-decided"); reason strings
+  get `{winner}` too.
+- **Measured** (`lab -- kinds 2 --kinds attack,defence-counterattack,meeting,ambush --seconds 2400`, foot, 4 maps x
+  seeds 1-2, against the same battles before the change; the lab now shows the ending announced and its reason, the
+  tail after the last direct round or hit, and takes `--no-decided`; batch and headless take it too):
+
+  | kind | battles | ran to the time limit before / after | battle time before / after (s) |
+  |---|---|---|---|
+  | attack | 8 | 6 / 1 | 16230 / 12563 (-23 %) |
+  | defence-counterattack | 8 | 6 / 1 | 17866 / 13206 (-26 %) |
+  | meeting | 8 | 3 / 0 | 14427 / 12509 (-13 %) |
+  | ambush | 8 | 1 / 1 | 6955 / 6955 |
+
+  No winner changed in any of the 32 (every battle that ended early before ends identically). Ends after: attack 3
+  decided, 2 spent; counter-attack 4 decided, 1 spent; meeting 3 decided. Attack farmland s2: 2400 -> 668 s.
+  The three left at the limit fought on to it (farmland s1 attack and counter-attack, ambush woodland s2).
+  Known limit (not changed): a mounted defence with sporadic long-range fire every 2-3 minutes never goes quiet for
+  180 s; a later `contactRangeM` could ignore fire far from every objective.
+- **Withdrawal: a delay usually escapes** (owner 2026-11-25). The follower on foot starts `SCENARIO_KIND.followFootStartM`
+  800 m short of the main objective (was 400: the 2:1 attack fell on the delay at once and destroyed 5 platoons of 12
+  before their time); the pursuit is more cautious (`POSTURES_AI` followQuietS 30 -> 90, followRunS 90 -> 30,
+  followResendS 10 -> 20, followRetargetM 60 -> 100, followNearM 500 -> 300). The design sweep picked this ("C5").
+  `lab -- kinds 3 --kinds withdrawal` (4 maps x seeds 1-3; delaying side's men out, of 236):
+
+  | | limit | more than half out | men out | both sides fired and closest < 300 m |
+  |---|---|---|---|---|
+  | before (start 400) | 1200 | 2/12 | 52 | - |
+  | after | 1200 | 8/12 | 156 | 9/12 |
+  | after | 900 | 7/12 | 121 | 9/12 |
+
+  At 900 s one short of the 8/12 aimed at (the design sweep gave 9/12 there; 12 battles a cell are noisy, about +-2).
+  Still caught: industrial s1 (eliminated mid-withdrawal at about 700 s in every configuration: the geometry), village
+  s1, woodland s3 at 900 s. No contact at all in village s3 and woodland s2 (the delay left unseen). Follow-up lever,
+  not tried: the follower fixes by fire and does not assault before `untilS`.
+- Data: `core/behaviour.json` `battleEnd`, strings (`aar.reason.*`, `timeline.ending*`, `radio.battleEnding*`,
+  `claim.button`, `claim.confirm`, `claim.reason.<code>`, `notice.battleEnding`): the catalog fingerprint changed, so
+  `npm run golden:update`; only the checkpoint hashes and the fingerprint changed in the 12 goldens (their orders and
+  events within the horizon are the same: none ends early).
+- Tests: `sim/test/battle-end.test.ts` (spent, called off, decided, none without contact or with the rule off, the
+  defender's lull, called off by contact, save/load mid-countdown, claim refused/accepted/replayed);
+  `tools/test/battle-end-campaign.test.ts` (a claimed and a spent battle through the campaign flow: the node won, the
+  books balance). `commander.test.ts` and `attack-d4a.test.ts` rig a defence spent from the start to watch the attack's
+  phases: they switch the decided ends off.

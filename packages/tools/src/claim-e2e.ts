@@ -3,7 +3,8 @@
  *
  * 1. Claim victory: the platoon battle on foot with the player defending and the enemy commander off. The button is
  *    greyed at the start ("no fighting yet"; a tap says why on the radio); the player's men fire, the field stays quiet
- *    for a minute: the button is offered (the radio says so; on a phone "⋯" is marked); a tap asks first, then the
+ *    for a minute: still greyed while the enemy is at full strength (the defender's lull); most of the enemy gives up:
+ *    the button is offered (the radio says so; on a phone "⋯" is marked); a tap asks first, then the
  *    battle ends at once and the review says "Victory claimed: ...".
  * 2. The automatic end: the same battle, most enemy men give up: the side is spent, the end is announced (the score
  *    line's notice, a radio line) and a minute later the battle ends by itself, the review says how.
@@ -72,6 +73,13 @@ export async function claimE2e(page: ClaimPage, o: ClaimE2eOptions): Promise<str
   };
   /** The player's men fire at the middle of the map (contact), then a quiet field. */
   const fireOnce = () => page.evaluate(fn(`const t = globalThis.__tcs, m = t.sim.ctx.map; t.fireAt(m.widthM / 2, m.heightM / 2); t.select(null);`));
+  /** The enemy beaten down (a debug shortcut): `share` of its men are out, those on foot giving up, those aboard a hull
+   *  knocked out (a defender's claim needs the enemy below half its men, review 2026-11-25; a quarter or less is spent). */
+  const beatDown = (share: number) => page.evaluate(fn<number>(`const t = globalThis.__tcs, s = t.sim.state, me = t.playerSide();
+    const foe = [...s.identity.entries()].filter(([id, i]) => i.side !== me && s.soldier.has(id) && s.weapon.has(id)).map(([id]) => id);
+    const n = Math.ceil(foe.length * ${share});
+    for (const id of foe.slice(0, n)) { if (s.soldier.get(id).mount === undefined) t.giveUp(id); else t.hurt(id, {}, true); }
+    return n;`));
   // The claim's confirm is accepted.
   page.on("dialog", (d) => { void d.accept(); });
 
@@ -97,7 +105,13 @@ export async function claimE2e(page: ClaimPage, o: ClaimE2eOptions): Promise<str
     const c1 = await claim();
     check(!c1.ok && c1.reason === "contact", `in contact: no claim (${JSON.stringify(c1)})`);
     pass(`in contact: greyed ("${(await button()).label}")`);
-    // A quiet field: the fire stops within ~100 s; a minute of quiet after it.
+    // A quiet field: the fire stops within ~100 s; a minute of quiet after it. The player has held the objectives from
+    // the start: its shots at empty ground win nothing, the enemy at full strength refuses the claim (review 2026-11-25).
+    let cq = await claim();
+    for (let k = 0; k < 30 && !cq.ok && cq.reason === "contact"; k++) { await step(10); cq = await claim(); }
+    check(!cq.ok && cq.reason === "enemy-strong", `quiet, the enemy at full strength: no claim (${JSON.stringify(cq)})`);
+    pass(`quiet but the enemy at full strength: greyed ("${(await button()).label}")`);
+    const beaten = await beatDown(0.6);
     let c2 = await claim();
     for (let k = 0; k < 30 && !c2.ok; k++) { await step(10); c2 = await claim(); }
     check(c2.ok, `the quiet field held: the claim is offered (${JSON.stringify(c2)})`);
@@ -106,7 +120,8 @@ export async function claimE2e(page: ClaimPage, o: ClaimE2eOptions): Promise<str
     check(b2.label === "Claim victory", `offered: "${b2.label}"`);
     check(!b2.inMenu || b2.marked, "on a narrow screen the ⋯ button is marked while the claim is behind it");
     check((await radio()).includes("you can claim victory"), "the radio says the claim is offered");
-    pass(`claim offered after the quiet minute${b2.inMenu ? " (behind ⋯, marked)" : ""}`);
+    check((await radio()).includes(b2.inMenu ? "under ⋯" : "in the top bar"), "the radio line names where the button is");
+    pass(`claim offered after the quiet minute and ${beaten} enemy men out${b2.inMenu ? " (behind ⋯, marked)" : ""}`);
     await shot("1-offered");
     if (b2.inMenu) { await page.click(".hud-bar > .hud-more-btn"); await shot("2-offered-menu"); }
     await pressClaim();
@@ -160,8 +175,14 @@ export async function claimE2e(page: ClaimPage, o: ClaimE2eOptions): Promise<str
     check(side.objectives.length > 0 && side.objectives.every((x) => x.holder === side.side), `the campaign's first battle: the player holds the objectives (${JSON.stringify(side)})`);
     await page.evaluate(fn("const t = globalThis.__tcs; t.setSpeed(0); t.aiOff(); t.stepTicks(1);"));
     await fireOnce();
+    // (A quiet field first; the player defends: the enemy beaten down then, as in the first part.)
     let c = await claim();
-    for (let k = 0; k < 40 && !c.ok; k++) { await step(10); c = await claim(); }
+    for (let k = 0; k < 40 && !c.ok && c.reason !== "enemy-strong"; k++) { await step(10); c = await claim(); }
+    check(!c.ok && c.reason === "enemy-strong", `the campaign defence: no claim against the enemy at full strength (${JSON.stringify(c)})`);
+    await beatDown(0.6);
+    // (Claimed at once: a minute later the automatic "battle decided" end would come first.)
+    c = await claim();
+    for (let k = 0; k < 10 && !c.ok; k++) { await step(2); c = await claim(); }
     check(c.ok, `the campaign battle can be claimed (${JSON.stringify(c)})`);
     await waitButton(false);
     await pressClaim();

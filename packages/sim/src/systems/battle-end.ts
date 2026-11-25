@@ -8,7 +8,8 @@
  * - "side-spent": a side's standing men (able, not routed, not a prisoner, on the map) stay below `spentShare` of the
  *   men it has committed (on the map so far, late units that have come included, less the men saved by an exit) for
  *   `spentForS`, with no wave of it still to come. Then a notice (`battle.ending`, a radio line to each side) and, after
- *   `noticeS`, the end: the spent side loses (as "side-broken"). Called off if it climbs back to `spentCancelShare`
+ *   `noticeS`, the end: the spent side loses (as "side-broken"; a side whose goal is a scoring exit, the delay or the
+ *   ambushed, loses nothing: the scores decide, as "side-withdrew"). Called off if it climbs back to `spentCancelShare`
  *   (rallied men, arrivals; a margin over `spentShare` against flapping).
  * - "battle-decided": one side holds every objective, none contested, there has been contact and then none for
  *   `quietS`, and no enemy wave is still to come; a side that held them all from the start (the defender, in the lull
@@ -88,6 +89,18 @@ export function sideStrength(state: SimView, side: SideId): { standing: number; 
 
 const otherSide = (state: SimView, side: SideId): SideId | null => state.sides.find((s) => s.id !== side)?.id ?? null;
 
+/** Is the side's goal an exit that scores (the delay in the withdrawal, the ambushed)? A break-off exit, worth nothing,
+ *  is no goal. */
+function exitGoal(ctx: SimContext, side: SideId): boolean {
+  return (ctx.rules.exits ?? []).some((z) => z.side === side && ((z.pointsPerMan ?? 0) > 0 || (z.pointsPerVehicle ?? 0) > 0));
+}
+
+/** The loser of a spent end: the spent side, unless its goal is to get out by an exit (the delay that held its time and
+ *  is leaving, the ambushed breaking out): then nobody, the scores decide (as "side-withdrew"). */
+function spentLoser(ctx: SimContext, side: SideId): SideId | null {
+  return exitGoal(ctx, side) ? null : side;
+}
+
 function isSpent(ctx: SimContext, state: SimView, side: SideId, share: number): boolean {
   if (latePending(ctx, state, side)) return false;
   const { standing, committed } = sideStrength(state, side);
@@ -134,9 +147,12 @@ function radioAll(state: SimState, events: EventSink, key: string, params: Recor
   }
 }
 
-function announce(state: SimState, events: EventSink, e: NonNullable<SimState["ending"]>, cancelled: boolean): void {
+function announce(ctx: SimContext, state: SimState, events: EventSink, e: NonNullable<SimState["ending"]>, cancelled: boolean): void {
   const other = otherSide(state, e.side);
-  const who = e.reason === "side-spent" ? { loser: e.side, ...(other !== null ? { winner: other } : {}) } : { winner: e.side };
+  const who = e.reason === "side-spent"
+    // (`loser` is the spent side; a side whose goal is its exit loses nothing at the end: no winner named, the scores.)
+    ? { loser: e.side, ...(other !== null && !exitGoal(ctx, e.side) ? { winner: other } : {}) }
+    : { winner: e.side };
   events.emit({ kind: "battle.ending", tick: state.tick, reason: e.reason, ...who, endTick: e.endTick, ...(cancelled ? { cancelled: true as const } : {}) });
   radioAll(state, events, cancelled ? "radio.battleEndingCancelled" : "radio.battleEnding", { s: Math.max(0, Math.round((e.endTick - state.tick) / TICK_HZ)) });
 }
@@ -155,23 +171,23 @@ export function battleEndSystem(ctx: SimContext, state: SimState, events: EventS
       ? isSpent(ctx, state, e.side, Math.max(B.spentShare, B.spentCancelShare))
       : fieldDecided(ctx, state, e.side) && lastContactTick(state) < (e.noticeTick ?? e.sinceTick);
     if (!holds) {
-      if (e.noticeTick !== undefined) announce(state, events, e, true);
+      if (e.noticeTick !== undefined) announce(ctx, state, events, e, true);
       delete state.ending;
       return;
     }
     if (e.noticeTick === undefined) {
       if (now - e.sinceTick < Math.round(B.spentForS * TICK_HZ)) return;
       e.noticeTick = now; e.endTick = now + noticeT;
-      announce(state, events, e, false);
+      announce(ctx, state, events, e, false);
     }
-    if (now >= e.endTick) endBattle(ctx, state, events, e.reason, e.reason === "side-spent" ? e.side : null);
+    if (now >= e.endTick) endBattle(ctx, state, events, e.reason, e.reason === "side-spent" ? spentLoser(ctx, e.side) : null);
     return;
   }
   // A side spent (only one: both at once is left to the defeats and the time limit).
   const spent = state.sides.filter((sd) => isSpent(ctx, state, sd.id, B.spentShare));
   if (spent.length === 1) {
     state.ending = { reason: "side-spent", side: spent[0]!.id, sinceTick: now, endTick: now + Math.round(B.spentForS * TICK_HZ) + noticeT };
-    if (B.spentForS <= 0) { state.ending.noticeTick = now; state.ending.endTick = now + noticeT; announce(state, events, state.ending, false); }
+    if (B.spentForS <= 0) { state.ending.noticeTick = now; state.ending.endTick = now + noticeT; announce(ctx, state, events, state.ending, false); }
     return;
   }
   // The field held and the fighting over.
@@ -180,20 +196,24 @@ export function battleEndSystem(ctx: SimContext, state: SimState, events: EventS
   const last = lastContactTick(state);
   if (last <= 0 || now - last < Math.round(B.quietS * TICK_HZ)) return;
   state.ending = { reason: "battle-decided", side: x, sinceTick: now, noticeTick: now, endTick: now + noticeT };
-  announce(state, events, state.ending, false);
+  announce(ctx, state, events, state.ending, false);
   if (noticeT <= 0) endBattle(ctx, state, events, "battle-decided", null);
 }
 
-export type ClaimRefusal = "ended" | "unavailable" | "no-contact-yet" | "exit-side" | "objectives" | "enemy-near" | "late-enemy" | "contact" | "score";
+export type ClaimRefusal = "ended" | "unavailable" | "no-contact-yet" | "exit-side" | "objectives" | "hold-time" | "enemy-strong"
+  | "enemy-escaping" | "enemy-near" | "late-enemy" | "late-own" | "contact" | "score";
 export type ClaimStatus = { ok: true } | { ok: false; reason: ClaimRefusal; secondsLeft?: number };
 
 /**
  * May `side` claim victory now? The reasons, checked in this order: the battle is over; no victory rules or no
  * `battleEnd` data ("unavailable"); no contact yet; its goal is an exit that scores (its win is getting out; a
  * break-off exit, worth nothing, is no goal); it does not hold
- * every objective uncontested (a battle without objectives: the enemy is not spent nor gone from the map); an enemy
- * man stands within `claimClearM` of an objective; an enemy wave is still to come; contact within `claimQuietS`
- * (`secondsLeft`); it would not win on points now. Pure (the order's validation and the interface both use it).
+ * every objective uncontested (a battle without objectives: the enemy is not spent nor gone from the map); an
+ * objective scores at a time not yet come ("hold-time"); an enemy man stands within `claimClearM` of an objective; an
+ * enemy wave is still to come; a wave of its own is still to come ("late-own"); contact within `claimQuietS`
+ * (`secondsLeft`); it held every objective from the start and the enemy is not below `defenderEnemyShare` of its
+ * committed men ("enemy-strong": the defender in the lull, review 2026-11-25); the enemy's goal is a scoring exit and
+ * it is not spent ("enemy-escaping"); it would not win on points now. Pure (the order's validation and the interface both use it).
  */
 export function claimStatus(ctx: SimContext, state: SimView, side: SideId): ClaimStatus {
   if (state.ended) return { ok: false, reason: "ended" };
@@ -203,10 +223,14 @@ export function claimStatus(ctx: SimContext, state: SimView, side: SideId): Clai
   const last = lastContactTick(state);
   if (last <= 0) return { ok: false, reason: "no-contact-yet" };
   // (An exit that scores is the side's goal: the delay, the ambushed. A break-off exit, worth nothing, is not.)
-  if ((ctx.rules.exits ?? []).some((z) => z.side === side && ((z.pointsPerMan ?? 0) > 0 || (z.pointsPerVehicle ?? 0) > 0))) return { ok: false, reason: "exit-side" };
+  if (exitGoal(ctx, side)) return { ok: false, reason: "exit-side" };
   const defs = ctx.rules.objectives;
+  const e = sideStrength(state, enemy);
+  const enemySpent = e.standing === 0 || (e.committed > 0 && e.standing < B.spentShare * e.committed);
   if (defs.length > 0) {
     if (fieldHolder(state) !== side) return { ok: false, reason: "objectives" };
+    // (An objective that scores at a time is not decided before it: the withdrawal's hold.)
+    if (defs.some((o) => o.untilS !== undefined && state.tick < Math.round(o.untilS * TICK_HZ))) return { ok: false, reason: "hold-time" };
     const r2 = B.claimClearM * B.claimClearM;
     // mounted: ok (an enemy aboard a hull near the objective stands there too)
     for (const [id, ident] of state.identity.entries()) {
@@ -215,13 +239,18 @@ export function claimStatus(ctx: SimContext, state: SimView, side: SideId): Clai
       if (!s || !t || !isAble(s) || s.mental.behaviour === "routed" || isOffMapMan(state, s)) continue;
       if (defs.some((o) => (t.x - o.x) * (t.x - o.x) + (t.y - o.y) * (t.y - o.y) <= r2)) return { ok: false, reason: "enemy-near" };
     }
-  } else {
-    const e = sideStrength(state, enemy);
-    if (!(e.standing === 0 || (e.committed > 0 && e.standing < B.spentShare * e.committed))) return { ok: false, reason: "objectives" };
-  }
+  } else if (!enemySpent) return { ok: false, reason: "objectives" };
   if (latePending(ctx, state, enemy)) return { ok: false, reason: "late-enemy" };
+  if (latePending(ctx, state, side)) return { ok: false, reason: "late-own" };
   const quietT = Math.round(B.claimQuietS * TICK_HZ);
   if (state.tick - last < quietT) return { ok: false, reason: "contact", secondsLeft: Math.ceil((quietT - (state.tick - last)) / TICK_HZ) };
+  if (defs.length > 0) {
+    // (The defender in the lull before the attack holds everything too, as for "battle-decided": it also needs the
+    // enemy beaten down; its own shots into empty ground are no victory.)
+    if (defs.every((o) => o.holder === side) && !(e.committed > 0 && e.standing < B.defenderEnemyShare * e.committed)) return { ok: false, reason: "enemy-strong" };
+    // (An enemy whose goal is to get out by its exit still scores while it walks there: not before it is spent.)
+    if (exitGoal(ctx, enemy) && !enemySpent) return { ok: false, reason: "enemy-escaping" };
+  }
   const sc = battleScore(ctx, state).scores;
   const mine = sc.find((s) => s.side === side)?.score ?? 0;
   if (!sc.every((s) => s.side === side || s.score < mine)) return { ok: false, reason: "score" };

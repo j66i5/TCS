@@ -111,6 +111,20 @@ describe("the end of a decided battle (review 2026-11-24 problem 3)", () => {
     expect(sim.state.ended).toBeNull();
   });
 
+  it("a spent side whose goal is its exit loses nothing: the scores decide (the delay leaving, review 2026-11-25)", () => {
+    const sim = createSim(setup(null, (i) => { i.rules.exits = [{ side: "red", x0: 150, y0: 190, x1: 200, y1: 200, pointsPerMan: 5 }]; }));
+    run(sim, 2);
+    downMen(sim, redMen(sim).slice(1));
+    const ev = run(sim, 200);
+    const ending = ev.find((e) => e.kind === "battle.ending");
+    expect(ending).toMatchObject({ reason: "side-spent", loser: "red" });
+    expect(ending && "winner" in ending ? ending.winner : undefined).toBeUndefined();
+    const end = ev.find((e) => e.kind === "battle.ended");
+    expect(end).toMatchObject({ reason: "side-spent" });
+    expect(end && "loser" in end ? end.loser : undefined).toBeUndefined();
+    expect(sim.state.endLoser).toBeNull();
+  });
+
   it("a battle saved during the notice goes on identically after a load (the countdown is saved)", () => {
     const input = setup();
     const sim = createSim(input);
@@ -170,6 +184,31 @@ describe("Claim victory (owner Q3)", () => {
     sim2.ctx.rules.victory!.casualtyPoints = 40;
     downMen(sim2, top(sim2, "blue")[1].members);
     expect(claimStatus(sim2.ctx, sim2.state, "blue")).toEqual({ ok: false, reason: "score" });
+  });
+
+  it("the defender in the lull before the attack may not claim: its own shots at empty ground win nothing (review 2026-11-25)", () => {
+    const sim = createSim(setup("blue"));
+    run(sim, 1);
+    contact(sim); // (its own burst at nothing)
+    run(sim, 70);
+    expect(claimStatus(sim.ctx, sim.state, "blue")).toEqual({ ok: false, reason: "enemy-strong" });
+    // 5 of 8 standing: still more than half.
+    downMen(sim, redMen(sim).slice(5));
+    expect(claimStatus(sim.ctx, sim.state, "blue")).toEqual({ ok: false, reason: "enemy-strong" });
+    // 3 of 8: under half, the enemy beaten down: the claim is open.
+    downMen(sim, redMen(sim).slice(3));
+    expect(claimStatus(sim.ctx, sim.state, "blue")).toEqual({ ok: true });
+  });
+
+  it("no claim before an objective's set time, nor against an enemy still getting out by its exit", () => {
+    const timed = createSim(setup("blue", (i) => { i.rules.objectives[0]!.untilS = 300; }));
+    run(timed, 1); contact(timed); downMen(timed, redMen(timed).slice(3)); run(timed, 70);
+    expect(claimStatus(timed.ctx, timed.state, "blue")).toEqual({ ok: false, reason: "hold-time" });
+    const exiting = createSim(setup(null, (i) => { i.rules.exits = [{ side: "red", x0: 150, y0: 190, x1: 200, y1: 200, pointsPerMan: 5 }]; }));
+    run(exiting, 1); contact(exiting); run(exiting, 70);
+    expect(claimStatus(exiting.ctx, exiting.state, "blue")).toEqual({ ok: false, reason: "enemy-escaping" });
+    downMen(exiting, redMen(exiting).slice(1));
+    expect(claimStatus(exiting.ctx, exiting.state, "blue")).toEqual({ ok: true });
   });
 
   it("a claimed battle gives a valid result: the claimant wins, the roster comes back", () => {

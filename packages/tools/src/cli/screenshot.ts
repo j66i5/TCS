@@ -2499,7 +2499,9 @@ try {
       // Review 2026-11-24 problem 3: Claim victory and the automatic end (claim-e2e.ts, with its checks): the phone in
       // portrait (photo) and landscape (flat), the desktop in both looks; the campaign part once (phone).
       const views: [string, { width: number; height: number }, "photo" | "flat", ("claim" | "auto" | "campaign")[]][] = name === "phone"
-        ? [["phone", vp, "photo", ["claim", "auto", "campaign"]], ["landscape", { width: 844, height: 390 }, "flat", ["claim", "auto"]]]
+        ? [["phone", vp, "photo", ["claim", "auto", "campaign"]], ["landscape", { width: 844, height: 390 }, "flat", ["claim", "auto"]],
+          // (A short phone in landscape: the "⋯" list with Claim victory must scroll, not lose Menu below the screen.)
+          ["landscape360", { width: 780, height: 360 }, "photo", ["claim"]]]
         : [["desktop", vp, "photo", ["claim", "auto"]], ["desktop", vp, "flat", ["claim"]]];
       for (const [vn, v, look, parts] of views) {
         const p2 = await browser.newPage({ viewport: v, deviceScaleFactor: scale, hasTouch: name === "phone" });

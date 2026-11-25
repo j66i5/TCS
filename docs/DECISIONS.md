@@ -10928,3 +10928,44 @@ ran out"), because only a side wholly broken or with nobody standing ended a bat
   a campaign's first battle claimed -> "Back to the campaign" -> what changed); its pictures in
   `npm run screenshot -- --scene ui` (`claim-<phone|landscape|desktop>-<look>-*.png`). Debug hooks: `__tcs.claim()`,
   `ended()`, `ending()`, `objectives()`, `playerSide()`, `aiOff()`.
+- **Verification fixes** (same day; an independent check found a defender could claim in the lull, a spent delay lost,
+  and the withdrawal target still missed on new seeds).
+  - **Claim, the defender in the lull** (critical): `claimStatus` lacked the guard the automatic end has. A defender
+    met every condition from the first shot (its own burst at empty ground was "contact"): attack village s9, red
+    could claim at 355 s against 42 of 42 attackers 339 m away; in the campaign any defence node could be won so. Now
+    refused "enemy-strong" while a side that has held every objective since the start faces an enemy at or above
+    `defenderEnemyShare` (half) of its committed men. Also new: "hold-time" (an objective that scores at a time, the
+    withdrawal, before it), "enemy-escaping" (the enemy's goal is a scoring exit and it is not spent: its men still
+    walking out would score after the claim), "late-own" (the claimant's own wave still to come). Strings
+    `claim.reason.<code>`.
+  - **A spent side whose goal is its exit** (major): `isSpent` ignored the goal, so the delay that had held its time
+    and was leaving lost as "side-spent" (withdrawal village s7: the only winner changed of 40). Now such a side (a
+    scoring exit: the delay, the ambushed) is still announced spent (`battle.ending` with `loser` its side, no
+    `winner`), but the end has no loser: the scores decide, as "side-withdrew". Review/timeline line
+    `aar.reason.side-spent.noLoser`. Routed men still count as not standing (kept: a rallying side climbs back over
+    `spentCancelShare`; the minor "spent ends land in fire" left as designed for a beaten side).
+  - **The withdrawal on foot** (major): the delay's men went back far slower than planned. Probe (farmland s11): the
+    whole platoon was put in the withdraw drill when its top unit was in contact, bounding 16 m at a time, 0.6 m/s,
+    for 370 s; and its latest start assumed 2 m/s. Now one squad in contact, the nearest the enemy, is the rear guard
+    (the drill, 150 m), the rest run at once; `POSTURES_AI.withdrawPaceMps` 2 -> 1.4. Tried and rejected: rear guard
+    60 m alone (7/12), pace 1 (40/44 out but the delay left at `untilS` before any contact in 7 of 44), a slower
+    pursuit (no effect). Measured with the kinds lab's runner, on foot, 4 maps, delaying side's men out:
+
+    | | limit | seeds | more than half out | men out | Russia delays (19 v 42) | Germany delays (21 v 38) | no direct fire at all |
+    |---|---|---|---|---|---|---|---|
+    | before (verifier's run) | 900 | 9-11 | 7/12 | 139/240 | - | - | - |
+    | after | 900 | 9-11 | 10/12 | 190/236 | 6/8 | 4/4 | 1 |
+    | after | 900 | 1-11 | 36/44 | 676/876 | 18/24 | 18/20 | 5 |
+    | after | 1200 | 1-6 | 20/24 | 372/480 | 9/12 | 11/12 | 2 |
+
+    The pursuer fired at least 10 direct rounds and somebody was hit in 36 of the 44 at 900 s. Still caught: industrial
+    and village s1 (eliminated about 700 s, Russia delaying), farmland s2/s11 and industrial s4 at 900 s. No contact at
+    all where woodland or the village's houses hide the delay (woodland s2, s3, s4, s9; village s3).
+  - **Interface**: the "⋯" list fits a short screen (780x360: Menu fell below the screen with Claim victory in the
+    list): two columns at a height of 420 px or less, and `max-height` with `overflow-y` as a last resort; the "claim offered" radio line names
+    where the button is (`claim.available` in the bar, `claim.availableMore` under "⋯"; the desktop has no "⋯").
+    `claim-e2e`: the defender's claim is refused "enemy-strong" in the quiet field, offered once most of the enemy has
+    given up (also in the campaign part); the screenshot scene adds a 780x360 landscape.
+  - Tests: `sim/test/battle-end.test.ts` (a spent exit side ends with no loser; the defender in the lull may not claim
+    until the enemy is under half; no claim before an objective's time nor against an enemy still getting out).
+    Goldens unchanged (strings are outside the fingerprint; no golden scenario is a withdrawal).

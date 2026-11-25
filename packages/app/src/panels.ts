@@ -253,7 +253,7 @@ export function showClaim(a: App): void {
   a.hud.setClaim({ ok: c.ok, reason: c.ok ? "" : claimReasonText(a, c) });
   if (c.ok && !a.claimOffered) {
     a.claimOffered = true;
-    a.hud.radio(a.strings.t("claim.available"), ticksToSeconds(a.sim.state.tick), "#f5d061");
+    a.hud.radio(a.strings.t(a.hud.claimInMenu() ? "claim.availableMore" : "claim.available"), ticksToSeconds(a.sim.state.tick), "#f5d061");
   }
 }
 

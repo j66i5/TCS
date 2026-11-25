@@ -41,11 +41,15 @@ export const POSTURES_AI = {
   followNearM: 300, followShortM: 80,
   /** Review 2026-11-24 problem 2 (the pursuit). The withdrawing side holds until it has been in contact this long (s),
    *  or the enemy is this close (m); at the latest it goes when the time left would only just get its farthest man out
-   *  at `withdrawPaceMps` plus `withdrawMarginS`. Squads in contact at the start break it by the withdraw drill this
-   *  far toward the exit (the rear guard), then run on. */
+   *  at `withdrawPaceMps` plus `withdrawMarginS`. One squad in contact at the start (the nearest the enemy) breaks it
+   *  by the withdraw drill this far toward the exit (the rear guard), then runs on; the others run at once.
+   *  Review 2026-11-25 ("a delay usually escapes"): the pace 2 -> 1.4 m/s (the men's real pace, bounds and halts
+   *  included, was 0.6-2 m/s: they started too late at 900 s; 1 m/s left at `untilS` before any contact in 7 of 44),
+   *  one rear-guard squad (every squad in contact, and the
+   *  whole platoon when its top unit was, went back by the drill, 16 m bounds: 0.6 m/s, caught). */
   delayContactS: 60, withdrawCloseM: 150, delayKnownM: 400,
   /** The delaying side's range of fire at will (m; the defence's own is `COMMANDER.defenceRangeM`). */
-  delayRangeM: 600, withdrawPaceMps: 2, withdrawMarginS: 60, rearGuardM: 150,
+  delayRangeM: 600, withdrawPaceMps: 1.4, withdrawMarginS: 60, rearGuardM: 150,
   /** The follower takes up the pursuit once no man of its side has seen an enemy (nor been fired on) for this long
    *  after `untilS`, or this long after `untilS` without any contact yet; it runs while its last contact is this
    *  recent (s), else walks; a unit's goal is re-sent when it moves this far (m), at most every `followResendS`.
@@ -326,18 +330,31 @@ export function sideCommander(side: SideId, input: BattleInput): Controller {
           mem.phase = "mount"; mem.phaseTick = tick; mem.mountUntil = tick + secondsToTicks(POSTURES_AI.mountWaitS);
           out.push(...fireFree(view, side, tick, true));
           const mounting = mountNear(view, tick, out);
-          // Squads on foot in contact break it by bounds under covering fire (the rear guard), the rest run.
           const fresh = secondsToTicks(POSTURES_AI.followQuietS);
-          for (const u of movers(view, side)) {
-            if (u.vehicle !== undefined || mounting.has(u.id)) continue;
-            const x = view.unit.get(u.id)!;
-            const hot = (x.underFireTick > 0 && tick - x.underFireTick <= fresh) || (x.seenContactTick !== undefined && tick - x.seenContactTick <= fresh);
+          const hotUnit = (id: EntityId): boolean => {
+            const x = view.unit.get(id)!;
+            return (x.underFireTick > 0 && tick - x.underFireTick <= fresh) || (x.seenContactTick !== undefined && tick - x.seenContactTick <= fresh);
+          };
+          // One squad in contact, the one nearest the enemy its side knows, covers the others by the withdraw drill; they
+          // run (review 2026-11-25: the whole platoon bounding back 16 m at a time made 0.6 m/s and was caught).
+          const known = knownEnemies(view, side);
+          const squads = movers(view, side).filter((u) => u.vehicle === undefined && !u.hasKids && !mounting.has(u.id));
+          let guard: (typeof squads)[number] | null = null, bd = Infinity;
+          for (const u of squads) {
+            let hot = false;
+            for (let a: EntityId | null = u.id; a !== null && !hot; a = view.unit.get(a)?.parent ?? null) hot = hotUnit(a);
             if (!hot) continue;
-            const g = zonePoint(exit, u.x, u.y, W, H), d = hypot2(g.x - u.x, g.y - u.y);
-            if (d < 30) continue;
-            const k = Math.min(1, POSTURES_AI.rearGuardM / d);
-            out.push({ tick, issuer: side, target: u.id, kind: "withdraw", x: u.x + (g.x - u.x) * k, y: u.y + (g.y - u.y) * k });
-            mem.last[String(u.id)] = tick;
+            let d = Infinity;
+            for (const e of known) d = Math.min(d, hypot2(e.x - u.x, e.y - u.y));
+            if (guard === null || d < bd) { bd = d; guard = u; }
+          }
+          if (guard !== null) {
+            const g = zonePoint(exit, guard.x, guard.y, W, H), d = hypot2(g.x - guard.x, g.y - guard.y);
+            if (d >= 30) {
+              const k = Math.min(1, POSTURES_AI.rearGuardM / d);
+              out.push({ tick, issuer: side, target: guard.id, kind: "withdraw", x: guard.x + (g.x - guard.x) * k, y: guard.y + (g.y - guard.y) * k });
+              mem.last[String(guard.id)] = tick;
+            }
           }
         }
         out.push(...sendOn(view, side, tick, mem, (x, y) => zonePoint(exit, x, y, W, H), "run", (id) => waitingRiders(view, tick, id)));

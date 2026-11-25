@@ -209,6 +209,8 @@ export interface Hud {
   setContours(on: boolean): void;
   /** Claim victory: the button offered or greyed with its reason (null: hidden, e.g. the battle is over). */
   setClaim(c: ClaimView | null): void;
+  /** Whether the Claim victory button sits behind "⋯" now (a narrow screen). */
+  claimInMenu(): boolean;
 }
 
 export interface ContextAction { icon: string; key: string; x: number; y: number; run(): void }
@@ -834,6 +836,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       }
       if (wasHidden !== claimBtn.hidden) layout(); else claimMark();
     },
+    claimInMenu: () => claimBtn.parentElement === barMenu,
     setTiles(tiles, selected, part) { sidebar.update(tiles, selected, part); },
     revealTile(unit, part) { sidebar.reveal(unit, part); },
     setWounded(rows, amb) { sidebar.setWounded(rows, amb); },

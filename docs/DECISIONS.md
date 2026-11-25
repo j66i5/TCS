@@ -10969,3 +10969,6 @@ ran out"), because only a side wholly broken or with nobody standing ended a bat
   - Tests: `sim/test/battle-end.test.ts` (a spent exit side ends with no loser; the defender in the lull may not claim
     until the enemy is under half; no claim before an objective's time nor against an enemy still getting out).
     Goldens unchanged (strings are outside the fingerprint; no golden scenario is a withdrawal).
+- **Spotting timing tests: best of three runs** (2026-11-25). The two spotting benches cleared the 8x floor by a few
+  per cent, and one run on a shared CI runner varies by about 10 %: main failed 4 of 5 runs after the battle-end merge
+  with unchanged sim speed, which blocked the deploy. Each bench now runs three times and the best run counts.

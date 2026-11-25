@@ -10969,3 +10969,10 @@ ran out"), because only a side wholly broken or with nobody standing ended a bat
   - Tests: `sim/test/battle-end.test.ts` (a spent exit side ends with no loser; the defender in the lull may not claim
     until the enemy is under half; no claim before an objective's time nor against an enemy still getting out).
     Goldens unchanged (strings are outside the fingerprint; no golden scenario is a withdrawal).
+- **Perf check after the merge** (2026-11-25; CI's spotting bench failed 4 of 5 runs at 7.2-7.8x). No cause in the
+  battle-end diff and no code change: the spotting benches and bench-vehicles do not set `rules.victory.decided`
+  (`battleEndSystem` returns on its first line), the per-tick work is otherwise identical (same 19397 events over 2400
+  ticks; hashes differ only by the catalog fingerprint) and the step gains one `state.ended` test. Interleaved here,
+  93cdf44 vs 4332b4d: spotting bench wall 7.01 vs 7.18x (12 runs each), CPU time 7.45 +- 0.12 vs 7.59 +- 0.11x (24
+  each), bench-vehicles 9.19 vs 9.17x (10 each); `perf.test.ts` x3 alternating: spotting 7.0/6.5/5.9 vs 6.3/6.6/6.3.
+  The CI failures are runner variance around a floor the spotting bench was already only just above.

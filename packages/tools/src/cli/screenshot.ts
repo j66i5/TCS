@@ -14,6 +14,7 @@ import { parseArgs } from "../args";
 import { campaignE2e, type E2ePage } from "../campaign-e2e";
 import { briefingShots, menuE2e, type MenuPage } from "../menu-e2e";
 import { claimE2e, type ClaimPage } from "../claim-e2e";
+import { battleE2e, type BattlePage, type BattleViewport } from "../battle-e2e";
 
 const ROOT = fileURLToPath(new URL("../../../..", import.meta.url));
 const args = parseArgs(process.argv.slice(2));
@@ -2524,6 +2525,18 @@ try {
         p2.on("pageerror", (e) => errors.push(e.message));
         const passed = await claimE2e(p2 as unknown as ClaimPage, { base: `http://localhost:${port}`, shots: { dir: outDir, name: vn, list: shots }, look, parts, log: () => undefined });
         console.log(`${vn} ${look}: claim scene, ${passed.length} checks passed; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+        await p2.close();
+      }
+      // Review step 5, part 2 (battle-e2e.ts, with its checks): the opening view, the unit card (one line on a phone
+      // held sideways), a refused order in words; phone upright and sideways (360x780, 780x360) and desktop, both looks.
+      const bviews: [string, BattleViewport, { width: number; height: number }][] = name === "phone"
+        ? [["portrait", "portrait", { width: 360, height: 780 }], ["landscape", "landscape", { width: 780, height: 360 }]]
+        : [["desktop", "desktop", vp]];
+      for (const [vn, kind, v] of bviews) for (const look of ["photo", "flat"] as const) {
+        const p2 = await browser.newPage({ viewport: v, deviceScaleFactor: scale, hasTouch: name === "phone" });
+        p2.on("pageerror", (e) => errors.push(e.message));
+        const passed = await battleE2e(p2 as unknown as BattlePage, { base: `http://localhost:${port}`, viewport: kind, shots: { dir: outDir, name: vn, list: shots }, look, parts: ["opening", "card", "reject"], log: () => undefined });
+        console.log(`${vn} ${look}: battle scene, ${passed.length} checks passed; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
         await p2.close();
       }
       continue;

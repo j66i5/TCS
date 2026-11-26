@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createSim, simHash, type Order } from "@tcs/sim";
 import { getScenario, loadData } from "../../tools/src/scenarios";
-import { AMBUSH_M, ARC_WIDTH_RAD, activityOf, arcOrder, ammoCells, fireChoice, fireChoiceRules, settleRules, gunText, manDetail, manState, mentalStatus, moraleReasons, repaceMove, rulesOrder, unitMenRows, damageText, vehicleDamage, vehicleGuns } from "../src/card";
+import { cardIsLine, foldCard, type CardFold, AMBUSH_M, ARC_WIDTH_RAD, activityOf, arcOrder, ammoCells, fireChoice, fireChoiceRules, settleRules, gunText, manDetail, manState, mentalStatus, moraleReasons, repaceMove, rulesOrder, unitMenRows, damageText, vehicleDamage, vehicleGuns } from "../src/card";
 import { MORALE_SOURCES } from "@tcs/sim";
 import { Strings } from "@tcs/data";
 import { shownCallsigns } from "@tcs/render";
@@ -293,5 +293,33 @@ describe("the vehicle's guns on the card (D3)", () => {
       for (const g of vehicleGuns(sim.state, sim.ctx.catalog, t.unit)) for (const f of g.feeds) kinds.add(f.kind);
     }
     expect(kinds.has("missile")).toBe(true);
+  });
+});
+
+describe("review step 5: the card folded to one line on a phone held sideways", () => {
+  const upright: CardFold = { lineMode: false, open: false, unit: "" };
+  it("upright or on a desktop the card is never a line, whatever is tapped", () => {
+    let f = foldCard(upright, { type: "unit", unit: "Alpha" });
+    expect(cardIsLine(f)).toBe(false);
+    f = foldCard(f, { type: "toggle" });
+    expect(cardIsLine(f)).toBe(false);
+    expect(f.open).toBe(false);
+  });
+  it("sideways: a line; a tap unfolds it, a tap folds it again; another unit folds it; the same unit does not", () => {
+    let f = foldCard(upright, { type: "mode", on: true });
+    f = foldCard(f, { type: "unit", unit: "Alpha" });
+    expect(cardIsLine(f)).toBe(true);
+    f = foldCard(f, { type: "toggle" });
+    expect(cardIsLine(f)).toBe(false);
+    expect(foldCard(f, { type: "unit", unit: "Alpha" })).toBe(f); // (the card is refreshed twice a second)
+    expect(cardIsLine(foldCard(f, { type: "toggle" }))).toBe(true);
+    expect(cardIsLine(foldCard(f, { type: "unit", unit: "Bravo" }))).toBe(true);
+    expect(cardIsLine(foldCard(f, { type: "fold", on: true }))).toBe(true);
+  });
+  it("turned upright again the card has its rows at once; turned sideways it starts folded", () => {
+    let f = foldCard(foldCard(upright, { type: "mode", on: true }), { type: "toggle" });
+    f = foldCard(f, { type: "mode", on: false });
+    expect(cardIsLine(f)).toBe(false);
+    expect(cardIsLine(foldCard(f, { type: "mode", on: true }))).toBe(true);
   });
 });

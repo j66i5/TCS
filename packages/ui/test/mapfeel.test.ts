@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildScenario } from "@tcs/scenario";
 import { createSim, step, submitOrder, type EntityId } from "@tcs/sim";
 import { loadData } from "../../tools/src/scenarios";
-import { ageLabel, cycleUnit, easeToward, HELP_SECTIONS, intentLines, keyAction, LastSeenBook, linesShown, panVector, EMPTY_AFTER_S, type IntentLine, type KnownLike } from "../src/mapfeel";
+import { ageLabel, cycleUnit, easeToward, HELP_SECTIONS, intentLines, keyAction, LastSeenBook, linesShown, panVector, pinAlpha, thinPins, EMPTY_AFTER_S, PIN_CLUSTER_M, PIN_FADED_S, PIN_FRESH_S, PIN_MAX_AGE_S, PIN_MIN_ALPHA, type IntentLine, type KnownLike } from "../src/mapfeel";
 import { PIN_AFTER_S } from "@tcs/render";
 import { Strings } from "@tcs/data";
 
@@ -138,5 +138,28 @@ describe("S5 / S13: keys, cycling, follow", () => {
     for (const sec of HELP_SECTIONS) for (const key of [sec.title, ...sec.rows.flat()]) expect(st.t(key)).not.toMatch(/^\[\[/);
     for (const key of ["map.lastSeen.s", "map.lastSeen.min", "follow.badge", "follow.stop", "app.contours", "app.contoursHint", "help.title", "help.close", "app.pauseKey", "app.speedKey"]) expect(st.t(key)).not.toMatch(/^\[\[/);
     for (const k of ["help.k.space", "help.k.speed", "help.k.pan", "help.k.esc", "help.k.tab", "help.k.f", "help.k.m", "help.k.t", "help.k.h", "help.k.b", "help.k.g", "help.k.c", "help.k.help"]) expect(rows).toContain(k);
+  });
+});
+
+describe("review step 5: old pins fade, thin out and go", () => {
+  const pin = (target: number, ageS: number, x = 0, y = 0) => ({ target: target as EntityId, x, y, seenTick: 100_000 - ageS * 60 });
+  it("fresh pins are untouched, however close together", () => {
+    const pins = [pin(1, 10), pin(2, 60, 1, 1), pin(3, PIN_FRESH_S, 2, 2)];
+    const out = thinPins(pins, 100_000);
+    expect(out.map((p) => p.target)).toEqual([1, 2, 3]);
+    expect(out.every((p) => p.alpha === 1)).toBe(true);
+  });
+  it("fades to the floor by eight minutes and is dropped after ten", () => {
+    expect(pinAlpha(0)).toBe(1);
+    expect(pinAlpha((PIN_FRESH_S + PIN_FADED_S) / 2)).toBeCloseTo((1 + PIN_MIN_ALPHA) / 2, 6);
+    expect(pinAlpha(PIN_FADED_S + 60)).toBe(PIN_MIN_ALPHA);
+    const out = thinPins([pin(1, PIN_FADED_S, 0, 0), pin(2, PIN_MAX_AGE_S + 1, 500, 0), pin(3, PIN_MAX_AGE_S, 900, 0)], 100_000);
+    expect(out.map((p) => p.target)).toEqual([1, 3]);
+    expect(out[0]!.alpha).toBe(PIN_MIN_ALPHA);
+    expect(Math.round(out[0]!.ageS)).toBe(PIN_FADED_S);
+  });
+  it("of old pins close together only the newest stays; far apart both; a fresh one beside them too", () => {
+    const out = thinPins([pin(1, 400, 0, 0), pin(2, 300, PIN_CLUSTER_M - 1, 0), pin(3, 350, 3 * PIN_CLUSTER_M, 0), pin(4, 20, 2, 2)], 100_000);
+    expect(out.map((p) => p.target)).toEqual([2, 3, 4]);
   });
 });

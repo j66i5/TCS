@@ -499,6 +499,11 @@ export interface UnitCard {
   setInspected(id: EntityId | null): void;
   setDetailed(on: boolean): void;
   detailed(): boolean;
+  /** Review step 5: is the card folded to its one line now (a phone held sideways); fold or unfold it; force the
+   *  one-line mode on or off (checks; else it follows the screen). */
+  isLine(): boolean;
+  setFolded(on: boolean): void;
+  setLineMode(on: boolean): void;
   /** The rank insignia of the factions taking part (from the appearance data); absent: rows show none. */
   setInsignia(t: Readonly<Record<string, Insignia>> | undefined): void;
 }
@@ -511,6 +516,24 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ""
 }
 
 const CARD_KEY = "tcs.ui.card";
+
+/** Review step 5 (item 5): on a phone held sideways the card is one line until tapped. */
+export const CARD_LINE_QUERY = "(max-height: 480px) and (orientation: landscape)";
+/** The card's fold: `lineMode` (the screen is a phone held sideways), `open` (unfolded by a tap), the unit shown. */
+export interface CardFold { lineMode: boolean; open: boolean; unit: string }
+export type CardFoldEvent = { type: "mode"; on: boolean } | { type: "toggle" } | { type: "fold"; on: boolean } | { type: "unit"; unit: string };
+/** The fold after an event: a tap toggles it; another unit selected folds it again; the mode follows the screen.
+ *  Never stored: the remembered compact / detailed choice keeps its meaning. */
+export function foldCard(f: CardFold, e: CardFoldEvent): CardFold {
+  switch (e.type) {
+    case "mode": return e.on === f.lineMode ? f : { ...f, lineMode: e.on, open: false };
+    case "toggle": return f.lineMode ? { ...f, open: !f.open } : f;
+    case "fold": return f.lineMode ? { ...f, open: !e.on } : f;
+    case "unit": return e.unit === f.unit ? f : { ...f, unit: e.unit, open: false };
+  }
+}
+/** Is the card drawn as its one line? */
+export const cardIsLine = (f: CardFold): boolean => f.lineMode && !f.open;
 
 /** The ammunition bar: one cell per magazine or belt (the one in the weapon first, filled by its rounds), at most 8. */
 export function ammoCells(a: AmmoState): { fill: number[]; more: number } {
@@ -560,7 +583,12 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
   bearersBtn.title = `${s.t("card.supplyAsk")}: ${s.t("order.sendBearersTitle")}`;
   bearersBtn.hidden = true;
   bearersBtn.onclick = () => cb.onSendBearers?.();
-  head.append(name, badge, men, detailBtn, rulesBtn, bearersBtn);
+  // Review step 5: folded to one line (a phone held sideways) the head shows the pace and the fire rule as icons
+  // and a chevron; a tap on the line unfolds the card, a tap on the head folds it again.
+  const lineIcons = h("span", "hud-card-line-icons");
+  const foldBtn = h("button", "hud-btn hud-card-btn hud-card-fold");
+  foldBtn.dataset["card"] = "fold";
+  head.append(name, badge, men, lineIcons, detailBtn, rulesBtn, bearersBtn, foldBtn);
   const paceRow = h("div", "hud-seg");
   paceRow.dataset["row"] = "pace";
   const fireRow = h("div", "hud-seg");
@@ -584,6 +612,37 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
   const applyDetailed = () => { list.hidden = !detailed; detailBtn.classList.toggle("on", detailed); root.classList.toggle("detailed", detailed); };
   detailBtn.onclick = () => { detailed = !detailed; try { store()?.setItem(CARD_KEY, detailed ? "detailed" : "compact"); } catch { /* no storage */ } applyDetailed(); cb.onResize?.(); };
   applyDetailed();
+
+  let fold: CardFold = { lineMode: false, open: false, unit: "" };
+  let linePace = "", lineFire: FireChoice | null = null;
+  const paintLine = () => { lineIcons.innerHTML = `${linePace ? icon(paceIcon(linePace), 16) : ""}${lineFire ? icon(lineFire, 16) : ""}`; };
+  const applyFold = (e: CardFoldEvent) => {
+    const was = fold;
+    fold = foldCard(fold, e);
+    if (fold === was) return;
+    const line = cardIsLine(fold);
+    root.classList.toggle("line-mode", fold.lineMode);
+    root.classList.toggle("line", line);
+    foldBtn.textContent = line ? "\u25B8" : "\u25BE";
+    foldBtn.setAttribute("aria-label", s.t(line ? "card.expand" : "card.collapse"));
+    foldBtn.title = s.t(line ? "card.expand" : "card.collapse");
+    if (built && (cardIsLine(was) !== line || was.lineMode !== fold.lineMode)) cb.onResize?.();
+  };
+  /** (No callback while the card is being built: the HUD does not hold it yet.) */
+  let built = false;
+  // (A tap on a button of the head does its own job; "Send bearers" stays reachable on the folded line.)
+  head.onclick = (ev) => {
+    if (!fold.lineMode) return;
+    const b = (ev.target as HTMLElement | null)?.closest?.("button");
+    if (b && b !== foldBtn) return;
+    applyFold({ type: "toggle" });
+  };
+  const mq = typeof globalThis.matchMedia === "function" ? globalThis.matchMedia(CARD_LINE_QUERY) : null;
+  if (mq) {
+    applyFold({ type: "mode", on: mq.matches });
+    mq.addEventListener?.("change", (ev) => applyFold({ type: "mode", on: ev.matches }));
+  }
+  built = true;
 
   const segLabel = (key: string) => h("span", "hud-seg-label", s.t(key));
   let paceKey = "";
@@ -614,7 +673,8 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
     el: root,
     update(m) {
       root.hidden = m === null;
-      if (!m) return;
+      if (!m) { applyFold({ type: "unit", unit: "" }); return; }
+      applyFold({ type: "unit", unit: `${m.callsign}|${m.badge ?? ""}` });
       name.textContent = m.callsign;
       badge.hidden = !m.badge; badge.textContent = m.badge ?? "";
       bearersBtn.hidden = m.supplyAsk !== true;
@@ -685,15 +745,21 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
       }
       for (const x of paceBtns) x.b.classList.toggle("on", x.p === current);
       paceRow.hidden = paces.length === 0;
+      const lp = paces.length === 0 ? "" : current;
+      if (lp !== linePace) { linePace = lp; paintLine(); }
     },
     setFire(c) {
       fireRow.hidden = c === null;
+      if (c !== lineFire) { lineFire = c; paintLine(); }
       for (const x of fireBtns) x.b.classList.toggle("on", x.c === c);
     },
     setRulesButton(on, open) { rulesBtn.hidden = !on; rulesBtn.classList.toggle("on", open); },
     setInspected(id) { inspected = id; for (const [k, e] of rows) e.b.classList.toggle("inspected", k === id); },
     setDetailed(on) { if (on !== detailed) detailBtn.click(); },
     detailed: () => detailed,
+    isLine: () => cardIsLine(fold),
+    setFolded(on) { applyFold({ type: "fold", on }); },
+    setLineMode(on) { applyFold({ type: "mode", on }); },
     setInsignia(t) { insignia = t; },
   };
 }

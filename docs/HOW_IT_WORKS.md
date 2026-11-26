@@ -2230,6 +2230,36 @@ none of them changed. A campaign battle you play yourself follows the same table
 unit on its card, in the Fire row. With "At will" a vehicle crew also fires at places where enemy men were last known
 (area fire, see "Vehicles"); with "Return" it did that only after you set "At will" yourself.
 
+
+## What you see when the battle opens, the folded card, a quieter radio, refusals in words (review step 5 part 2, 2026-11-26)
+
+**The opening view.** The battle opens showing all of your men and vehicles on the map and every objective, with a
+small margin, never closer than true scale and never tighter than 150 m across. A defender sitting on its objectives
+gets a close view; an attacker 800 m from them gets a wide one (on a phone held upright that is nearly the map's
+width, with the units as symbols; held sideways it is about twice as close). In an ambush, which has no objectives,
+the ambusher sees its ground out to the ambush range and the side moving through sees the first third of its route.
+
+**The unit card on a phone held sideways** is one line: the unit's name, its men, its state, and two small icons for
+the pace and the fire rule in force. Tap the line and the card unfolds to its pace and fire rows, Men and Rules; tap
+its head (or the small arrow) to fold it again. Selecting another unit folds it. Beside the folded card the radio log
+shows two lines, beside the unfolded card one, so the card and the log do not cover the map. Upright and on a desktop
+the card is as it was. The Rules panel now has its own "×" and scrolls inside the screen.
+
+**The radio log** shows "enemy drone overhead" once per platoon while that platoon keeps seeing the drone; when the
+platoon has not called it for a minute, the next call is a new sighting and is shown again. Never more than one such
+line every 20 seconds for your whole side. This is only the log: the simulation still makes every call, and the
+review counts them all. A drone call still uses the same radio turn as an enemy report (a matter for the infantry
+step, not changed here).
+
+**Old "last seen" pins** fade: full strength for three minutes, down to about a third by eight minutes (the age label
+goes first), and after ten minutes the pin is no longer drawn. Of old pins within 25 m of each other only the newest
+stays. A pin still goes at once when the enemy is seen again or your men see the spot empty.
+
+**A refused order tells you why**, in a sentence with the unit's name: "Puma 1 is a vehicle crew: it cannot do
+that.", "Trupp 2 is off the radio net: the order did not reach it.", "no move: a point is off the map", "that
+building cannot be cleared", "not available in this battle" and so on. The sentence appears in the radio log in red
+and, for four seconds, at the top of the map. An order you replaced with a newer one says nothing, as before.
+
 ## The campaign: a battalion through linked battles (M12)
 
 Open the game with `?campaign=1`. You command a **battalion** (Germany: a Panzergrenadier or Jäger battalion of about

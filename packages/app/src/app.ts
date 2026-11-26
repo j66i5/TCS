@@ -5,7 +5,7 @@
  * Nothing here reaches into the simulation except through orders (rule 3) and read-only views.
  */
 import type { Strings } from "@tcs/data";
-import type { BattleInput, BattleRecord, Controller, EntityId, Order, Sim } from "@tcs/sim";
+import type { BattleInput, BattleRecord, Controller, EntityId, Order, OrderKind, Sim } from "@tcs/sim";
 import type { BattleRenderer, Overlay } from "@tcs/render";
 import type { Aar, BriefingModel, FloorFollow, Handle, Hud, LastSeenBook, LosLine, OrderMode, Plan, PlanKind, RangingBook, UnitRules } from "@tcs/ui";
 
@@ -88,6 +88,11 @@ export interface App {
   /** S8 "last seen" pins and S11 ranging falls (from the side's own contacts and events). */
   readonly lastSeen: LastSeenBook;
   readonly rangingBook: RangingBook;
+  /** Review step 5: the kind of each order the player sent, by its sequence number, until it is delivered or
+   *  refused (a refusal's sentence depends on the kind; the event does not carry it). */
+  readonly sentKinds: Map<number, OrderKind>;
+  /** Radio lines the log's filter kept out so far (checks). */
+  radioDropped: number;
   /** The order bar's last contents (rebuilt only when the selected unit's capabilities change). */
   ordersShownFor: string | undefined;
   ordersKey: string;

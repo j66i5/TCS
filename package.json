@@ -29,6 +29,7 @@
     "e2e:campaign": "tsx packages/tools/src/cli/e2e-campaign.ts",
     "e2e:menu": "tsx packages/tools/src/cli/e2e-menu.ts",
     "e2e:claim": "tsx packages/tools/src/cli/e2e-claim.ts",
+    "e2e:battle": "tsx packages/tools/src/cli/e2e-battle.ts",
     "phoneperf": "tsx packages/tools/src/cli/phoneperf.ts",
     "map": "tsx packages/tools/src/cli/map.ts",
     "probe": "tsx packages/tools/src/cli/probe.ts",

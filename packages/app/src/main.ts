@@ -11,11 +11,11 @@
 import { buildAppearance, formatErrors, Strings } from "@tcs/data";
 import { MAP_KINDS } from "@tcs/scenario";
 import {
-  battleResultOf, claimStatus, DT, emptyLogistics, logisticsFromEvents, tracerMap, isOffMapMan, navFor, newBattleRecord, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
+  battleResultOf, claimStatus, DT, emptyLogistics, logisticsFromEvents, tracerMap, isOffMap, isOffMapMan, navFor, newBattleRecord, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
-import { ageLabel, briefingModel, cacheMarkers, centreOf, createAar, createBriefing, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, prisonerMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
+import { ageLabel, briefingModel, cacheMarkers, centreOf, createAar, createBriefing, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, prisonerMarkers, RadioFilter, RangingBook, rejectionText, repaceMove, rulesOrder, thinPins } from "@tcs/ui";
 import { hashRecord } from "@tcs/campaign";
 import { loadBundledData } from "./data";
 import { loadCampaignBattle, returnToCampaign, type CampaignBattle } from "./campaign/battle";
@@ -30,9 +30,10 @@ import { endPlan, fetchAmmo, forUnit, goPlan, issue, issueAi, now, resupply, sen
 import { claimReasonText, refreshTiles, showCard, showClaim, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
 import { loadOrCreate, reloadSaved, saveNow, setCampaignKey } from "./save";
-import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
+import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, vehicleClassOf } from "./units";
 import { attachFloors, sightView, updatePins } from "./view";
 import { battleSetup } from "./setup";
+import { openingView } from "./opening";
 import { menuPage, menuUrl } from "./menu";
 import { isMenuRequest } from "./menu-model";
 
@@ -112,7 +113,7 @@ async function main(): Promise<void> {
     speed: 1, pace: "walk", orderMode: "move", nature: null, plan: null, dragHandle: null, dragGapM: 3, formation: undefined,
     inspected: null, contoursOn: false, following: null, gesture: null, supportAt: null, pendingTurn: null,
     pendingRules: new Map(), activeMoves: new Map(), floorState: { shown: 0, unit: null, unitFloor: null, manual: false }, floorPick: null,
-    revealAll: false, sightAt: -1, lastSeen: new LastSeenBook(), rangingBook: new RangingBook(), ordersShownFor: undefined, ordersKey: "",
+    revealAll: false, sightAt: -1, lastSeen: new LastSeenBook(), rangingBook: new RangingBook(), sentKinds: new Map(), radioDropped: 0, ordersShownFor: undefined, ordersKey: "",
   };
   const vehicleDebug = new VehicleDebug();
   const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair" | "callRecovery" | "callDelivery" | "escortPrisoners" | "releaseGuard" | "callMp") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
@@ -257,26 +258,29 @@ async function main(): Promise<void> {
   // Fit the map into the area not covered by the top bar, the order bar and the unit sidebar (M7.5a).
   const insets = hud.insets();
   renderer.setHudInsets(insets);
-  // M7.5b (owner answer 1): the battle opens zoomed in on the player's lead unit (his first squad; its vehicle
-  // while it rides), at true scale.
-  // mounted: ok the start view centres on every own man, aboard or not
+  // Review step 5 (item 4): the battle opens on the player's force and the objectives (not the whole map, not one
+  // unit; M7.5b had opened on the lead squad at true scale), never closer than that true scale.
+  // mounted: ok the start view takes in every own man, aboard or not
   // (Not the men off the map, M10.6a: the ambulances' crews wait far outside it.)
   const own = [...sim.state.identity.entries()].filter(([id, i]) => i.side === playerSide && !isOffMapMan(sim.state, sim.state.soldier.get(id))).map(([id]) => sim.state.transform.req(id));
-  const leadAt = (() => {
-    const tiles = unitTiles(sim.state, playerSide, input.catalog);
-    const lead = tiles.find((t) => t.kind === "infantry") ?? tiles[0];
-    if (!lead) return null;
-    let x = 0, y = 0, n = 0;
-    for (const m of unitSoldierIds(sim, lead.unit)) {
-      const s = sim.state.soldier.get(m);
-      const t = s?.mount !== undefined ? sim.state.transform.get(s.mount.vehicle) : sim.state.transform.get(m);
-      if (t) { x += t.x; y += t.y; n++; }
+  const opening = (() => {
+    const pts: { x: number; y: number }[] = own.map((t) => ({ x: t.x, y: t.y }));
+    for (const [id, v] of sim.state.vehicle.entries()) if (v.side === playerSide && !isOffMap(v)) { const t = sim.state.transform.get(id); if (t) pts.push({ x: t.x, y: t.y }); }
+    const circles: { x: number; y: number; radiusM: number }[] = input.rules.objectives.map((o) => ({ x: o.x, y: o.y, radiusM: o.radiusM }));
+    // No objectives (an ambush): the ambusher sees its ground out to the ambush's range, the side moving through the
+    // first third of its route.
+    const plan = input.forces.find((f) => f.side === playerSide)?.plan;
+    if (circles.length === 0 && plan && pts.length > 0) {
+      if (plan.posture === "ambush" && plan.ambushRangeM !== undefined) {
+        const c = pts.reduce((q, t) => ({ x: q.x + t.x / pts.length, y: q.y + t.y / pts.length }), { x: 0, y: 0 });
+        circles.push({ ...c, radiusM: plan.ambushRangeM });
+      } else if (plan.route) for (const r of plan.route.slice(0, Math.max(1, Math.ceil(plan.route.length / 3)))) circles.push({ x: r.x, y: r.y, radiusM: 0 });
     }
-    if (n === 0) { const v = sim.state.unit.get(lead.unit)?.vehicle; const t = v === undefined ? undefined : sim.state.transform.get(v); return t ? { x: t.x, y: t.y } : null; }
-    return { x: x / n, y: y / n };
+    const scr = renderer.app.screen;
+    return openingView(pts, circles, { w: scr.width - insets.left - insets.right, h: scr.height - insets.top - insets.bottom }, OPENING_SCALE);
   })();
-  if (leadAt) {
-    renderer.focusScale(leadAt.x, leadAt.y, OPENING_SCALE, insets);
+  if (opening) {
+    renderer.focusScale(opening.x, opening.y, opening.scale, insets);
     // The opening view's tiles first (photo: painted in workers; shown anyway after 3 s).
     await Promise.race([renderer.primeDetail(), new Promise<void>((r) => setTimeout(r, 3000))]);
   } else if (own.length > 0 && input.map.widthM > 600) {
@@ -320,6 +324,14 @@ async function main(): Promise<void> {
   // M12.3: a campaign battle gathers its logistics from the events (the result handed back to the campaign).
   const campLogistics = sim.state.sides.map((x) => emptyLogistics(x.id));
   const tracer = campaign ? tracerMap(input.catalog) : null;
+  const radioFilter = new RadioFilter();
+  /** The top-level unit a man (or unit) belongs to; the callsign of an order's target (a unit, or a man's unit). */
+  const topUnitOf = (id: EntityId): EntityId => {
+    let u = sim.state.unit.has(id) ? id : sim.state.identity.get(id)?.unit ?? id;
+    for (let k = 0; k < 8; k++) { const p = sim.state.unit.get(u)?.parent; if (p === null || p === undefined) break; u = p; }
+    return u;
+  };
+  const callsignOf = (id: EntityId): string => sim.state.unit.get(sim.state.unit.has(id) ? id : sim.state.identity.get(id)?.unit ?? id)?.callsign ?? strings.t("order.rejected.someUnit");
   const handleEvents = (events: SimEvent[]) => {
     if (tracer && events.length > 0) logisticsFromEvents(campLogistics, events, sim.state, input.catalog, tracer);
     renderer.onEvents(events, sim.state, overlay);
@@ -328,6 +340,8 @@ async function main(): Promise<void> {
     for (const e of events) {
       if (e.kind === "support.ranging" && e.side === playerSide) a.rangingBook.add(e);
       if (e.kind === "radio" && e.side === playerSide) {
+        // (Review step 5: "enemy drone overhead" once per unit and sighting in the log; the record above has them all.)
+        if (!radioFilter.accept(e.key, topUnitOf(e.from), e.tick)) { a.radioDropped++; continue; }
         const faction = sim.state.identity.get(e.from)?.faction;
         // (Review fix: a refusal stands out from routine traffic.)
         // (M11.7a: a parameter named `...Key` is a string key itself: `partKey` gives `part`, in words.)
@@ -338,8 +352,16 @@ async function main(): Promise<void> {
         settlePendingRules(a, e.target, e.orderKind); // (D4b: an ambush delivered and sprung at once leaves the chip)
       } else if (e.kind === "order.rejected" && e.issuer === playerSide && e.reason !== "superseded") {
         // (A superseded order, D4b, was replaced by the player's own newer one: nothing to tell him.)
-        hud.radio(strings.t("order.rejected", { reason: e.reason }), ticksToSeconds(e.tick), "#ffb4b4");
-      }
+        // (Review step 5: a sentence per reason, by the kind of the order sent; also at the top of the map.)
+        const kind = a.sentKinds.get(e.seq) ?? null;
+        a.sentKinds.delete(e.seq);
+        const r = rejectionText(e.reason, kind);
+        if (r) {
+          const text = strings.t(r.key, { unit: callsignOf(e.target) });
+          hud.radio(text, ticksToSeconds(e.tick), "#ffb4b4");
+          hud.flash(text);
+        }
+      } else if (e.kind === "order.delivered") a.sentKinds.delete(e.seq);
     }
   };
   /** Advance the simulation by one tick: AI thinks, renderer remembers positions, step, events out. */
@@ -399,7 +421,8 @@ async function main(): Promise<void> {
     // S8: "last seen" pins (Debug shows the enemy as he is: no pins); S7: one line per own unit on the move.
     if (overlay.known) {
       updatePins(a, overlay.known);
-      overlay.pins = a.lastSeen.pins().map((p) => { const l = ageLabel((sim.state.tick - p.seenTick) / 60); return { ...p, label: strings.t(l.key, l.params) }; });
+      // (Review step 5: old pins fade, thin out and go after ten minutes.)
+      overlay.pins = thinPins(a.lastSeen.pins(), sim.state.tick).map((p) => { const l = ageLabel((sim.state.tick - p.seenTick) / 60); return { ...p, label: strings.t(l.key, l.params) }; });
     } else overlay.pins = null;
     overlay.intents = overlay.debug ? null : linesShown(intentLines(sim.state, playerSide, overlay.selectedUnit, a.rangingBook.falls), renderer.zoomLevel() === LOD_SYMBOLS)
       .map((l) => (l.splashS !== undefined ? { ...l, label: strings.t("support.splash", { s: l.splashS }) } : l.mark !== undefined ? { ...l, label: strings.t(l.mark === "post" ? "map.supportPost" : "map.dismountPoint") } : l));

@@ -244,6 +244,35 @@ export class LastSeenBook {
   clear(): void { this.entries.clear(); this.cleared.clear(); }
 }
 
+/** A pin keeps its full strength this long (s), then fades to `PIN_MIN_ALPHA` at `PIN_FADED_S` and is dropped after
+ *  `PIN_MAX_AGE_S` (review 2026-11-24 step 5: old pins crowded the map). Presentation only. */
+export const PIN_FRESH_S = 180;
+export const PIN_FADED_S = 480;
+export const PIN_MAX_AGE_S = 600;
+export const PIN_MIN_ALPHA = 0.35;
+/** Of pins older than `PIN_FRESH_S` this close together (m), only the newest is shown. */
+export const PIN_CLUSTER_M = 25;
+
+/** A pin's strength by its age (1 fresh, falling to `PIN_MIN_ALPHA`). */
+export function pinAlpha(ageS: number): number {
+  if (ageS <= PIN_FRESH_S) return 1;
+  if (ageS >= PIN_FADED_S) return PIN_MIN_ALPHA;
+  return 1 - ((ageS - PIN_FRESH_S) / (PIN_FADED_S - PIN_FRESH_S)) * (1 - PIN_MIN_ALPHA);
+}
+
+/**
+ * The pins shown: fresh ones as they are; older ones faded, thinned (one per `PIN_CLUSTER_M`, the newest) and
+ * dropped after `PIN_MAX_AGE_S`. The book keeps every pin (a pin seen empty or seen again still goes as before).
+ */
+export function thinPins<P extends LastSeenPin>(pins: readonly P[], tick: number): (P & { ageS: number; alpha: number })[] {
+  const aged = pins.map((p) => ({ ...p, ageS: Math.max(0, (tick - p.seenTick) / 60) })).filter((p) => p.ageS <= PIN_MAX_AGE_S);
+  const old = aged.filter((p) => p.ageS > PIN_FRESH_S).sort((a, b) => b.seenTick - a.seenTick || a.target - b.target);
+  const kept: typeof old = [];
+  for (const p of old) if (!kept.some((q) => (q.x - p.x) ** 2 + (q.y - p.y) ** 2 <= PIN_CLUSTER_M * PIN_CLUSTER_M)) kept.push(p);
+  const keep = new Set(kept.map((p) => p.target));
+  return aged.filter((p) => p.ageS <= PIN_FRESH_S || keep.has(p.target)).map((p) => ({ ...p, alpha: pinAlpha(p.ageS) }));
+}
+
 /** The pin's age label: its string key and parameters ("40 s", "3 min"). Seconds in 5 s steps under a minute. */
 export function ageLabel(ageS: number): { key: string; params: { n: number } } {
   const s = Math.max(0, ageS);

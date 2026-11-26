@@ -11583,3 +11583,86 @@ the determinism tests among them, unchanged: no `golden:update`); `e2e:menu` 11 
 12, no page errors; the briefing scene's own checks (open, no sideways scroll, the main button on the screen) pass at
 360x780, 780x360 and 1280x800 in both looks. Timing tests (`test:perf`) were not run: another agent shares the
 container, and the only sim change is one optional field read where a unit is created.
+
+## 2026-11-26 — Quick battle polish part 2: the opening view, the one-line card, drone radio lines and old pins, refusals in words (whole-game review, step 5, items 4-7)
+
+Review 2026-11-24 problems 5 and 6, the second half of step 5. No simulation code changed: every item is on the
+player's side of rule 5 (events out, the interface decides what to show). Goldens, labs and batches are untouched; no
+`golden:update`; the perf tests did not need a run for this part.
+
+**4. The opening view.**
+- The battle opened on the lead squad at 8 px/m (M7.5b): two and a half carriers on a phone, no objective. It now
+  opens on **the box around every own man and hull on the map plus the objectives' circles**, with a 12 % margin, never
+  closer than 8 px/m (true scale) and never tighter than 150 m across the screen's shorter side (pure
+  `openingView`, app/opening.ts). Men off the map and units arriving later are not counted.
+- Without objectives (an ambush): the ambusher's box takes in its ambush range around the force; the side moving
+  through takes in the first third of its route.
+- Measured on the mounted attack (village, seed 1; force about 800 m from the objectives): 0.30 px/m on a 360x780
+  phone, 0.66 px/m at 780x360, 1.12 px/m on a 1400x900 desktop. The defender on its objectives: 1.16, 1.24 and
+  3.40 px/m.
+- **Known limit:** on a phone held upright an attack along the map's long side shows almost the map's whole width
+  (the force and the objectives are that far apart); the units are symbols there. It is what was asked for (force and
+  objectives), not a close-up. Held sideways the same battle is twice as close.
+- Screenshot scenes that started from the old close-up can call the new hook `__tcs.focusLead()` (the old view).
+
+**5. The unit card in phone landscape.**
+- On a screen at most 480 px high in landscape the card is **one line**: callsign, men fit, state, the pace and the
+  fire rule as two icons, a chevron. A tap on the line unfolds it to the card as it was; a tap on the head (or the
+  chevron) folds it; selecting another unit folds it again. Not remembered: the remembered compact / detailed choice
+  keeps its meaning. "Send bearers" (a squad asking) stays on the folded line.
+- The radio log beside it: two lines with the folded card, one with the unfolded card (the old two-line rule was for
+  screens up to 700 px wide only, so a 780 px landscape phone had four lines).
+- Measured at 780x360: card 38 px, card and radio together 92 px (before: about 225 px).
+- **The rules panel got its own close button and a height cap.** In landscape the panel lay over the card's Rules
+  button (the only way to close it on a phone) and ran below the screen; it now scrolls inside the free area and
+  closes with its "×". This was there before part 2; the card check found it.
+
+**6. Radio: the drone call, and old pins.**
+- The simulation says "enemy drone overhead" for a man whose sighting is new, at most every 8 s per top unit; a squad
+  under a drone repeated it every 8-9 s. Measured (`bench-drones`, seed 1, 600 s): 1,592 calls.
+- **The throttle is in the event consumer** (`RadioFilter`, ui/radio-filter.ts), not in the simulation: it is
+  presentation, and the event stream, the battle record, the review's numbers and every golden stay as they are. A top
+  unit's sighting stays open while it keeps reporting and closes after 60 s without a call: **one line per top unit
+  per sighting**, and at most one drone line per 20 s for the whole side. On the recorded 1,592 calls: at most a few
+  lines per platoon in ten minutes (the test holds it under 30 per side). In the browser (platoon on foot, enemy
+  drone, 210 s): 2 lines shown, 11 kept out.
+- Not exact: a second drone arriving within the minute over the same platoon is not announced again. The exact fix
+  would be a drone id on the simulation's radio event (an event stream change); not done.
+- Noted for step 6, not changed here: the drone call resets the same `lastCallTick` the contact reports use, so a
+  drone overhead delays "enemy, 700 m" calls.
+- **Pins.** A "last seen" pin never aged out. Now (`thinPins`, ui/mapfeel.ts): full strength for 3 minutes, fading
+  to 35 % by 8 minutes (its age label goes below 50 %), not drawn after 10 minutes; of pins older than 3 minutes
+  within 25 m of each other only the newest is drawn. The book itself is unchanged (a pin still goes when the enemy
+  is seen again or the spot is seen empty), and a pin at full strength is drawn exactly as before (the flat look
+  stays byte-identical there).
+
+**7. Refused orders in words.**
+- The log said "Order not accepted (not-applicable)." Every reason the simulation can give (`OrderRejectReason`:
+  late, unknown-target, not-your-unit, invalid-params, not-applicable, battle-ended, no-comms, not-decided; a
+  superseded order says nothing, as before) now has a sentence (`order.rejected.<reason>`), and the two coarse ones
+  a more exact sentence by the kind of order: "Puma 1 is a vehicle crew: it cannot do that.", "... has no guided
+  missile / no smoke dischargers / no drone", "not available in this battle", "a point is off the map, or the route
+  has too many points", "that building cannot be cleared", "... has no vehicle for that".
+- The `order.rejected` event carries no order kind. **No simulation change:** the app remembers the kind of each
+  order the player sent by its sequence number (`App.sentKinds`) until it is delivered or refused (`rejectionText`,
+  ui/reject.ts).
+- **Where the player looks:** the sentence goes to the radio log (red, as before) and for 4 s to the top of the map
+  (`hud.flash`), because a phone's log is clipped to one or two lines beside the card.
+- A test reads the simulation's source: the reasons in the type and every reason the order system returns must be
+  exactly the ones with a sentence, and the table is typed by `OrderRejectReason`, so a new reason does not compile
+  without one.
+- Not done (step 6): the six places that answer "unable" on the radio without a reason; giving each a reason changes
+  radio keys in the event stream.
+
+**Checks.** New `npm run e2e:battle` (Playwright at 360x780, 780x360 and 1400x900): the opening view shows every own
+man and objective; the card's line, unfolding, a fire chip, Rules and its close button, folding; a refused order's
+sentence on the radio and at the top of the map; the drone lines; no sideways scroll. `npm run screenshot -- --scene
+ui` takes its pictures (`battle-*.png`) in both looks.
+
+**Open for the owner.**
+1. The upright phone's opening view of a long attack is nearly the whole map's width (see 4). Alternative: open on
+   the force only and mark the objectives' direction.
+2. The drone line: once per platoon and sighting (a minute's quiet closes it). Alternative: an exact "per drone" rule
+   through a simulation event change.
+3. Pins older than 10 minutes are not drawn. Alternative: keep them, faint.
+

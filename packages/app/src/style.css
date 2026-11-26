@@ -553,8 +553,9 @@ button.cmp-row:active { background: rgba(255, 255, 255, 0.06); }
 @media (max-height: 480px) and (orientation: landscape) { .menu-hero { padding: 6px 4px 0; } .menu .cmp-hero-title { font-size: 26px; } .menu-tile { min-height: 54px; padding-top: 8px; padding-bottom: 8px; } }
 /* Review step 5: the battle briefing (ui/briefing.ts): the campaign frame over the paused map; a full-height sheet on
    a phone, a centred card on a wide screen, two columns in landscape; both looks. */
-.cmp.brief.look-photo { background: rgba(10, 14, 9, 0.88); }
-.cmp.brief.look-flat { background: rgba(18, 26, 16, 0.94); }
+/* (Verification fix: opaque. The hint, the score line and unit labels showed through between the cards.) */
+.cmp.brief.look-photo { background: #0a0e09; }
+.cmp.brief.look-flat { background: #121a10; }
 .cmp.brief[hidden] { display: none; }
 .brief-body { max-width: 560px; }
 .brief-task { padding: 8px 12px 10px; background: var(--c-card); border: 1px solid var(--c-line); border-radius: var(--radius); }
@@ -598,3 +599,11 @@ button.cmp-row:active { background: rgba(255, 255, 255, 0.06); }
 .hud-panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hud-panel-close { min-height: 30px; min-width: 34px; padding: 0 8px; font-size: 18px; line-height: 1; flex: 0 0 auto; }
 .hud-panel { max-height: calc(100% - var(--free-top) - var(--free-bottom) - 16px); overflow-y: auto; scrollbar-width: thin; }
+
+/* Verification fix: an objective (or the side's exit) outside the view, pointed at from the edge of the free map area.
+   Under every panel (z-index 0); never takes a tap. */
+.hud-edge-marks { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.hud-edge-mark { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 10px;
+  background: rgba(15, 20, 14, 0.9); border: 1px solid var(--accent); color: var(--text); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.hud-edge-mark[hidden] { display: none; }
+.hud-edge-arrow { display: inline-block; color: var(--accent); font-size: 12px; line-height: 1; }

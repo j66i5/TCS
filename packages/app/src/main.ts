@@ -9,12 +9,12 @@
  * save and load and the debug hooks live in the modules beside this file.
  */
 import { buildAppearance, formatErrors, Strings } from "@tcs/data";
-import { MAP_KINDS } from "@tcs/scenario";
+import { forceRole, MAP_KINDS } from "@tcs/scenario";
 import {
   battleResultOf, claimStatus, DT, emptyLogistics, logisticsFromEvents, tracerMap, isOffMap, isOffMapMan, navFor, newBattleRecord, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
   type EntityId, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
+import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, worldToScreen, type Look, type Overlay } from "@tcs/render";
 import { ageLabel, briefingModel, cacheMarkers, centreOf, createAar, createBriefing, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, prisonerMarkers, RadioFilter, RangingBook, rejectionText, repaceMove, rulesOrder, thinPins } from "@tcs/ui";
 import { hashRecord } from "@tcs/campaign";
 import { loadBundledData } from "./data";
@@ -33,10 +33,12 @@ import { loadOrCreate, reloadSaved, saveNow, setCampaignKey } from "./save";
 import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, vehicleClassOf } from "./units";
 import { attachFloors, sightView, updatePins } from "./view";
 import { battleSetup } from "./setup";
-import { openingView } from "./opening";
+import { edgeMarker, openingView } from "./opening";
 import { menuPage, menuUrl } from "./menu";
 import { isMenuRequest } from "./menu-model";
 
+/** The opening view leaves this much above the bottom edge for the radio log's lines and the folded card (px). */
+const OPENING_BOTTOM_PX = 96;
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
 /** The chosen map look (plan "photo"), remembered per browser. */
 const LOOK_KEY = "tcs.ui.look";
@@ -117,6 +119,7 @@ async function main(): Promise<void> {
   };
   const vehicleDebug = new VehicleDebug();
   const orderFor = (kind: "halt" | "mount" | "dismount" | "discharge" | "ceaseFire" | "rearRun" | "repair" | "callRecovery" | "callDelivery" | "escortPrisoners" | "releaseGuard" | "callMp") => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind }); };
+  const hasRole = input.forces.some((f) => f.side === playerSide && forceRole(f) !== null);
   const hud = a.hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -199,7 +202,8 @@ async function main(): Promise<void> {
       if (a.speed === 0) stepOnce();
     },
     // Review step 5: the briefing again (the battle pauses while it is read).
-    onBriefing: () => a.briefing?.open("resume"),
+    // (Verification fix: not in a battle without roles, the sandboxes: there is nothing to brief.)
+    ...(hasRole ? { onBriefing: () => a.briefing?.open("resume") } : {}),
     onLoad: () => reloadSaved(a),
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
     // S5: a tile tap selects the unit and centres the camera on it; on the unit already selected and centred, it
@@ -263,24 +267,34 @@ async function main(): Promise<void> {
   // mounted: ok the start view takes in every own man, aboard or not
   // (Not the men off the map, M10.6a: the ambulances' crews wait far outside it.)
   const own = [...sim.state.identity.entries()].filter(([id, i]) => i.side === playerSide && !isOffMapMan(sim.state, sim.state.soldier.get(id))).map(([id]) => sim.state.transform.req(id));
+  // (Verification fix: the radio log's lines and the folded card come up from the bottom within seconds: the view is
+  // fitted to the area above them, so they do not lie over the force.)
+  const openInsets = { ...insets, bottom: insets.bottom + OPENING_BOTTOM_PX };
+  const ownPlan = input.forces.find((f) => f.side === playerSide)?.plan;
+  /** The side's way out where it has one to reach (the column through an ambush, a withdrawal): a place at its exit
+   *  edge, level with the force. Stands for an objective in the opening view and is pointed at from the edge. */
+  const exitPlace = (() => {
+    const z = ownPlan?.exit;
+    if (!ownPlan || !z || own.length === 0 || (ownPlan.posture !== "transit" && ownPlan.posture !== "withdraw")) return null;
+    return { x: (z.x0 + z.x1) / 2, y: Math.max(z.y0, Math.min(z.y1, own.reduce((q, t) => q + t.y, 0) / own.length)) };
+  })();
   const opening = (() => {
     const pts: { x: number; y: number }[] = own.map((t) => ({ x: t.x, y: t.y }));
     for (const [id, v] of sim.state.vehicle.entries()) if (v.side === playerSide && !isOffMap(v)) { const t = sim.state.transform.get(id); if (t) pts.push({ x: t.x, y: t.y }); }
     const circles: { x: number; y: number; radiusM: number }[] = input.rules.objectives.map((o) => ({ x: o.x, y: o.y, radiusM: o.radiusM }));
     // No objectives (an ambush): the ambusher sees its ground out to the ambush's range, the side moving through the
-    // first third of its route.
-    const plan = input.forces.find((f) => f.side === playerSide)?.plan;
-    if (circles.length === 0 && plan && pts.length > 0) {
-      if (plan.posture === "ambush" && plan.ambushRangeM !== undefined) {
+    // ground toward its exit (too far to fit: as much of the way as the minimum scale shows, the exit pointed at).
+    if (circles.length === 0 && ownPlan && pts.length > 0) {
+      if (ownPlan.posture === "ambush" && ownPlan.ambushRangeM !== undefined) {
         const c = pts.reduce((q, t) => ({ x: q.x + t.x / pts.length, y: q.y + t.y / pts.length }), { x: 0, y: 0 });
-        circles.push({ ...c, radiusM: plan.ambushRangeM });
-      } else if (plan.route) for (const r of plan.route.slice(0, Math.max(1, Math.ceil(plan.route.length / 3)))) circles.push({ x: r.x, y: r.y, radiusM: 0 });
+        circles.push({ ...c, radiusM: ownPlan.ambushRangeM });
+      } else if (exitPlace) circles.push({ ...exitPlace, radiusM: 0 });
     }
     const scr = renderer.app.screen;
-    return openingView(pts, circles, { w: scr.width - insets.left - insets.right, h: scr.height - insets.top - insets.bottom }, OPENING_SCALE);
+    return openingView(pts, circles, { w: scr.width - openInsets.left - openInsets.right, h: scr.height - openInsets.top - openInsets.bottom }, OPENING_SCALE);
   })();
   if (opening) {
-    renderer.focusScale(opening.x, opening.y, opening.scale, insets);
+    renderer.focusScale(opening.x, opening.y, opening.scale, openInsets);
     // The opening view's tiles first (photo: painted in workers; shown anyway after 3 s).
     await Promise.race([renderer.primeDetail(), new Promise<void>((r) => setTimeout(r, 3000))]);
   } else if (own.length > 0 && input.map.widthM > 600) {
@@ -290,6 +304,44 @@ async function main(): Promise<void> {
   } else {
     renderer.fitToMap(input.map, insets);
   }
+
+  // Verification fix: an objective (or the side's exit) outside the view is pointed at from the edge of the free map
+  // area, so a view that cannot hold the force and the objectives still says where they are. Presentation only.
+  const edgeLayer = document.createElement("div");
+  edgeLayer.className = "hud-edge-marks";
+  hudRoot.prepend(edgeLayer);
+  const edgePlaces: { x: number; y: number; label: string }[] = [
+    ...input.rules.objectives.map((o) => ({ x: o.x, y: o.y, label: strings.t(o.nameKey) })),
+    ...(exitPlace ? [{ ...exitPlace, label: strings.t("map.exitMark") }] : []),
+  ];
+  const edgeEls = edgePlaces.map((p) => {
+    const e = document.createElement("div"), arrow = document.createElement("span"), name = document.createElement("span");
+    e.className = "hud-edge-mark"; arrow.className = "hud-edge-arrow"; arrow.textContent = "➤"; name.textContent = p.label;
+    e.append(arrow, name); e.hidden = true; edgeLayer.append(e);
+    return { e, arrow, w: 0, h: 0 };
+  });
+  const updateEdgeMarks = () => {
+    if (edgeEls.length === 0) return;
+    const f = hud.insets(), scr = renderer.app.screen, c = renderer.camera;
+    const rect = { x: f.left, y: f.top, w: scr.width - f.left - f.right, h: scr.height - f.top - f.bottom - hud.bottomCover() };
+    const placed: { x: number; y: number; hw: number; hh: number }[] = [];
+    edgePlaces.forEach((p, i) => {
+      const el = edgeEls[i]!, m = rect.w > 80 && rect.h > 80 ? edgeMarker(worldToScreen(c, p.x, p.y), rect, 14) : null;
+      el.e.hidden = m === null;
+      if (!m) return;
+      // (The whole chip inside the free area; two chips at the same edge one above the other.)
+      // (Measured once: the label never changes, and a layout read every frame costs.)
+      if (el.w === 0) { el.w = el.e.offsetWidth; el.h = el.e.offsetHeight; }
+      const hw = el.w / 2, hh = el.h / 2;
+      const x = Math.max(rect.x + hw + 4, Math.min(rect.x + rect.w - hw - 4, m.x));
+      let y = Math.max(rect.y + hh + 4, Math.min(rect.y + rect.h - hh - 4, m.y));
+      for (const q of placed) if (Math.abs(q.x - x) < q.hw + hw + 2 && Math.abs(q.y - y) < q.hh + hh + 2) y = q.y + q.hh + hh + 3;
+      placed.push({ x, y, hw, hh });
+      el.e.style.left = `${Math.round(x)}px`; el.e.style.top = `${Math.round(y)}px`;
+      el.arrow.style.transform = `rotate(${m.angle.toFixed(2)}rad)`;
+    });
+  };
+  a.edgeMarks = () => edgePlaces.map((p, i) => ({ label: p.label, shown: !edgeEls[i]!.e.hidden }));
 
   // Review step 5: the briefing card (what you have, the enemy as believed, the objectives, how it ends, the fire rule
   // your units start with). From the battle input alone. `brief=1` (the start menu writes it): shown before the
@@ -312,7 +364,7 @@ async function main(): Promise<void> {
       open: (mode) => { if (card.isOpen()) return; shownAs = mode; speedBefore = hud.speed(); hud.dismiss(); hud.setSpeed(0); card.show(model, mode); },
       close: () => { const b = card.root.querySelector<HTMLButtonElement>('[data-act="start"]'); if (card.isOpen() && b) b.click(); },
     };
-    if (params.get("brief") === "1" && params.get("load") !== "1" && !sim.state.ended) a.briefing.open("start");
+    if (hasRole && params.get("brief") === "1" && params.get("load") !== "1" && !sim.state.ended) a.briefing.open("start");
   }
 
   const updateFloors = attachFloors(a, hudRoot);
@@ -324,7 +376,7 @@ async function main(): Promise<void> {
   // M12.3: a campaign battle gathers its logistics from the events (the result handed back to the campaign).
   const campLogistics = sim.state.sides.map((x) => emptyLogistics(x.id));
   const tracer = campaign ? tracerMap(input.catalog) : null;
-  const radioFilter = new RadioFilter();
+  const radioFilter = new RadioFilter<Extract<SimEvent, { kind: "radio" }>>();
   /** The top-level unit a man (or unit) belongs to; the callsign of an order's target (a unit, or a man's unit). */
   const topUnitOf = (id: EntityId): EntityId => {
     let u = sim.state.unit.has(id) ? id : sim.state.identity.get(id)?.unit ?? id;
@@ -332,7 +384,16 @@ async function main(): Promise<void> {
     return u;
   };
   const callsignOf = (id: EntityId): string => sim.state.unit.get(sim.state.unit.has(id) ? id : sim.state.identity.get(id)?.unit ?? id)?.callsign ?? strings.t("order.rejected.someUnit");
+  const radioLine = (e: Extract<SimEvent, { kind: "radio" }>, tick: number) => {
+    const faction = sim.state.identity.get(e.from)?.faction;
+    // (Review fix: a refusal stands out from routine traffic.)
+    // (M11.7a: a parameter named `...Key` is a string key itself: `partKey` gives `part`, in words.)
+    const params: Record<string, string | number> = { ...e.params };
+    for (const [k, v] of Object.entries(e.params)) if (k.endsWith("Key") && typeof v === "string") params[k.slice(0, -3)] = strings.t(v, {}, faction);
+    hud.radio(strings.t(e.key, params, faction), ticksToSeconds(tick), e.key === "radio.refuseProtected" ? "#ffb4b4" : sideColour(a, e.side));
+  };
   const handleEvents = (events: SimEvent[]) => {
+    for (const e of radioFilter.due(sim.state.tick)) { a.radioDropped--; radioLine(e, sim.state.tick); }
     if (tracer && events.length > 0) logisticsFromEvents(campLogistics, events, sim.state, input.catalog, tracer);
     renderer.onEvents(events, sim.state, overlay);
     vehicleDebug.onEvents(events);
@@ -341,13 +402,9 @@ async function main(): Promise<void> {
       if (e.kind === "support.ranging" && e.side === playerSide) a.rangingBook.add(e);
       if (e.kind === "radio" && e.side === playerSide) {
         // (Review step 5: "enemy drone overhead" once per unit and sighting in the log; the record above has them all.)
-        if (!radioFilter.accept(e.key, topUnitOf(e.from), e.tick)) { a.radioDropped++; continue; }
-        const faction = sim.state.identity.get(e.from)?.faction;
-        // (Review fix: a refusal stands out from routine traffic.)
-        // (M11.7a: a parameter named `...Key` is a string key itself: `partKey` gives `part`, in words.)
-        const params: Record<string, string | number> = { ...e.params };
-        for (const [k, v] of Object.entries(e.params)) if (k.endsWith("Key") && typeof v === "string") params[k.slice(0, -3)] = strings.t(v, {}, faction);
-        hud.radio(strings.t(e.key, params, faction), ticksToSeconds(e.tick), e.key === "radio.refuseProtected" ? "#ffb4b4" : sideColour(a, e.side));
+        // (A line inside the side's gap waits in the filter and comes out below.)
+        if (!radioFilter.accept(e.key, topUnitOf(e.from), e.tick, e)) { a.radioDropped++; continue; }
+        radioLine(e, e.tick);
       } else if (e.kind === "order.delivered" && (e.orderKind === "rules" || e.orderKind === "ambush")) {
         settlePendingRules(a, e.target, e.orderKind); // (D4b: an ambush delivered and sprung at once leaves the chip)
       } else if (e.kind === "order.rejected" && e.issuer === playerSide && e.reason !== "superseded") {
@@ -442,6 +499,7 @@ async function main(): Promise<void> {
     syncOrders(a);
     if (t - tilesAt >= 250) { tilesAt = t; refreshTiles(a); }
     updateFloors();
+    updateEdgeMarks();
     keyPan(t);
     followStep(a);
     const d0 = performance.now();

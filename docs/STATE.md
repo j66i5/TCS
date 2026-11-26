@@ -5,6 +5,16 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Quick battle polish, verification fixes (2026-11-26, same branch; DECISIONS "Quick battle polish: verification
+  fixes").** The briefing counts **what is on the map at the start** and tells a reserve apart on both sides (the
+  counter-attack battle says so in its task); the enemy's attached teams are listed; a campaign battle's card names
+  its own map; no Briefing button in the sandboxes; the card is opaque. The opening view has a **minimum scale of
+  0.6 px/m**: when the force and the objectives do not fit, it shows the force and the ground toward them and
+  **points at the objectives (or the exit) from the edge of the map area**; it leaves room for the radio log. A drone
+  call inside the side's 20 s gap waits instead of being lost; old pins thin among their own kind. No simulation
+  change. **For step 6 (measured, not changed): a laid ambush is sprung by the enemy's long-range fire within 6 to
+  20 s; with "At will" the player's German mounted attack in the village lets its squads out early because of hits
+  twice as often (28 against 14 of 48 carriers), with half the men down and no more own hits.**
 - **Quick battle polish, part 2 (2026-11-26, branch `claude/quick-battle-polish`; DECISIONS "Quick battle polish
   part 2"; review step 5, items 4-7). Review step 5 is done.** The battle **opens on the player's force and the
   objectives** (not the lead squad close up; never closer than true scale). On a **phone held sideways the unit card

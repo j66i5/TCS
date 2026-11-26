@@ -234,6 +234,7 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     },
     radioLog: () => hud.radioLog(),
     radioDropped: () => a.radioDropped,
+    edgeMarks: () => a.edgeMarks?.() ?? [],
     flash: () => hud.flashShown(),
     cardLine: () => hud.cardLine(),
     setCardLineMode: (on: boolean) => hud.setCardLineMode(on),

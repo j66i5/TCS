@@ -74,7 +74,8 @@ export async function menuPage(root: HTMLElement, data: DataSet, strings: String
     onContinue: (k) => {
       if (k === "campaign") go(launchSearch({ mode: "campaign-continue", look }));
       else if (k === "saved" && savedSearch !== null) { const q = new URLSearchParams(savedSearch); q.set("load", "1"); go(q.toString()); }
-      else if (k === "again" && lastSearch !== null) go(lastSearch);
+      // (Verification fix: a battle remembered before the briefing existed opens on its briefing too.)
+      else if (k === "again" && lastSearch !== null) go(lastLaunch ? launchSearch(lastLaunch) : lastSearch);
     },
     onChoices: () => set(CHOICES_KEY, JSON.stringify(choices)),
     onLook: (l) => { look = l; set(LOOK_KEY, l); },

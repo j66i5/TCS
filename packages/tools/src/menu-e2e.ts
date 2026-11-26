@@ -242,7 +242,9 @@ export async function briefingShots(page: MenuPage, o: { base: string; shots: { 
     passed.push(what);
   };
   for (const [label, query] of [["attack", "scenario=platoon&side=blue&attacker=blue&map=village&seed=3"], ["ambush", "scenario=platoon&kind=ambush&side=blue&attacker=red&vehicles=0&map=village&time=18:30&seed=3"],
-    ["company", "scenario=platoon&kind=defence-counterattack&size=company&side=blue&attacker=red&tanks=1&map=village&seed=3"]] as const) {
+    ["company", "scenario=platoon&kind=defence-counterattack&size=company&side=blue&attacker=red&tanks=1&map=village&seed=3"],
+    // (Verification fix: the attacker of a counter-attack battle is told of the enemy's reserve.)
+    ["counter", "scenario=platoon&kind=defence-counterattack&side=blue&attacker=blue&map=village&seed=3"]] as const) {
     await page.goto(`${o.base}/?${query}&look=${o.look}&brief=1`);
     await battleReady();
     await page.waitForFunction(fn<boolean>("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0;"), null, { timeout: 60_000 });

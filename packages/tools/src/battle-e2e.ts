@@ -39,6 +39,7 @@ type Pt = { x: number; y: number };
 
 export const ATTACK_BATTLE = "scenario=platoon&seed=1";
 export const DEFENCE_BATTLE = "scenario=platoon&attacker=red&vehicles=0&seed=1";
+export const TRANSIT_BATTLE = "scenario=platoon&kind=ambush&attacker=blue&seed=1";
 export const DRONE_BATTLE = "scenario=platoon&vehicles=0&air=red&seed=1";
 
 export async function battleE2e(page: BattlePage, o: BattleE2eOptions): Promise<string[]> {
@@ -79,9 +80,15 @@ export async function battleE2e(page: BattlePage, o: BattleE2eOptions): Promise<
     check(a.men.length > 20 && a.objectives.length > 0, `the attack has men and objectives (${a.men.length}, ${a.objectives.length})`);
     const out = a.men.filter((p) => !inView(a.v, p)).length, outO = a.objectives.filter((p) => !inView(a.v, p)).length;
     check(out === 0, `the opening view shows every own man (${out} of ${a.men.length} outside ${JSON.stringify(a.v)})`);
-    check(outO === 0, `the opening view shows every objective (${outO} outside)`);
+    // (Verification fix: where the force and the objectives do not fit at 0.6 px/m, an upright phone, the view shows
+    // the force and the ground toward them, and every objective outside it is pointed at from the edge.)
+    await page.waitForTimeout(300);
+    const marks = await page.evaluate(fn<{ label: string; shown: boolean }[]>("return globalThis.__tcs.edgeMarks();"));
+    const pointed = marks.filter((m) => m.shown).length;
+    check(a.v.scale >= 0.6 - 1e-6, `the opening view is at a readable scale (${a.v.scale.toFixed(2)} px/m)`);
+    check(pointed === outO, `every objective is in view or pointed at from the edge (${outO} outside, ${pointed} pointed at)`);
     check(a.v.scale <= 8 + 1e-6, `never closer than true scale (${a.v.scale})`);
-    pass(`attack: all ${a.men.length} own men and ${a.objectives.length} objectives in view at ${a.v.scale.toFixed(2)} px/m`);
+    pass(`attack: all ${a.men.length} own men in view at ${a.v.scale.toFixed(2)} px/m; ${a.objectives.length - outO} of ${a.objectives.length} objectives in view, ${pointed} pointed at`);
     await noScroll("attack");
     await shot("0-opening-attack");
     await open(DEFENCE_BATTLE);
@@ -90,6 +97,19 @@ export async function battleE2e(page: BattlePage, o: BattleE2eOptions): Promise<
     check(d.v.scale >= a.v.scale, `the defender on its objectives is at least as close as the attacker (${d.v.scale} against ${a.v.scale})`);
     pass(`defence: men and objectives in view at ${d.v.scale.toFixed(2)} px/m`);
     await shot("1-opening-defence");
+    // The side moving through an ambush has no objectives: the view looks along its way, its exit pointed at.
+    await open(TRANSIT_BATTLE);
+    const t = await view();
+    await page.waitForTimeout(300);
+    const tm = await page.evaluate(fn<{ label: string; shown: boolean }[]>("return globalThis.__tcs.edgeMarks();"));
+    check(t.men.every((p) => inView(t.v, p)), "moving through an ambush: every own man in view");
+    check(Math.max(t.v.x1 - t.v.x0, t.v.y1 - t.v.y0) >= 400, `moving through an ambush: the view shows the way ahead (${Math.round(t.v.x1 - t.v.x0)} x ${Math.round(t.v.y1 - t.v.y0)} m)`);
+    // (A wide screen holds the whole way: the far map edge in view, nothing to point at.)
+    const W = await page.evaluate(fn<number>("return globalThis.__tcs.sim.ctx.map.widthM;"));
+    const exitSeen = t.v.x1 >= W - 20;
+    check(tm.length === 1 && tm[0]!.shown === !exitSeen, `the exit is in view or pointed at from the edge (${JSON.stringify(tm)}, in view ${exitSeen})`);
+    pass(`moving through an ambush: ${Math.round(t.v.x1 - t.v.x0)} x ${Math.round(t.v.y1 - t.v.y0)} m in view, the exit ${exitSeen ? "in view" : "pointed at"}`);
+    await shot("1b-opening-transit");
   }
 
   if (parts.includes("card")) {

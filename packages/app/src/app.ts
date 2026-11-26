@@ -93,6 +93,8 @@ export interface App {
   readonly sentKinds: Map<number, OrderKind>;
   /** Radio lines the log's filter kept out so far (checks). */
   radioDropped: number;
+  /** The places pointed at from the map area's edge while outside the view (objectives, the side's exit; checks). */
+  edgeMarks?: () => { label: string; shown: boolean }[];
   /** The order bar's last contents (rebuilt only when the selected unit's capabilities change). */
   ordersShownFor: string | undefined;
   ordersKey: string;

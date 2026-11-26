@@ -19,7 +19,7 @@ export interface BattleSetup {
   playerSide: "blue" | "red";
   enemySide: "blue" | "red";
   seed: number;
-  /** The map kind asked for (undefined: "flat" or not a kind). */
+  /** The map kind asked for (undefined: "flat" or not a kind); a campaign battle: the kind of its sector's map. */
   mapKind: MapKind | undefined;
   factions: [string, string];
   /** Review step 5: the rules the player's units start with, by his side's role (`startRulesFor`; null: the
@@ -92,7 +92,9 @@ export function battleSetup(data: DataSet, params: URLSearchParams, campaignInpu
     : scenario === "hold" && input.forces.find((f) => f.side === enemySide)?.posture === "attack" ? [waveCommanders(enemySide, input)]
     // (M12.0b: a battle of a scenario kind: the enemy's commander by its plan.)
     : [input.forces.find((f) => f.side === enemySide)?.plan ? sideCommander(enemySide, input) : commanderController(enemySide, input)];
-  return { input, ai, scenario, playerSide, enemySide, seed, mapKind, factions, start };
+  // (Verification fix: a campaign battle's URL has no `map=`: its map's kind is in the input.)
+  const builtKind = (MAP_KINDS as readonly string[]).includes(input.map.meta.kind) ? (input.map.meta.kind as MapKind) : undefined;
+  return { input, ai, scenario, playerSide, enemySide, seed, mapKind: campaign ? builtKind : mapKind, factions, start };
 }
 
 /** `&crew=<blue template>,<red template>` (M10.6-data): the vehicles scenario with other crew templates (data ids),

@@ -11596,11 +11596,11 @@ player's side of rule 5 (events out, the interface decides what to show). Golden
   closer than 8 px/m (true scale) and never tighter than 150 m across the screen's shorter side (pure
   `openingView`, app/opening.ts). Men off the map and units arriving later are not counted.
 - Without objectives (an ambush): the ambusher's box takes in its ambush range around the force; the side moving
-  through takes in the first third of its route.
+  through takes in the first third of its route. (Verification fixes below: its exit instead, and a minimum scale.)
 - Measured on the mounted attack (village, seed 1; force about 800 m from the objectives): 0.30 px/m on a 360x780
   phone, 0.66 px/m at 780x360, 1.12 px/m on a 1400x900 desktop. The defender on its objectives: 1.16, 1.24 and
   3.40 px/m.
-- **Known limit:** on a phone held upright an attack along the map's long side shows almost the map's whole width
+- **Known limit (changed by the verification fixes below):** on a phone held upright an attack along the map's long side shows almost the map's whole width
   (the force and the objectives are that far apart); the units are symbols there. It is what was asked for (force and
   objectives), not a close-up. Held sideways the same battle is twice as close.
 - Screenshot scenes that started from the old close-up can call the new hook `__tcs.focusLead()` (the old view).
@@ -11666,3 +11666,110 @@ ui` takes its pictures (`battle-*.png`) in both looks.
    through a simulation event change.
 3. Pins older than 10 minutes are not drawn. Alternative: keep them, faint.
 
+
+
+## 2026-11-26 — Quick battle polish: verification fixes (whole-game review, step 5)
+
+Two verifiers went through parts 1 and 2 in the browser and in the code. Each point was confirmed first. No
+simulation code changed; goldens untouched, no `golden:update`.
+
+**Fixed.**
+- **The counter-attack battle's briefing read like a plain attack or defence, and counted platoons that were not on
+  the map.** "You have" now counts the men, units and hulls **on the map at the start**; a unit coming later is its
+  own line with its men, its hulls and the minute ("Zug 2, 33 men, after about 16 min (4 × Puma)"). The enemy block is
+  the enemy at the start; his reserve is a line "Expected later: about 30 more men, 1 platoon (3 × BMP-2)". The task
+  says it: the defender with a reserve reads "Defend, then counter-attack ... Your reserve (Zug 2) arrives after about
+  16 min", the attacker against an enemy with a reserve "Expect a counter-attack". An enemy with nobody on the map at
+  the start (the hold battle's waves) is shown whole, as before.
+- **The enemy's attached teams were missing** from the card: the top units that are no platoon and crew no hull (the
+  Metis team, the mortar section, the AGS team) are listed by callsign with their men ("Attached: PTUR 1 (3 men)").
+  His hulls were and are listed by type.
+- **On an upright phone an attack opened on nearly the whole map** (0.15 to 0.35 px/m, the force one stacked symbol,
+  half the screen empty). New rule in `openingView`: when the force and the objectives do not fit together at
+  **0.6 px/m** (`OPENING_MIN_SCALE`), the view shows the force at that scale (looser only if the force alone needs
+  it), pushed as far toward the objectives as keeps every own man inside with his margin. This takes the first
+  alternative of part 2's open point 1. **Objectives outside the view are pointed at from the edge of the free map
+  area** by a small chip with an arrow and the objective's name (`edgeMarker`, app/opening.ts; DOM under every panel,
+  never takes a tap; it follows the camera for the whole battle and goes when the objective is in view). Measured,
+  mounted attack, village seed 1: 360x780 0.60 px/m (was 0.30), both objectives pointed at; 780x360 0.66 px/m and
+  desktop as before (both objectives in view).
+- **The side moving through an ambush opened on 150 m of field.** Its route has two points (the two map edges), so
+  "the first third of its route" was its own start. Its exit now stands for the objective: the same rule gives
+  493 x 1130 m at 360x780 and 1087 x 520 m at 780x360 (was 150 x 345 and 313 x 150 m), the exit pointed at from the
+  edge ("Exit"; also for the withdrawing side). On a desktop the whole way is in view.
+- **The opening view was fitted to an area the radio log then covered.** It is fitted to the free area less 96 px at
+  the bottom (the log's lines and the folded card). The defender on its objectives is a little further out for it:
+  1.16 px/m at 360x780, 0.86 at 780x360 (was 1.24), 3.01 at 1400x900 (was 3.40).
+- **HUD text showed through the briefing** between and beside the cards: the card's backdrop is opaque now.
+- **A campaign battle's briefing (and the top bar) named the wrong map**: the kind came from the URL's `map=`
+  (default village), which a campaign URL does not have. `battleSetup` now returns the kind of the campaign input's
+  own map (`input.map.meta.kind`).
+- **The Briefing button was offered in battles without roles** (the vehicle sandbox: "No set task", a unit called
+  "1"). No button and no card there now.
+- **"Play the last battle again" for a battle remembered before the briefing existed** started without the card: the
+  menu now launches the remembered choice afresh (with `brief=1`).
+- **The drone line: a unit's only call could be lost.** The simulation calls once per man's new sighting, so a top
+  unit whose call fell inside the side's 20 s gap might never call again. Such a line now waits in the filter
+  (`RadioFilter.due`) and is shown when the gap has passed, the oldest first, unless its sighting has closed by then.
+  The quiet time stays 60 s: at 30 s the same overflight was announced again and again (8 lines in 330 s in the
+  browser check against 2); the price is that a drone coming back within a minute over the same platoon is not
+  announced again. A second drone over the same platoon during an open sighting is still not told apart (needs a
+  drone id on the simulation's event).
+- **Old pins were thinned without regard to what they are**: a newer pin of a man could hide an old vehicle pin
+  beside it. Thinned among their own kind only now.
+- **The ambush line promised one ambush for the whole force.** The start ambush is laid per top unit (each is its own
+  root), so the line now says: each platoon, section and team holds its fire until it sees an enemy within 220 m, one
+  of its own men fires or it comes under fire; the others go on holding. See the next point for the second sentence.
+
+**Confirmed and recorded, not changed (simulation behaviour; steps 6 and later).**
+- **A laid ambush is sprung within seconds, by the enemy.** Three battles as the ambusher (company village seed 21,
+  platoon village seed 3, platoon farmland seed 5), the enemy's commander on: the column's Pumas open fire at
+  2.2 to 13 s from over a kilometre, and the first ambush unit is sprung at 6 to 20 s (under fire after the 6 s grace
+  of D4b). None of the player's men fired first. The cause is the column's sights finding still men in wait at that
+  range in seconds, and the ambush positions' sight lines to the map edge: spotting and scenario siting, not the
+  start rule. Before this branch the ambusher started on "Return" and answered the same fire. Not changed here; the
+  briefing now says that an enemy who finds you first may open fire from far off and spring the ambush early.
+  **Step 6 should take it up** (concealment of men lying still in wait, or the ambush sited out of sight of the
+  entry edge).
+- **"At will" changes how the player's mounted attack goes, beyond own hits.** Part 1 recorded own hits only. From
+  the same lab runs (branch, player mode, 6 seeds x 600 s, `--fire return` against `--fire role`):
+
+  | Battle | Fire | Early dismounts | Why out | Dismount m (doctrine) | Hit aboard | Attacker's men down | Own hits |
+  |---|---|---:|---|---:|---:|---:|---:|
+  | platoon-vehicles (village) | Return | 21 of 48 | point 26, hit 14, near 6, stopped 2 | 635 (590) | 24 | 86 | 2 |
+  | platoon-vehicles (village) | At will | 33 of 48 | hit 28, point 12, near 6, stopped 2 | 680 (590) | 19 | 43 | 0 |
+  | platoon-vehicles@farmland | Return | 47 of 47 | hit 34, threatMen 6, threatVehicle 6, stopped 1 | 660 (300) | 30 | 63 | 1 |
+  | platoon-vehicles@farmland | At will | 48 of 48 | hit 44, threatMen 3, stopped 1 | 689 (300) | 20 | 49 | 1 |
+  | platoon-ru-vehicles | Return | 36 of 36 | stopped 16, threatMen 12, hit 6, point 2 | 572 (400) | 126 | 246 | 0 |
+  | platoon-ru-vehicles | At will | 32 of 32 | threatMen 15, stopped 11, hit 4, point 2 | 589 (400) | 104 | 217 | 0 |
+  | platoon-ru-vehicles@village | Return | 18 of 33 | stopped 12, threatMen 11, point 10 | 604 (530) | 67 | 154 | 0 |
+  | platoon-ru-vehicles@village | At will | 22 of 35 | stopped 14, point 11, threatMen 7, hit 2, threatVehicle 1 | 618 (530) | 73 | 198 | 0 |
+
+  In the German village attack the carriers that open fire on the way in are hit earlier and let their squads out
+  because of the hit (28 against 14), about 45 m further back, instead of at their dismount point (12 against 26).
+  Fewer men are hit aboard and half as many of the attacker's men go down; no objective is taken under either rule.
+  This is in the area balance pass 6 tuned (carriers that stop short). It follows from the owner's rule and is left
+  as it is; the next balance pass should measure the mounted attack with the player's "At will", not only AI against
+  AI. A verifier's 3-seed comparison against main shows the same direction (early 5 to 17 of 24).
+- **The fire rule by role applies to every app URL with roles**, not only to battles started from the menu (a bare
+  `?seed=1`, old bookmarks, the URLs the screenshot and phoneperf tools open): the attacker's units start "At will".
+  This is the owner's rule for "the player's units". Node tools, labs, batches and goldens have no start rules.
+  App-driven tool runs (phoneperf, screenshot scenes that let the battle run) are not comparable with runs before
+  2026-11-26.
+
+**Left as they are, with the reason.**
+- The menu's forces line counts platoons only. The Tanks row with its own choice is two rows below it, and the
+  briefing lists tanks and attached teams exactly; a line that named them too would need the tank and team rules of
+  `battleSetup` in the menu model.
+- Menu choices hidden by another choice (the task after "Meeting", Tanks after "Company") are kept and shown again
+  when their row comes back: the row is lit on the screen before Start. A hand-made `size=company&tanks=0` link
+  still gets both tank sections (changing it changes what an existing link opens).
+- Company battles: long names in the folded sidebar's tiles end in "…" (`text-overflow: ellipsis`, as since M7.5);
+  the open list shows them whole.
+- The landscape rules panel's last row is cut where the panel scrolls (thin scrollbar); it has no Ambush chip
+  because the Ambush chip is the card's (D4b).
+
+**Checks.** `e2e:battle` now also checks: the opening scale is at least 0.6 px/m; every objective is in view or
+pointed at; the side moving through an ambush sees at least 400 m of its way and its exit is in view or pointed at.
+The briefing scene has a fourth battle (the attacker of a counter-attack battle). New unit tests: the near view and
+`edgeMarker`, the counter-attack briefing on both sides, the campaign map kind, the waiting drone line, pins by kind.

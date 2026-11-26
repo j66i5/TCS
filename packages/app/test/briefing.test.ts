@@ -21,8 +21,11 @@ const model = (query: string): { m: BriefingModel; b: ReturnType<typeof battleSe
   return { m: briefingModel(b.input, b.playerSide, b.start, { mapKey: `map.${b.mapKind ?? "flat"}`, hullNameKey }), b };
 };
 const menOf = (u: UnitInput): number => u.members.length + u.subunits.reduce((n, c) => n + menOf(c), 0);
-const fightingMen = (f: ForceInput) => { const off = new Set((f.offMap ?? []).map((a) => a.vehicleId)); return f.units.filter((u) => u.vehicleId === undefined || !off.has(u.vehicleId)).reduce((n, u) => n + menOf(u), 0); };
-const fightingHulls = (f: ForceInput) => { const off = new Set((f.offMap ?? []).map((a) => a.vehicleId)); return (f.vehicles ?? []).filter((v) => !off.has(v.vehicleId)).length; };
+/** `when`: the units on the map at the start, those arriving later, or all of them. */
+const fightingUnits = (f: ForceInput, when: "start" | "late" | "all" = "all") => { const off = new Set((f.offMap ?? []).map((a) => a.vehicleId)); return f.units.filter((u) => (u.vehicleId === undefined || !off.has(u.vehicleId)) && (when === "all" || ((u.arriveS ?? 0) > 0) === (when === "late"))); };
+const fightingMen = (f: ForceInput, when: "start" | "late" | "all" = "all") => fightingUnits(f, when).reduce((n, u) => n + menOf(u), 0);
+const hullIds = (u: UnitInput): string[] => [...(u.vehicleId !== undefined ? [u.vehicleId] : []), ...u.subunits.flatMap(hullIds)];
+const fightingHulls = (f: ForceInput, when: "start" | "late" | "all" = "all") => { const off = new Set((f.offMap ?? []).map((a) => a.vehicleId)); const late = new Set(fightingUnits(f, "late").flatMap(hullIds)); return (f.vehicles ?? []).filter((v) => !off.has(v.vehicleId) && (when === "all" || late.has(v.vehicleId) === (when === "late"))).length; };
 /** The model as the card words it (every text through the string table, `...Key` parameters in words). */
 const words = (m: BriefingModel): string[] => {
   const tx = (x: { key: string; params?: Record<string, string | number> }) => {
@@ -53,16 +56,25 @@ describe("briefing: the model of every kind of battle the menu starts", () => {
     const { m, b } = model(query);
     const own = b.input.forces.find((f) => f.side === b.playerSide)!, enemy = b.input.forces.find((f) => f.side === b.enemySide)!;
     expect(m.role).toBe(role);
-    expect(m.task.key).toBe(`brief.task.${role ?? "none"}`);
-    // What you have: the input's men and hulls, without the ambulances, recovery vehicles and police off the map.
-    expect(m.own.men).toBe(fightingMen(own));
-    expect(m.own.hulls.reduce((n, x) => n + x.count, 0)).toBe(fightingHulls(own));
+    const ownLate = fightingUnits(own, "late").length > 0, enemyLate = fightingUnits(enemy, "late").length > 0, enemyWaves = fightingUnits(enemy, "start").length === 0;
+    expect(m.task.key).toBe(`brief.task.${role === "defend" && ownLate ? "defendCounter" : role === "attack" && enemyLate && !enemyWaves ? "attackCounter" : role ?? "none"}`);
+    // What you have: the input's men and hulls ON THE MAP AT THE START, without the ambulances, recovery vehicles and
+    // police off the map (verification fix: a reserve to come is told apart, with its men and hulls).
+    expect(m.own.men).toBe(fightingMen(own, "start"));
+    expect(m.own.hulls.reduce((n, x) => n + x.count, 0)).toBe(fightingHulls(own, "start"));
+    expect(m.own.lateHulls.flat().reduce((n, x) => n + x.count, 0)).toBe(fightingHulls(own, "late"));
+    expect(m.own.late.reduce((n, x) => n + Number(x.params!["men"]), 0)).toBe(fightingMen(own, "late"));
     expect(m.own.units.length + m.own.late.length).toBeGreaterThan(0);
     for (const u of m.own.units) expect(own.units.some((x) => x.callsign === u && (x.arriveS ?? 0) <= 0)).toBe(true);
     expect(m.own.late.length).toBe(own.units.filter((u) => (u.arriveS ?? 0) > 0).length);
     // The enemy: rounded, never the exact count above ten.
-    expect(m.enemy.men).toBe(roughly(fightingMen(enemy)));
-    expect(m.enemy.hulls.reduce((n, x) => n + x.count, 0)).toBe(fightingHulls(enemy));
+    // (At the start; what joins him later is told apart. An enemy who comes in waves only: all of him.)
+    expect(m.enemy.men).toBe(roughly(fightingMen(enemy, enemyWaves ? "all" : "start")));
+    expect(m.enemy.hulls.reduce((n, x) => n + x.count, 0)).toBe(fightingHulls(enemy, enemyWaves ? "all" : "start"));
+    expect(m.enemy.late?.men ?? 0).toBe(enemyWaves ? 0 : roughly(fightingMen(enemy, "late")));
+    expect((m.enemy.late?.hulls ?? []).reduce((n, x) => n + x.count, 0)).toBe(enemyWaves ? 0 : fightingHulls(enemy, "late"));
+    // His attached teams without a hull (a missile, mortar or grenade launcher team) are named.
+    expect(m.enemy.teams.map((x) => x.name).sort()).toEqual(fightingUnits(enemy, enemyWaves ? "all" : "start").filter((u) => u.echelon !== "platoon" && hullIds(u).length === 0).map((u) => u.callsign).sort());
     // The fire rule your units start with: the one laid on your force.
     expect(m.fire[0]!.key).toBe(fireKey);
     expect(own.start ?? null).toEqual(b.start);
@@ -109,6 +121,41 @@ describe("briefing: the model of every kind of battle the menu starts", () => {
     const night = model("scenario=hold&seed=3&time=23:00").m;
     expect(night.situation.find((r) => r.label === "brief.time")!.value.params).toEqual({ time: "23:00", lightKey: "brief.light.night" });
     expect(model("seed=3").m.situation.find((r) => r.label === "brief.time")!.value.key).toBe("brief.timeDay");
+  });
+
+  it("a counter-attack battle says so on both sides, and counts only what is on the map at the start", () => {
+    // The defender: one platoon now, the reserve told with its men and carriers and when it comes.
+    const d = model("seed=3&kind=defence-counterattack&attacker=red");
+    const blue = d.b.input.forces.find((f) => f.side === "blue")!;
+    expect(d.m.task.key).toBe("brief.task.defendCounter");
+    expect(words(d.m)[0]).toContain("counter-attack");
+    expect(words(d.m)[0]).toContain("Zug 2");
+    expect(d.m.own.units).toEqual(["Zug 1"]);
+    expect(d.m.own.men).toBe(fightingMen(blue, "start"));
+    expect(d.m.own.men).toBeLessThan(fightingMen(blue));
+    expect(d.m.own.hulls[0]!.count).toBe(4);
+    expect(d.m.own.lateHulls[0]![0]!.count).toBe(4);
+    expect(d.m.enemy.late).toBeNull();
+    // The attacker: the enemy on the map, and his reserve expected later.
+    const a = model("seed=3&kind=defence-counterattack&attacker=blue");
+    const red = a.b.input.forces.find((f) => f.side === "red")!;
+    expect(a.m.task.key).toBe("brief.task.attackCounter");
+    expect(words(a.m)[0]).toContain("counter-attack");
+    expect(a.m.enemy.men).toBe(roughly(fightingMen(red, "start")));
+    expect(a.m.enemy.late!.men).toBe(roughly(fightingMen(red, "late")));
+    expect(a.m.enemy.late!.platoons).toBe(1);
+    expect(a.m.enemy.platoons).toBe(1);
+    // The plain attack has neither.
+    const p = model("seed=3").m;
+    expect(p.task.key).toBe("brief.task.attack");
+    expect(p.enemy.late).toBeNull();
+    expect(p.enemy.teams.length).toBeGreaterThan(0); // the missile team of the mounted battle
+  });
+
+  it("a campaign battle's card names its own map's kind, not the URL's default", () => {
+    const input = buildScenario(data, { kind: "attack", seed: 4, mapKind: "farmland", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: 900 });
+    expect(battleSetup(data, new URLSearchParams("campaign=auto&play=1"), input).mapKind).toBe("farmland");
+    expect(battleSetup(data, new URLSearchParams("seed=4")).mapKind).toBe("village");
   });
 
   it("the default menu battle's briefing: two platoons and their eight carriers against a believed platoon with tanks", () => {

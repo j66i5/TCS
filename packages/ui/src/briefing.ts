@@ -24,9 +24,12 @@ export interface BriefingModel {
   role: "attack" | "defend" | "meeting" | "ambush" | "transit" | "withdraw" | "follow" | null;
   task: BriefText;
   situation: { label: string; value: BriefText }[];
-  own: { faction: string; men: number; units: string[]; hulls: BriefHulls[]; support: BriefText[]; late: BriefText[] };
-  /** The enemy as believed: men rounded as the campaign's briefing rounds them, platoons, hull types. */
-  enemy: { faction: string; men: number; platoons: number; hulls: BriefHulls[] };
+  /** What the player has ON THE MAP at the start (men, units, hulls); `late`: what comes later, each with its men
+   *  and hulls (`lateHulls`, per late unit). */
+  own: { faction: string; men: number; units: string[]; hulls: BriefHulls[]; support: BriefText[]; late: BriefText[]; lateHulls: BriefHulls[][] };
+  /** The enemy as believed, at the start: men rounded as the campaign's briefing rounds them, platoons, hull types,
+   *  the attached teams without a hull (`teams`: callsign and men); `late`: what is expected to join him later. */
+  enemy: { faction: string; men: number; platoons: number; hulls: BriefHulls[]; teams: { name: string; men: number }[]; late: { men: number; platoons: number; hulls: BriefHulls[] } | null };
   objectives: BriefText[];
   ends: BriefText[];
   /** The fire rule the player's units start with, why, and where to change it. */
@@ -45,13 +48,27 @@ export const roughly = (n: number): number => (n <= 10 ? n : n <= 50 ? Math.roun
 
 const menOf = (u: UnitInput): number => u.members.length + u.subunits.reduce((n, c) => n + menOf(c), 0);
 
-/** A force's fighting part: its top units and hulls without the off-map assets (ambulances, recovery, police). */
-function fighting(f: ForceInput): { units: UnitInput[]; hulls: Map<string, number> } {
+const isLate = (u: UnitInput): boolean => (u.arriveS ?? 0) > 0;
+/** The hulls a unit tree crews (their `vehicleId`s). */
+function hullIdsOf(u: UnitInput, out = new Set<string>()): Set<string> {
+  if (u.vehicleId !== undefined) out.add(u.vehicleId);
+  for (const c of u.subunits) hullIdsOf(c, out);
+  return out;
+}
+
+/** A force's fighting part: its top units without the off-map assets (ambulances, recovery, police), those on the
+ *  map at the start and those arriving later, each with its hulls by type. */
+function fighting(f: ForceInput): { now: UnitInput[]; late: UnitInput[]; hulls: Map<string, number>; hullsOf(u: UnitInput): Map<string, number> } {
   const off = new Set((f.offMap ?? []).map((a) => a.vehicleId));
   const units = f.units.filter((u) => u.vehicleId === undefined || !off.has(u.vehicleId));
-  const hulls = new Map<string, number>();
-  for (const v of f.vehicles ?? []) if (!off.has(v.vehicleId)) hulls.set(v.type, (hulls.get(v.type) ?? 0) + 1);
-  return { units, hulls };
+  const late = units.filter(isLate), lateIds = new Set<string>();
+  for (const u of late) hullIdsOf(u, lateIds);
+  const count = (keep: (id: string) => boolean): Map<string, number> => {
+    const m = new Map<string, number>();
+    for (const v of f.vehicles ?? []) if (!off.has(v.vehicleId) && keep(v.vehicleId)) m.set(v.type, (m.get(v.type) ?? 0) + 1);
+    return m;
+  };
+  return { now: units.filter((u) => !isLate(u)), late, hulls: count((id) => !lateIds.has(id)), hullsOf: (u) => { const ids = hullIdsOf(u); return count((id) => ids.has(id)); } };
 }
 
 const hullList = (hulls: Map<string, number>, nameKey: (type: string) => string): BriefHulls[] =>
@@ -83,7 +100,14 @@ export function briefingModel(input: BattleInput, playerSide: string, start: For
   if (own.plan?.untilS !== undefined) taskParams["min"] = min(own.plan.untilS);
   const exitShown = role === "ambush" ? enemyExit : planExit;
   if (exitShown) taskParams["edgeKey"] = edgeKey(exitShown);
-  const task: BriefText = { key: `brief.task.${role ?? "none"}`, params: taskParams };
+  const mine = fighting(own), theirs0 = fighting(enemy);
+  // (An enemy with nobody on the map at the start, the hold battle's waves: what comes is the enemy.)
+  const theirs = theirs0.now.length > 0 ? theirs0 : { ...theirs0, now: theirs0.late, late: [] as UnitInput[], hulls: (() => { const m = new Map<string, number>(); for (const u of theirs0.late) for (const [type, n] of theirs0.hullsOf(u)) m.set(type, (m.get(type) ?? 0) + n); return m; })() };
+  // (Verification fix: a counter-attack battle says so. The defender with a reserve to come: when it comes; the
+  // attacker against an enemy with a reserve: that a counter-attack is expected.)
+  const counter = role === "defend" && mine.late.length > 0 ? "defendCounter" : role === "attack" && theirs.late.length > 0 ? "attackCounter" : null;
+  if (counter === "defendCounter") { taskParams["unit"] = mine.late.map((u) => u.callsign).join(", "); taskParams["min"] = min(Math.min(...mine.late.map((u) => u.arriveS!))); }
+  const task: BriefText = { key: `brief.task.${counter ?? role ?? "none"}`, params: taskParams };
 
   // ---- the situation
   const situation: BriefingModel["situation"] = [
@@ -95,15 +119,18 @@ export function briefingModel(input: BattleInput, playerSide: string, start: For
   situation.push({ label: "brief.limit", value: { key: "brief.limitV", params: { min: min(rules.timeLimitSeconds) } } });
 
   // ---- what you have
-  const mine = fighting(own);
   const support: BriefText[] = [];
   for (const s of rules.support ?? []) if (s.side === playerSide && s.he + s.smoke + (s.illum ?? 0) > 0) support.push({ key: `brief.support.${s.asset ?? "mortar"}`, params: { he: s.he, smoke: s.smoke, illum: s.illum ?? 0 } });
   if ((rules.airRecon ?? []).includes(playerSide)) support.push({ key: "brief.support.drone" });
-  const late: BriefText[] = mine.units.filter((u) => (u.arriveS ?? 0) > 0).map((u) => ({ key: "brief.lateV", params: { unit: u.callsign, min: min(u.arriveS!) } }));
+  const late: BriefText[] = mine.late.map((u) => ({ key: "brief.lateV", params: { unit: u.callsign, min: min(u.arriveS!), men: menOf(u) } }));
+  const men = (us: UnitInput[]): number => us.reduce((n, u) => n + menOf(u), 0);
+  const platoons = (us: UnitInput[]): number => us.filter((u) => u.echelon === "platoon").length;
 
-  // ---- the enemy, believed
-  const theirs = fighting(enemy);
-  const enemyMen = theirs.units.reduce((n, u) => n + menOf(u), 0);
+  // ---- the enemy, believed: what stands on the map at the start; his attached teams without a hull (a missile, a
+  // mortar or a grenade launcher team: by callsign, his hulls are listed by type); what joins him later.
+  const lateHullsEnemy = new Map<string, number>();
+  for (const u of theirs.late) for (const [type, n] of theirs.hullsOf(u)) lateHullsEnemy.set(type, (lateHullsEnemy.get(type) ?? 0) + n);
+  const teams = theirs.now.filter((u) => u.echelon !== "platoon" && hullIdsOf(u).size === 0).map((u) => ({ name: u.callsign, men: menOf(u) }));
 
   // ---- objectives
   const objectives: BriefText[] = rules.objectives.map((ob) => {
@@ -140,8 +167,11 @@ export function briefingModel(input: BattleInput, playerSide: string, start: For
 
   return {
     role, task, situation,
-    own: { faction: own.faction, men: mine.units.reduce((n, u) => n + menOf(u), 0), units: mine.units.filter((u) => (u.arriveS ?? 0) <= 0).map((u) => u.callsign), hulls: hullList(mine.hulls, o.hullNameKey), support, late },
-    enemy: { faction: enemy.faction, men: roughly(enemyMen), platoons: theirs.units.filter((u) => u.echelon === "platoon").length, hulls: hullList(theirs.hulls, o.hullNameKey) },
+    own: { faction: own.faction, men: men(mine.now), units: mine.now.map((u) => u.callsign), hulls: hullList(mine.hulls, o.hullNameKey), support, late, lateHulls: mine.late.map((u) => hullList(mine.hullsOf(u), o.hullNameKey)) },
+    enemy: {
+      faction: enemy.faction, men: roughly(men(theirs.now)), platoons: platoons(theirs.now), hulls: hullList(theirs.hulls, o.hullNameKey), teams,
+      late: theirs.late.length > 0 ? { men: roughly(men(theirs.late)), platoons: platoons(theirs.late), hulls: hullList(lateHullsEnemy, o.hullNameKey) } : null,
+    },
     objectives, ends, fire,
   };
 }
@@ -215,11 +245,16 @@ export function createBriefing(parent: HTMLElement, s: Strings, look: "photo" | 
       if (m.own.units.length > 0) own.append(kv(t("brief.units"), m.own.units.map(whole).join(", ")));
       if (m.own.hulls.length > 0) own.append(kv(t("brief.vehicles"), hulls(m.own.hulls, m.own.faction)));
       for (const x of m.own.support) own.append(note(tx(x)));
-      if (m.own.late.length > 0) own.append(kv(t("brief.late"), m.own.late.map(tx).join("; ")));
+      if (m.own.late.length > 0) own.append(kv(t("brief.late"), m.own.late.map((x, i) => { const hl = m.own.lateHulls[i] ?? []; return tx(x) + (hl.length > 0 ? ` (${hulls(hl, m.own.faction)})` : ""); }).join("; ")));
       cols.append(own);
       const en = section(t("brief.enemy"), "brief-enemy",
         note(m.enemy.platoons === 1 ? t("brief.enemyV1", { men: m.enemy.men }) : m.enemy.platoons > 1 ? t("brief.enemyV", { men: m.enemy.men, platoons: m.enemy.platoons }) : t("brief.enemyMen", { men: m.enemy.men }), "strong"));
       if (m.enemy.hulls.length > 0) en.append(note(hulls(m.enemy.hulls, m.enemy.faction)));
+      if (m.enemy.teams.length > 0) en.append(note(t("brief.enemyTeams", { list: m.enemy.teams.map((x) => whole(t("brief.enemyTeam", { name: x.name, men: x.men }))).join(", ") })));
+      if (m.enemy.late) {
+        const l = m.enemy.late;
+        en.append(note(t(l.platoons === 1 ? "brief.enemyLate1" : l.platoons > 1 ? "brief.enemyLate" : "brief.enemyLateMen", { men: l.men, platoons: l.platoons }) + (l.hulls.length > 0 ? ` (${hulls(l.hulls, m.enemy.faction)})` : "")));
+      }
       cols.append(en);
       cols.append(section(t("brief.objectives"), "brief-objectives", ...m.objectives.map((x) => note(tx(x), "strong"))));
       const ends = h("ul", "brief-list");

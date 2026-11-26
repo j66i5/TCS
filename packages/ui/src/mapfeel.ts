@@ -268,7 +268,8 @@ export function thinPins<P extends LastSeenPin>(pins: readonly P[], tick: number
   const aged = pins.map((p) => ({ ...p, ageS: Math.max(0, (tick - p.seenTick) / 60) })).filter((p) => p.ageS <= PIN_MAX_AGE_S);
   const old = aged.filter((p) => p.ageS > PIN_FRESH_S).sort((a, b) => b.seenTick - a.seenTick || a.target - b.target);
   const kept: typeof old = [];
-  for (const p of old) if (!kept.some((q) => (q.x - p.x) ** 2 + (q.y - p.y) ** 2 <= PIN_CLUSTER_M * PIN_CLUSTER_M)) kept.push(p);
+  // (Verification fix: a vehicle's pin and a man's pin are different news: thinned among their own kind only.)
+  for (const p of old) if (!kept.some((q) => q.cls === p.cls && (q.x - p.x) ** 2 + (q.y - p.y) ** 2 <= PIN_CLUSTER_M * PIN_CLUSTER_M)) kept.push(p);
   const keep = new Set(kept.map((p) => p.target));
   return aged.filter((p) => p.ageS <= PIN_FRESH_S || keep.has(p.target)).map((p) => ({ ...p, alpha: pinAlpha(p.ageS) }));
 }

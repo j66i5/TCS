@@ -149,6 +149,10 @@ describe("review step 5: old pins fade, thin out and go", () => {
     expect(out.map((p) => p.target)).toEqual([1, 2, 3]);
     expect(out.every((p) => p.alpha === 1)).toBe(true);
   });
+  it("an old vehicle pin is not hidden by a newer pin of a man beside it (thinned among their own kind)", () => {
+    const man = pin(1, PIN_FRESH_S + 30, 100, 100), olderMan = pin(2, PIN_FRESH_S + 90, 105, 100), hull = { ...pin(3, PIN_FRESH_S + 120, 102, 100), cls: "vehicle" as const };
+    expect(thinPins([man, olderMan, hull], 100_000).map((p) => p.target).sort()).toEqual([1, 3]);
+  });
   it("fades to the floor by eight minutes and is dropped after ten", () => {
     expect(pinAlpha(0)).toBe(1);
     expect(pinAlpha((PIN_FRESH_S + PIN_FADED_S) / 2)).toBeCloseTo((1 + PIN_MIN_ALPHA) / 2, 6);

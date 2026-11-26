@@ -150,12 +150,16 @@ const LABS: Record<string, () => string> = {
   smoke: () => `# Smoke lab\n\n## Hand smoke grenades\n\n${handSmokeLabMarkdown(handSmokeLab(loadData()))}\n\n${smokeLabMarkdown(smokeLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,
   agl: () => `# Automatic grenade launcher lab\n\n${aglLabMarkdown(aglLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
-  // Balance pass 5: `lab -- mounted-assault [seeds] [--seconds s] [--scenarios a,b] [--modes player,ai]`.
+  // Balance pass 5: `lab -- mounted-assault [seeds] [--seconds s] [--scenarios a,b] [--modes player,ai] [--fire role|return|free|default]`.
   "mounted-assault": () => {
     const n = Number(process.argv[3] !== undefined && !process.argv[3].startsWith("--") ? process.argv[3] : 3);
     const sc = (argOf("scenarios") ?? "platoon-vehicles,platoon-ru-vehicles").split(",");
     const modes = (argOf("modes") ?? "player,ai").split(",") as ("player" | "ai")[];
-    return `# Mounted-assault lab\n\n${mountedAssaultLabMarkdown(mountedAssaultLab(loadData(), n, Number(argOf("seconds") ?? 600), sc, modes))}\n`;
+    // (Review step 5: player mode starts with the app's fire rule by role, At will when attacking; `--fire return`:
+    // the rule before, for comparison; `--fire default`: no start rules at all.)
+    const fa = argOf("fire") ?? "role";
+    const fireArg = fa === "return" || fa === "free" || fa === "role" ? fa : undefined;
+    return `# Mounted-assault lab\n\n${mountedAssaultLabMarkdown(mountedAssaultLab(loadData(), n, Number(argOf("seconds") ?? 600), sc, modes, fireArg))}\n`;
   },
   // Balance pass 5: `lab -- areafire [seeds] [--parts fuse,area] [--ranges 400,800,1200] [--seconds s] [--area-range m] [--area-seconds s]`.
   areafire: () => {

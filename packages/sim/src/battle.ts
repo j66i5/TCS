@@ -6,7 +6,7 @@
  * (`BattleResult`, with updated roster records) are defined here, independently of the battle internals,
  * so the campaign can feed battles and read their outcome, and run AI-versus-AI battles headless.
  */
-import type { Catalog } from "./catalog";
+import type { Catalog, FireRule } from "./catalog";
 import type { BattleRules } from "./context";
 import type { Environment } from "./environment";
 import type { BattleEndReason, SimEvent, SimEventKind } from "./events";
@@ -148,7 +148,16 @@ export interface ForceInput {
    *  (supply vehicle runs, combat vehicles' rear runs, the support top-up). `supportTopUp`: `rounds` moved into the
    *  side's off-map mortar or artillery section every `everyS` (owner: allotments topped up by deliveries). */
   stock?: { load: ItemStack[]; supportTopUp?: { rounds: number; everyS: number } };
+  /** Review step 5 (owner 2026-11-24): the rules this force's units start with, as battle input (not orders: no radio
+   *  delay, no "wilco", nothing in the order log). `fire`: every unit's fire rule; `ambushM`: an ambush laid from the
+   *  first tick on each top unit and everything under it, at this range (exactly the record the `ambush` order
+   *  writes; the fire rule is then "free", as the order sets it). Off-map assets keep the catalog's default; units
+   *  arriving late get the same when they come. Absent: the catalog's default fire rule, no ambush (every battle
+   *  before, every golden). */
+  start?: ForceStart;
 }
+
+export interface ForceStart { fire?: FireRule; ambushM?: number }
 
 /**
  * M12.0b: what a side is to do in a battle of a scenario kind (`ForceInput.plan`): "attack" / "defend" the objectives;

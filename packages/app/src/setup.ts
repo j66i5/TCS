@@ -6,9 +6,9 @@
  * Owner rule (start menu): every URL that worked before works the same; the menu only writes these URLs.
  */
 import type { DataSet } from "@tcs/data";
-import { buildScenario, demoBattle, holdBattle, MAP_KINDS, mountedTanks, SCENARIO_KINDS, vehicleBattle, withoutRecovery, type MapKind, type ScenarioKind } from "@tcs/scenario";
+import { buildScenario, demoBattle, holdBattle, MAP_KINDS, mountedTanks, SCENARIO_KINDS, startRulesFor, vehicleBattle, withoutRecovery, type MapKind, type ScenarioKind } from "@tcs/scenario";
 import { commanderController, defenceStartPosts, sideCommander, vehicleWanderController, waveCommanders, wanderController } from "@tcs/ai";
-import { environmentAt, parseTimeOfDay, type BattleInput, type Controller } from "@tcs/sim";
+import { environmentAt, parseTimeOfDay, type BattleInput, type Controller, type ForceStart } from "@tcs/sim";
 import { carriersParam, defaultTanksApply, tanksParam } from "./params";
 
 export interface BattleSetup {
@@ -22,6 +22,9 @@ export interface BattleSetup {
   /** The map kind asked for (undefined: "flat" or not a kind). */
   mapKind: MapKind | undefined;
   factions: [string, string];
+  /** Review step 5: the rules the player's units start with, by his side's role (`startRulesFor`; null: the
+   *  catalog's default, a battle without roles). Laid on his force as `ForceInput.start`. */
+  start: ForceStart | null;
 }
 
 /**
@@ -77,13 +80,19 @@ export function battleSetup(data: DataSet, params: URLSearchParams, campaignInpu
   if (params.get("repair") === "0") input.rules.repair = false;
   // ?recovery=0 (M11.7b): no recovery vehicles; ?recovery=1: the vehicles scenario gets them too.
   if (params.get("recovery") === "0") withoutRecovery(input);
+  // Review step 5 (owner Q4): the player's units start "At will" when his side attacks, "Return" when it defends, a
+  // laid ambush when it lies in wait (scenario `startRulesFor`). Battle input on HIS force only: the enemy's commander
+  // gives its own orders as before. (A campaign battle the player plays too: one rule for "the player's units".)
+  const ownForce = input.forces.find((f) => f.side === playerSide);
+  const start = (ownForce ? startRulesFor(ownForce) : undefined) ?? null;
+  if (ownForce && start) ownForce.start = start;
   // ?ai=0: no enemy controller (screenshots: a scene the enemy must not walk into).
   const ai = params.get("ai") === "0" ? [] : campaign ? [sideCommander(enemySide, input)] : scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
     : scenario === "hold" && input.forces.find((f) => f.side === enemySide)?.posture === "attack" ? [waveCommanders(enemySide, input)]
     // (M12.0b: a battle of a scenario kind: the enemy's commander by its plan.)
     : [input.forces.find((f) => f.side === enemySide)?.plan ? sideCommander(enemySide, input) : commanderController(enemySide, input)];
-  return { input, ai, scenario, playerSide, enemySide, seed, mapKind, factions };
+  return { input, ai, scenario, playerSide, enemySide, seed, mapKind, factions, start };
 }
 
 /** `&crew=<blue template>,<red template>` (M10.6-data): the vehicles scenario with other crew templates (data ids),

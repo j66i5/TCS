@@ -7,7 +7,7 @@
  * the hulls fired from them, hits by the attacker's hulls on its own men (must be 0), and whether the objective fell.
  */
 import { commanderController, rideStats } from "@tcs/ai";
-import { buildScenario, mountedTanks } from "@tcs/scenario";
+import { buildScenario, mountedTanks, startRulesFor } from "@tcs/scenario";
 import { builtUpAround, createSim, dismountDistance, hypot2, isBuiltUp, step, submitOrder, type BattleInput, type Controller, type EntityId, type SimEvent } from "@tcs/sim";
 import { getScenario, ON_POSTS } from "../scenarios";
 import type { DataSet } from "@tcs/data";
@@ -36,6 +36,10 @@ export interface MountedAssaultRow {
   started: number; pointM: number[]; rideRetries: number;
   postTally: { ordered: number; reached: number; resited: number; failed: number } | null;
   noRoute: Record<string, number>; noRouteLeftM: number[];
+  /** Review step 5 (the player's start rule by role): the fire rule the attacker's units started with ("default": the
+   *  catalog's, no `ForceInput.start`), the area-fire bursts of the attacker's hulls (`vehicle.areaFire`) and the
+   *  attacker's men down. */
+  fire: string; areaBursts: number; attackerDown: number;
 }
 
 /** The scenario's attacking side: the one not holding the main objective's ground at the start (its defender stands
@@ -60,10 +64,20 @@ function buildBattle(data: LoadedData, scenario: string, seed: number, seconds: 
   return buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind as "village" | "farmland" | "woodland" | "industrial", factions: ["de", "ru"], attacker, timeLimitSeconds: seconds, vehicles: true, missileTeams: true, ...mountedTanks(data, ["de", "ru"], attacker) }, ON_POSTS);
 }
 
-export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "player" | "ai", seed: number, seconds: number): MountedAssaultRow {
+/** `fire` (review step 5, player mode): "role": the attacker's units start with the rule the app gives the player by
+ *  his role (`startRulesFor`: At will when attacking); "return" / "free": that rule; absent: no start rules, the
+ *  catalog's default (every row before review step 5). */
+export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "player" | "ai", seed: number, seconds: number, fire?: "role" | "return" | "free"): MountedAssaultRow {
   const input = buildBattle(data, scenario, seed, seconds);
+  const atk0 = attackerOf(input);
+  if (mode === "player" && fire !== undefined) {
+    const f = input.forces.find((x) => x.side === atk0)!;
+    const st = fire === "role" ? startRulesFor(f) : { fire };
+    if (st) f.start = st;
+  }
+  const fireShown = input.forces.find((x) => x.side === atk0)!.start?.fire ?? "default";
   const sim = createSim(input);
-  const atk = attackerOf(input), def = input.forces.find((f) => f.side !== atk)!.side;
+  const atk = atk0, def = input.forces.find((f) => f.side !== atk)!.side;
   const obj = input.rules.objectives[0]!;
   const faction = input.forces.find((f) => f.side === atk)!.faction;
   const ctx = { map: input.map, catalog: input.catalog } as Parameters<typeof isBuiltUp>[0];
@@ -81,7 +95,7 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
       submitOrder(sim, { tick: 0, issuer: atk, target: id, kind: "assault", x: obj.x, y: obj.y } as never);
     }
   }
-  const row: MountedAssaultRow = { scenario, mode, seed, attacker: atk, doctrineM, map: input.map.meta.kind, urban, buildings, carriers: 0, dismountM: [], early: 0, hitAboard: 0, posts: 0, postM: [], fellBackM: [], rounds: 0, ownHits: 0, taken: false, takenS: null, reasons: {}, threats: [], hitBy: {}, postSeen: [], covers: 0, started: 0, pointM: [], rideRetries: 0, postTally: null, noRoute: {}, noRouteLeftM: [] };
+  const row: MountedAssaultRow = { scenario, mode, seed, attacker: atk, doctrineM, map: input.map.meta.kind, urban, buildings, carriers: 0, dismountM: [], early: 0, hitAboard: 0, posts: 0, postM: [], fellBackM: [], rounds: 0, ownHits: 0, taken: false, takenS: null, reasons: {}, threats: [], hitBy: {}, postSeen: [], covers: 0, started: 0, pointM: [], rideRetries: 0, postTally: null, noRoute: {}, noRouteLeftM: [], fire: fireShown, areaBursts: 0, attackerDown: 0 };
   const carrierVids = new Set<EntityId>();
   for (const [, u] of sim.state.unit.entries()) if (u.side === atk && u.carrier !== undefined) carrierVids.add(u.carrier);
   row.started = carrierVids.size;
@@ -120,13 +134,14 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
         row.dismountM.push(e.distM); if (e.distM > doctrineM + 50) row.early++; seenVid.add(e.vehicle); supporting.add(e.vehicle); watch.push({ vid: e.vehicle, tick: e.tick, d0: e.distM }); }
       else if (e.kind === "move.noRoute" && e.vehicle !== undefined && carrierVids.has(e.vehicle)) { const k = e.cause ?? "order"; row.noRoute[k] = (row.noRoute[k] ?? 0) + 1; row.noRouteLeftM.push(e.leftM ?? 0); }
       else if (e.kind === "assault.cover") row.covers++;
+      else if (e.kind === "vehicle.areaFire" && hulls.has(e.vehicle)) row.areaBursts++;
       else if (e.kind === "assault.supportPost") { row.posts++; row.postSeen.push(e.seen); row.postM.push(Math.round(hypot2(e.x - obj.x, e.y - obj.y))); supporting.add(e.vehicle); }
       else if (e.kind === "unit.dismounted" && mode === "ai" && sim.state.unit.get(e.unit)?.side === atk && !seenVid.has(e.vehicle)) {
         const t = sim.state.transform.get(e.vehicle);
         if (t) { const d = Math.round(hypot2(t.x - obj.x, t.y - obj.y)); seenVid.add(e.vehicle); row.dismountM.push(d); if (d > doctrineM + 50) row.early++; watch.push({ vid: e.vehicle, tick: e.tick, d0: d }); supporting.add(e.vehicle); }
       } else if (e.kind === "shot.fired" && e.vehicle !== undefined && supporting.has(e.vehicle)) row.rounds++;
       else if (e.kind === "hit" && sim.state.identity.get(e.target)?.side === atk && (hulls.has(e.owner) || (sim.state.identity.get(e.owner)?.side === atk && crewOf(e.owner)))) row.ownHits++;
-      else if (e.kind === "casualty" && aboard.get(e.soldier) === true && sim.state.identity.get(e.soldier)?.side === atk) row.hitAboard++;
+      else if (e.kind === "casualty" && sim.state.identity.get(e.soldier)?.side === atk) { row.attackerDown++; if (aboard.get(e.soldier) === true) row.hitAboard++; }
     }
     for (let i = watch.length - 1; i >= 0; i--) {
       const w = watch[i]!;
@@ -152,10 +167,10 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
   return row;
 }
 
-export function mountedAssaultLab(data: LoadedData, seeds: number, seconds = 600, scenarios = ["platoon-vehicles", "platoon-ru-vehicles"], modes: ("player" | "ai")[] = ["player", "ai"]): MountedAssaultRow[] {
+export function mountedAssaultLab(data: LoadedData, seeds: number, seconds = 600, scenarios = ["platoon-vehicles", "platoon-ru-vehicles"], modes: ("player" | "ai")[] = ["player", "ai"], fire?: "role" | "return" | "free"): MountedAssaultRow[] {
   const rows: MountedAssaultRow[] = [];
   for (const sc of scenarios) for (const mode of modes) for (let s = 1; s <= seeds; s++) {
-    const r = mountedAssaultBattle(data, sc, mode, s, seconds);
+    const r = mountedAssaultBattle(data, sc, mode, s, seconds, fire);
     rows.push(r);
     process.stderr.write(`${sc} ${mode} seed ${s}: dismount ${r.dismountM.join("/")} m, why ${Object.entries(r.reasons).map(([k, n]) => `${k} ${n}`).join(", ")}, hit by ${Object.entries(r.hitBy).map(([k, n]) => `${k} ${n}`).join(", ")}, from point ${r.pointM.join("/")} m, sent on ${r.rideRetries}, gave up ${Object.entries(r.noRoute).map(([k, n]) => `${k} ${n}`).join(", ")} (${r.noRouteLeftM.join("/")} m left), posts ${r.postTally ? `${r.postTally.reached} of ${r.postTally.ordered} reached, ${r.postTally.resited} sited again, ${r.postTally.failed} given up` : "-"}, threats ${r.threats.map((t) => `${t.hullM}/${t.objM}${t.seen ? "s" : "r"}`).join(" ")}, posts ${r.postM.join("/")} m, fell back ${r.fellBackM.join("/")} m, rounds ${r.rounds}, own hits ${r.ownHits}, taken ${r.taken}\n`);
   }
@@ -194,6 +209,14 @@ export function mountedAssaultLabMarkdown(rows: MountedAssaultRow[]): string {
     const pt = rs.reduce((a, r) => ({ ordered: a.ordered + (r.postTally?.ordered ?? 0), reached: a.reached + (r.postTally?.reached ?? 0), resited: a.resited + (r.postTally?.resited ?? 0), failed: a.failed + (r.postTally?.failed ?? 0) }), { ordered: 0, reached: 0, resited: 0, failed: 0 });
     const ai = mode === "ai";
     lines.push(`| ${sc} | ${mode} | ${started} | ${out} | ${started - out} | ${(why["point"] ?? 0) + (why["near"] ?? 0)} | ${Object.entries(why).filter(([k2]) => k2 !== "point" && k2 !== "near").sort((a, b) => b[1] - a[1]).map(([k2, n]) => `${k2} ${n}`).join(", ") || "-"} | ${ai && pm.length > 0 ? `${fmt(mean(pm))}, ${Math.max(...pm)}` : "-"} | ${ai ? rs.reduce((a, r) => a + r.rideRetries, 0) : "-"} | ${Object.entries(nr).map(([k2, n]) => `${k2} ${n}`).join(", ") || "0"}${left.length > 0 ? ` (${fmt(mean(left))} m left)` : ""} | ${ai ? pt.ordered : "-"} | ${ai ? pt.reached : "-"} | ${ai ? pt.resited : "-"} | ${ai ? pt.failed : "-"} |`);
+  }
+  // Review step 5: the player's start rule by role (At will when attacking) lets his hulls fire at suspected places.
+  lines.push("", "Fire rule at the start (review step 5; player mode: `--fire role` is the app's rule by role, `--fire return` the rule before). Area bursts = the attacker's hulls firing at places men were last known; own hits = hits by the attacker's hulls on its own men (must be 0).",
+    "", "| Scenario | Mode | Fire at start | Battles | Area bursts | Rounds from posts | Own hits | Attacker's men down | Taken |", "|---|---|---|---:|---:|---:|---:|---:|---:|");
+  for (const [k, rs] of groups) {
+    const [sc, mode] = k.split("|");
+    const sum = (f: (r: MountedAssaultRow) => number) => rs.reduce((a, r) => a + f(r), 0);
+    lines.push(`| ${sc} | ${mode} | ${mode === "ai" ? "the commander's orders" : rs[0]!.fire} | ${rs.length} | ${sum((r) => r.areaBursts)} | ${sum((r) => r.rounds)} | ${sum((r) => r.ownHits)} | ${sum((r) => r.attackerDown)} | ${rs.filter((r) => r.taken).length} |`);
   }
   return lines.join("\n");
 }

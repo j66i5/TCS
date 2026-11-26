@@ -11435,3 +11435,151 @@ part "not penetrated" with its 500 m rows), the paired Panzerfaust table above, 
 (run alone on the 4-CPU container): 3 of 25 below their floors, three of the five that fail on origin/main here:
 spotting 7.6x and 6.7x with smoke (floor 8x), bench-vehicles 7.1x (floor 8x); bench-tanks, bench-combined and
 bench-caches passed this run. New per-tick work: one modulo test per hull (`cutOffRiders`). To be confirmed on CI.
+
+## 2026-11-26 — Quick battle polish part 1: battle type and size in the menu, the fire rule by role, the briefing (whole-game review, step 5, items 1-3)
+
+Review 2026-11-24 problems 5 and 6 ("the quick battle offers one battle and says nothing before it starts") and the
+owner's answer Q4 (2026-11-24: "At will" when attacking, "Return" when defending). Part 2 (the opening zoom, the
+one-line card in phone landscape, drone radio lines and old pins, rejection messages) follows on the same branch.
+
+**1. The menu's quick battle: battle type and size.**
+- Two new rows: **Battle type** (Attack, Meeting, Ambush, Withdrawal, Counter-attack) and **Size** (Platoon,
+  Company). **Your task** keeps its two chips and is named per type: ambush "Move through (you are ambushed)" /
+  "Lay the ambush"; withdrawal "Pursue" / "Delay, then withdraw"; counter-attack "Attack (the enemy counter-attacks)"
+  / "Defend, then counter-attack"; a meeting has no task row. Inside, the task is still "is my side the scenario's
+  `attacker`": the menu writes only `kind=`, `size=`, `side=` and `attacker=`, which `setup.ts` has read since M12.0b.
+- **The plain attack at platoon size writes neither `kind=` nor `size=`**, so its link is the one the menu wrote
+  before (plus `brief=1`, below), and a "last battle" remembered before today still reads back as its choice. A
+  meeting names the player's side as the attacker.
+- **"One platoon battle" was wrong** (the attacker has two platoons). The note now reads "One battle: choose the
+  type, your task, the size and the forces", and under the size a line says what each side gets: "You: 2 platoons.
+  Enemy: 1 platoon.", "You: 1 platoon, 1 more arriving later. Enemy: 2 platoons." The numbers come from the new
+  `scenarioPlatoons` (scenario/battle.ts), which `buildScenario` itself now builds from (its `platoonsOf` and
+  `lateOf` call it): one source, tested against the built input for every kind, size and attacker.
+- **A company and the Tanks row.** `buildScenario` gives a company both sides' tank sections when the definition
+  says nothing about tanks, but the app's `tanks=` handling passes the balanced mounted battle's one section for
+  the tracked battle and cannot say "none" (`tanks=0` means "say nothing", which a company reads as "both"). So
+  for a company the Tanks row is not offered and the menu writes `tanks=1` (both sides: the company's own support,
+  as the kinds lab measures it), whatever the carriers. `setup.ts` and the meaning of every existing link are
+  unchanged. **Noted, not changed:** a hand-made `size=company&tanks=0` link still gets tanks.
+- Remembered like the other choices (`tcs.menu.choices`; a choice stored before today lacks the two fields and gets
+  the defaults); "Play the last battle again" names the type, the task and "Company".
+- A choice of type, task or size lays the screen out again (the rows below depend on it); the scroll position is kept.
+
+**2. The player's units start on a fire rule by role.**
+- **Battle input, not orders.** New optional `ForceInput.start?: { fire?: FireRule; ambushM?: number }`, read where
+  units are created (`addUnit`, also for a unit that arrives late). Not tick-0 `rules` orders: those would pass the
+  radio delay, every unit would answer "wilco" (flooding the four-line log), and they would sit in the order log.
+  Absent, a unit starts on the catalog's `defaultFireRule` as before.
+- **Only the app sets it, on the player's force** (`battleSetup`, from the new pure `startRulesFor` in
+  scenario/start-rules.ts). The enemy's commander gives its own orders as before; headless, batch, labs and goldens
+  build their inputs without it. **Goldens are unchanged and no `golden:update` was needed:** the default is battle
+  input only when the app sets it, and no golden is built by the app. A sim test pins that an input without `start`
+  (or with an empty one) hashes as before.
+- **The rule by role** (the force's plan posture, else its stated posture):
+
+  | Role | Start | Why |
+  |---|---|---|
+  | attack | At will | owner Q4 |
+  | defend | Return | owner Q4 |
+  | meeting (both sides advance to seize) | At will | both sides are attacking |
+  | follow (the pursuer of a withdrawal) | At will | it attacks |
+  | transit (the side moving through an ambush) | At will | the side on the move must answer at once; review problem 2 |
+  | withdraw (the delaying defender) | Return | it defends until its time |
+  | ambush | a laid ambush at the plan's range (220 m) | the record the `ambush` order writes (fire rule "free", `ambush {rangeM, tick 0, root: the top unit}`), so it springs exactly as an ordered one and the card's Ambush chip is lit |
+  | none (vehicle sandbox, demo) | the catalog's default | no role to go by |
+
+  Off-map assets (ambulances, recovery, police) keep the default: they are nobody's to order.
+- **Campaign battles the player plays get the same rule** ("the player's units", one rule). Auto-resolve is the AI on
+  both sides and is untouched; a played result goes back by the record's hash, not the input's. **Open for the
+  owner** (point 1 below); leaving the campaign out is one condition in `battleSetup`.
+- **Area fire (owner Q9 of balance pass 5 said: no automatic area fire for the player's hulls by default).** With
+  "At will" when attacking, the player's hulls now fire at places where enemy men were last known from the start.
+  Measured with the mounted-assault lab, player mode, 6 seeds x 4 battles x 600 s, the app's rule (`--fire role`,
+  now the lab's default) against the rule before (`--fire return`):
+
+  | Battle | Fire at start | Area bursts | Rounds from posts | Own hits | Attacker's men down |
+  |---|---|---:|---:|---:|---:|
+  | platoon-vehicles (village) | At will | 160 | 1661 | 0 | 43 |
+  | | Return | 195 | 1766 | 2 | 86 |
+  | platoon-ru-vehicles (farmland) | At will | 95 | 1925 | 0 | 217 |
+  | | Return | 49 | 2178 | 0 | 246 |
+  | platoon-vehicles@farmland | At will | 345 | 2665 | 1 | 49 |
+  | | Return | 225 | 3790 | 1 | 63 |
+  | platoon-ru-vehicles@village | At will | 83 | 889 | 0 | 198 |
+  | | Return | 45 | 2143 | 0 | 154 |
+
+  **Own hits did not rise: 1 in 24 battles with At will, 3 in 24 with Return** (hits by the attacker's hulls on its
+  own men; the lab's "must be 0" is missed by both, as before this change: the one on farmland is in both rows).
+  The bursts under "Return" are the mounted assault's own ordered fire from its support posts, which does not ask
+  the fire rule. So the owner's question was not put: nothing got worse. The CLAUDE.md line is rewritten.
+- The mounted-assault lab has `--fire role|return|free|default` and a third table (fire at start, area bursts, own
+  hits, attacker's men down); the function's own default is unchanged (no start rules), so the tests that call it
+  measure what they measured.
+
+**3. The briefing card.**
+- `ui/briefing.ts`: a pure `briefingModel(input, playerSide, start, {mapKey, hullNameKey})` and the card. The campaign
+  briefing's model cannot be called for a single battle (it reads campaign records), so the card **reuses its frame**
+  (the `.cmp` top bar, cards, key-value rows, sticky actions; both looks) rather than its code. It reads the battle
+  **input** only, so it is the same before the first tick and after a reload.
+- Content: the task in a sentence by role (with the exit's map edge and the delay's minutes); map, time (the clock
+  and daylight / twilight / dark when the battle has a sky), time limit; **you have** men, units by callsign,
+  vehicles "n x name", off-map mortar or artillery rounds, a reconnaissance drone, late units with their minute (all
+  without the ambulances, recovery vehicles and police off the map); **the enemy, believed**: men rounded as the
+  campaign rounds them (to 5 up to 50, then to 10), platoons, vehicle types; the objectives and who holds them (or
+  that there are none and what scores); **how it ends**: the time limit, a side breaking, the two battle-end rules
+  with the data's numbers (`behaviour.battleEnd`: under 25 % standing for 60 s loses after 60 s of notice; every
+  objective held with no fighting for 3 min wins after 60 s), Claim victory and where it is, exits and breaking
+  off; **the fire rule you start with**, why, and where to change it.
+- **Opt-in by URL: `brief=1`**, written by the menu for quick, hold and assault launches (not the sandbox). Every
+  older link and every tool (screenshot scenes, e2e:claim, phoneperf, probe) opens a running battle as before
+  (owner rule: every URL that worked before works the same). `load=1` never opens on it. With it the battle starts
+  paused; "Start the battle" runs it at 1x; "Main menu" leaves.
+- **"Briefing"** is a button in the top bar on a wide screen and the first entry under "⋯" on a phone, in every
+  battle: it pauses, shows the card ("Back to the battle", Esc, or the cross), and restores the speed.
+- Debug hooks `__tcs.briefing()`, `openBriefing()`, `closeBriefing()`, `fireRules()`.
+- No faction in code: hull names through the data's `nameKey`, units by their callsigns.
+
+**What the pictures show** (`npm run screenshot -- --scene menu`, `-- --scene briefing`; 360x780, 780x360, desktop;
+photo and flat; every picture looked at).
+- Menu, quick battle: the three new rows fit one phone column (type chips on two lines); the forces line sits under
+  the size; with Ambush + Company the task chips read "Move through (you are ambushed)" / "Lay the ambush", the
+  line says three platoons each with the company's support and the "slower on a phone" note, and the Tanks row is
+  gone. Landscape shows type, task and size above the Start bar without sideways scroll.
+- Briefing, phone portrait: the task, Situation, You have and The enemy fit the first screen; How it ends and the
+  fire rule (framed in the accent colour) follow on one scroll; "Main menu" and "Start the battle" stay on the
+  screen. Landscape and desktop lay the cards out in two columns; on the desktop the whole card fits without
+  scrolling. The company defence wraps "Zug 1, Zug 2, Panzer 1, Mörsergruppe 1, GraMaWa 1" and "12 x Puma, 2 x
+  Leopard 2A7V" onto two lines without clipping.
+- Fixed after looking: the map's own texts showed through behind the task line (the backdrop is darker now and the
+  task has its own card); 18:30 was called "night" beside a menu chip "Dusk" (now "dark", from the light level:
+  daylight from 0.8, twilight from 0.2).
+
+**Tests.** `sim/test/start-rules.test.ts` (the fire rule on one force only, sub-units, crews, a late unit; no start =
+the same hash; an ambush laid at the start equals the ordered one, holds beyond its range, springs within it,
+survives save and load); `tools/test/start-rules.test.ts` (`scenarioPlatoons` against the built input for every
+kind x size x attacker and the overrides; `startRulesFor` for the seven postures and none, every kind's two sides,
+hold, the sandboxes; a built ambush force in the state, its off-map assets on the default); `app/test/menu.test.ts`
+(every battle type x task x side on foot and tracked at platoon size, a company of every type and task: the URL
+reads back, the roles by the table, the platoon counts equal `scenarioPlatoons`, the start rule on the player's force
+and in the state, the enemy without one, the battle runs; the URLs; the forces line; old remembered choices);
+`app/test/briefing.test.ts` (13 battles: men and hulls equal the input's, the enemy rounded, the fire rule, the
+battle-end numbers from the data, every key exists, no raw key or unfilled parameter; the fixture faction; a battle
+without battle-end rules). `e2e:menu`: the rows and the line, the URL, the briefing open with the battle paused at
+tick 0, every own unit in its ambush, Start runs it, Briefing again pauses and resumes, the choices and "Play
+again" remembered.
+
+**Open points for the owner.**
+1. Campaign battles you play: start by role too (built so), or leave the campaign on "Return"?
+2. The ambusher starts in a real ambush at 220 m (built so). The alternative is plain "Return" with a hint.
+3. The type row plus a task row named per type (built so), or one flat list of nine choices?
+4. A company from the menu always has both sides' tanks; a "no tanks" company needs a small change in how
+   `tanks=0` is read for `size=company` (it changes what an existing hand-made link opens).
+5. The briefing shows the enemy's vehicle types and counts exactly (as the campaign briefing does) and its men
+   rounded. Say if the vehicles should be vaguer.
+
+**Checks.** typecheck, lint, lint:data clean; `npm test` 220 files, 1919 passed, 6 skipped (the golden replays and
+the determinism tests among them, unchanged: no `golden:update`); `e2e:menu` 11 checks, `e2e:claim` 9, `e2e:campaign`
+12, no page errors; the briefing scene's own checks (open, no sideways scroll, the main button on the screen) pass at
+360x780, 780x360 and 1280x800 in both looks. Timing tests (`test:perf`) were not run: another agent shares the
+container, and the only sim change is one optional field read where a unit is created.

@@ -15,7 +15,7 @@ import {
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
-import { ageLabel, cacheMarkers, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, prisonerMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
+import { ageLabel, briefingModel, cacheMarkers, centreOf, createAar, createBriefing, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, prisonerMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
 import { hashRecord } from "@tcs/campaign";
 import { loadBundledData } from "./data";
 import { loadCampaignBattle, returnToCampaign, type CampaignBattle } from "./campaign/battle";
@@ -80,7 +80,7 @@ async function main(): Promise<void> {
     }
   }
   // (Start menu step: the battle the URL asks for, built in setup.ts exactly as before.)
-  const { input, ai, playerSide, seed, mapKind } = battleSetup(data, params, campaign ? campaign.input : null);
+  const { input, ai, playerSide, seed, mapKind, start } = battleSetup(data, params, campaign ? campaign.input : null);
   // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).
   const loaded = loadOrCreate(input, ai, params.get("load") === "1");
   const sim = loaded.sim;
@@ -108,7 +108,7 @@ async function main(): Promise<void> {
     input, sim, strings, renderer, overlay, playerSide, ai, orderLog: [], defaultFormation,
     hud: null as unknown as App["hud"],
     doctrineSpacing: input.catalog.factions[playerFaction]?.doctrine["preferredSpacingM"] ?? 10,
-    record: loaded.record ?? newBattleRecord(sim.state.sides.map((x) => x.id)), review: null,
+    record: loaded.record ?? newBattleRecord(sim.state.sides.map((x) => x.id)), review: null, briefing: null,
     speed: 1, pace: "walk", orderMode: "move", nature: null, plan: null, dragHandle: null, dragGapM: 3, formation: undefined,
     inspected: null, contoursOn: false, following: null, gesture: null, supportAt: null, pendingTurn: null,
     pendingRules: new Map(), activeMoves: new Map(), floorState: { shown: 0, unit: null, unitFloor: null, manual: false }, floorPick: null,
@@ -197,6 +197,8 @@ async function main(): Promise<void> {
       issue(a, { ...now(a, top), kind: "claimVictory" });
       if (a.speed === 0) stepOnce();
     },
+    // Review step 5: the briefing again (the battle pauses while it is read).
+    onBriefing: () => a.briefing?.open("resume"),
     onLoad: () => reloadSaved(a),
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
     // S5: a tile tap selects the unit and centres the camera on it; on the unit already selected and centred, it
@@ -283,6 +285,30 @@ async function main(): Promise<void> {
     renderer.focus(ox + 0.4 * (input.map.widthM / 2 - ox), oy + 0.4 * (input.map.heightM / 2 - oy), 600, insets);
   } else {
     renderer.fitToMap(input.map, insets);
+  }
+
+  // Review step 5: the briefing card (what you have, the enemy as believed, the objectives, how it ends, the fire rule
+  // your units start with). From the battle input alone. `brief=1` (the start menu writes it): shown before the
+  // battle starts, which waits paused; a URL without it runs at once as before; a loaded battle never opens on it.
+  {
+    const hullNameKey = (type: string): string => {
+      for (const f of Object.keys(data.factions).sort()) { const v = data.factions[f]?.vehicles[type]; if (v) return v.nameKey; }
+      return type;
+    };
+    const model = briefingModel(input, playerSide, start, { mapKey: `map.${mapKind ?? "flat"}`, hullNameKey });
+    let speedBefore = 1, shownAs: "start" | "resume" = "start";
+    const card = createBriefing(hudRoot, strings, look, {
+      onClose: (mode) => { hud.setSpeed(mode === "start" ? 1 : speedBefore); },
+      ...(campaign ? {} : { onMenu: () => location.assign(menuUrl()) }),
+    });
+    a.briefing = {
+      model,
+      isOpen: () => card.isOpen(),
+      mode: () => shownAs,
+      open: (mode) => { if (card.isOpen()) return; shownAs = mode; speedBefore = hud.speed(); hud.dismiss(); hud.setSpeed(0); card.show(model, mode); },
+      close: () => { const b = card.root.querySelector<HTMLButtonElement>('[data-act="start"]'); if (card.isOpen() && b) b.click(); },
+    };
+    if (params.get("brief") === "1" && params.get("load") !== "1" && !sim.state.ended) a.briefing.open("start");
   }
 
   const updateFloors = attachFloors(a, hudRoot);

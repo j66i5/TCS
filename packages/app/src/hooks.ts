@@ -62,6 +62,13 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     },
     cancelPlan: () => { endPlan(a); },
     go: () => { if (a.plan && overlay.selectedUnit !== null) { const o = planToOrder(a.plan, playerSide, overlay.selectedUnit, sim.state.tick); if (o) issue(a, forUnit(a, o)); } endPlan(a); },
+    /** Review step 5: the briefing card: open or not, how (before the battle or during it) and its model; open it
+     *  (as the top bar's button does); close it (as its main button does: the battle starts or goes on). */
+    briefing: () => ({ open: a.briefing?.isOpen() ?? false, mode: a.briefing?.mode() ?? null, model: a.briefing?.model ?? null }),
+    openBriefing: () => a.briefing?.open("resume"),
+    closeBriefing: () => a.briefing?.close(),
+    /** Each own unit's fire rule and laid ambush (checks: the start rules by role). */
+    fireRules: () => [...sim.state.unit.entries()].filter(([, u]) => u.side === playerSide && u.asset === undefined).map(([id, u]) => ({ unit: id, fire: u.fireRule, ambushM: u.ambush?.rangeM ?? null })),
     /** Select a unit (screenshots: a vehicle's crew unit). */
     select: (uid: EntityId | null, part?: "drone" | "hq") => select(a, uid, part),
     /** M7.5a screenshots: dock the order bar, open the sidebar's list, the order set shown, the free area. */

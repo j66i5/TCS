@@ -247,6 +247,26 @@ function scenarioMounted(def: ScenarioDef): boolean {
   return def.forces ? def.forces.some((f) => (f?.vehicles?.length ?? 0) > 0) : def.vehicles === true;
 }
 
+/**
+ * How many platoons each side of a template-built battle gets (review step 5: the start menu and the briefing say what
+ * each side has from here, and `buildScenario` builds from here, so the words cannot drift from the battle):
+ * at the start (`attacker`, `defender`), the defender's counter-attack reserve (`reserve`, part of `defenderLate`) and
+ * the platoons coming on later (`attackerLate`, `defenderLate`: the reserve and the reinforcements).
+ */
+export function scenarioPlatoons(def: Pick<ScenarioDef, "kind" | "attacker" | "size" | "attackerPlatoons" | "platoons" | "reservePlatoons" | "reinforcements">): { attacker: number; defender: number; reserve: number; attackerLate: number; defenderLate: number } {
+  const kind = def.kind === "platoon-attack" ? "attack" : def.kind;
+  const company = def.size === "company";
+  const a = def.attacker === "blue" ? 0 : 1, d = 1 - a;
+  const count = (att: boolean): number => {
+    if (def.platoons) return Math.max(1, def.platoons[att ? a : d]!);
+    if (company) return kind === "defence-counterattack" && !att ? 2 : 3;
+    if (att) return Math.max(1, def.attackerPlatoons ?? SCENARIO_KIND.platoons[kind]![0]!);
+    return SCENARIO_KIND.platoons[kind]![1]!;
+  };
+  const reserve = kind === "defence-counterattack" ? Math.max(1, def.reservePlatoons ?? 1) : 0;
+  return { attacker: count(true), defender: count(false), reserve, attackerLate: def.reinforcements?.[a]?.length ?? 0, defenderLate: reserve + (def.reinforcements?.[d]?.length ?? 0) };
+}
+
 export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHooks = {}): BattleInput {
   const catalog = buildCatalog(data, [...def.factions]);
   const kind = def.kind === "platoon-attack" ? "attack" : def.kind;
@@ -276,16 +296,12 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
   const tanksOn: ScenarioDef["tanks"] = def.tanks === undefined && company ? true : def.tanks;
   const reserveAt = Math.round(def.reserveAtS ?? T * SCENARIO_KIND.reserveAtShare);
   const delayUntil = Math.round(def.delayUntilS ?? T * SCENARIO_KIND.delayUntilShare);
-  const platoonsOf = (side: "blue" | "red", s: number): number => {
-    if (def.platoons) return Math.max(1, def.platoons[s]!);
-    const att = side === def.attacker;
-    if (company) return kind === "defence-counterattack" && !att ? 2 : 3;
-    if (att) return Math.max(1, def.attackerPlatoons ?? SCENARIO_KIND.platoons[kind]![0]!);
-    return SCENARIO_KIND.platoons[kind]![1]!;
-  };
+  // (Review step 5: the counts come from `scenarioPlatoons`, which the start menu and the briefing show too.)
+  const P = scenarioPlatoons(def);
+  const platoonsOf = (side: "blue" | "red"): number => (side === def.attacker ? P.attacker : P.defender);
   /** Late platoons per side (times, s): the defender's reserve in a counter-attack battle, and reinforcements. */
   const lateOf = (side: "blue" | "red", s: number): number[] => [
-    ...(kind === "defence-counterattack" && side === defender ? Array.from({ length: Math.max(1, def.reservePlatoons ?? 1) }, () => reserveAt) : []),
+    ...(side === defender ? Array.from({ length: P.reserve }, () => reserveAt) : []),
     ...(def.reinforcements?.[s] ?? []),
   ];
   // M12.0a: wrecks and craters of earlier battles in the placement grids (none: the grids as before).
@@ -329,7 +345,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef, hooks: ScenarioHo
     const carriers = Array.isArray(def.carriers) ? def.carriers[s] : def.carriers;
     const assault = def.assaultGroup === side ? pack?.manifest.assaultGroupTemplate : undefined;
     const template = def.templates?.[s] ?? assault ?? platoonTemplateOf(data, faction, carriers) ?? pack?.manifest.demoTemplate ?? "demo-team";
-    const count = platoonsOf(side, s);
+    const count = platoonsOf(side);
     const late = lateOf(side, s);
     const built = Array.from({ length: count }, (_, k) => buildForceWithVehicles(data, { faction, template, seed: def.seed * 31 + s * 7 + k * 101, keyPrefix: `${side}-${k + 1}`, number: k + 1 }));
     // M12.0b: the late platoons (reserve, reinforcements), numbered after the others.

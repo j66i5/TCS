@@ -1297,7 +1297,7 @@ in `behaviour.json` (`drills.contact`) and in each faction's doctrine (`contactA
 `contactBreakPinnedShare`). **Fire at shooters he cannot see.** A man shot at by an enemy he only heard, or was told about,
 fires back at that area as long as its position is known to within 120 m, or 40 % of the range. He also does this when
 he is halted, pinned but not panicked, or defending, and when his squad was fired on even though no round passed him.
-This counts as returning fire, so it is allowed under the player's default rule "return fire". Shots from the same shooter
+This counts as returning fire, so it is allowed under the rule "return fire" (the rule a defending player's units start with). Shots from the same shooter
 heard again within 10 s narrow down his position: up to six guesses are averaged. At night, a muzzle flash in sight
 narrows it further. `npm run lab -- contact` measures the drill.
 
@@ -2187,6 +2187,48 @@ to within 30 m and is within his weapon's reach: one shot every 3 s, a machine-g
 the last round passes him, when the place is older than 20 s, or as soon as he sees an enemy (then he aims). It works
 at night too (the muzzle flashes give the shooter away). Every side does this. Two men given the same spot no longer
 hold each other's fire.
+
+## Starting a battle: the menu, the briefing, the fire rule you start with (review step 5, 2026-11-26)
+
+**The menu's quick battle** asks for the **battle type** (Attack, Meeting, Ambush, Withdrawal, Counter-attack), **your
+task** in it (attack or defend; in an ambush "move through" or "lay the ambush", in a withdrawal "pursue" or "delay,
+then withdraw", in a counter-attack battle "attack" or "defend, then counter-attack"; a meeting has no tasks) and the
+**size** (platoon or company), then your side, the forces, the tanks, the map, the time of day and the seed. Under the
+size a line says what each side gets, for example "You: 2 platoons. Enemy: 1 platoon." or "You: 1 platoon, 1 more
+arriving later." These numbers are not written into the menu: they come from the same function the scenario builds
+its platoons with (`scenarioPlatoons`), so the words and the battle cannot drift apart. A company brings its own
+support (mortars, a missile team, a grenade launcher team and two tanks per side, where the army has them), so the
+Tanks row is not offered for it. The menu only writes the URL options the app has always read (`kind=`, `size=`,
+`side=`, `attacker=`); the plain platoon attack writes neither `kind=` nor `size=`, so its link is the one the menu
+wrote before.
+
+**The briefing.** A battle started from the menu opens on a briefing card and waits, paused, until you press "Start
+the battle" (the menu adds `brief=1` to the link; a link without it runs at once, as before, and a loaded battle
+never opens on it). The card tells you: your task in a sentence (with the map edge of an exit and the minutes of a
+delay); the map, the time and the time limit; what you have (men, units by name, vehicles by type, mortar or
+artillery rounds off the map, a reconnaissance drone, units arriving later with their minute); what the enemy is
+believed to have (men rounded to five or ten, platoons, vehicle types); the objectives and who holds them; how the
+battle ends (the time limit, a side breaking, the rule that a side with fewer than a quarter of its men standing for
+a minute loses after a minute's notice, the rule that a side holding every objective with no fighting for three
+minutes wins the field, Claim victory, exits); and the fire rule your units start with. It is built from the battle's
+input alone, so it reads the same before the first second and after a reload. "Briefing" in the top bar (under "⋯"
+on a phone) shows it again: the battle pauses while you read and goes on at the speed it had.
+
+**The fire rule you start with** now follows your role (owner's answer Q4, replacing "Return everywhere"):
+
+| Your role | Your units start on |
+|---|---|
+| attacking, a meeting, pursuing a withdrawing enemy, moving through an ambush | **At will** |
+| defending, delaying before a withdrawal | **Return** |
+| lying in ambush | a laid **Ambush** at 220 m (hold fire until an enemy is that close or someone fires, then at will) |
+| no role (the vehicle sandbox) | the data's default (Return) |
+
+This is part of the battle's input for the player's force (`ForceInput.start`), not an order: nothing goes over the
+radio, nobody answers "wilco", and it is there from the first tick. Units that arrive later start with it too. The
+enemy's commander gives its own orders as before, and every tool, lab and recorded battle has no start rules, so
+none of them changed. A campaign battle you play yourself follows the same table. You can change the rule for any
+unit on its card, in the Fire row. With "At will" a vehicle crew also fires at places where enemy men were last known
+(area fire, see "Vehicles"); with "Return" it did that only after you set "At will" yourself.
 
 ## The campaign: a battalion through linked battles (M12)
 

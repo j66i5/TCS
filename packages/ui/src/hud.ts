@@ -97,6 +97,8 @@ export interface HudCallbacks {
   onLoad(): void;
   /** Start menu: back to the main menu (the app asks first while the battle runs). */
   onMenu?(): void;
+  /** Review step 5: the battle's briefing again (absent: no button). */
+  onBriefing?(): void;
   /** Claim victory (review 2026-11-24 problem 3, owner Q3): the button tapped, offered or not (the app says why not). */
   onClaim?(): void;
   /** A tap on a unit's tile in the sidebar (M7.5a). */
@@ -279,7 +281,11 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   claimBtn.dataset["act"] = "claim";
   claimBtn.hidden = true;
   claimBtn.onclick = () => cb.onClaim?.();
-  const rare = [contourBtn, helpBtn, saveBtn, loadBtn, mapBtn, dbgBtn, ...(cb.onClaim ? [claimBtn] : []), ...(cb.onMenu ? [menuBtn] : [])];
+  // (Review step 5: the battle's briefing again: in the bar on a wide screen, under "⋯" on a phone.)
+  const briefBtn = el("button", "hud-btn hud-brief-btn", s.t("brief.button"));
+  briefBtn.dataset["act"] = "briefing";
+  briefBtn.onclick = () => cb.onBriefing?.();
+  const rare = [...(cb.onBriefing ? [briefBtn] : []), contourBtn, helpBtn, saveBtn, loadBtn, mapBtn, dbgBtn, ...(cb.onClaim ? [claimBtn] : []), ...(cb.onMenu ? [menuBtn] : [])];
   /** The "⋯" button marked while the claim is offered behind it (a phone). */
   const claimMark = () => barMoreBtn.classList.toggle("attn", !claimBtn.hidden && !claimBtn.classList.contains("off") && claimBtn.parentElement === barMenu);
   for (const b of rare) b.addEventListener("click", () => { if (b.parentElement === barMenu) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); } });

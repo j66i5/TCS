@@ -3,7 +3,7 @@
  * from a state at the end of a battle.
  */
 import { lightAt } from "./light";
-import type { BattleInput, ForceInput, Placement, SoldierRecord, UnitInput, VehicleRecord } from "./battle";
+import type { BattleInput, ForceInput, ForceStart, Placement, SoldierRecord, UnitInput, VehicleRecord } from "./battle";
 import type { DriveState, OffMapKind, SoldierState, VehicleState } from "./components";
 import { CREW_STATION_ORDER } from "./mount";
 import { cos, sin } from "./math";
@@ -40,7 +40,7 @@ export function buildInitialState(input: BattleInput): SimState {
     const late = lateHulls(force);
     const vehicles = addVehicles(state, force, input.catalog, (id) => !offMap.has(id) && !late.has(id));
     // (A unit arriving late, M11.1, enters at its time: arrivalSystem.)
-    for (const u of force.units) if ((u.arriveS ?? 0) <= 0 && (u.vehicleId === undefined || !offMap.has(u.vehicleId))) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
+    for (const u of force.units) if ((u.arriveS ?? 0) <= 0 && (u.vehicleId === undefined || !offMap.has(u.vehicleId))) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles, undefined, force.start);
     seatPassengers(state, force, vehicles, input.catalog, late.size > 0 ? (id) => !late.has(id) : undefined);
   }
   // Off-map assets (M10.6a): their crews are nobody's to order; they wait at the off-map park until called. (M11.9b:
@@ -280,6 +280,10 @@ export function addUnit(
   catalog: Catalog,
   vehicles: Map<string, EntityId>,
   parentQuality?: DefId,
+  /** `ForceInput.start` (review step 5): the fire rule and the ambush the force's units start with. */
+  start?: ForceStart,
+  /** The top unit of this tree (the root of an ambush laid at the start); absent: this unit is it. */
+  root?: EntityId,
 ): EntityId {
   const id = newEntity(state);
   const vid = u.vehicleId === undefined ? undefined : vehicles.get(u.vehicleId);
@@ -302,7 +306,8 @@ export function addUnit(
     moving: false,
     firing: false,
     lineBlockedReported: false,
-    fireRule: catalog.behaviour.decisions.defaultFireRule,
+    fireRule: start?.ambushM !== undefined ? "free" : start?.fire ?? catalog.behaviour.decisions.defaultFireRule,
+    ...(start?.ambushM !== undefined ? { ambush: { rangeM: start.ambushM, tick: state.tick, root: root ?? id } } : {}),
     maxEngageM: 0,
     onContact: "ground",
     ammoRule: "normal",
@@ -332,7 +337,7 @@ export function addUnit(
     if (cv === undefined) throw new Error(`unit ${u.key}: no vehicle '${u.carrierId}' to ride in`);
     unit.carrier = cv;
   }
-  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, catalog, vehicles, quality));
+  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, catalog, vehicles, quality, start, root ?? id));
   // Men at the start, all of them under it (morale: its loss share).
   const count = (x: UnitInput): number => x.members.length + x.subunits.reduce((n, c) => n + count(c), 0);
   unit.morale.start = count(u);
@@ -573,7 +578,7 @@ export function arrivalSystem(ctx: SimContext, state: SimState, events: EventSin
     const walk = (u: UnitInput) => { if (u.vehicleId !== undefined) hulls.add(u.vehicleId); u.subunits.forEach(walk); };
     walk(l.unit);
     const vehicles = hulls.size > 0 && l.force ? addVehicles(state, l.force, ctx.catalog, (id) => hulls.has(id)) : new Map<string, EntityId>();
-    const uid = addUnit(state, l.unit, null, l.side, l.faction, l.placements, ctx.catalog, vehicles);
+    const uid = addUnit(state, l.unit, null, l.side, l.faction, l.placements, ctx.catalog, vehicles, undefined, l.force?.start);
     if (hulls.size > 0 && l.force) seatPassengers(state, l.force, vehicles, ctx.catalog, (id) => hulls.has(id));
     (state.arrived ??= []).push(l.unit.key);
     events.emit({ kind: "unit.entered", tick: state.tick, unit: uid, side: l.side });

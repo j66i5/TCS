@@ -551,3 +551,27 @@ button.cmp-row:active { background: rgba(255, 255, 255, 0.06); }
 /* Wide or landscape: the modes two by two. */
 @media (min-width: 640px) { .menu-modes { grid-template-columns: 1fr 1fr; } .menu-tile.mode-more { grid-column: 1 / -1; } }
 @media (max-height: 480px) and (orientation: landscape) { .menu-hero { padding: 6px 4px 0; } .menu .cmp-hero-title { font-size: 26px; } .menu-tile { min-height: 54px; padding-top: 8px; padding-bottom: 8px; } }
+/* Review step 5: the battle briefing (ui/briefing.ts): the campaign frame over the paused map; a full-height sheet on
+   a phone, a centred card on a wide screen, two columns in landscape; both looks. */
+.cmp.brief.look-photo { background: rgba(10, 14, 9, 0.88); }
+.cmp.brief.look-flat { background: rgba(18, 26, 16, 0.94); }
+.cmp.brief[hidden] { display: none; }
+.brief-body { max-width: 560px; }
+.brief-task { padding: 8px 12px 10px; background: var(--c-card); border: 1px solid var(--c-line); border-radius: var(--radius); }
+.cmp.brief.look-flat .brief-task { border-width: 2px; }
+.brief-objectives .cmp-note::first-letter { text-transform: uppercase; }
+.brief-task-text { font-size: 17px; font-weight: 700; line-height: 1.3; margin-top: 2px; color: #f0eccf; }
+.brief-cols { display: flex; flex-direction: column; gap: 10px; }
+.brief .cmp-kv { align-items: flex-start; }
+.brief .cmp-kv > b { min-width: 0; overflow-wrap: anywhere; }
+.brief .cmp-kv > span:first-child { min-width: 84px; flex: 0 0 auto; }
+.brief .cmp-note.strong { color: var(--text); font-size: 14px; }
+.brief .cmp-note + .cmp-note { margin-top: 4px; }
+.brief-list { margin: 0; padding-left: 18px; color: var(--text); font-size: 13px; line-height: 1.4; }
+.brief-list li + li { margin-top: 3px; }
+.brief-fire { border-color: var(--accent); }
+@media (min-width: 640px) {
+  .brief-body { max-width: 900px; }
+  .brief-cols { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+}
+@media (min-width: 900px) { .brief .cmp-scroll { padding-top: 12px; } }

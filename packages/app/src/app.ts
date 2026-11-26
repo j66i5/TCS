@@ -7,7 +7,7 @@
 import type { Strings } from "@tcs/data";
 import type { BattleInput, BattleRecord, Controller, EntityId, Order, Sim } from "@tcs/sim";
 import type { BattleRenderer, Overlay } from "@tcs/render";
-import type { Aar, FloorFollow, Handle, Hud, LastSeenBook, LosLine, OrderMode, Plan, PlanKind, RangingBook, UnitRules } from "@tcs/ui";
+import type { Aar, BriefingModel, FloorFollow, Handle, Hud, LastSeenBook, LosLine, OrderMode, Plan, PlanKind, RangingBook, UnitRules } from "@tcs/ui";
 
 export type Pt = { x: number; y: number };
 export type MoveOrder = Extract<Order, { kind: "move" }>;
@@ -47,6 +47,9 @@ export interface App {
   record: BattleRecord;
   /** The after-action review (null until the HUD is built). */
   review: Aar | null;
+
+  /** Review step 5: the battle's briefing (null until the HUD is built): the card, open or not, its model. */
+  briefing: { isOpen(): boolean; mode(): "start" | "resume"; open(mode: "start" | "resume"): void; close(): void; model: BriefingModel } | null;
 
   speed: number;
   pace: string;

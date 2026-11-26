@@ -1,10 +1,22 @@
 # State — handover note
 
-_Last updated: 2026-11-26 (balance pass 6 parts 1 and 2 and their verification fixes; start menu; M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-26 (quick battle polish part 1: battle type and size in the menu, fire rule by role, briefing card; balance pass 6 parts 1 and 2 and their verification fixes; start menu; M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Quick battle polish, part 1 (2026-11-26, branch `claude/quick-battle-polish`; DECISIONS "Quick battle polish
+  part 1"; review step 5, items 1-3).** The menu's quick battle has a **battle type** (attack, meeting, ambush,
+  withdrawal, counter-attack, with the task named per type) and a **size** (platoon, company), and a line saying
+  what each side gets, taken from the scenario's own counts ("You: 2 platoons. Enemy: 1 platoon."). **The player's
+  units start on a fire rule by role** (owner Q4): At will attacking (also a meeting, a pursuit, moving through an
+  ambush), Return defending (also a delay), a laid ambush at 220 m for the ambusher; battle input on the player's
+  force only (`ForceInput.start`), campaign battles he plays included; the enemy AI, tools, labs and goldens
+  unchanged (no `golden:update`). Own hits in the mounted-assault lab did not rise (24 battles each: 1 with At
+  will, 3 with Return). **A briefing card** (task, situation, what you have, the enemy as believed, objectives, how
+  it ends with the battle-end rules and Claim victory, the fire rule) opens a menu-started battle, paused
+  (`brief=1`), and is under "Briefing" in the top bar / "⋯" again. Part 2 next: opening zoom, the one-line card in
+  phone landscape, drone radio lines and old pins, rejection messages. Open for the owner: see DECISIONS.
 - **Balance pass 6, verification fixes (2026-11-26, branch `claude/balance-6`; DECISIONS "Balance pass 6:
   verification fixes").** Two verifiers' findings, each confirmed first. Fixed: the passengers of a halted hull with a
   wrecked radio get out on their own (a squad and a platoon headquarters sat in one for a whole battle, logged as

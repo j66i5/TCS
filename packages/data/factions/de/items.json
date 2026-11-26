@@ -132,11 +132,14 @@
       "nameKey": "item.de-pzf3-firing-unit",
       "category": "anti-tank",
       "massKg": 2.3,
+      "launcherSight": {
+        "rangeErrorFraction": 0.01, "aimErrorFactor": 0.6
+      },
       "sources": [
         "https://en.wikipedia.org/wiki/Panzerfaust_3"
       ],
       "confidence": "medium",
-      "note": "Panzerfaust 3 firing unit with sight, 2.3 kg (search extracts); kept after a shot, it takes the next round (de-pzf3-dm12, a 12.9 kg tube). Firing unit and one round: 15.2 kg as before M7.4a."
+      "note": "Panzerfaust 3 firing unit with sight, 2.3 kg (search extracts); kept after a shot, it takes the next round (de-pzf3-dm12, a 12.9 kg tube). Firing unit and one round: 15.2 kg as before M7.4a. Balance pass 6 (review 2026-11-24): every firing unit is modelled with the Dynarange fire-control sight (Panzerfaust 3-IT with Dynarange): a laser rangefinder and ballistic computer that set one aiming mark for range and lead, with a stated effective range of 600 m against 300 m moving and 400 m halted targets through the plain sight (search extracts only, page not opened). Verification fix: as far as is known the Bundeswehr bought the sight in limited numbers, not for every launcher, and it is heavier than the plain sight; no figure was found, so the 2.3 kg of the standard firing unit is kept and 'every launcher has it' is a game simplification (owner to review). launcherSight, all game values, low: rangeErrorFraction 0.01 (the unaided estimate is 5 %); aimErrorFactor 0.6: the share of the gunner's own aiming error (behaviour.json antitank.skillMrad) left with one computed aiming mark instead of a hold-over and lead read off a reticle, set so that the hits on a halted BMP-2 in the anti-tank lab are about 60 % at 300 m, 45 % at 400 m and 25-30 % at 600 m (60 trials a cell), near the stated effective ranges read as an even chance; the rangefinder alone gave 43 %, 33 % and 20 %, inside the lab's noise of the 32 %, 28 % and 12 % without a sight. No longer reach is given (launcherSight.maxRangeM left out, so the round's own 400 m holds; 600 m is one value, owner to decide)."
     },
     {
       "id": "de-water",

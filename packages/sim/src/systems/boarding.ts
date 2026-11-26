@@ -25,6 +25,7 @@
  * `mounting`, core/medical.json `vehicleLoading` and the vehicle's `ramp` and `ambulance` blocks.
  */
 import { isOffMap } from "../offmap";
+import { compCondition } from "../mount";
 import { registerActionHandler, startAction } from "../actions";
 import type { VehicleDef } from "../catalog";
 import type { Boarding, SoldierState, Unit, VehicleState } from "../components";
@@ -968,4 +969,33 @@ export function boardingSystem(ctx: SimContext, state: SimState, events: EventSi
   // off-map: ok only clears a flag that is never set off the map
   for (const [vid, v] of state.vehicle.entries()) if (v.drive.holdForDismount && !holding.has(vid)) v.drive.holdForDismount = false;
   if (state.tick % Math.max(1, secondsToTicks(M.seatSwapCheckSeconds)) === 0) seatSwaps(ctx, state, events);
+  if (M.radioOutDismount === true) cutOffRiders(ctx, state);
+}
+
+/**
+ * Cut off (balance pass 6, verification fix): the passengers of a hull whose radio is wrecked are off the net with its
+ * crew (comms.ts), so no order to get out can reach them. Once the hull has halted (its drive ended) they get out on
+ * their own, each unit once a second: on foot their own radios work again. The crew stays with its hull. Not the
+ * off-map assets (ambulances, recovery, military police: their runs are their own task), nor a hull on a rear run or
+ * a tow bar.
+ */
+function cutOffRiders(ctx: SimContext, state: SimState): void {
+  for (const [vid, v] of state.vehicle.entries()) {
+    if ((vid + state.tick) % 60 !== 0 || isOffMap(v) || v.offMap !== undefined || v.rearRun !== undefined || v.towedBy !== undefined) continue;
+    if (!usable(v) || !halted(v)) continue;
+    const def = ctx.catalog.vehicles[v.def];
+    if (!def?.components || compCondition(v, def, "radio") > 0) continue;
+    const units = new Set<EntityId>();
+    for (const m of v.seats) {
+      if (m === null || m === undefined) continue;
+      const uid = state.identity.get(m)?.unit;
+      if (uid !== undefined && uid !== v.unit) units.add(uid);
+    }
+    for (const uid of [...units].sort((a, b) => a - b)) {
+      const u = state.unit.get(uid);
+      if (!u || u.boarding || u.vehicle !== undefined) continue;
+      // (No radio line of its own: they are off the net until they are out; "dismounted" follows then.)
+      dismountUnit(ctx, state, uid, null);
+    }
+  }
 }

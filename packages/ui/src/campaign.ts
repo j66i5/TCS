@@ -33,7 +33,7 @@ export interface CmpMan {
   squad: CmpMember[];
 }
 export interface CmpStep { node: string; result: string; walkover?: boolean; flank?: { node: string; result: string; walkover?: boolean }; end?: string }
-export interface CmpSelectable { key: string; what: string; company?: string; men: number; callsign: string; hulls: number }
+export interface CmpSelectable { key: string; what: string; company?: string; men: number; callsign: string; hulls: number; half?: string }
 /** A problem with the choice (campaign `CommitProblem`): a `cmp.problem.<key>` string and its parameters. */
 export interface CmpProblem { key: string; params: { unit?: string; what?: string; n?: number; max?: number; vehicle?: string } }
 export interface CmpBriefing {
@@ -403,7 +403,7 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
       b.sector.battles > 0 ? h("div", "cmp-kv", h("span", "", t("cmp.brief.foughtHere")), h("b", "", t("cmp.brief.foughtV", { n: b.sector.battles, wrecks: b.sector.wrecks, craters: b.sector.craters }))) : null,
       h("div", "cmp-kv", h("span", "", t("cmp.brief.attacker")), h("b", "", t(b.kind === "meeting" ? "cmp.brief.attacker.both" : `cmp.brief.attacker.${b.attacker}`))),
       h("div", "cmp-kv", h("span", "", t("cmp.brief.time")), h("b", "", t("cmp.brief.timeV", { day: c.day, time: `${c.hh}:${c.mm}`, min: Math.round(b.seconds / 60) }))),
-      h("div", "cmp-kv", h("span", "", t("cmp.brief.enemy")), h("b", "", t("cmp.brief.enemyV", { men: b.enemy.men, platoons: b.enemy.platoons }))),
+      h("div", "cmp-kv", h("span", "", t("cmp.brief.enemy")), h("b", "", b.enemy.platoons > 0 && b.enemy.platoons < 1 ? t("cmp.brief.enemyHalf", { men: b.enemy.men }) : t("cmp.brief.enemyV", { men: b.enemy.men, platoons: b.enemy.platoons }))),
       b.enemy.hulls.length > 0 ? h("div", "cmp-note", b.enemy.hulls.map((x) => `${x.count} × ${hullName(x.nameKey, sc.enemy)}`).join(", ")) : null,
       b.flank ? h("div", "cmp-note flank", t("cmp.brief.flank", { node: nodeName(b.flank.node) })) : null,
       b.steps.length > 0 ? stepsStrip(b.steps, b.lineLength, b.endless, null, null) : null));
@@ -422,7 +422,7 @@ export function createCampaignUi(parent: HTMLElement, s: Strings, cb: CampaignUi
       const on = chosen.has(x.key);
       const row = h("button", `cmp-pick${on ? " on" : ""}${x.men === 0 ? " empty" : ""}`,
         h("span", "box", on ? "✓" : ""), h("span", "nm", x.what === "hq" ? t("cmp.brief.hq") : x.callsign),
-        x.what === "hq" ? null : h("span", "dim", ` ${t(`cmp.what.${x.what}`)}`),
+        x.what === "hq" ? null : h("span", "dim", ` ${t(x.what === "section" ? `cmp.what.section.${x.half ?? "a"}` : `cmp.what.${x.what}`)}`),
         proposed.has(x.key) ? h("span", "cmp-tag prop", t("cmp.brief.proposed")) : null,
         h("span", "val", t("cmp.brief.menHulls", { men: x.men, hulls: x.hulls }))) as HTMLButtonElement;
       row.type = "button";

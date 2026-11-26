@@ -93,6 +93,8 @@ export const BodyFile = z.object({
 export type BodyT = z.infer<typeof BodyFile>;
 
 // ---------- ballistics (core/ballistics.json) and weapons / ammunition (faction packs) ----------
+/** Vehicle component kinds (M7.4a; "launcher": an external missile launcher, balance pass 6). */
+export const COMPONENT_KINDS = ["engine", "transmission", "track", "wheels", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel", "launcher"] as const;
 export const BallisticsFile = withProv({
   gravityMps2: Num(1, 30), airDensityKgM3: Num(0.1, 2), referenceTempC: Num(-60, 60),
   /** Penetration capacity scales with (speed / reference speed) to this power. */
@@ -124,6 +126,22 @@ export const BallisticsFile = withProv({
     losFloorCos: Num(0.01, 1), grazeFuseCos: Num(0, 1), jetDecayMmPerM: Num(0, 5000), spallComponentDamage: Num(0, 1),
     /** Seated men inside (M7.4a): a box this wide and deep round each seat's position, from the floor to its head. */
     seatHalfM: Num(0.05, 2), seatHeightM: Num(0.1, 3),
+    /** Balance pass 6: damage from kinetic hits that do not get through (stopped or glancing off). A round at least
+     *  `minDiameterM` wide that strikes within `marginM` of a part of a kind listed in `parts` (an external part, or
+     *  one flagged `internal`: its opening in the armour, as a gun's mantlet; an external part of the part struck may
+     *  stand up to `depthM` behind the face struck) may damage it: chance = `chance` x the
+     *  face's factor (`face`, default 1) x the energy factor, x `ricochetFactor` when it glanced off; energy factor =
+     *  min(`maxEnergyFactor`, (kinetic energy / `energyRefJ`) ^ `energyExponent`). The part loses `loss` x
+     *  min(1, energy factor) of its condition. No fire, no explosion, nobody hurt inside. Absent: such hits do
+     *  nothing (as before). */
+    nonPenetrating: withProv({
+      minDiameterM: Num(0.005, 0.2), marginM: Num(0, 1), depthM: Num(0, 2),
+      energyRefJ: Num(1, 1e8), energyExponent: Num(0, 2), maxEnergyFactor: Num(0.1, 10), ricochetFactor: Num(0, 1),
+      parts: z.partialRecord(z.enum(COMPONENT_KINDS), z.object({
+        chance: Num(0, 1), loss: Num(0, 1), internal: z.boolean().optional(),
+        face: z.partialRecord(z.enum(["front", "side", "rear", "top"]), Num(0, 5)).optional(),
+      }).strict()),
+    }).optional(),
   }).strict(),
   /** Fragments are simulated only inside this band of elevation (degrees): the rest go into the ground or sky. */
   fragments: z.object({ bandDeg: z.tuple([Num(-90, 0), Num(0, 90)]), maxPerBurst: z.number().int().min(1).max(20000),
@@ -216,9 +234,12 @@ export const AmmoSchema = withProv({
    *  its eye's), timed at the muzzle; it still bursts on anything it strikes first. With `cone` the burst ejects a
    *  payload forward (KETF: `count` sub-projectiles of `fragmentAmmo` in a cone of `halfAngleDeg` round the flight
    *  path, at `velocityFraction` of the round's speed, by an ejection charge of `fillingKg`); without, the round's own
-   *  filling and fragments burst in the air (fragments all round). */
+   *  filling and fragments burst in the air (fragments all round). `only` (balance pass 6, owner Q6): the round has
+   *  no impact setting a crew could choose (KETF): it is always fired with the fuze programmed, an order for the
+   *  impact setting is refused, and its `explosive` block is only what happens when it strikes something before the
+   *  fuze runs out. */
   airburst: z.object({
-    aimHeightM: Num(0, 50), standoffM: Num(0, 200),
+    aimHeightM: Num(0, 50), standoffM: Num(0, 200), only: z.boolean().optional(),
     cone: z.object({ halfAngleDeg: Num(0.5, 60), count: z.number().int().min(1).max(5000), fragmentAmmo: Id,
       velocityFraction: z.tuple([Num(0, 1.5), Num(0, 1.5)]), fillingKg: Num(0, 10) }).strict().optional(),
   }).strict().optional(),
@@ -512,6 +533,8 @@ export const BehaviourFile = withProv({
     completeAfterSeconds: Num(1, 3600), giveUpSeconds: Num(1, 7200), exitFanMinM: Num(0, 50), exitFanMaxM: Num(0, 50),
     remountM: Num(0, 2000), holdDismountM: Num(0, 2000), resupplyRangeM: Num(0, 500), resupplyReachM: Num(0, 50),
     resupplyCount: z.number().int().min(0).max(50), seatSwapCheckSeconds: Num(0.1, 60),
+    /** Balance pass 6 (verification fix): passengers of a halted hull whose radio is wrecked get out on their own. */
+    radioOutDismount: z.boolean().optional(),
     /** Balance pass 3 (owner 2026-11-18): an attacking side's carriers in overwatch after the dismount bound forward
      *  when they have not fired for `idleS`. See BehaviourDef.mounting. */
     overwatchBound: z.object({
@@ -583,6 +606,20 @@ export const BehaviourFile = withProv({
       maxAgeSeconds: Num(1, 600), halfLifeSeconds: Num(1, 600), firingWeight: Num(1, 10), minWeight: Num(0, 10),
       minRadiusM: Num(0, 100), maxRadiusM: Num(1, 200), everySeconds: Num(1, 300), minEverySeconds: Num(0.5, 300),
       mainGunEverySeconds: Num(1, 600), mainGunMinWeight: Num(0, 50), reserveFraction: Num(0, 1),
+      /** Balance pass 6: an ordered high-explosive fire at a point with no enemy named is swept over a circle of
+       *  this radius round it (m; each burst at a random point of it). Absent or 0: every burst at the point. */
+      orderedRadiusM: Num(0, 100).optional(),
+    }).strict().optional(),
+    /** Degrading fire (balance pass 6): a crew whose armour-piercing round cannot get through the face an enemy
+     *  vehicle shows, with no other target and no missile for it, fires its cannon at it all the same, to break
+     *  what is outside the armour (sights, dischargers, launcher, tracks; ballistics.json `armour.nonPenetrating`):
+     *  only weapons of `weaponTypes`, within `maxRangeM`, the first of `natures` it has ready rounds for above
+     *  `reserveFraction` of the feed's capacity, aimed at `aimZone` (the turret: its highest aim point, when in
+     *  sight; else what shows); never under the ammunition rule 'conserve'. Absent or not `enabled`: it holds that
+     *  fire ("why.hold.noPierce"). */
+    degrade: z.object({
+      enabled: z.boolean(), weaponTypes: z.array(z.string()).min(1), maxRangeM: Num(1, 10000),
+      natures: z.array(z.enum(["he", "ap"])).min(1), aimZone: z.enum(["turret", "hull"]), reserveFraction: Num(0, 1),
     }).strict().optional(),
   }).strict(),
   /** Shoulder-fired anti-tank weapons (M7.4a). See BehaviourDef.antitank. */
@@ -1025,6 +1062,11 @@ export const ItemSchema = withProv({
   radio: z.literal(true).optional(),
   /** M8.2a: a laser rangefinder (binocular): its carrier locates a target for indirect fire with it. */
   rangefinder: z.boolean().optional(),
+  /** Balance pass 6: a shoulder-fired launcher's fire-control sight (laser rangefinder and ballistic computer): the
+   *  range error (fraction, one standard deviation) of a round fired through it, in place of
+   *  behaviour.antitank.rangeErrorFraction, and the reach it gives the launcher's rounds (m), in place of each
+   *  round's delivery.maxRangeM. Not `rangefinder` (that makes its carrier an observer for indirect fire). */
+  launcherSight: z.object({ rangeErrorFraction: Num(0, 0.5), maxRangeM: Num(1, 2000).optional(), aimErrorFactor: Num(0, 1).optional() }).strict().optional(),
   /** M8.3a: a crew-served mortar (the tube; its carrier is the gunner): its HE and smoke rounds (counted round items
    *  in the crew's loads), minimum and maximum range (m), seconds to set up and to pack, seconds per round at the
    *  sustained rate with a full crew, crew (and the fewest who can still fire), the first round's aim error (m per
@@ -1152,7 +1194,6 @@ export const VehicleWeaponSchema = z.object({
   guideSensors: z.array(Id).min(1).max(8).optional(),
 }).strict();
 /** Component kinds a vehicle's parts may be (M7.4a/b); what each does when damaged is in systems/armour.ts. */
-export const COMPONENT_KINDS = ["engine", "transmission", "track", "wheels", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel"] as const;
 export const VehicleSchema = withProv({
   id: Id, nameKey: z.string(), class: z.enum(["tracked", "wheeled"]),
   body: withProv({
@@ -1627,6 +1668,14 @@ export const CampaignFile = z.object({
       /** M12.4: the enemy's caps (platoons and each support kind) scale with the fighting values (player / enemy),
        *  at most by this factor (a stronger player meets more than a company); below 1 they shrink with it. */
       enemyCapScale: Num(1, 3).optional(),
+      /** Balance pass 6 (owner 2026-11-20: "Smaller forces vs strong side"): half platoons may be committed (the
+       *  player's choice lists them; the enemy commits one when the men it wants are fewer than `sectionBelow` of its
+       *  fittest platoon), and a side whose men are worth more than the enemy's is proposed fewer platoons (the cap
+       *  divided by its fighting value over the enemy's). Absent: whole platoons only, as before. */
+      sections: z.boolean().optional(), sectionBelow: Num(0, 1).optional(),
+      /** With `sections`: a side whose fighting value is at least this many times the enemy's is proposed half a
+       *  platoon (the half with the platoon's headquarters) instead of platoons. Absent: never. */
+      proposeSectionAtRatio: Num(1, 20).optional(),
     }).strict(),
     /** M12.1a: the clock between battles: hours from one battle's end to the next battle of an operation, days between
      *  operations (the replenishment); battles of an operation (the chain's), endless mode's replenishment rhythm. */

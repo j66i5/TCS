@@ -22,6 +22,7 @@ import { mountLab, mountLabMarkdown } from "../labs/mount";
 import { gunneryLab, gunneryLabMarkdown } from "../labs/gunnery";
 import { rangeLab, rangeLabMarkdown } from "../labs/range";
 import { armourLab, armourLabMarkdown } from "../labs/armour";
+import { nonPenLab, nonPenLabMarkdown } from "../labs/nonpen";
 import { antitankLab, antitankLabMarkdown } from "../labs/antitank";
 import { missileLab, missileLabMarkdown } from "../labs/missile";
 import { missileTeamLab, missileTeamLabMarkdown } from "../labs/missile-team";
@@ -134,7 +135,7 @@ const LABS: Record<string, () => string> = {
   night: () => `# Night lab\n\n${nightLabMarkdown(nightLab(loadData()))}\n`,
   mount: () => `# Mount lab\n\n${mountLabMarkdown(mountLab(loadData(true)))}\n`,
   gunnery: () => `# Gunnery lab\n\n${gunneryLabMarkdown(gunneryLab(loadData()))}\n`,
-  armour: () => `# Armour lab\n\n${armourLabMarkdown(armourLab(loadData()))}\n`,
+  armour: () => { const d = loadData(); return `# Armour lab\n\n## Not penetrated (balance pass 6)\n\n${nonPenLabMarkdown(nonPenLab(d, Number(process.argv[3] ?? 6)))}\n\n${armourLabMarkdown(armourLab(d))}\n`; },
   antitank: () => `# Anti-tank lab\n\n${antitankLabMarkdown(antitankLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
   house: () => {
     const mode = process.argv[3] ?? "defend";
@@ -144,7 +145,7 @@ const LABS: Record<string, () => string> = {
     if (mode !== "defend") throw new Error(`unknown house lab mode '${mode}' (known: defend, leave, clear, rocket)`);
     return `# House lab\n\n${houseDefendMarkdown(houseDefendLab(loadData(), Number(process.argv[4] ?? 10)))}\n`;
   },
-  artillery: () => `# Artillery lab\n\n${artilleryLabMarkdown(artilleryLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
+  artillery: () => `# Artillery lab\n\n${artilleryLabMarkdown(artilleryLab(loadData(), Number(process.argv[3] ?? 24)))}\n`,
   indirect: () => `# Indirect fire lab\n\n${indirectLabMarkdown(indirectLab(loadData(), Number(process.argv[3] ?? 12)))}\n`,
   smoke: () => `# Smoke lab\n\n## Hand smoke grenades\n\n${handSmokeLabMarkdown(handSmokeLab(loadData()))}\n\n${smokeLabMarkdown(smokeLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,

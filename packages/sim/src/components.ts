@@ -1036,6 +1036,9 @@ export interface DriveState {
   fireHoldUntilTick?: number;
   /** Consecutive ticks the hull was blocked; re-plans since the order. */
   stuckTicks: number; replans: number;
+  /** Balance pass 6: the way still to go when the route was last planned again (m); once the hull is 15 m nearer
+   *  the count of re-plans starts again. Absent when no re-plan is counted. */
+  replanLeft?: number;
   /** Getting clear after striking something (M7.1c): a small move held until `untilTick`. Absent normally. */
   escape?: { speed: number; yawRate: number; untilTick: number };
   progressX: number; progressY: number; progressTick: number;

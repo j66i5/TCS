@@ -29,7 +29,28 @@
     "jetDecayMmPerM": 400,
     "spallComponentDamage": 0.15,
     "seatHalfM": 0.3,
-    "seatHeightM": 0.95
+    "seatHeightM": 0.95,
+    "nonPenetrating": {
+      "minDiameterM": 0.014,
+      "marginM": 0.05,
+      "depthM": 0.4,
+      "energyRefJ": 60000,
+      "energyExponent": 0.5,
+      "maxEnergyFactor": 2,
+      "ricochetFactor": 0.5,
+      "parts": {
+        "sights": { "chance": 0.7, "loss": 0.5 },
+        "dischargers": { "chance": 0.6, "loss": 0.5 },
+        "launcher": { "chance": 0.7, "loss": 1 },
+        "track": { "chance": 0.25, "loss": 0.6, "face": { "front": 0.5, "rear": 0.5 } },
+        "wheels": { "chance": 0.35, "loss": 0.35 },
+        "coax": { "chance": 0.12, "loss": 1, "internal": true },
+        "gun": { "chance": 0.03, "loss": 0.5, "internal": true }
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Balance pass 6 (review 2026-11-24, problem 4): what a cannon round that is stopped or glances off may still break. All game values, low: no public per-hit figures exist; that automatic cannon fire blinds and strips a better armoured vehicle (optics, sights, smoke dischargers, launchers, antennas, running gear) without getting through its armour is described in combat reports and defence journalism (general knowledge and search extracts only, no page read; the widely reported engagement near Stepove in January 2024, two M2A2 Bradleys' 25 mm fire leaving a T-90M without sights and turret control and then abandoned, is the pattern; from memory of press reports). A round counts from 14 mm of penetrator (the 30 mm sub-calibre cores are 15-18 mm in this data; 12.7 mm does not). It may damage one part: an external one within 0.05 m of where it struck (up to 0.4 m behind the face struck: running gear and sights stand back from the armour box), or the gun or coaxial machine gun at its opening in the turret front. Chance per such strike: sights 0.7 (glass and thin housings; half their condition, for a hull has a gunner's and a commander's sight: the second such strike blinds it), a missile launcher 0.7, dischargers 0.6 (half of them go), a track 0.25 (0.6 of its condition: a second such hit breaks it; half as likely head-on or from behind, where only the track's end shows), a wheel station 0.35, the coaxial machine gun 0.12, the gun 0.03 (barrel or mantlet struck; half its condition: two such strikes wreck it; lowered from a first 0.3 and 0.08 after the armour lab, where a Puma's 30 mm disarmed a T-90M in half the two-minute runs at 800 m, and the gun again from 0.06 after verification: fire aimed at the turret's middle lands on the mantlet box, and at 500 m a Puma's 60 hits in two minutes wrecked a halted T-90M's gun in 5 runs of 6 and at 1000 m in 1 of 6; with 0.03 in 4 of 6 and 0 of 6, and a BMP-2's 96 hits in five minutes on a Leopard 2A7V at 500 m in 2 of 6, before 4; owner to review whether a tank that stands still under such fire should keep its gun). The chance scales with the square root of the round's energy over 60 kJ (60 kJ is the lighter 30 mm sub-calibre round, 3UBR8, at about 800-1000 m: factor 1; the heavier and faster PMC287 has about 150-190 kJ: factor 1.6-1.8, so its chances are that much higher; a tank's long rod: capped at 2) and is halved for a round that glanced off. Seen from the round, few strikes land on a part at all (a first margin of 0.15 m made one turret-front hit in five a sight strike: lowered to 0.05 m, about one in eight; armour lab, part 'not penetrated')."
+    }
   },
   "fragments": {
     "bandDeg": [

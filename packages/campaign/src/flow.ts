@@ -61,7 +61,7 @@ export function startFlow(data: DataSet, record: CampaignRecord): CampaignRecord
 export function chooseForces(data: DataSet, record0: CampaignRecord): CampaignRecord {
   expect(record0, "briefing");
   const record = clone(record0);
-  record.flow = { phase: "choose", choice: proposeChoice(data, record.sides.player) };
+  record.flow = { phase: "choose", choice: proposeChoice(data, record.sides.player, [], valueRatio(data, record)) };
   return record;
 }
 
@@ -83,7 +83,9 @@ export function confirmForces(data: DataSet, record0: CampaignRecord): CampaignR
   const problems = validateCommit(data, record.sides.player, choice);
   if (problems.length > 0) throw new FlowError("the choice cannot fight", problems);
   // (The flank company must itself be able to fight; none that can: no flank battle this node.)
-  const flank0 = record.op!.flank ? proposeChoice(data, record.sides.player, choice) : [];
+  // (Balance pass 6: a half platoon chosen keeps its whole platoon, and so its company, out of the flank battle.)
+  const taken = [...choice, ...choice.filter((k) => k.endsWith("/a") || k.endsWith("/b")).map((k) => k.slice(0, -2))];
+  const flank0 = record.op!.flank ? proposeChoice(data, record.sides.player, taken, valueRatio(data, record)) : [];
   const flankChoice = flank0.length > 0 && validateCommit(data, record.sides.player, flank0, choice).length === 0 ? flank0 : [];
   record.flow = { phase: "battle", choice, ...(flankChoice.length > 0 ? { flankChoice } : {}) };
   return record;

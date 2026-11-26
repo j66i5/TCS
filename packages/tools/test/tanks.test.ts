@@ -175,8 +175,13 @@ describe("main battle tanks (M7.6a)", () => {
     const [rid, t90] = side(sim, "red");
     const c = sim.state.container.req(rid);
     const ready = t90.stations[0]!.weapons.slice(0, 2).flatMap((w) => w.feeds).reduce((n, f) => n + f.rounds, 0);
-    const stowed = ["ru-125-3bm60-round", "ru-125-3of26-round", "ru-9m119m-round"].reduce((n, it) => n + countItems(c, it), 0);
+    const stowed = ["ru-125-3bm60-round", "ru-125-3of26-ainet-round", "ru-9m119m-round"].reduce((n, it) => n + countItems(c, it), 0);
     expect(ready + stowed).toBe(43);
+    // Balance pass 6 (owner Q8): its high explosive is the 3OF26 with the Ainet time fuze, not the impact-fuzed round.
+    expect(countItems(c, "ru-125-3of26-ainet-round")).toBeGreaterThan(0);
+    expect(countItems(c, "ru-125-3of26-round")).toBe(0);
+    expect(sim.ctx.catalog.ammo["ru-125-3of26-ainet"]!.airburst).toEqual({ aimHeightM: 3, standoffM: 0 });
+    expect(sim.ctx.catalog.ammo["ru-125-3of26"]!.airburst).toBeUndefined();
     expect(["ru-relikt-turret-front", "ru-relikt-turret-side", "ru-relikt-hull-front", "ru-relikt-hull-side"].map((it) => countItems(c, it))).toEqual([26, 10, 20, 12]);
     const leo = side(sim, "blue");
     const lc = sim.state.container.req(leo[0]);

@@ -161,7 +161,8 @@ describe("vehicle gunnery (M7.3)", () => {
   });
 
   it("a 30 mm HE round striking a man bursts on him (Q18); VOG-25 and mortar bombs keep their old rule (C53)", () => {
-    const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 2300, y: 1100, heading: 0 }, redSquadAt: { x: 700, y: 600, spacing: 6 } }));
+    // (Balance pass 6, owner Q6: the Puma's belt is KETF only, no impact setting: the BMP-2's 3UOF8 fires here.)
+    const sim = createSim(duel(data, ["ru", "de"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 2300, y: 1100, heading: 0 }, redSquadAt: { x: 700, y: 600, spacing: 6 } }));
     const B = buildBallistics(sim.ctx.map, sim.ctx.catalog, buildMapIndex(sim.ctx.map), TICK_HZ);
     const rt = (id: string) => B.ammo[sim.ctx.catalog.ammoIds.indexOf(id)]!;
     expect(rt("de-30x173-he").burstOnBody).toBe(true);
@@ -173,13 +174,12 @@ describe("vehicle gunnery (M7.3)", () => {
     // Fire HE straight at a standing man's chest: some rounds strike men and burst there.
     const target = [...sim.state.identity.entries()].find(([id, i]) => i.side === "red" && sim.state.soldier.req(id).mount === undefined)!;
     const tt = sim.state.transform.req(target[0]);
-    // (Balance pass 5: the impact setting asked for; the Puma's round also has an air-burst one.)
-    order(sim, "blue", b.crew, { kind: "fire", x: tt.x, y: tt.y, heightM: 1.2, nature: "he", fuse: "impact" });
+    order(sim, "blue", b.crew, { kind: "fire", x: tt.x, y: tt.y, contact: target[0], heightM: 1.2, nature: "he", fuse: "impact" });
     let onBody = 0;
     const hits: { x: number; y: number; tick: number }[] = [];
     run(sim, 30, (e) => {
-      if (e.kind === "hit" && e.ammo === "de-30x173-he") { const t = sim.state.transform.req(e.target); hits.push({ x: t.x, y: t.y, tick: e.tick }); }
-      if (e.kind === "explosion" && e.ammo === "de-30x173-he" && hits.some((h) => h.tick === e.tick && Math.hypot(h.x - e.x, h.y - e.y) < 1.5)) onBody++;
+      if (e.kind === "hit" && e.ammo === "ru-30x165-3uof8") { const t = sim.state.transform.req(e.target); hits.push({ x: t.x, y: t.y, tick: e.tick }); }
+      if (e.kind === "explosion" && e.ammo === "ru-30x165-3uof8" && hits.some((h) => h.tick === e.tick && Math.hypot(h.x - e.x, h.y - e.y) < 1.5)) onBody++;
     });
     expect(hits.length).toBeGreaterThan(0);
     expect(onBody).toBe(hits.length);

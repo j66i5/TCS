@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { viewGround } from "@tcs/ai";
-import { aimSolution, backblastBlocked, createContext, createSim, flightStep, launcherRound, loadSim, saveSim, simHash, step, submitOrder, TICK_HZ, type EntityId, type FlightState, type Sim, type SimEvent } from "@tcs/sim";
+import { aimSolution, backblastBlocked, createContext, createSim, flightStep, launcherReachM, launcherRound, loadSim, saveSim, simHash, step, submitOrder, TICK_HZ, type EntityId, type FlightState, type Sim, type SimEvent } from "@tcs/sim";
 import { antitankSetup, antitankTrial } from "../src/labs/antitank";
 import { duel } from "../src/labs/gunnery";
 import { getScenario, loadData } from "../src/scenarios";
@@ -54,6 +54,62 @@ describe("anti-tank lab (M7.4a)", () => {
   });
 });
 
+describe("the Panzerfaust 3's fire-control sight (balance pass 6)", () => {
+  const de = data.factions["de"]!;
+  /** The data without the sight: the firing unit as before balance pass 6. */
+  const plain = { ...data, factions: { ...data.factions, de: { ...de, items: { ...de.items, "de-pzf3-firing-unit": (({ launcherSight: _s, ...rest }) => rest)(de.items["de-pzf3-firing-unit"]!) } } } } as typeof data;
+  /** The sight with its rangefinder alone (part 1 of the pass): without the smaller aiming error of the verification fix. */
+  const rangeOnly = { ...data, factions: { ...data.factions, de: { ...de, items: { ...de.items, "de-pzf3-firing-unit": { ...de.items["de-pzf3-firing-unit"]!, launcherSight: { rangeErrorFraction: 0.01 } } } } } } as typeof data;
+  /** The elevation (mrad) the gunner fires at on order, 300 m from a halted BMP-2 side-on. */
+  const launchEl = (d: typeof data, seed: number): number => {
+    const { input, gunner, target } = antitankSetup(d, ["de", "ru"], 300, "side", seed);
+    const sim = createSim(input);
+    for (const [uid, u] of sim.state.unit.entries()) if (u.parent === null) submitOrder(sim, { tick: sim.state.tick, issuer: u.side, target: uid, kind: "rules", fire: "hold", at: "hold" });
+    step(sim);
+    const t = sim.state.transform.req(target);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: gunner, kind: "fire", x: t.x, y: t.y, contact: target, nature: "at" });
+    for (let i = 0; i < 8 * TICK_HZ; i++) for (const e of step(sim)) if (e.kind === "grenade.launched") {
+      const P = sim.state.projectiles, n = P.count - 1;
+      return 1000 * Math.atan2(P.vz[n]!, Math.hypot(P.vx[n]!, P.vy[n]!));
+    }
+    throw new Error("no shot");
+  };
+  const sd = (xs: number[]) => { const m = xs.reduce((a, b) => a + b, 0) / xs.length; return Math.sqrt(xs.reduce((a, b) => a + (b - m) * (b - m), 0) / xs.length); };
+
+  it("the firing unit carries the sight in the data (range error 1 %); the RPG-7 has none; the rounds' reach is their own", () => {
+    const cat = createSim(antitankSetup(data, ["de", "ru"], 100, "side", 1).input).ctx.catalog;
+    expect(cat.items["de-pzf3-firing-unit"]!.launcherSight).toEqual({ rangeErrorFraction: 0.01, aimErrorFactor: 0.6 });
+    expect(cat.items["ru-rpg7"]!.launcherSight).toBeUndefined();
+    expect(launcherReachM(cat, "de-pzf3-dm12")).toBe(cat.ammo["de-pzf3-dm12"]!.delivery!.maxRangeM);
+    expect(launcherReachM(cat, "ru-pg7vl")).toBe(300);
+    // A sight that gives a reach of its own replaces the round's.
+    const far = { ...cat, items: { ...cat.items, "de-pzf3-firing-unit": { ...cat.items["de-pzf3-firing-unit"]!, launcherSight: { rangeErrorFraction: 0.01, maxRangeM: 600 } } } };
+    expect(launcherReachM(far, "de-pzf3-dm12")).toBe(600);
+  });
+
+  it("through the sight the elevation laid for 300 m scatters less than by the estimated range (the same draws: only the range error differs)", () => {
+    const seeds = Array.from({ length: 12 }, (_, k) => 1000 + k);
+    const withSight = seeds.map((s) => launchEl(rangeOnly, s)), without = seeds.map((s) => launchEl(plain, s));
+    // (Verification fix: the sight's one aiming mark also takes part of the gunner's own error: less scatter again,
+    // from the same draws.)
+    const full = seeds.map((s) => launchEl(data, s));
+    expect(sd(full)).toBeLessThan(sd(withSight));
+    expect(sd(full)).toBeGreaterThan(1.5);
+    // The range error is one of three draws (range, azimuth, elevation): the scatter falls, it does not vanish.
+    expect(sd(withSight)).toBeLessThan(sd(without));
+    expect(sd(withSight)).toBeGreaterThan(2);
+    // And nothing else moved: each shot differs only by its range term, 4 % of the range's elevation at most a few mrad.
+    for (let k = 0; k < seeds.length; k++) expect(Math.abs(withSight[k]! - without[k]!)).toBeLessThan(8);
+  });
+
+  it("the RPG-7's shots are untouched (same seeds, same hits as before the sight)", () => {
+    // (Baseline of 2026-11-25 on origin/main c3d742c: 17 hits of 20 at a Puma side-on at 200 m.)
+    let hits = 0;
+    for (let k = 0; k < 20; k++) if (antitankTrial(data, ["ru", "de"], 200, "side", 1000 + k).hit) hits++;
+    expect(hits).toBe(17);
+  }, 60000);
+});
+
 describe("anti-tank lab: main battle tanks (M7.6a)", () => {
   /** Penetrated / hits over `n` trials at 200 m (the lab's seeds). */
   const share = (factions: [string, string], crew: [string, string], aspect: "side" | "front", n: number, eraSpent = false) => {
@@ -72,7 +128,9 @@ describe("anti-tank lab: main battle tanks (M7.6a)", () => {
   }, 120_000);
 
   it("Panzerfaust 3 at a T-90M's side gets through even with its tiles there", () => {
-    expect(share(["de", "ru"], T90, "side", 20).share).toBeGreaterThanOrEqual(0.8);
+    // (Balance pass 6: with the firing unit's sight other rounds land; 7 of the 10 hits get through, before 9 of 11:
+    // the side tiles' coverage stops the rest.)
+    expect(share(["de", "ru"], T90, "side", 20).share).toBeGreaterThanOrEqual(0.65);
   }, 120_000);
 
   it("PG-7VL at a Leopard 2A7V: through its side, never its front", () => {

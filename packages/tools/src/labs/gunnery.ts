@@ -192,9 +192,12 @@ export function gunneryLab(data: DataSet): GunneryRow[] {
         let shots = 0;
         const miss: number[] = [], hit = new Set<EntityId>(), down = new Set<EntityId>();
         const own = new Set(sim.state.unit.req(b.crew).members);
+        let aim: { x: number; y: number } | null = null;
         run(sim, 60, (e) => {
           if (e.kind === "shot.fired" && e.vehicle === b.vid) shots++;
-          else if (e.kind === "explosion" && own.has(e.owner) && miss.length < 3) miss.push(Math.hypot(e.x - (300 + R), e.y - 600));
+          // (Balance pass 6: an ordered fire at a point is swept; the miss counts from the point the burst was laid on.)
+          else if (e.kind === "vehicle.areaFire" && e.vehicle === b.vid && aim === null) aim = { x: e.x, y: e.y };
+          else if (e.kind === "explosion" && own.has(e.owner) && miss.length < 3) miss.push(Math.hypot(e.x - (aim?.x ?? 300 + R), e.y - (aim?.y ?? 600)));
           else if (e.kind === "wound" && sim.state.identity.get(e.soldier)?.side === "red") hit.add(e.soldier);
           else if (e.kind === "casualty" && sim.state.identity.get(e.soldier)?.side === "red") down.add(e.soldier);
         });

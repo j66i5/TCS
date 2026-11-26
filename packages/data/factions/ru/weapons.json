@@ -360,7 +360,8 @@
       "ammo": {
         "ru-125-3bm60": 1660,
         "ru-125-3bm42": 1700,
-        "ru-125-3of26": 850
+        "ru-125-3of26": 850,
+        "ru-125-3of26-ainet": 850
       },
       "sources": [
         "https://www.armyrecognition.com/9cy8",

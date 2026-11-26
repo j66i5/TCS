@@ -403,6 +403,8 @@ function escapeMove(ctx: SimContext, state: SimState, vid: EntityId, def: Vehicl
 }
 /** Seconds without 0.5 m of progress along the route before a re-plan (a pivot onto a detour takes a while); re-plans before giving up. */
 const STUCK_S = 6, MAX_REPLANS = 3;
+/** Balance pass 6: metres nearer the goal since the last re-plan after which the re-plan count starts again. */
+const REPLAN_CLEAR_M = 15;
 /** Width added on each side of the hull for the corridor ahead, m. */
 const CORRIDOR_SIDE_M = 0.6;
 
@@ -518,7 +520,12 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
     // (Progress is the way still to go getting shorter: progressX holds the shortest so far, progressY unused.)
     const driving = can && !d.holdForDismount && !fireHold && !d.arrived && d.routeIdx < d.route.length && d.yieldTo === null;
     const togo = driving ? routeLeft(d, t.x, t.y) : 0;
-    if (!driving || togo < d.progressX - 0.5) { d.progressX = togo; d.progressY = 0; d.progressTick = state.tick; }
+    if (!driving || togo < d.progressX - 0.5) {
+      d.progressX = togo; d.progressY = 0; d.progressTick = state.tick;
+      // Balance pass 6 (carrier stall): a hull that has got REPLAN_CLEAR_M nearer its goal since its last re-plan is
+      // past that jam: the count starts again, so separate small jams on a long drive do not add up to giving up.
+      if (d.replanLeft !== undefined && (!driving || togo < d.replanLeft - REPLAN_CLEAR_M)) { if (driving) d.replans = 0; delete d.replanLeft; }
+    }
     else if (!replanned && state.tick - d.progressTick >= secondsToTicks(STUCK_S)) {
       replanned = true;
       replan(ctx, state, vid, v, def, events, null);
@@ -592,7 +599,7 @@ function replan(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState
   const d = v.drive, t = state.transform.req(vid);
   const goal = d.route[d.route.length - 1];
   d.replans++;
-  if (!goal || d.replans > MAX_REPLANS) { giveUp(state, v, events); return; }
+  if (!goal || d.replans > MAX_REPLANS) { giveUp(state, v, events, vid, goal ? "replans" : "noGoal"); return; }
   // The obstacle as a temporary blocked stamp on the class grid while searching.
   const extra: NavStamp[] = [];
   if (avoid !== null) {
@@ -603,18 +610,22 @@ function replan(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState
     else if (at) { const r = def.body.widthM / 2 + 1.5; extra.push({ x: at.x, y: at.y, heading: 0, halfL: r, halfW: r }); }
   }
   const route = planVehicleRoute(ctx, def.class, t.x, t.y, [goal], extra);
-  if (!route) { giveUp(state, v, events); return; }
+  if (!route) { giveUp(state, v, events, vid, "planner"); return; }
   d.route = route; d.routeIdx = 0; d.arrived = false;
   d.progressX = routeLeft(d, t.x, t.y); d.progressY = 0; d.progressTick = state.tick;
+  d.replanLeft = d.progressX;
 }
 
-function giveUp(state: SimState, v: VehicleState, events: EventSink): void {
+function giveUp(state: SimState, v: VehicleState, events: EventSink, vid: EntityId, cause: "replans" | "planner" | "noGoal"): void {
   const d = v.drive;
-  d.route = []; d.routeIdx = 0; d.arrived = true; d.endHeading = null;
+  // (Balance pass 6: the event says which hull, how far short of its goal and why, for the labs and the commander.)
+  const goal = d.route[d.route.length - 1], t = state.transform.get(vid);
+  const leftM = goal && t ? Math.round(hypot2(goal.x - t.x, goal.y - t.y)) : 0;
+  d.route = []; d.routeIdx = 0; d.arrived = true; d.endHeading = null; delete d.replanLeft;
   if (v.unit === null) return;
   const u = state.unit.get(v.unit);
   if (u) u.moving = false;
-  events.emit({ kind: "move.noRoute", tick: state.tick, target: v.unit });
+  events.emit({ kind: "move.noRoute", tick: state.tick, target: v.unit, vehicle: vid, leftM, cause });
   radioFromTarget(state, v.unit, "radio.noRoute", events);
 }
 
@@ -759,7 +770,7 @@ export function vehicleMove(ctx: SimContext, state: SimState, vid: EntityId, way
   d.routeIdx = 0;
   d.arrived = false;
   d.endHeading = facing ?? null;
-  d.stuckTicks = 0; d.replans = 0; d.yieldTo = null;
+  d.stuckTicks = 0; d.replans = 0; d.yieldTo = null; delete d.replanLeft;
   d.progressX = routeLeft(d, t.x, t.y); d.progressY = 0; d.progressTick = state.tick;
   if (v.unit !== null) { const unit = state.unit.get(v.unit); if (unit) { unit.moving = true; unit.moveTick = state.tick; } }
   return true;

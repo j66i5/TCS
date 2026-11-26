@@ -774,6 +774,20 @@
       "note": "One 125 mm 3OF26 round (projectile and charge as one item; M7.6a, game value). Mass (review fix): the item's own 10.0 kg is the case and propellant, its charge the 23.0 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 33.0 kg cartridge, as the 9M131 splits tube and missile."
     },
     {
+      "id": "ru-125-3of26-ainet-round",
+      "nameKey": "item.ru-125-3of26-ainet-round",
+      "category": "magazine",
+      "massKg": 10.0,
+      "chargeCapacity": 1,
+      "chargeMassKg": 23.0,
+      "chargeItem": "ru-125-3of26-ainet",
+      "sources": [
+        "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition"
+      ],
+      "confidence": "low",
+      "note": "Balance pass 6 (owner Q8, low): the T-90M's 3OF26 with the Ainet time fuze (see the ammunition entry); masses as the 3OF26 round. One 125 mm 3OF26 round (projectile and charge as one item; M7.6a, game value). Mass (review fix): the item's own 10.0 kg is the case and propellant, its charge the 23.0 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 33.0 kg cartridge, as the 9M131 splits tube and missile."
+    },
+    {
       "id": "ru-9m119m-round",
       "nameKey": "item.ru-9m119m-round",
       "category": "missile",

@@ -6,7 +6,7 @@
  * while aboard, the support posts (distance to the objective; how far the hull fell back after the dismount), rounds
  * the hulls fired from them, hits by the attacker's hulls on its own men (must be 0), and whether the objective fell.
  */
-import { commanderController } from "@tcs/ai";
+import { commanderController, rideStats } from "@tcs/ai";
 import { buildScenario, mountedTanks } from "@tcs/scenario";
 import { builtUpAround, createSim, dismountDistance, hypot2, isBuiltUp, step, submitOrder, type BattleInput, type Controller, type EntityId, type SimEvent } from "@tcs/sim";
 import { getScenario, ON_POSTS } from "../scenarios";
@@ -29,6 +29,13 @@ export interface MountedAssaultRow {
   /** Review fixes: the share of the objective's points each post sees (0: a follow point seeing nothing); carriers
    *  that made for cover before letting their squads out. */
   postSeen: number[]; covers: number;
+  /** Balance pass 6 (carrier stall). Carriers with men aboard at the start; AI mode, from the commander's own tally
+   *  (`rideStats`): how far from its dismount point each carrier stood when it let its squad out, the times carriers
+   *  were sent on again after a drive that gave up, and the support posts ordered / reached / sited again / given up.
+   *  Both modes: the carriers' drives that gave up (`move.noRoute`; on the ride, to a post or on a bound), by cause, and the metres they had left. */
+  started: number; pointM: number[]; rideRetries: number;
+  postTally: { ordered: number; reached: number; resited: number; failed: number } | null;
+  noRoute: Record<string, number>; noRouteLeftM: number[];
 }
 
 /** The scenario's attacking side: the one not holding the main objective's ground at the start (its defender stands
@@ -74,7 +81,10 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
       submitOrder(sim, { tick: 0, issuer: atk, target: id, kind: "assault", x: obj.x, y: obj.y } as never);
     }
   }
-  const row: MountedAssaultRow = { scenario, mode, seed, attacker: atk, doctrineM, map: input.map.meta.kind, urban, buildings, carriers: 0, dismountM: [], early: 0, hitAboard: 0, posts: 0, postM: [], fellBackM: [], rounds: 0, ownHits: 0, taken: false, takenS: null, reasons: {}, threats: [], hitBy: {}, postSeen: [], covers: 0 };
+  const row: MountedAssaultRow = { scenario, mode, seed, attacker: atk, doctrineM, map: input.map.meta.kind, urban, buildings, carriers: 0, dismountM: [], early: 0, hitAboard: 0, posts: 0, postM: [], fellBackM: [], rounds: 0, ownHits: 0, taken: false, takenS: null, reasons: {}, threats: [], hitBy: {}, postSeen: [], covers: 0, started: 0, pointM: [], rideRetries: 0, postTally: null, noRoute: {}, noRouteLeftM: [] };
+  const carrierVids = new Set<EntityId>();
+  for (const [, u] of sim.state.unit.entries()) if (u.side === atk && u.carrier !== undefined) carrierVids.add(u.carrier);
+  row.started = carrierVids.size;
   const supporting = new Set<EntityId>();
   const watch: { vid: EntityId; tick: number; d0: number }[] = [];
   const hulls = new Set<EntityId>();
@@ -108,6 +118,7 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
           if (best) row.threats.push(best);
         }
         row.dismountM.push(e.distM); if (e.distM > doctrineM + 50) row.early++; seenVid.add(e.vehicle); supporting.add(e.vehicle); watch.push({ vid: e.vehicle, tick: e.tick, d0: e.distM }); }
+      else if (e.kind === "move.noRoute" && e.vehicle !== undefined && carrierVids.has(e.vehicle)) { const k = e.cause ?? "order"; row.noRoute[k] = (row.noRoute[k] ?? 0) + 1; row.noRouteLeftM.push(e.leftM ?? 0); }
       else if (e.kind === "assault.cover") row.covers++;
       else if (e.kind === "assault.supportPost") { row.posts++; row.postSeen.push(e.seen); row.postM.push(Math.round(hypot2(e.x - obj.x, e.y - obj.y))); supporting.add(e.vehicle); }
       else if (e.kind === "unit.dismounted" && mode === "ai" && sim.state.unit.get(e.unit)?.side === atk && !seenVid.has(e.vehicle)) {
@@ -127,6 +138,17 @@ export function mountedAssaultBattle(data: LoadedData, scenario: string, mode: "
     if (!row.taken && sim.state.objectives[0]?.holder === atk) { row.taken = true; row.takenS = Math.round(sim.state.tick / 60); }
   }
   row.carriers = seenVid.size;
+  // Balance pass 6: the commander's own account of the ride (AI mode): why each carrier let its squad out, how far
+  // from its point, and its posts. "Early" is then counted from the point (more than 50 m short of it), not from
+  // objective 0: the commander's point lies outside every objective and the slots spread sideways.
+  if (mode === "ai") {
+    const rs = ctrls[0]!.saveState ? rideStats(ctrls[0]!.saveState()) : null;
+    if (rs) {
+      row.reasons = {}; row.early = 0;
+      for (const o of rs.out) { row.reasons[o.why] = (row.reasons[o.why] ?? 0) + 1; row.pointM.push(o.pointM); row.rideRetries += o.retries; if (o.pointM > 50) row.early++; }
+      row.postTally = rs.posts;
+    }
+  }
   return row;
 }
 
@@ -135,7 +157,7 @@ export function mountedAssaultLab(data: LoadedData, seeds: number, seconds = 600
   for (const sc of scenarios) for (const mode of modes) for (let s = 1; s <= seeds; s++) {
     const r = mountedAssaultBattle(data, sc, mode, s, seconds);
     rows.push(r);
-    process.stderr.write(`${sc} ${mode} seed ${s}: dismount ${r.dismountM.join("/")} m, why ${Object.entries(r.reasons).map(([k, n]) => `${k} ${n}`).join(", ")}, hit by ${Object.entries(r.hitBy).map(([k, n]) => `${k} ${n}`).join(", ")}, threats ${r.threats.map((t) => `${t.hullM}/${t.objM}${t.seen ? "s" : "r"}`).join(" ")}, posts ${r.postM.join("/")} m, fell back ${r.fellBackM.join("/")} m, rounds ${r.rounds}, own hits ${r.ownHits}, taken ${r.taken}\n`);
+    process.stderr.write(`${sc} ${mode} seed ${s}: dismount ${r.dismountM.join("/")} m, why ${Object.entries(r.reasons).map(([k, n]) => `${k} ${n}`).join(", ")}, hit by ${Object.entries(r.hitBy).map(([k, n]) => `${k} ${n}`).join(", ")}, from point ${r.pointM.join("/")} m, sent on ${r.rideRetries}, gave up ${Object.entries(r.noRoute).map(([k, n]) => `${k} ${n}`).join(", ")} (${r.noRouteLeftM.join("/")} m left), posts ${r.postTally ? `${r.postTally.reached} of ${r.postTally.ordered} reached, ${r.postTally.resited} sited again, ${r.postTally.failed} given up` : "-"}, threats ${r.threats.map((t) => `${t.hullM}/${t.objM}${t.seen ? "s" : "r"}`).join(" ")}, posts ${r.postM.join("/")} m, fell back ${r.fellBackM.join("/")} m, rounds ${r.rounds}, own hits ${r.ownHits}, taken ${r.taken}\n`);
   }
   return rows;
 }
@@ -157,6 +179,21 @@ export function mountedAssaultLabMarkdown(rows: MountedAssaultRow[]): string {
     for (const r of rs) for (const [k, n] of Object.entries(r.reasons)) why[k] = (why[k] ?? 0) + n;
     const nb = rs.map((r) => r.buildings);
     lines.push(`| ${sc} | ${rs[0]!.map}${rs[0]!.urban ? ", built-up" : ""} (${Math.min(...nb)}-${Math.max(...nb)}) | ${mode} | ${rs.length} | ${rs.reduce((s, r) => s + r.carriers, 0)} | ${fmt(mean(d))} (${d.length > 0 ? Math.min(...d) : "-"}-${d.length > 0 ? Math.max(...d) : "-"}; doctrine ${rs[0]!.doctrineM}) | ${rs.reduce((s, r) => s + r.early, 0)} | ${Object.entries(why).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(", ") || "-"} | ${rs.reduce((s, r) => s + r.covers, 0)} | ${rs.reduce((s, r) => s + r.hitAboard, 0)} | ${rs.reduce((s, r) => s + r.posts, 0)} | ${rs.reduce((s, r) => s + r.postSeen.filter((x) => x <= 0).length, 0)} | ${fmt(mean(p))} | ${fmt(mean(f))} | ${rs.reduce((s, r) => s + r.rounds, 0)} | ${rs.reduce((s, r) => s + r.ownHits, 0)} | ${rs.filter((r) => r.taken).length} |`);
+  }
+  // Balance pass 6 (carrier stall): every carrier that let its squad out short of its point has a reason.
+  lines.push("", "Carriers and their dismount points (balance pass 6). Started = carriers with men aboard at the start; never out = lost with its men aboard, or the battle ended first. AI mode: the commander's own account (why each carrier let its squad out, in the drill's words; m from its point at that moment; early = more than 50 m from the point; sent on = orders to drive on after a drive that gave up; posts reached = the hull ended within the arrival distance of the post it was sent to, sited again = a second post after a drive that ended short, given up = it fires from where it stands). Drives given up = `move.noRoute` events of the carriers (on the ride, to a post, or on a later bound) by cause (replans = three re-plans without getting on, planner = no way found, order = refused at the order), with the mean metres left.",
+    "", "| Scenario | Mode | Started | Out | Never out | At the point | Out short, with reason | m from point (mean, max) | Sent on | Drives given up | Posts ordered | reached | sited again | given up |", "|---|---|---:|---:|---:|---:|---|---|---:|---|---:|---:|---:|---:|");
+  for (const [k, rs] of groups) {
+    const [sc, mode] = k.split("|");
+    const why: Record<string, number> = {};
+    for (const r of rs) for (const [k2, n] of Object.entries(r.reasons)) why[k2] = (why[k2] ?? 0) + n;
+    const started = rs.reduce((a, r) => a + r.started, 0), out = rs.reduce((a, r) => a + r.carriers, 0);
+    const pm = rs.flatMap((r) => r.pointM), nr: Record<string, number> = {};
+    for (const r of rs) for (const [k2, n] of Object.entries(r.noRoute)) nr[k2] = (nr[k2] ?? 0) + n;
+    const left = rs.flatMap((r) => r.noRouteLeftM);
+    const pt = rs.reduce((a, r) => ({ ordered: a.ordered + (r.postTally?.ordered ?? 0), reached: a.reached + (r.postTally?.reached ?? 0), resited: a.resited + (r.postTally?.resited ?? 0), failed: a.failed + (r.postTally?.failed ?? 0) }), { ordered: 0, reached: 0, resited: 0, failed: 0 });
+    const ai = mode === "ai";
+    lines.push(`| ${sc} | ${mode} | ${started} | ${out} | ${started - out} | ${(why["point"] ?? 0) + (why["near"] ?? 0)} | ${Object.entries(why).filter(([k2]) => k2 !== "point" && k2 !== "near").sort((a, b) => b[1] - a[1]).map(([k2, n]) => `${k2} ${n}`).join(", ") || "-"} | ${ai && pm.length > 0 ? `${fmt(mean(pm))}, ${Math.max(...pm)}` : "-"} | ${ai ? rs.reduce((a, r) => a + r.rideRetries, 0) : "-"} | ${Object.entries(nr).map(([k2, n]) => `${k2} ${n}`).join(", ") || "0"}${left.length > 0 ? ` (${fmt(mean(left))} m left)` : ""} | ${ai ? pt.ordered : "-"} | ${ai ? pt.reached : "-"} | ${ai ? pt.resited : "-"} | ${ai ? pt.failed : "-"} |`);
   }
   return lines.join("\n");
 }

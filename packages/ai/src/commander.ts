@@ -26,7 +26,7 @@
  */
 import { withDrones } from "./drone";
 import {
-  atan2, backblastBlocked, friendHolds, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
+  atan2, backblastBlocked, launcherReachM, friendHolds, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
   positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
   cacheHolds, carrierHitNear, dismountDistance, dismountSpot, mountedAssaultDef, threatMenFor, siteSupportPost, supportPost, supportReachM, type VehicleState,
 } from "@tcs/sim";
@@ -171,6 +171,14 @@ interface Memory extends TanksMemory, LogisticsMemory {
   crewsFree?: boolean; followAt?: Record<string, [number, number]>; lastVehicleFire?: number;
   /** Balance pass 5: carriers sent back to a support-by-fire post once their squad was out (crew ids). */
   posted?: number[];
+  /** Balance pass 6 (carrier stall): each carrier's dismount point on the ride (crew id: the point, its slot, the
+   *  times it was sent on again after its drive gave up, when last); why each carrier let its squad out
+   *  (`rideStats`); each hull's support post after the dismount (crew id: the point, re-sitings, when last ordered,
+   *  when first, reached or given up) and the tally of posts. */
+  ride?: Record<string, { x: number; y: number; off: number; behind: number; tries: number; tick: number }>;
+  rideLog?: RideOut[];
+  postAt?: Record<string, { x: number; y: number; tries: number; tick: number; t0: number; ok?: boolean; failed?: boolean }>;
+  postTally?: { ordered: number; reached: number; resited: number; failed: number };
   /** M7.4b: crews that bailed out and were sent back; anti-tank tasks: the last look, each gunner's last shot
    *  order, and the men sent after a vehicle (target, since when). */
   sentBack?: number[]; lastAt?: number; atShot?: Record<string, number>; hunt?: Record<string, [number, number]>;
@@ -238,6 +246,24 @@ export function reacquireStats(saved: unknown): ReacquireStats | null {
   const m = (saved as { rq?: ReacquireStats } | null | undefined)?.rq;
   return m === undefined ? null : { ...m };
 }
+/** Balance pass 6 (carrier stall): why a carrier let its squad out on the ride (the mounted drill's words), how far
+ *  from its dismount point and from the objective it stood, and when. */
+export type RideWhy = "point" | "stopped" | "late" | "immobile" | "hit" | "threatMen" | "threatVehicle" | "cutOff";
+export interface RideOut { vehicle: number; why: RideWhy; pointM: number; objectiveM: number; tick: number; retries: number }
+export interface RideStats {
+  out: RideOut[];
+  /** Support posts after the dismount: ordered, reached (the hull ended within `arriveM` of it), sited again after
+   *  a drive that ended short, given up (the hull fires from where it stands). */
+  posts: { ordered: number; reached: number; resited: number; failed: number };
+}
+/** The ride's tally of a saved commander state (labs, batch); null: no mounted ride. */
+export function rideStats(saved: unknown): RideStats | null {
+  const m = saved as { rideLog?: RideOut[]; postTally?: RideStats["posts"] } | null | undefined;
+  if (m?.rideLog === undefined && m?.postTally === undefined) return null;
+  return { out: (m.rideLog ?? []).map((r) => ({ ...r })), posts: { ...(m.postTally ?? { ordered: 0, reached: 0, resited: 0, failed: 0 }) } };
+}
+/** Seconds between two looks at a hull's support post that it has not reached (balance pass 6). */
+const POST_RETRY_S = 20, POST_RETRIES = 2, RIDE_RETRY_S = 10;
 export function attackStats(saved: unknown): AttackStats | null {
   const m = (saved as { att?: AttackStats } | null | undefined)?.att;
   return m === undefined ? null : { ...m };
@@ -297,7 +323,7 @@ function launcherReady(view: SimView, input: BattleInput, m: EntityId): { range:
     if (st.count <= 0) continue;
     const d = input.catalog.ammo[st.type]?.delivery;
     if (d?.method !== "direct" || d.launcher === undefined) continue;
-    if (c.stacks.some((x) => x.type === d.launcher && x.count > 0)) return { range: d.maxRangeM ?? 300, ammo: st.type };
+    if (c.stacks.some((x) => x.type === d.launcher && x.count > 0)) return { range: launcherReachM(input.catalog, st.type), ammo: st.type };
   }
   return null;
 }
@@ -1528,6 +1554,30 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
       // ---- vehicles after the dismount (M7.3, plan §12): fire free; German overwatch (they stay where they dropped
       // the squads), Russian following (each about followM behind its squad); support by fire on the objective.
       const fighting = crews.filter((c) => { const v = vehicleOf(c); return v !== undefined && (v.status === "ok" || v.status === "immobilised"); });
+      // Balance pass 6 (carrier stall): a hull's support post is looked at again. "resite": its drive ended more than
+      // `arriveM` short (it gave up, or found no way) and it may be sited again (twice, `POST_RETRY_S` apart; the
+      // caller then calls `postSent` or `postFailed`); after that it stays and fires from where it stands.
+      const postTally = () => (mem.postTally ??= { ordered: 0, reached: 0, resited: 0, failed: 0 });
+      const postSent = (c: EntityId, x: number, y: number, again: boolean): void => {
+        const pa = (mem.postAt ??= {})[String(c)];
+        if (again && pa) { pa.x = x; pa.y = y; pa.tries++; pa.tick = tick; postTally().resited++; return; }
+        mem.postAt[String(c)] = { x, y, tries: 0, tick, t0: tick };
+        postTally().ordered++;
+      };
+      const postFailed = (c: EntityId): void => { const pa = mem.postAt?.[String(c)]; if (pa && !pa.failed) { pa.failed = true; postTally().failed++; } };
+      const postLook = (c: EntityId, windowS: number): "resite" | null => {
+        const pa = mem.postAt?.[String(c)];
+        if (!pa || pa.ok || pa.failed) return null;
+        const vid = view.unit.get(c)?.vehicle, v = vehicleOf(c), vt = vid === undefined ? undefined : view.transform.get(vid);
+        if (!v || !vt) return null;
+        const arriveM = mountedAssaultDef(ground())?.arriveM ?? 15;
+        if (hypot2(vt.x - pa.x, vt.y - pa.y) <= arriveM) { pa.ok = true; postTally().reached++; return null; }
+        if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) return null;
+        if (tick - pa.tick < POST_RETRY_S * 60) return null;
+        // (Past the window the hull has other orders: bounds, a new follow point.)
+        if (v.status !== "ok" || pa.tries >= POST_RETRIES || tick - pa.t0 > windowS * 60) { postFailed(c); return null; }
+        return "resite";
+      };
       if (crews.length > 0 && mem.phase !== "start" && mem.phase !== "ride" && mem.phase !== "withdraw") {
         if (!mem.crewsFree) { for (const c of fighting) order(c, { kind: "rules", fire: "free" }); mem.crewsFree = true; }
         const after = input.catalog.factions[force.faction]?.afterDismount;
@@ -1546,8 +1596,12 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             const px = clamp(cx - ux * after.followM, W), py = clamp(cy - uy * after.followM, H);
             const prev = mem.followAt[String(c)];
             // Only once the squad has moved on (and the vehicle is not on its way already).
-            if (prev && hypot2(prev[0] - px, prev[1] - py) < COMMANDER.followReplanM) continue;
-            if (hypot2(vt.x - px, vt.y - py) < COMMANDER.followReplanM) { mem.followAt[String(c)] = [px, py]; continue; }
+            // (Balance pass 6: unless its drive to the last post ended short: then it is sited again, off that post.)
+            const moved = !prev || hypot2(prev[0] - px, prev[1] - py) >= COMMANDER.followReplanM;
+            const again = !moved && postLook(c, 120) === "resite";
+            if (!moved && !again) continue;
+            const failedAt = again ? mem.postAt![String(c)]! : undefined;
+            if (!again && hypot2(vt.x - px, vt.y - py) < COMMANDER.followReplanM) { mem.followAt[String(c)] = [px, py]; continue; }
             // (Balance pass 5: the best support-by-fire post round that point, the sim's `supportPost`; none: the point.)
             const MA = mountedAssaultDef(ground()), def = input.catalog.vehicles[v.def];
             let to = { x: px, y: py, facing: atan2(uy, ux) };
@@ -1557,10 +1611,12 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
               const ctx0 = ground();
               const threats = all.flatMap((m) => knownMen(m)).filter((k) => k.kind !== "heard" && tick - k.tick <= MA.threatSeenSeconds * 60).map((k) => ({ x: k.x, y: k.y }));
               const standoffM = Math.max(0, Math.min(urbanT ? MA.urban!.postStandoffM : MA.postStandoffM, hypot2(px - tgt.x, py - tgt.y) - tgt.radiusM - MA.arriveM));
-              const q = supportPost(ctx0, def, { from: { x: vt.x, y: vt.y }, anchor: { x: px, y: py }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM }, reachM: supportReachM(ctx0, def, view.environment.light), ringsM: MA.postRingsM, minSeen: MA.postMinSeen, minObjectiveM: minObjM, standoffM, threats });
+              const q = supportPost(ctx0, def, { from: { x: vt.x, y: vt.y }, anchor: { x: px, y: py }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM }, reachM: supportReachM(ctx0, def, view.environment.light), ringsM: MA.postRingsM, minSeen: MA.postMinSeen, minObjectiveM: minObjM, standoffM, threats, ...(failedAt ? { avoid: [{ x: failedAt.x, y: failedAt.y }] } : {}) });
               if (q) to = q;
-            }
+              else if (failedAt) { postFailed(c); continue; } // (no other post: it fires from where it stands)
+            } else if (failedAt) { postFailed(c); continue; }
             order(c, { kind: "move", waypoints: [{ x: to.x, y: to.y, mode: "walk" }], facing: to.facing });
+            postSent(c, to.x, to.y, again);
             mem.followAt[String(c)] = [px, py];
           }
         } else if (!defending && input.catalog.behaviour.mounting.overwatchBound) {
@@ -1578,24 +1634,28 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             mem.posted ??= [];
             const threats = all.flatMap((m) => knownMen(m)).filter((k) => k.kind !== "heard" && tick - k.tick <= MA.threatSeenSeconds * 60).map((k) => ({ x: k.x, y: k.y }));
             const holds: { x: number; y: number }[] = [];
+            const idleS = input.catalog.behaviour.mounting.overwatchBound.idleS;
             for (const c of obCrews) {
-              if (mem.posted.includes(c)) continue;
+              const again = mem.posted.includes(c);
+              if (again && postLook(c, idleS) !== "resite") continue;
+              const failedAt = again ? mem.postAt![String(c)]! : undefined;
               const vid = view.unit.get(c)?.vehicle, v = vehicleOf(c) as VehicleState | undefined, vt = vid === undefined ? undefined : view.transform.get(vid);
               const def = v ? input.catalog.vehicles[v.def] : undefined;
               // (Not only once it has arrived: a carrier whose squad got out early stops driving on, empty, toward
               // the enemy, and backs from where it is.)
               if (!v || !vt || !def || v.status !== "ok" || v.resupply !== undefined) continue;
               if (v.crewReaction === "reverseOut" && tick - v.reactionTick < COMMANDER.reverseOutHoldSeconds * 60) continue;
-              mem.posted.push(c);
+              if (!again) mem.posted.push(c);
               const ctx0 = ground();
               const p = siteSupportPost(ctx0, def, {
                 hull: { x: vt.x, y: vt.y }, anchor: { x: clamp(vt.x - ux * MA.postBackM, W), y: clamp(vt.y - uy * MA.postBackM, H) },
                 behind: { x: vt.x, y: vt.y, ux: -ux, uy: -uy, minM: MA.postMinBackM }, obj: { x: tgt.x, y: tgt.y, r: tgt.radiusM },
-                light: view.environment.light, threats, avoid: holds, ...(dismountDistance(ctx0, force.faction, tgt.x, tgt.y, undefined, { ux, uy }).urban ? { urban: true } : {}),
+                light: view.environment.light, threats, avoid: failedAt ? [...holds, { x: failedAt.x, y: failedAt.y }] : holds, ...(dismountDistance(ctx0, force.faction, tgt.x, tgt.y, undefined, { ux, uy }).urban ? { urban: true } : {}),
                 extra: all.flatMap((m) => knownMen(m)).filter((k) => k.kind !== "heard" && hypot2(k.x - tgt.x, k.y - tgt.y) <= MA.fireNearObjectiveM).map((k) => ({ x: k.x, y: k.y })),
               });
-              if (!p) { if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) order(c, { kind: "halt" }); continue; }
+              if (!p) { if (again) postFailed(c); else if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) order(c, { kind: "halt" }); continue; }
               holds.push(p);
+              postSent(c, p.x, p.y, again);
               const back = (p.x - vt.x) * ux + (p.y - vt.y) * uy < 0;
               order(c, { kind: "move", waypoints: [back ? { x: p.x, y: p.y, mode: "walk", reverse: true } : { x: p.x, y: p.y, mode: "walk" }], facing: p.facing });
             }
@@ -1701,9 +1761,10 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
               // (Balance pass 5, owner 2026-11-20: a built-up objective's shorter distance, `dismountDistance`.)
               const p = dismountSpot(ground(), { tgt, objectives, ux, uy, offM: off, dismountM: dismountDistance(ground(), force.faction, tgt.x, tgt.y, undefined, { ux, uy }).dismountM, behindM: behind, stepM: COMMANDER.dismountStepM, candidates: COMMANDER.dismountCandidates, eyes });
               order(c, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: atan2(uy, ux) });
+              (mem.ride ??= {})[String(c)] = { x: p.x, y: p.y, off, behind, tries: 0, tick };
             });
             toAll({ kind: "rules", fire: "return" });
-            mem.out = [];
+            mem.out = []; mem.rideLog = [];
             mem.phase = "ride"; mem.phaseTick = tick;
             break;
           }
@@ -1720,11 +1781,51 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
           // (Balance pass 5: for a built-up objective only men nearer than its dismount distance + a margin.)
           const MA0 = mountedAssaultDef(ground()), dd0 = dismountDistance(ground(), force.faction, tgt.x, tgt.y, undefined, { ux, uy });
           const threatMenM = MA0 ? Math.min(COMMANDER.dismountThreatMenM, threatMenFor(MA0, dd0.dismountM)) : COMMANDER.dismountThreatMenM;
-          const atThreat = (vid: EntityId): boolean => {
+          const atThreat = (vid: EntityId): "threatMen" | "threatVehicle" | null => {
             const vt = view.transform.get(vid);
-            if (!vt) return false;
-            return crewKnown.some((c) => c.wreck !== true && tick - c.tick <= 60 * 60 && c.kind !== "heard"
+            if (!vt) return null;
+            const c = crewKnown.find((c) => c.wreck !== true && tick - c.tick <= 60 * 60 && c.kind !== "heard"
               && hypot2(c.x - vt.x, c.y - vt.y) <= (c.cls === "vehicle" ? (c.kind === "seen" ? COMMANDER.dismountThreatVehicleM : 0) : threatMenM));
+            return c === undefined ? null : c.cls === "vehicle" ? "threatVehicle" : "threatMen";
+          };
+          // Balance pass 6 (carrier stall): why a carrier lets its squad out, logged (`rideStats`). A hull whose drive
+          // ended short of its point (it gave up among the other hulls, or found no way) is sent on again, as the
+          // player's mounted drill does (`driveRetries`): first to the same point, then to the point half a slot to
+          // the side it stands on; after that the squad gets out where it stands ("stopped").
+          const arriveM = MA0?.arriveM ?? 15, driveRetries = MA0?.driveRetries ?? 0;
+          const outWhy = (vid: EntityId | undefined): RideWhy | null => {
+            const v = vid === undefined ? undefined : view.vehicle.get(vid), vt = vid === undefined ? undefined : view.transform.get(vid);
+            if (vid === undefined || v === undefined || !vt || v.status !== "ok") return "immobile";
+            const crew = crews.find((c) => view.unit.get(c)?.vehicle === vid), r = crew === undefined ? undefined : mem.ride?.[String(crew)];
+            const ended = v.drive.arrived || v.drive.routeIdx >= v.drive.route.length;
+            if (ended && (r === undefined || hypot2(vt.x - r.x, vt.y - r.y) <= arriveM)) return "point";
+            // (Verification fix: a hull off the net (its radio wrecked) takes no order, nor do the men aboard it: they
+            // get out on their own once it has halted (the sim's `cutOffRiders`), logged then; waited for until the
+            // ride has taken too long, never counted as sent on or ordered out.)
+            if (crew !== undefined && view.unit.get(crew)?.comms.link === "none") return late ? "cutOff" : null;
+            if (hitNear(vid)) return "hit";
+            const th = atThreat(vid);
+            if (th !== null) return th;
+            if (late) return "late";
+            if (!ended) return null;
+            if (tick - r!.tick < RIDE_RETRY_S * 60) return null; // (the order sent on is not through yet)
+            // (A crew at a field repair is not sent on, `repairing`: its squad gets out where it stands.)
+            if (r!.tries >= driveRetries || v.repair?.working === true) return "stopped";
+            r!.tries++; r!.tick = tick;
+            if (r!.tries > 1) {
+              const lat = -(vt.x - r!.x) * uy + (vt.y - r!.y) * ux;
+              r!.off += (lat >= 0 ? 0.5 : -0.5) * COMMANDER.vehicleSlotM;
+              const p = dismountSpot(ground(), { tgt, objectives, ux, uy, offM: r!.off, dismountM: dd0.dismountM, behindM: r!.behind, stepM: COMMANDER.dismountStepM, candidates: 1, eyes: [] });
+              r!.x = p.x; r!.y = p.y;
+            }
+            order(crew!, { kind: "move", waypoints: [{ x: r!.x, y: r!.y, mode: "run" }], facing: atan2(uy, ux) });
+            return null;
+          };
+          const logOut = (vid: EntityId | undefined, why: RideWhy): void => {
+            const vt = vid === undefined ? undefined : view.transform.get(vid);
+            if (vid === undefined || !vt) return;
+            const crew = crews.find((c) => view.unit.get(c)?.vehicle === vid), r = crew === undefined ? undefined : mem.ride?.[String(crew)];
+            (mem.rideLog ??= []).push({ vehicle: vid, why, pointM: r ? Math.round(hypot2(vt.x - r.x, vt.y - r.y)) : 0, objectiveM: Math.round(hypot2(vt.x - tgt.x, vt.y - tgt.y)), tick, retries: r?.tries ?? 0 });
           };
           // Out when its vehicle has arrived, at once when a vehicle was hit, or after the ride has taken too long:
           // the squad is ordered to its support-line position and gets out first (Q12).
@@ -1733,16 +1834,24 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
           squads.forEach((sq, i) => {
             if (mem.out!.includes(sq)) return;
             const vid = view.unit.get(sq)?.carrier;
-            const v = vid === undefined ? undefined : view.vehicle.get(vid);
-            const there = v === undefined || v.drive.arrived || v.drive.routeIdx >= v.drive.route.length || v.status !== "ok";
-            if (riders(view, sq).length > 0 && !(there || hitNear(vid) || late || (vid !== undefined && atThreat(vid)))) return;
+            const aboard = riders(view, sq).length > 0;
+            const why = aboard ? outWhy(vid) : null;
+            if (aboard && why === null) return;
+            // (One line a carrier: the first of its squads out.)
+            // (Riders who got out by themselves, the sim's rule for a hull struck by a cannon round, a rocket or a
+            // missile, or left a hull that can no longer drive: logged too.)
+            const selfCrew = crews.find((c) => view.unit.get(c)?.vehicle === vid);
+            const self: RideWhy | null = aboard ? null : selfCrew !== undefined && view.unit.get(selfCrew)?.comms.link === "none" ? "cutOff" : vid !== undefined && view.vehicle.get(vid)?.status === "ok" ? "hit" : "immobile";
+            if ((why ?? self) !== null && vid !== undefined && !(mem.rideLog ?? []).some((r) => r.vehicle === vid)) logOut(vid, (why ?? self)!);
             advance(sq, i);
             mem.out!.push(sq);
           });
           const hqIn = hq.filter((m) => (view.soldier.get(m) as SoldierState | undefined)?.mount !== undefined);
           const hqV = tops.length > 0 ? view.unit.get(tops[0]![0])?.carrier : undefined;
           const hv = hqV === undefined ? undefined : view.vehicle.get(hqV);
-          if (hqIn.length > 0 && !mem.out.includes(-1) && (hv === undefined || hv.drive.arrived || hitNear(hqV) || late || (hqV !== undefined && atThreat(hqV)))) {
+          const hqWhy = hqIn.length > 0 && !mem.out.includes(-1) ? (hv === undefined ? "immobile" : outWhy(hqV)) : null;
+          if (hqWhy !== null) {
+            if (!(mem.rideLog ?? []).some((r) => r.vehicle === hqV)) logOut(hqV, hqWhy);
             for (const m of hqIn) order(m, { kind: "move", waypoints: [{ x: supportAt().x - ux * 30, y: supportAt().y - uy * 30, mode: hqUnderFire() ? "run" : "walk" }] });
             mem.out.push(-1);
           }

@@ -256,6 +256,34 @@ describe("vehicle routes and collisions", () => {
     expect(ev.some((e) => e.kind === "move.noRoute")).toBe(true);
     expect(ev.some((e) => e.kind === "radio" && e.key === "radio.noRoute")).toBe(true);
     expect(sim.state.transform.req(vidOf(sim)).x).toBeLessThan(90);
+    // Balance pass 6 (carrier stall): the event says which hull, how far short and why.
+    const nr = ev.find((e) => e.kind === "move.noRoute")!;
+    expect(nr.kind === "move.noRoute" && nr.vehicle).toBe(vidOf(sim));
+    expect(["replans", "planner"]).toContain(nr.kind === "move.noRoute" ? nr.cause : "");
+    expect(nr.kind === "move.noRoute" ? nr.leftM ?? 0 : 0).toBeGreaterThan(200);
+    expect(sim.state.vehicle.req(vidOf(sim)).drive.replanLeft).toBeUndefined();
+  });
+
+  it("balance pass 6: re-plans are counted per jam: 15 m nearer the goal since the last one, the count starts again", () => {
+    const input = vehicleInput(1, 120);
+    input.catalog = CAT;
+    const sim = createSim(input);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: crewOf(sim), kind: "move", waypoints: [{ x: 300, y: 100, mode: "drive-slow" }] });
+    step(sim);
+    const d = sim.state.vehicle.req(vidOf(sim)).drive, x0 = sim.state.transform.req(vidOf(sim)).x;
+    // As after three re-plans at an earlier jam (one more would give up).
+    d.replans = 3; d.replanLeft = 300 - x0;
+    run(sim, 120, () => sim.state.transform.req(vidOf(sim)).x > x0 + 10);
+    expect(d.replans).toBe(3); // (not yet 15 m on)
+    run(sim, 120, () => sim.state.transform.req(vidOf(sim)).x > x0 + 20);
+    expect(d.replans).toBe(0);
+    expect(d.replanLeft).toBeUndefined();
+    // A new order starts clean as well.
+    d.replans = 2; d.replanLeft = 50;
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: crewOf(sim), kind: "move", waypoints: [{ x: 320, y: 100, mode: "drive-slow" }] });
+    run(sim, 2);
+    expect(d.replans).toBe(0);
+    expect(d.replanLeft).toBeUndefined();
   });
 
   it("the follower holds a straight line with one weak track (within 2 m over 100 m)", () => {

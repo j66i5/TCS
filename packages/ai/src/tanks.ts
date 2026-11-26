@@ -420,7 +420,9 @@ export function tankSections(a: TankArgs): number {
       const cur = m.posts[m.post]!;
       if (close && hypot2(close.x - cur[0], close.y - cur[1]) <= T.atStandoffM) {
         let bi = -1, bd: number = T.atStandoffM;
-        m.posts.forEach((p, i) => { const d = hypot2(close.x - p[0], close.y - p[1]); if (d > bd) { bd = d; bi = i; } });
+        // (Balance pass 6 verification: never a post another hull of the section holds or goes to, as `nextPost`.)
+        const held = live.filter((o) => o.c !== q.c).map((o) => mem.tk![String(o.c)]!).filter((o) => o.posts.length > 0).map((o) => o.posts[o.post]!);
+        m.posts.forEach((p, i) => { const d = hypot2(close.x - p[0], close.y - p[1]); if (d > bd && !held.some((o) => hypot2(o[0] - p[0], o[1] - p[1]) < T.samePostM)) { bd = d; bi = i; } });
         if (bi >= 0) m.post = bi;
         else {
           const L = Math.max(1, hypot2(q.x - close.x, q.y - close.y));

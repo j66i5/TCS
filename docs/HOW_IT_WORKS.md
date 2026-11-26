@@ -1469,6 +1469,20 @@ riding carrier get its squads out early only when they are nearer than the dismo
 carrier or one within 300 m still gets them out at once. A carrier jammed among the others is sent on again twice
 before its squads get out where it stands.
 
+**Carriers that stop short (balance pass 6).** A hull that cannot get on plans its route again; after three tries at
+the same jam it gives up and says "no way through". The count now starts again once it has got 15 m nearer its goal,
+so several small jams on a long drive no longer add up to giving up. The computer's commander does what the player's
+drill does: a carrier whose drive ended short of its dismount point is sent on again, first to the same point, then
+to a point half a slot (30 m) to the side it stands on, and only then lets its squad out where it stands. The same
+for the support post after the dismount: a hull that ended more than 15 m short of its post is given another post
+(twice, 20 s apart) and after that fires from where it stands. Every carrier that lets its squad out has its reason
+on record: at its point, stopped (after being sent on twice), hit, enemy men known close, an enemy hull seen, late,
+immobile, or cut off. **Cut off** is a hull whose radio is wrecked: no order reaches its crew or the men aboard
+it, so the commander no longer counts it as sent on or ordered out. Once such a hull has halted, its passengers
+get out on their own (their own radios work again on foot; the crew stays with the hull); the same holds for the
+player's carriers. Before, a squad and a platoon headquarters could sit in such a hull for the whole battle. `npm run lab -- mounted-assault` prints them per scenario, with the drives that gave up and the posts
+ordered, reached, sited again and given up.
+
 **Area fire and air burst (balance pass 5, the owner's request).** A vehicle crew that has lost sight of enemy men
 does not go quiet at once: under the fire rule "free" it keeps firing at the places its men last knew them. Each
 such place is a circle round where the men were last seen or reported (their spread plus how far they may have
@@ -1482,17 +1496,43 @@ post of the mounted assault with no enemy known on the objective fires at the ob
 the real round has a programmable fuze, the crew sets it to **burst in the air**: the Puma's 30 mm KETF round
 bursts about 15 m short of the laser range and throws its 162 tungsten pellets forward in a narrow cone; the
 Leopard's DM11 bursts 3 m over the point and throws its fragments all round. A seen man in the open gets the air
-burst too; one in a building gets the impact setting. The BMP-2, the T-72B3M, the T-90M and the wheeled carriers fire
-impact-fused high explosive (no source for an air-burst fuze on their rounds yet). The player can pick "Gun: HE air
+burst too; one in a building gets the impact setting. The BMP-2, the T-72B3M and the wheeled carriers fire
+impact-fused high explosive (no source for an air-burst fuze on their rounds). The player can pick "Gun: HE air
 burst" in the Fire tray of a hull that has it. Lab: `npm run lab -- areafire`.
 
-**How the two sides compare (balance pass 5).** In the mounted platoon battle by day the German attack in Pumas wins
-about three times in four and the Russian attack in BMP-2s with two T-72B3M about half the time. The differences are
+Balance pass 6 changed three things here. The **Puma's second belt is KETF and nothing else** (the owner's choice;
+the real belt holds no impact high-explosive round): its crew always sets the fuze, also at a house (the pellets
+then strike the wall from 15 m out) or a vehicle; an order for the impact setting is refused ("no impact setting,
+air burst only"); nearer than 45 m, where the fuze cannot be set, the machine gun fires instead; and the Fire tray of
+a Puma offers "Gun: HE air burst" but no plain "Gun: HE". A KETF round that strikes something before its fuze runs
+out does little: half its pellets scatter slowly round the strike. Against armour it cannot pierce, the Puma fires
+its armour-piercing belt. The **T-90M** fires the 3OF26 shell with the Ainet time fuze (the owner's choice, low
+confidence: it is not known how many line tanks carry it): set from the laser range, it bursts 3 m over men in the
+open, as the Leopard's DM11 does; the T-72B3M keeps the impact fuze. And an **ordered** high-explosive fire at a
+point with no enemy named is now **swept over a circle of 8 m** round the point instead of putting every round on
+the one spot (not at a house, and not where an enemy hull is known): a gunner traverses. This is what makes an
+ordered KETF burst worth firing: its cone is under 3 m wide where it arrives, so at one point it could only reach
+the man or two nearest it. Measured at six prone men 3 m apart, 800 m, 30 s: at the one point 2 men hit, swept 5.
+
+**Is an air burst better than an impact against men lying down?** (The 2026-11-24 review read the lab as "no".) It
+is, and no error was found in the geometry: with 384 prone men a row (the lab's 24 seeds), a 155 mm shell bursting
+8 m up wounds 36 % of them at 15 m, 11 % at 25 m and 2 % at 50 m, against 6 %, 1 % and none for the same shell on
+impact, and the fragments that strike a man are 1.2 to 1.9
+times what an even spread over the sphere would give, steadily over burst heights of 3 to 25 m and distances of 15
+to 40 m. The earlier reading came from the lab: 96 men a row (2 % against 5 % is two men against five), and a
+"wounded" column that the blast pins at 100 % at 10 m whatever the fragments do. The artillery lab now runs 24
+seeds, has a 15 m ring and prints the fragment strikes per man. What is still a game value is how many fragments a
+shell throws and how they spread (evenly, in the game; a real shell throws most of them sideways): that calibration
+against published lethal areas is a later step.
+
+**How the two sides compare (balance passes 5 and 6).** In the mounted platoon battle by day the German attack in Pumas wins
+about two times in three and the Russian attack in BMP-2s with two T-72B3M a little under half the time (36 battles
+after balance pass 6: Germany won 22). The differences are
 the real vehicles': the Puma's 30 mm armour-piercing round goes through a BMP-2 from any side, its air-burst round and
 fire control hit men out to a kilometre, and its thermal sight finds men the BMP-2's gunner cannot see; the BMP-2's
 Konkurs missile and the Russian tanks are what kill Pumas. In the campaign this shows more strongly than in one
-battle: the Germans win their operations and the Russians, as the player, lose theirs, because even the smallest German
-force the campaign sends (one Puma platoon with its company headquarters) beats a motor rifle company.
+battle: the Russians, as the player, lose their operations, because even the smallest German force the campaign
+sends (half a Puma platoon) usually stops a motor rifle company.
 
 **Guns (M7.3).** Each vehicle has a turret with a 30 mm cannon (armour-piercing and high-explosive rounds on two
 ready belts) and a machine gun beside it. Every round is counted: off the ready belt as it is fired, and when a
@@ -1533,6 +1573,31 @@ hole (the owner's choice). A rocket's jet weakens as it goes; a cannon round tha
 through the far side. A hit on fuel or ammunition may start a fire, and a hit on the ammunition may blow it up at
 once. High explosive bursts on the plate: it holes only a very thin plate (a mortar bomb on a BMP-2's roof), but
 can break a track. Rifle bullets never get through either vehicle.
+**Hits that do not get through (balance pass 6).** A cannon round that the plate stops, or that glances off, is
+not always harmless: what sits outside the armour can still be broken. If such a round strikes where a sight, the
+smoke dischargers, a missile launcher, a track or a wheel is, or the gun or the coaxial machine gun at its opening
+in the turret front, there is a chance (a table in the data; game values) that this one part is damaged: a sight
+head loses half the sights (a hull has the gunner's and the commander's: the second such strike blinds it), a
+track takes two such strikes, a launcher one. The chance grows with the round's energy and is halved for a round
+that glanced off; rifle and machine-gun bullets up to 12.7 mm do nothing of the kind. Nothing burns, nobody inside
+is hurt and the crew does not treat it as a penetration; the vehicle is simply worse off: blind (its gunner
+aims three times worse, the crew sees only through its vision blocks, no guided missile), without its launcher,
+or immobilised until the crew has mended the track (the crew's field repair; sights, launcher and gun are
+workshop work). The crew reports "sights are gone" or "missile launcher out of action". Most strikes find no such
+part: in the armour lab a BMP-2 firing armour-piercing at a Puma head-on at 800 m lands about 65 hits in two
+minutes and blinds it in two runs of six (two BMP-2s firing together did it in 36 s in a play test: the rate is
+per round, so two guns halve the time). **Crews now fire at armour they cannot get through** (before, they held
+that fire): a carrier's cannon crew with no other target and no missile for it fires at such a vehicle within
+1,500 m, at the turret when it shows, high explosive first (its bursts break sights, dischargers and tracks, as
+they always did) and armour-piercing when the high explosive is down to its reserve. In the lab that blinds a
+Puma or a Leopard 2 after about 40 to 65 seconds of fire. A tank's main gun still holds its fire at a face it
+cannot get through. So a BMP-2 can degrade a Puma from the front without being able to kill it, and a Puma does
+the same to a tank. Close in this goes for the gun: fire aimed at the middle of a turret lands on the gun's mantlet, and
+in the lab a Puma's 60 hits in two minutes on a halted T-90M wreck its gun in four runs of twelve at 500 m, in none
+at 1,000 m or beyond (the chance per strike was halved after verification; whether a tank that stands still under
+such fire should lose its gun is the owner's call). The unit card now shows damaged parts ("Damaged: sights 0 %,
+track 40 %") and marks a weapon that can no longer fire "out of action".
+
 - *Puma*: its heavy front (add-on composite modules) stops 30 mm rounds and — the owner's choice — a single RPG-7
   rocket; its sides, rear and roof stop machine-gun rounds up to 14.5 mm, but not a 30 mm round or a rocket.
 - *BMP-2*: its front stops 23 mm and 12.7 mm, its sides stop rifle-calibre armour-piercing rounds but not 12.7 mm;
@@ -1573,8 +1638,14 @@ assistant carries three more and brings one over when he has none). A shot takes
 where he believes the target is, leads a moving vehicle by the rocket's flight time and sets the elevation from
 the rocket's real flight (it speeds up when its motor fires and slows in the air); his aim and his judgement of
 the range are not perfect, and wind pushes the rocket. The anti-tank lab: against a halted BMP-2 side-on, a
-Panzerfaust hits nearly always at 100 m and about half the time at 300–400 m; an RPG-7 against a Puma likewise —
-but never gets through its front. **When they fire on their own** is a standing rule of each unit (Rules panel,
+Panzerfaust hits nearly always at 100 m, about two times in three at 200 m and about a third of the time at
+300–400 m; an RPG-7 against a Puma, a taller target, about half the time at 300 m — but it never gets through
+its front. The Panzerfaust's firing unit has a computing sight with a laser rangefinder (balance pass 6): the
+gunner's range is right to about 1 % instead of the 5 % of a range judged by eye, and because the sight sets one
+aiming mark for range and lead, his own aiming error is taken at 0.6 of the RPG gunner's (a game value). The
+rangefinder alone was not enough to tell from chance in the lab (43 % against 32 % at 300 m, 60 shots a cell); with
+both, a Panzerfaust hits a halted BMP-2 about 60 % of the time at 300 m, 45 % at 400 m and 25–30 % at 600 m. It
+still opens fire only out to 400 m. **When they fire on their own** is a standing rule of each unit (Rules panel,
 "Anti-tank weapons"): *vehicles only* (the default for new units, owner's choice), *vehicles and positions* (also
 at enemies in houses and at machine guns) or *only on order*; always within the unit's fire rule. You can order a
 shot at anything with the **Anti-tank** button and a tap (the best-placed man with a loaded launcher fires once).
@@ -2137,7 +2208,13 @@ In **endless mode** battles keep coming, a new sector every two battles and a re
 
 **Before a battle** the briefing shows the sector, who attacks, a rough estimate of the enemy and the units you may
 commit: up to a company's worth (three platoons, the company headquarters and the support), which is what a phone can
-run. The fittest company is proposed. You can play the battle yourself or let the computer fight it out ("auto-resolve");
+run. The fittest company is proposed. Since balance pass 6 a **half platoon** can fight too: under each platoon the
+list shows its two halves, one with the platoon's headquarters and the squad that rides with it (plus further squads
+up to half), one with the other squads, each with its carriers and their crews; a half counts as a platoon toward the
+cap, both halves of one platoon are simply that platoon. The men of a platoon who stay at home are untouched by the
+battle. And a side whose men are worth more than the enemy's (its fighting value over the enemy's, see below) is
+**proposed a smaller force**: three platoons divided by that ratio, at least one, and at three to one or more (Germany
+against Russia) half a platoon, in each case with the company headquarters and the support. You may still pick more. You can play the battle yourself or let the computer fight it out ("auto-resolve");
 both run the same simulation, so a played battle and an auto-resolved one count the same.
 
 **The enemy** has its own battalion that remembers its losses. For each battle it commits platoons by the battle
@@ -2145,12 +2222,16 @@ type's ratio of your committed men (0.5 for an attack or a pursuit you make, 0.7
 attacks, meetings and your withdrawals), weighed by how good a man of each side is in a fight
 (`factions/<id>/campaign.json` `fightingValue`: Germany 3, Russia and xf 1), but never more than a company's worth,
 which is what a phone can run (a node with one and a half companies and a flank battle took 18 minutes to auto-resolve
-on the phone proxy). That weight is a game value, measured from batches of operations played by the
+on the phone proxy). When the men it wants are fewer than three quarters of its fittest platoon, it commits half of
+that platoon, without headquarters or support (balance pass 6). That weight is a game value, measured from batches of operations played by the
 computer on both sides. With the same faction on both sides an operation succeeds a bit more than half the time
-(58 %). Between Germany and Russia it does not work yet: Germany won every operation and Russia none, even when
-Germany sent only one Puma platoon, because in the battles themselves a Puma platoon beats a BMP-2 company; that needs
-a balance pass on the mounted battle (DECISIONS M12.4 has the numbers). Germany's value of 3 is a placeholder until
-that pass: it hides a gap inside the battles rather than measuring one, and it is not a statement about real armies.
+(58 %). Between Germany and Russia it works for one side only (balance pass 6, four operations a side with the
+computer playing both): Germany as the player, proposed half a platoon with its support against a Russian company,
+won two operations of four and ran out of battles in the other two; Russia as the player still lost all four, because
+even half a Puma platoon (two Pumas and two squads) stops a motor rifle company about two times in three and costs it
+40 to 80 men each time. That gap is inside the battles (the Puma's sights and gun against the BMP-2 on maps of
+1.9 x 1.4 km), not in the numbers committed; DECISIONS "Balance pass 6 part 2" has the tables. Germany's value of 3
+is a game value, not a statement about real armies.
 
 **After a battle** the men come home as the battle left them: the dead are gone for good (their history is kept), the
 evacuated wounded go to a recovery pool for the days the medical settlement gave them and come back to their old

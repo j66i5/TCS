@@ -1,6 +1,7 @@
 /**
  * Anti-tank lab (M7.4a): one Panzerfaust 3 or RPG-7 gunner, ordered to fire one round at a halted enemy IFV
- * side-on (and head-on) at 100 / 200 / 300 m (400 m for the Panzerfaust), many trials: how often the round hits,
+ * side-on (and head-on) at 100 / 200 / 300 m (to 600 m for the Panzerfaust at the BMP-2, balance pass 6: an ordered shot
+ * goes out to 1.5 x the round's 400 m; the rows beyond 400 m show why the sight was given no longer reach), many trials: how often the round hits,
  * penetrates, and what becomes of the vehicle (immobilised, burning, destroyed, abandoned) within 20 s.
  * Everyone else holds fire; the shooter fires only on the order. Flat 2400 x 1200 m field.
  */
@@ -61,7 +62,7 @@ export function antitankTrial(data: DataSet, factions: [string, string], rangeM:
 export function antitankLab(data: DataSet, trials = 20): AntitankRow[] {
   const rows: AntitankRow[] = [];
   const cases: { factions: [string, string]; shooter: string; target: string; ranges: number[]; crewTemplates?: [string, string]; eras?: ("full" | "spent")[] }[] = [
-    { factions: ["de", "ru"], shooter: "Panzerfaust 3", target: "BMP-2", ranges: [100, 200, 300, 400] },
+    { factions: ["de", "ru"], shooter: "Panzerfaust 3", target: "BMP-2", ranges: [100, 200, 300, 400, 500, 600] },
     { factions: ["ru", "de"], shooter: "RPG-7 (PG-7VL)", target: "Puma", ranges: [100, 200, 300] },
     // M7.6a: the tanks (the target's own crew; its reactive tiles there or used up).
     { factions: ["de", "ru"], shooter: "Panzerfaust 3", target: "T-90M", ranges: [100, 200, 300], crewTemplates: ["puma-besatzung", "t90m-ekipazh"], eras: ["full", "spent"] },

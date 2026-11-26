@@ -298,6 +298,15 @@ Two entries in `factions/<id>/ammunition.json`: the munition and one of its frag
 - A launcher round has `"fuse": "impact"`, `"armingSeconds"` instead of `fuseSeconds`, and
   `"delivery": { "method": "launched", "velocityMps": 76, "launcher": "<item id>", "maxRangeM": 350 }`; the
   launcher itself is an item in `items.json` (category `launcher`) that the man must carry.
+- A shoulder-fired launcher item with a fire-control sight (balance pass 6) has
+  `"launcherSight": { "rangeErrorFraction": 0.01, "maxRangeM": 600 }`: rounds fired through it use that range error
+  instead of `behaviour.json` `antitank.rangeErrorFraction`, and (`maxRangeM`, optional) are fired out to that range
+  instead of each round's `delivery.maxRangeM`. It is not `rangefinder` (that makes the carrier an observer for
+  indirect fire). Give a longer reach only if `npm run lab -- antitank` shows the hits there are worth the round.
+  `aimErrorFactor` (optional, 0..1): the share of the gunner's own aiming error (`antitank.skillMrad`) left through
+  a computing sight; leave it out for a sight that only measures the range.
+- `behaviour.json` `mounting.radioOutDismount` (true): the passengers of a halted hull whose radio is wrecked get
+  out on their own; false or absent: they stay aboard, off the net.
 - `npm run lab -- fragmentation` shows the effect by distance; add the new munition to the list in
   `packages/tools/src/labs/fragmentation.ts` to see it there.
 - A hand smoke grenade (D1) has `"kind": "smoke"`, no `explosive`, `"delivery": { "method": "thrown" }` and
@@ -496,6 +505,25 @@ metres: `f` forward (+) / back, `r` right (+) / left, `u` up from the ground.
   must be stowed (at least the count one repair uses; the loader checks). Without a `repair` block the crew
   repairs nothing. Research comes from search extracts only: confidence `"medium"` at most (the lint refuses
   `"high"`).
+- Hits that do not get through (balance pass 6): `core/ballistics.json` `armour.nonPenetrating` lists, per component
+  kind, the `chance` that a cannon round stopped by the plate (or glancing off: x `ricochetFactor`) damages a part it
+  struck, and the `loss` of condition; `face` scales the chance by the face struck; a kind flagged `internal` counts
+  although the part is not `external` (the gun and the coaxial machine gun at their openings). A part is struck when
+  its box, grown by `marginM` (an `external` part of the struck hull or turret: also `depthM` behind the face), holds
+  the strike point, so a part that should be hit from the front must reach to within `depthM` of that face of the
+  hull or turret box: rounds are tested against those two boxes only. Component kind `launcher`: a missile launcher
+  outside the armour; at 0 its station fires no guided missile (a tank's gun-launched missile depends on `gun`
+  instead). Mark a weapon station's `gun` `external` when the weapon stands outside the armour. Check with
+  `npm run lab -- armour` (part "Not penetrated"). `behaviour.json` `gunnery.degrade` is the crews' rule for firing
+  at a hull they cannot get through.
+- Air burst only, the swept ordered fire, half platoons (balance pass 6 part 2): an ammunition's `airburst.only: true`
+  says the round has no impact setting a crew can choose (KETF): its `explosive` block is then only what happens when
+  it strikes something before its fuze runs out. `behaviour.json` `gunnery.areaFire.orderedRadiusM` (m) is the circle
+  an ordered high-explosive fire at a point is swept over (absent or 0: every round at the point).
+  `core/campaign.json` `battle.sections` (half platoons may fight), `sectionBelow` (the enemy commits a half when the
+  men it wants are below this share of its fittest platoon) and `proposeSectionAtRatio` (a side whose fighting value
+  is this many times the enemy's is proposed half a platoon) are game values; they are part of the campaign's
+  `rulesFingerprint`, not of the catalog.
 - Recovery vehicle (M11.7b): `recovery: { towMaxKg, towMaxSpeedKmh, hookUpS, hookUpMen }`: it tows hulls up to that
   combat mass (heavier: refused), at no more than that speed; `hookUpMen` of its crew (not the driver first) work
   `hookUpS` outside to hook one up. Recovery vehicles are unarmed in the game (`stations: []`) and have no

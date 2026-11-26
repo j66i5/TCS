@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createSim, simHash, type Order } from "@tcs/sim";
 import { getScenario, loadData } from "../../tools/src/scenarios";
-import { AMBUSH_M, ARC_WIDTH_RAD, activityOf, arcOrder, ammoCells, fireChoice, fireChoiceRules, settleRules, gunText, manDetail, manState, mentalStatus, moraleReasons, repaceMove, rulesOrder, unitMenRows, vehicleGuns } from "../src/card";
+import { AMBUSH_M, ARC_WIDTH_RAD, activityOf, arcOrder, ammoCells, fireChoice, fireChoiceRules, settleRules, gunText, manDetail, manState, mentalStatus, moraleReasons, repaceMove, rulesOrder, unitMenRows, damageText, vehicleDamage, vehicleGuns } from "../src/card";
 import { MORALE_SOURCES } from "@tcs/sim";
 import { Strings } from "@tcs/data";
 import { shownCallsigns } from "@tcs/render";
@@ -259,6 +259,31 @@ describe("the vehicle's guns on the card (D3)", () => {
       .toBe("MG5 (coaxial) · 500 · jammed");
     expect(gunText(strings, { weapon: "ru-9p135m", faction: "ru", jammed: false, reloading: true, feeds: [{ kind: "missile", ready: 0, stowed: 3 }] }))
       .toBe("9P135M launcher · Missiles 0 (+3 stowed) · reloading");
+  });
+  it("balance pass 6 verification: damaged parts are on the card, a weapon whose part is wrecked reads 'out of action', a round that only bursts in the air is not called plain HE", () => {
+    const sim = createSim(getScenario("platoon-vehicles").build(data, 1, 600));
+    const cat = sim.ctx.catalog;
+    const tile = unitTiles(sim.state, "blue", cat).find((t) => t.kind === "vehicle")!;
+    const v = sim.state.vehicle.req(sim.state.unit.req(tile.unit).vehicle!), def = cat.vehicles[v.def]!;
+    expect(vehicleDamage(sim.state, cat, tile.unit)).toEqual([]);
+    const guns0 = vehicleGuns(sim.state, cat, tile.unit);
+    expect(guns0.every((g) => g.out === undefined)).toBe(true);
+    // (The carrier's high explosive is the air-burst round alone: the Fire tray offers no plain "Gun: HE" either.)
+    expect(guns0.flatMap((g) => g.feeds.map((f) => f.kind))).toContain("ab");
+    expect(guns0.flatMap((g) => g.feeds.map((f) => f.kind))).not.toContain("he");
+    v.comp[def.components!.findIndex((c) => c.kind === "sights")] = 0;
+    v.comp[def.components!.findIndex((c) => c.kind === "track")] = 0.4;
+    const dmg = vehicleDamage(sim.state, cat, tile.unit);
+    expect(dmg).toEqual([{ kind: "track", percent: 40 }, { kind: "sights", percent: 0 }].sort((a, b) => def.components!.findIndex((c) => c.kind === a.kind) - def.components!.findIndex((c) => c.kind === b.kind)));
+    expect(damageText(strings, dmg)).toMatch(/^Damaged: .*sights 0 %/);
+    // (A missile is guided through the sights: with them gone the launcher's line says so; the cannon still fires.)
+    const guns = vehicleGuns(sim.state, cat, tile.unit);
+    const launcher = guns.find((g) => g.feeds.some((f) => f.kind === "missile"))!;
+    expect(launcher.out).toBe(true);
+    expect(gunText(strings, launcher)).toContain("out of action");
+    expect(guns.find((g) => g.feeds.some((f) => f.kind === "ap"))!.out).toBeUndefined();
+    expect(gunText(strings, { weapon: "de-mk30-2", faction: "de", jammed: false, reloading: false, feeds: [{ kind: "ab", ready: 100, stowed: 200 }, { kind: "ap", ready: 100, stowed: 0 }] }))
+      .toBe("MK30-2 · HE air burst 100 | AP 100 (+200 stowed)");
   });
   it("the BMP-2's launcher counts as missiles", () => {
     const sim = createSim(getScenario("platoon-ru-vehicles").build(data, 1, 600));

@@ -97,6 +97,8 @@ export interface HudCallbacks {
   onLoad(): void;
   /** Start menu: back to the main menu (the app asks first while the battle runs). */
   onMenu?(): void;
+  /** Review step 5: the battle's briefing again (absent: no button). */
+  onBriefing?(): void;
   /** Claim victory (review 2026-11-24 problem 3, owner Q3): the button tapped, offered or not (the app says why not). */
   onClaim?(): void;
   /** A tap on a unit's tile in the sidebar (M7.5a). */
@@ -141,6 +143,15 @@ export interface HudStats {
 export interface Hud {
   update(s: HudStats): void;
   radio(text: string, simSeconds: number, colour: string): void;
+  /** Review step 5: the last 50 radio lines shown (checks); a message shown for a few seconds at the top of the map
+   *  (a refused order: where the player looks); what it shows now (null: nothing). */
+  radioLog(): { text: string; simSeconds: number }[];
+  flash(text: string, ms?: number): void;
+  flashShown(): string | null;
+  /** Review step 5: the card's one-line mode forced on or off (checks; else it follows the screen), folded or not. */
+  setCardLineMode(on: boolean): void;
+  setCardFolded(on: boolean): void;
+  cardLine(): boolean;
   showError(text: string): void;
   /** Show the plan bar (move / assault / withdraw being planned) or hide it (null). */
   setPlanning(kind: "move" | "assault" | "withdraw" | null): void;
@@ -279,7 +290,11 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   claimBtn.dataset["act"] = "claim";
   claimBtn.hidden = true;
   claimBtn.onclick = () => cb.onClaim?.();
-  const rare = [contourBtn, helpBtn, saveBtn, loadBtn, mapBtn, dbgBtn, ...(cb.onClaim ? [claimBtn] : []), ...(cb.onMenu ? [menuBtn] : [])];
+  // (Review step 5: the battle's briefing again: in the bar on a wide screen, under "⋯" on a phone.)
+  const briefBtn = el("button", "hud-btn hud-brief-btn", s.t("brief.button"));
+  briefBtn.dataset["act"] = "briefing";
+  briefBtn.onclick = () => cb.onBriefing?.();
+  const rare = [...(cb.onBriefing ? [briefBtn] : []), contourBtn, helpBtn, saveBtn, loadBtn, mapBtn, dbgBtn, ...(cb.onClaim ? [claimBtn] : []), ...(cb.onMenu ? [menuBtn] : [])];
   /** The "⋯" button marked while the claim is offered behind it (a phone). */
   const claimMark = () => barMoreBtn.classList.toggle("attn", !claimBtn.hidden && !claimBtn.classList.contains("off") && claimBtn.parentElement === barMenu);
   for (const b of rare) b.addEventListener("click", () => { if (b.parentElement === barMenu) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); } });
@@ -493,7 +508,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     onRules: () => toggleRules(),
     onMan: (id) => cb.onInspect?.(id),
     onSendBearers: () => cb.onSendBearers?.(),
-    onResize: () => { if (sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout(); cb.onCardResize?.(); },
+    onResize: () => { foldMark(); if (sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout(); cb.onCardResize?.(); },
   });
   const manBox = createManBox(s, () => cb.onInspect?.(null));
   // S4: the context button (Occupy at the end of a drag onto a house).
@@ -531,7 +546,14 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     { key: "prisoners", label: "rules.prisoners", options: [["auto", "rules.prisoners.auto"], ["ask", "rules.prisoners.ask"]] },
   ];
   const ruleBtns: { key: keyof UnitRules; value: UnitRules[keyof UnitRules]; b: HTMLButtonElement }[] = [];
-  panel.append(el("div", "hud-panel-title", s.t("rules.title")), status);
+  // (Review step 5: its own close button: on a phone held sideways the panel lies over the card's Rules button.)
+  const panelClose = el("button", "hud-btn hud-panel-close", "\u00D7");
+  panelClose.dataset["act"] = "rules-close";
+  panelClose.setAttribute("aria-label", s.t("card.close"));
+  panelClose.onclick = () => { panel.hidden = true; card.setRulesButton(true, false); };
+  const panelTitle = el("div", "hud-panel-title", s.t("rules.title"));
+  panelTitle.append(panelClose);
+  panel.append(panelTitle, status);
   for (const r of rows) {
     const row = el("div", "hud-row");
     row.append(el("span", "hud-row-label", s.t(r.label)));
@@ -549,6 +571,13 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   }
 
   const hint = el("div", "hud-hint", s.t("app.hint"));
+  // Review step 5 (item 7): a refused order said where the player looks (the top of the map), for a few seconds.
+  const flashEl = el("div", "hud-flash");
+  flashEl.hidden = true;
+  flashEl.setAttribute("role", "status");
+  let flashTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The radio lines shown so far (the newest last; checks), beyond the four on screen. */
+  const radioHistory: { text: string; simSeconds: number }[] = [];
   const log = el("div", "hud-radio");
   const dbg = el("pre", "hud-debug");
   dbg.hidden = true;
@@ -561,6 +590,12 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const err = el("pre", "hud-error");
   err.hidden = true;
   const bottom = el("div", "hud-bottom");
+  /** Review step 5: the card folded to one line (a phone held sideways) leaves the radio log two lines, unfolded one;
+   *  the rules panel belongs to the unfolded card. */
+  function foldMark(): void {
+    bottom.classList.toggle("card-line", card.isLine());
+    if (card.isLine() && !panel.hidden) { panel.hidden = true; card.setRulesButton(true, false); }
+  }
   // (The card nearest the order bar, the radio log above it.)
   bottom.append(log, card.el);
   /** Open or close the rules panel (the card's Rules button). */
@@ -604,7 +639,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   follow.hidden = true;
   follow.onclick = () => cb.onStopFollow?.();
   const support = createSupportPopup(s);
-  root.append(bar, score, hint, panel, manBox.el, bottom, sidebar.el, dock, ctx, support.el, follow, preview, help, dbg, err);
+  root.append(bar, score, hint, flashEl, panel, manBox.el, bottom, sidebar.el, dock, ctx, support.el, follow, preview, help, dbg, err);
   setMode("move");
   // The start hint is one short line on every screen (M7.5b on the phone; review fix on the desktop, where the
   // long one was a wall of text over the map); tapping it shows the whole text, again: short. It goes once a unit
@@ -678,7 +713,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       right: (edge === "right" ? dw : 0) + (side === "right" ? sw : 0),
     };
     for (const [k, v] of Object.entries(free)) root.style.setProperty(`--free-${k}`, `${v}px`);
-    hint.style.top = `${free.top + 8}px`; dbg.style.top = `${free.top + 8}px`; panel.style.top = `${free.top + 8}px`;
+    hint.style.top = `${free.top + 8}px`; flashEl.style.top = `${free.top + 8}px`; dbg.style.top = `${free.top + 8}px`; panel.style.top = `${free.top + 8}px`;
     help.style.top = `${free.top + 8}px`;
     follow.style.top = `${free.top + 8}px`;
     follow.style.left = `${free.left + (Math.max(0, (root.clientWidth || globalThis.innerWidth) - free.left - free.right)) / 2}px`;
@@ -749,7 +784,21 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       log.prepend(line);
       while (log.childElementCount > 4) log.lastElementChild?.remove();
       hint.hidden = true;
+      radioHistory.push({ text, simSeconds });
+      if (radioHistory.length > 50) radioHistory.shift();
     },
+    radioLog: () => radioHistory.map((r) => ({ ...r })),
+    flash(text, ms = 4000) {
+      flashEl.textContent = text;
+      flashEl.hidden = false;
+      hint.hidden = true;
+      if (flashTimer !== null) clearTimeout(flashTimer);
+      flashTimer = setTimeout(() => { flashEl.hidden = true; flashTimer = null; }, ms);
+    },
+    flashShown: () => (flashEl.hidden ? null : flashEl.textContent),
+    setCardLineMode(on) { card.setLineMode(on); },
+    setCardFolded(on) { card.setFolded(on); },
+    cardLine: () => card.isLine(),
     showError(text) {
       err.hidden = false;
       err.textContent = text;
@@ -861,7 +910,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     },
     setCard(m) {
       const was = card.el.hidden, wasH = card.el.offsetHeight;
-      card.update(m); bottom.classList.toggle("with-card", m !== null);
+      card.update(m); bottom.classList.toggle("with-card", m !== null); foldMark();
       if (m === null) { panel.hidden = true; card.setRulesButton(false, false); }
       // (D3: the open list's height follows the card on a narrow screen: when the card shows, hides or changes height.)
       if ((was !== card.el.hidden || card.el.offsetHeight !== wasH) && sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout();

@@ -5,9 +5,9 @@
  * Nothing here reaches into the simulation except through orders (rule 3) and read-only views.
  */
 import type { Strings } from "@tcs/data";
-import type { BattleInput, BattleRecord, Controller, EntityId, Order, Sim } from "@tcs/sim";
+import type { BattleInput, BattleRecord, Controller, EntityId, Order, OrderKind, Sim } from "@tcs/sim";
 import type { BattleRenderer, Overlay } from "@tcs/render";
-import type { Aar, FloorFollow, Handle, Hud, LastSeenBook, LosLine, OrderMode, Plan, PlanKind, RangingBook, UnitRules } from "@tcs/ui";
+import type { Aar, BriefingModel, FloorFollow, Handle, Hud, LastSeenBook, LosLine, OrderMode, Plan, PlanKind, RangingBook, UnitRules } from "@tcs/ui";
 
 export type Pt = { x: number; y: number };
 export type MoveOrder = Extract<Order, { kind: "move" }>;
@@ -48,6 +48,9 @@ export interface App {
   /** The after-action review (null until the HUD is built). */
   review: Aar | null;
 
+  /** Review step 5: the battle's briefing (null until the HUD is built): the card, open or not, its model. */
+  briefing: { isOpen(): boolean; mode(): "start" | "resume"; open(mode: "start" | "resume"): void; close(): void; model: BriefingModel } | null;
+
   speed: number;
   pace: string;
   orderMode: OrderMode;
@@ -85,6 +88,13 @@ export interface App {
   /** S8 "last seen" pins and S11 ranging falls (from the side's own contacts and events). */
   readonly lastSeen: LastSeenBook;
   readonly rangingBook: RangingBook;
+  /** Review step 5: the kind of each order the player sent, by its sequence number, until it is delivered or
+   *  refused (a refusal's sentence depends on the kind; the event does not carry it). */
+  readonly sentKinds: Map<number, OrderKind>;
+  /** Radio lines the log's filter kept out so far (checks). */
+  radioDropped: number;
+  /** The places pointed at from the map area's edge while outside the view (objectives, the side's exit; checks). */
+  edgeMarks?: () => { label: string; shown: boolean }[];
   /** The order bar's last contents (rebuilt only when the selected unit's capabilities change). */
   ordersShownFor: string | undefined;
   ordersKey: string;

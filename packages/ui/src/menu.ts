@@ -6,7 +6,8 @@
  * parameters it has always understood (app/src/menu-model.ts), so every link made before keeps working.
  *
  *   home: title, Continue (the campaign in progress, the saved battle, the last battle again), the modes
- *   quick: the platoon battle (task, side, forces, tanks, map, time of day, seed)
+ *   quick: one battle (battle type, task, size, side, forces, tanks, map, time of day, seed; review step 5: the
+ *     type and the size, and a line saying what each side gets, from the scenario)
  *   campaign: continue / new (army, carriers, operations or endless) / saves (the campaign page)
  *   hold: hold the village (side, time, seed) · assault: the assault group (part, map, time, seed)
  *   more: the vehicle sandbox (carriers, map, seed) and the look
@@ -27,7 +28,22 @@ export const MENU_FORCES: readonly MenuForces[] = ["foot", "tracked", "wheeled"]
 export const MENU_TANKS: readonly MenuTanks[] = ["standard", "both", "none"];
 export const MENU_CARRIERS: readonly MenuCarriers[] = ["tracked", "wheeled"];
 
-export interface QuickChoice { role: "attack" | "defend"; side: MenuSide; forces: MenuForces; tanks: MenuTanks; map: string; time: MenuTime }
+/** The quick battle's types (review step 5): the scenario kinds, as `&kind=` takes them ("attack": the platoon attack,
+ *  written without `kind=` so the links made before read back the same). */
+export type MenuKind = "attack" | "meeting" | "ambush" | "withdrawal" | "defence-counterattack";
+export const MENU_KINDS: readonly MenuKind[] = ["attack", "meeting", "ambush", "withdrawal", "defence-counterattack"];
+export type MenuSize = "platoon" | "company";
+export const MENU_SIZES: readonly MenuSize[] = ["platoon", "company"];
+
+/** `role`: "attack" = the player's side is the scenario's `attacker` (the side on the move through an ambush, the
+ *  pursuer of a withdrawal), "defend" = the other; a meeting has no roles. */
+export interface QuickChoice { kind: MenuKind; role: "attack" | "defend"; size: MenuSize; side: MenuSide; forces: MenuForces; tanks: MenuTanks; map: string; time: MenuTime }
+
+/** The quick choice as it is launched: a meeting has no roles ("attack": the player's side is named the attacker), a
+ *  company brings its own tanks (both sides' sections, the company's support), so those rows are not offered. */
+export function normalQuick(c: QuickChoice): QuickChoice {
+  return { ...c, ...(c.kind === "meeting" ? { role: "attack" as const } : {}), ...(c.size === "company" ? { tanks: "both" as const } : {}) };
+}
 export interface HoldChoice { side: MenuSide; time: MenuTime }
 export interface AssaultChoice { role: "assault" | "defend"; map: string; time: MenuTime }
 export interface SandboxChoice { carriers: MenuCarriers; map: string }
@@ -74,6 +90,8 @@ export interface MenuCallbacks {
   onLook(l: MenuLook): void;
   /** A fresh seed (the app takes it from the clock: the menu is not the simulation). */
   newSeed(): number;
+  /** One line under the quick battle's choices: what each side gets (from the scenario; the app builds it). */
+  describeQuick?(c: QuickChoice): string;
   /** A screen was opened (the app keeps the browser's history in step). */
   onScreen?(s: MenuScreen): void;
 }
@@ -168,16 +186,25 @@ export function createStartMenu(parent: HTMLElement, s: Strings, model: MenuMode
   // -------------------------------------------------------------------------------------------- the modes
   const quick = () => {
     const q = ch.quick;
+    // (A choice here changes the rows below it and the forces line: the screen is laid out again, scroll kept.)
+    const re = <T extends string>(name: string, opts: readonly T[], lab: (o: T) => string, get: () => T, set: (o: T) => void) => chips(name, opts, lab, get, (o) => { set(o); render(); });
+    const roleLabel = (x: "attack" | "defend") => (q.kind === "attack" ? t(`menu.role.${x}`) : t(`menu.kindRole.${q.kind}.${x}`));
+    const forces = cb.describeQuick?.(normalQuick(q)) ?? "";
     return h("div", "cmp-body",
       h("div", "cmp-note", t("menu.mode.quickInfo")),
       card(null,
-        label("menu.role"), chips("role", ["attack", "defend"] as const, (x) => t(`menu.role.${x}`), () => q.role, (x) => { q.role = x; }),
+        label("menu.kind"), re("kind", MENU_KINDS, (x) => t(`menu.kind.${x}`), () => q.kind, (x) => { q.kind = x; }),
+        ...(q.kind === "meeting" ? [] : [label("menu.role"), re("role", ["attack", "defend"] as const, roleLabel, () => q.role, (x) => { q.role = x; })]),
+        label("menu.size"), re("size", MENU_SIZES, (x) => t(`menu.size.${x}`), () => q.size, (x) => { q.size = x; }),
+        forces ? h("div", "cmp-note menu-forces-line", forces) : null,
+        q.size === "company" ? h("div", "cmp-note", t("menu.size.companyInfo")) : null),
+      card(null,
         label("menu.side"), sideChips("side", () => q.side, (x) => { q.side = x; }),
         label("menu.forces"), chips("forces", MENU_FORCES, (x) => t(`menu.forces.${x}`), () => q.forces, (x) => { q.forces = x; }),
-        label("menu.tanks"), chips("tanks", MENU_TANKS, (x) => t(`menu.tanks.${x}`), () => q.tanks, (x) => { q.tanks = x; }),
-        h("div", "cmp-note", t("menu.tanksInfo"))),
+        ...(q.size === "company" ? [] : [label("menu.tanks"), chips("tanks", MENU_TANKS, (x) => t(`menu.tanks.${x}`), () => q.tanks, (x) => { q.tanks = x; }),
+          h("div", "cmp-note", t("menu.tanksInfo"))])),
       card(null, label("menu.map"), mapChips(() => q.map, (x) => { q.map = x; }), label("menu.time"), timeChips(() => q.time, (x) => { q.time = x; }), seedRow()),
-      startBar(() => ({ mode: "quick", c: { ...q }, seed: ch.seed, look })));
+      startBar(() => ({ mode: "quick", c: normalQuick(q), seed: ch.seed, look })));
   };
   const hold = () => {
     const c = ch.hold;
@@ -240,9 +267,15 @@ export function createStartMenu(parent: HTMLElement, s: Strings, model: MenuMode
     return bar;
   };
   const render = () => {
+    const same = root.dataset["screen"] === screen;
     root.dataset["screen"] = screen;
     const body = screen === "home" ? home() : screen === "quick" ? quick() : screen === "hold" ? hold() : screen === "assault" ? assault() : screen === "campaign" ? campaign() : more();
-    root.replaceChildren(top(), h("div", "cmp-scroll", body));
+    // (Laid out again on the same screen, a choice changed: the scroll position stays.)
+    const was = root.querySelector(".cmp-scroll");
+    const keep = was !== null && same ? was.scrollTop : 0;
+    const scroll = h("div", "cmp-scroll", body);
+    root.replaceChildren(top(), scroll);
+    scroll.scrollTop = keep;
   };
   const setLook = (l: MenuLook) => {
     root.classList.remove(`look-${look}`); look = l; root.classList.add(`look-${l}`);

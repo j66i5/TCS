@@ -5,11 +5,11 @@
  * choices are remembered in localStorage (`tcs.menu.choices`, `tcs.menu.last`; a private window: not remembered).
  */
 import type { DataSet, Strings } from "@tcs/data";
-import { MAP_KINDS } from "@tcs/scenario";
+import { MAP_KINDS, scenarioPlatoons } from "@tcs/scenario";
 import { AUTO_SLOT } from "@tcs/campaign";
 import { createStartMenu, MENU_SCREENS, type MenuChoices, type MenuContinue, type MenuLaunch, type MenuLook, type MenuScreen } from "@tcs/ui";
 import { browserCampaignStore } from "./campaign-store";
-import { clockSeed, defaultChoices, describeLaunch, launchOfSearch, launchSearch, readChoices } from "./menu-model";
+import { clockSeed, defaultChoices, describeLaunch, launchOfSearch, launchSearch, quickForcesLine, quickScenario, readChoices } from "./menu-model";
 import { defaultFactions } from "./setup";
 
 const LOOK_KEY = "tcs.ui.look";
@@ -74,10 +74,13 @@ export async function menuPage(root: HTMLElement, data: DataSet, strings: String
     onContinue: (k) => {
       if (k === "campaign") go(launchSearch({ mode: "campaign-continue", look }));
       else if (k === "saved" && savedSearch !== null) { const q = new URLSearchParams(savedSearch); q.set("load", "1"); go(q.toString()); }
-      else if (k === "again" && lastSearch !== null) go(lastSearch);
+      // (Verification fix: a battle remembered before the briefing existed opens on its briefing too.)
+      else if (k === "again" && lastSearch !== null) go(lastLaunch ? launchSearch(lastLaunch) : lastSearch);
     },
     onChoices: () => set(CHOICES_KEY, JSON.stringify(choices)),
     onLook: (l) => { look = l; set(LOOK_KEY, l); },
+    // (Review step 5: what each side gets, from the scenario's own platoon counts.)
+    describeQuick: (c) => quickForcesLine(c, t, scenarioPlatoons(quickScenario(c))),
     newSeed: () => clockSeed(Date.now() + 7919 * (choices.seed + 1)),
     // (The phone's back button returns from a mode's screen to the menu's first screen.)
     onScreen: (s) => { if (s !== "home") history.pushState({ tcsMenu: s }, ""); else if ((history.state as { tcsMenu?: string } | null)?.tcsMenu) history.back(); },

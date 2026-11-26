@@ -5,7 +5,7 @@
  * are screenshot-only shortcuts, as before.
  */
 import { buildAppearance, type DataSet } from "@tcs/data";
-import { claimStatus, detonate, EventSink, ignite, indoorAt, isOffMap, isOutside, navFor, newCache, refreshStatus, simHash, startCarry, supportLeft, surrender, type EntityId, type Wound } from "@tcs/sim";
+import { claimStatus, detonate, EventSink, ignite, indoorAt, isOffMap, isOffMapMan, isOutside, navFor, newCache, refreshStatus, simHash, startCarry, supportLeft, surrender, type EntityId, type Wound } from "@tcs/sim";
 import { enemyMenInSight, SIDE_COLOURS, worldToScreen } from "@tcs/render";
 import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
@@ -62,6 +62,13 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     },
     cancelPlan: () => { endPlan(a); },
     go: () => { if (a.plan && overlay.selectedUnit !== null) { const o = planToOrder(a.plan, playerSide, overlay.selectedUnit, sim.state.tick); if (o) issue(a, forUnit(a, o)); } endPlan(a); },
+    /** Review step 5: the briefing card: open or not, how (before the battle or during it) and its model; open it
+     *  (as the top bar's button does); close it (as its main button does: the battle starts or goes on). */
+    briefing: () => ({ open: a.briefing?.isOpen() ?? false, mode: a.briefing?.mode() ?? null, model: a.briefing?.model ?? null }),
+    openBriefing: () => a.briefing?.open("resume"),
+    closeBriefing: () => a.briefing?.close(),
+    /** Each own unit's fire rule and laid ambush (checks: the start rules by role). */
+    fireRules: () => [...sim.state.unit.entries()].filter(([, u]) => u.side === playerSide && u.asset === undefined).map(([id, u]) => ({ unit: id, fire: u.fireRule, ambushM: u.ambush?.rangeM ?? null })),
     /** Select a unit (screenshots: a vehicle's crew unit). */
     select: (uid: EntityId | null, part?: "drone" | "hq") => select(a, uid, part),
     /** M7.5a screenshots: dock the order bar, open the sidebar's list, the order set shown, the free area. */
@@ -212,6 +219,29 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     ending: () => (sim.state.ending ? { ...sim.state.ending } : null),
     objectives: () => sim.state.objectives.map((o) => ({ ...o })),
     playerSide: () => playerSide,
+    /** Review step 5 (checks): the camera and the world rectangle seen in the free map area; the last radio lines
+     *  shown; the message at the top of the map (null: none); the card's one-line mode (force it; is it folded; fold). */
+    view: () => {
+      const ins = hud.insets(), scr = renderer.app.screen, c = renderer.camera;
+      return { scale: c.scale, x0: c.x + ins.left / c.scale, y0: c.y + ins.top / c.scale, x1: c.x + (scr.width - ins.right) / c.scale, y1: c.y + (scr.height - ins.bottom) / c.scale };
+    },
+    /** The view battles opened on before review step 5 (screenshots): the lead squad close up, at true scale. */
+    focusLead: () => {
+      const tiles = unitTiles(sim.state, playerSide, a.input.catalog), lead = tiles.find((t) => t.kind === "infantry") ?? tiles[0];
+      const p = lead ? centreOf(placesOf(a, lead.unit)) : null;
+      if (p) { renderer.focusScale(p.x, p.y, 8, hud.insets()); void renderer.primeDetail(); }
+      return p;
+    },
+    radioLog: () => hud.radioLog(),
+    radioDropped: () => a.radioDropped,
+    edgeMarks: () => a.edgeMarks?.() ?? [],
+    flash: () => hud.flashShown(),
+    cardLine: () => hud.cardLine(),
+    setCardLineMode: (on: boolean) => hud.setCardLineMode(on),
+    setCardFolded: (on: boolean) => hud.setCardFolded(on),
+    /** Own men (checks: the opening view shows them all). */
+    // mounted: ok every own man counts, aboard or not
+    ownMen: () => [...sim.state.identity.entries()].filter(([id, i]) => i.side === playerSide && !isOffMapMan(sim.state, sim.state.soldier.get(id))).map(([id]) => { const t = sim.state.transform.req(id); return { x: t.x, y: t.y }; }),
     aiOff: () => { a.ai.length = 0; },
     ready: true,
   };

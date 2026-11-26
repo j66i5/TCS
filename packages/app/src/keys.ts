@@ -47,6 +47,8 @@ export function attachKeys(a: App): (now: number) => void {
   const onFold = (e: KeyboardEvent) => (e.code === "Space" || e.code === "Enter") && e.target instanceof HTMLElement && e.target.classList.contains("hud-tile-fold");
   window.addEventListener("keydown", (e) => {
     if (typing(e.target) || onFold(e)) return;
+    // (Review step 5: the briefing open: no battle keys; Esc closes it when it was opened during the battle.)
+    if (a.briefing?.isOpen()) { if (e.code === "Escape" && a.briefing.mode() === "resume") { a.briefing.close(); e.preventDefault(); } return; }
     const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey };
     if (isPanKey(e.code) && !mods.ctrl && !mods.alt && !mods.meta) { panKeys.add(e.code); stopFollow(a); e.preventDefault(); return; }
     const k = keyAction(e.code, e.key, mods);

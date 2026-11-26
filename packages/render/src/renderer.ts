@@ -132,7 +132,7 @@ export interface Overlay {
    * S8: "last seen" pins of lost contacts, with their age label (string table). Given, a contact seen or reported
    * longer ago than `PIN_AFTER_S` is drawn only as its pin (or not at all once its spot was seen empty).
    */
-  pins?: readonly { target: EntityId; x: number; y: number; label: string; cls?: "vehicle"; vtype?: string; heading?: number }[] | null;
+  pins?: readonly { target: EntityId; x: number; y: number; label: string; cls?: "vehicle"; vtype?: string; heading?: number; /** Strength 0..1 (an old pin fades; absent: 1). */ alpha?: number }[] | null;
 }
 
 /** A line of the S7 overlay (see Overlay.intents). */
@@ -1459,13 +1459,15 @@ export class BattleRenderer {
     // S8: "last seen" pins — a hollow pin standing on the spot (a hull: its hollow outline too), with the age.
     for (const p of overlay.pins ?? []) {
       const s = worldToScreen(c, p.x, p.y);
-      if (p.cls === "vehicle") this.drawKnownVehicle(g, { target: p.target, x: p.x, y: p.y, errM: 0, kind: "seen", ageS: 1e9, cls: "vehicle", ...(p.vtype !== undefined ? { vtype: p.vtype } : {}), ...(p.heading !== undefined ? { heading: p.heading } : {}) }, s, colour, 0.55);
+      // (Review step 5: an old pin fades and loses its age label; at full strength exactly as before.)
+      const pa = p.alpha ?? 1;
+      if (p.cls === "vehicle") this.drawKnownVehicle(g, { target: p.target, x: p.x, y: p.y, errM: 0, kind: "seen", ageS: 1e9, cls: "vehicle", ...(p.vtype !== undefined ? { vtype: p.vtype } : {}), ...(p.heading !== undefined ? { heading: p.heading } : {}) }, s, colour, 0.55 * pa);
       const hy = s.y - 13;
       g.moveTo(s.x - 3.5, hy + 4).lineTo(s.x, s.y).lineTo(s.x + 3.5, hy + 4);
-      g.stroke({ width: 1.5, color: colour, alpha: 0.85 });
-      g.circle(s.x, hy, 5.5).fill({ color: 0x10140f, alpha: 0.55 }).stroke({ width: 2, color: colour, alpha: 0.9 });
-      g.circle(s.x, s.y, 1.5).fill({ color: colour, alpha: 0.9 });
-      this.request(p.label, s.x, hy, 6, PIN_LABEL_COLOUR, 3, 1_000_000 + p.target);
+      g.stroke({ width: 1.5, color: colour, alpha: 0.85 * pa });
+      g.circle(s.x, hy, 5.5).fill({ color: 0x10140f, alpha: 0.55 * pa }).stroke({ width: 2, color: colour, alpha: 0.9 * pa });
+      g.circle(s.x, s.y, 1.5).fill({ color: colour, alpha: 0.9 * pa });
+      if (pa >= 0.5) this.request(p.label, s.x, hy, 6, PIN_LABEL_COLOUR, 3, 1_000_000 + p.target);
     }
   }
 

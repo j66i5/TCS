@@ -1297,7 +1297,7 @@ in `behaviour.json` (`drills.contact`) and in each faction's doctrine (`contactA
 `contactBreakPinnedShare`). **Fire at shooters he cannot see.** A man shot at by an enemy he only heard, or was told about,
 fires back at that area as long as its position is known to within 120 m, or 40 % of the range. He also does this when
 he is halted, pinned but not panicked, or defending, and when his squad was fired on even though no round passed him.
-This counts as returning fire, so it is allowed under the player's default rule "return fire". Shots from the same shooter
+This counts as returning fire, so it is allowed under the rule "return fire" (the rule a defending player's units start with). Shots from the same shooter
 heard again within 10 s narrow down his position: up to six guesses are averaged. At night, a muzzle flash in sight
 narrows it further. `npm run lab -- contact` measures the drill.
 
@@ -2187,6 +2187,85 @@ to within 30 m and is within his weapon's reach: one shot every 3 s, a machine-g
 the last round passes him, when the place is older than 20 s, or as soon as he sees an enemy (then he aims). It works
 at night too (the muzzle flashes give the shooter away). Every side does this. Two men given the same spot no longer
 hold each other's fire.
+
+## Starting a battle: the menu, the briefing, the fire rule you start with (review step 5, 2026-11-26)
+
+**The menu's quick battle** asks for the **battle type** (Attack, Meeting, Ambush, Withdrawal, Counter-attack), **your
+task** in it (attack or defend; in an ambush "move through" or "lay the ambush", in a withdrawal "pursue" or "delay,
+then withdraw", in a counter-attack battle "attack" or "defend, then counter-attack"; a meeting has no tasks) and the
+**size** (platoon or company), then your side, the forces, the tanks, the map, the time of day and the seed. Under the
+size a line says what each side gets, for example "You: 2 platoons. Enemy: 1 platoon." or "You: 1 platoon, 1 more
+arriving later." These numbers are not written into the menu: they come from the same function the scenario builds
+its platoons with (`scenarioPlatoons`), so the words and the battle cannot drift apart. A company brings its own
+support (mortars, a missile team, a grenade launcher team and two tanks per side, where the army has them), so the
+Tanks row is not offered for it. The menu only writes the URL options the app has always read (`kind=`, `size=`,
+`side=`, `attacker=`); the plain platoon attack writes neither `kind=` nor `size=`, so its link is the one the menu
+wrote before.
+
+**The briefing.** A battle started from the menu opens on a briefing card and waits, paused, until you press "Start
+the battle" (the menu adds `brief=1` to the link; a link without it runs at once, as before, and a loaded battle
+never opens on it). The card tells you: your task in a sentence (with the map edge of an exit and the minutes of a
+delay; a counter-attack battle says that your reserve comes, or that the enemy's will); the map, the time and the
+time limit; what you have on the map at the start (men, units by name, vehicles by type, mortar or artillery rounds
+off the map, a reconnaissance drone) and each unit arriving later with its men, vehicles and minute; what the enemy
+is believed to have at the start (men rounded to five or ten, platoons, vehicle types, his attached teams by name)
+and what is expected to join him later; the objectives and who holds them; how the
+battle ends (the time limit, a side breaking, the rule that a side with fewer than a quarter of its men standing for
+a minute loses after a minute's notice, the rule that a side holding every objective with no fighting for three
+minutes wins the field, Claim victory, exits); and the fire rule your units start with. It is built from the battle's
+input alone, so it reads the same before the first second and after a reload. "Briefing" in the top bar (under "⋯"
+on a phone) shows it again: the battle pauses while you read and goes on at the speed it had.
+
+**The fire rule you start with** now follows your role (owner's answer Q4, replacing "Return everywhere"):
+
+| Your role | Your units start on |
+|---|---|
+| attacking, a meeting, pursuing a withdrawing enemy, moving through an ambush | **At will** |
+| defending, delaying before a withdrawal | **Return** |
+| lying in ambush | a laid **Ambush** at 220 m, each platoon, section and team for itself (it holds its fire until it sees an enemy that close, one of its own men fires or it comes under fire; then at will). As things stand the enemy's vehicles often find the men in wait from over a kilometre and open fire within seconds, which springs it early (a matter for the infantry step) |
+| no role (the vehicle sandbox) | the data's default (Return) |
+
+This is part of the battle's input for the player's force (`ForceInput.start`), not an order: nothing goes over the
+radio, nobody answers "wilco", and it is there from the first tick. Units that arrive later start with it too. The
+enemy's commander gives its own orders as before, and every tool, lab and recorded battle has no start rules, so
+none of them changed. A campaign battle you play yourself follows the same table. You can change the rule for any
+unit on its card, in the Fire row. With "At will" a vehicle crew also fires at places where enemy men were last known
+(area fire, see "Vehicles"); with "Return" it did that only after you set "At will" yourself.
+
+
+## What you see when the battle opens, the folded card, a quieter radio, refusals in words (review step 5 part 2, 2026-11-26)
+
+**The opening view.** The battle opens showing all of your men and vehicles on the map and every objective, with a
+small margin, never closer than true scale and never tighter than 150 m across. A defender sitting on its objectives
+gets a close view; an attacker 800 m from them gets a wide one. Where the two are too far apart to show together at a
+readable size (below 0.6 pixels per metre: a phone held upright, an attack along the map's long side), the view shows
+your force and as much ground toward the objectives as fits, and each objective outside the view is pointed at from
+the edge of the map area by a small chip with an arrow and its name. The chips follow the view for the whole battle
+and go when the objective is on the screen. In an ambush, which has no objectives, the ambusher sees its ground out
+to the ambush range; the side moving through sees the way ahead, its exit pointed at ("Exit") when it is too far to
+show. The view leaves room at the bottom for the radio log.
+
+**The unit card on a phone held sideways** is one line: the unit's name, its men, its state, and two small icons for
+the pace and the fire rule in force. Tap the line and the card unfolds to its pace and fire rows, Men and Rules; tap
+its head (or the small arrow) to fold it again. Selecting another unit folds it. Beside the folded card the radio log
+shows two lines, beside the unfolded card one, so the card and the log do not cover the map. Upright and on a desktop
+the card is as it was. The Rules panel now has its own "×" and scrolls inside the screen.
+
+**The radio log** shows "enemy drone overhead" once per platoon while that platoon keeps seeing the drone; when the
+platoon has not called it for a minute, the next call is a new sighting and is shown again. Never more than one such
+line every 20 seconds for your whole side; a platoon's call that falls inside those 20 seconds waits and is shown
+after them. This is only the log: the simulation still makes every call, and the
+review counts them all. A drone call still uses the same radio turn as an enemy report (a matter for the infantry
+step, not changed here).
+
+**Old "last seen" pins** fade: full strength for three minutes, down to about a third by eight minutes (the age label
+goes first), and after ten minutes the pin is no longer drawn. Of old pins of the same kind (men, vehicles) within 25 m of each other only the newest
+stays. A pin still goes at once when the enemy is seen again or your men see the spot empty.
+
+**A refused order tells you why**, in a sentence with the unit's name: "Puma 1 is a vehicle crew: it cannot do
+that.", "Trupp 2 is off the radio net: the order did not reach it.", "no move: a point is off the map", "that
+building cannot be cleared", "not available in this battle" and so on. The sentence appears in the radio log in red
+and, for four seconds, at the top of the map. An order you replaced with a newer one says nothing, as before.
 
 ## The campaign: a battalion through linked battles (M12)
 

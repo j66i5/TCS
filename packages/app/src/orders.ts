@@ -24,7 +24,12 @@ export const SCREEN_MIN_M = 30;
 /** Logs an order and sends it to the sim; the last move sent to a unit is kept (its marker can be dragged, S10). */
 export function send(a: App, order: Order): void {
   a.orderLog.push(order);
-  submitOrder(a.sim, order);
+  const seq = submitOrder(a.sim, order);
+  if (order.issuer === a.playerSide) {
+    a.sentKinds.set(seq, order.kind);
+    // (Never growing without bound: an order neither delivered nor refused, as one to a unit wiped out meanwhile.)
+    if (a.sentKinds.size > 256) for (const k of a.sentKinds.keys()) { a.sentKinds.delete(k); if (a.sentKinds.size <= 128) break; }
+  }
   if (order.issuer !== a.playerSide) { /* the AI's orders */ } else if (order.kind === "move") a.activeMoves.set(order.target, order);
   else if (order.kind === "halt" || order.kind === "assault" || order.kind === "withdraw" || order.kind === "occupy" || order.kind === "mount" || order.kind === "dismount") a.activeMoves.delete(order.target);
 }

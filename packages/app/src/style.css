@@ -551,3 +551,59 @@ button.cmp-row:active { background: rgba(255, 255, 255, 0.06); }
 /* Wide or landscape: the modes two by two. */
 @media (min-width: 640px) { .menu-modes { grid-template-columns: 1fr 1fr; } .menu-tile.mode-more { grid-column: 1 / -1; } }
 @media (max-height: 480px) and (orientation: landscape) { .menu-hero { padding: 6px 4px 0; } .menu .cmp-hero-title { font-size: 26px; } .menu-tile { min-height: 54px; padding-top: 8px; padding-bottom: 8px; } }
+/* Review step 5: the battle briefing (ui/briefing.ts): the campaign frame over the paused map; a full-height sheet on
+   a phone, a centred card on a wide screen, two columns in landscape; both looks. */
+/* (Verification fix: opaque. The hint, the score line and unit labels showed through between the cards.) */
+.cmp.brief.look-photo { background: #0a0e09; }
+.cmp.brief.look-flat { background: #121a10; }
+.cmp.brief[hidden] { display: none; }
+.brief-body { max-width: 560px; }
+.brief-task { padding: 8px 12px 10px; background: var(--c-card); border: 1px solid var(--c-line); border-radius: var(--radius); }
+.cmp.brief.look-flat .brief-task { border-width: 2px; }
+.brief-objectives .cmp-note::first-letter { text-transform: uppercase; }
+.brief-task-text { font-size: 17px; font-weight: 700; line-height: 1.3; margin-top: 2px; color: #f0eccf; }
+.brief-cols { display: flex; flex-direction: column; gap: 10px; }
+.brief .cmp-kv { align-items: flex-start; }
+.brief .cmp-kv > b { min-width: 0; overflow-wrap: anywhere; }
+.brief .cmp-kv > span:first-child { min-width: 84px; flex: 0 0 auto; }
+.brief .cmp-note.strong { color: var(--text); font-size: 14px; }
+.brief .cmp-note + .cmp-note { margin-top: 4px; }
+.brief-list { margin: 0; padding-left: 18px; color: var(--text); font-size: 13px; line-height: 1.4; }
+.brief-list li + li { margin-top: 3px; }
+.brief-fire { border-color: var(--accent); }
+@media (min-width: 640px) {
+  .brief-body { max-width: 900px; }
+  .brief-cols { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+}
+@media (min-width: 900px) { .brief .cmp-scroll { padding-top: 12px; } }
+
+/* Review step 5, part 2. A refused order at the top of the map (where the player looks), for a few seconds. */
+.hud-flash { position: absolute; z-index: 3; top: 64px; left: calc(var(--free-left) + 8px); right: calc(var(--free-right) + 8px); width: fit-content; max-width: min(520px, calc(100% - var(--free-left) - var(--free-right) - 16px));
+  margin: 0 auto; text-align: center; background: rgba(46, 18, 16, 0.95); border: 1px solid #b4574c; color: #ffd9d4; padding: 6px 10px; border-radius: 6px; font-size: 14px; pointer-events: none; }
+/* The unit card folded to one line (a phone held sideways): name, men, state, the pace and fire rule as icons, a
+   chevron. A tap unfolds it. The radio log keeps two lines beside the folded card, one beside the unfolded one. */
+.hud-card-line-icons, .hud-card-fold { display: none; }
+.hud-card.line-mode .hud-card-fold { display: inline-flex; justify-content: center; min-width: 30px; font-size: 15px; }
+.hud-card.line-mode .hud-card-head { cursor: pointer; }
+.hud-card.line { padding-top: 3px; padding-bottom: 3px; }
+.hud-card.line > :not(.hud-card-head) { display: none; }
+.hud-card.line .hud-card-btn[data-card="detail"], .hud-card.line .hud-card-btn[data-card="rules"] { display: none; }
+.hud-card.line .hud-card-line-icons { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); flex: 0 0 auto; }
+.hud-card.line .hud-card-head { min-height: 30px; }
+@media (max-height: 480px) and (orientation: landscape) {
+  .hud-bottom.with-card .hud-radio-line:nth-child(n+2) { display: none; }
+  .hud-bottom.with-card.card-line .hud-radio-line:nth-child(2) { display: block; }
+  .hud-card-list { max-height: 22vh; }
+}
+/* The rules panel: its own close button; never taller than the screen below the bars (it scrolls). */
+.hud-panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hud-panel-close { min-height: 30px; min-width: 34px; padding: 0 8px; font-size: 18px; line-height: 1; flex: 0 0 auto; }
+.hud-panel { max-height: calc(100% - var(--free-top) - var(--free-bottom) - 16px); overflow-y: auto; scrollbar-width: thin; }
+
+/* Verification fix: an objective (or the side's exit) outside the view, pointed at from the edge of the free map area.
+   Under every panel (z-index 0); never takes a tap. */
+.hud-edge-marks { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.hud-edge-mark { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 10px;
+  background: rgba(15, 20, 14, 0.9); border: 1px solid var(--accent); color: var(--text); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.hud-edge-mark[hidden] { display: none; }
+.hud-edge-arrow { display: inline-block; color: var(--accent); font-size: 12px; line-height: 1; }

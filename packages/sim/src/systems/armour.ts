@@ -468,8 +468,10 @@ export function resolveVehicleHit(
     }
     // Balance pass 6: stopped or glanced off, a cannon round may still break what is outside the armour there.
     if (result !== "penetrated") outsideDamage(ctx, state, events, vid, v, def, x, y, z, part, face, 0.5 * am.massKg * speed * speed, adef.diameterM, result === "ricochet", dmg);
-    if (result !== "penetrated" && !am.heavy) {
+    if (result !== "penetrated" && !am.heavy && dmg.components.length === 0) {
       // A small-arms round that did not get in: the aggregated per-vehicle event, as for rounds stopped in the loop.
+      // (Verification fix: never past a part it damaged, should data let a round below the heavy calibre do that:
+      // the status and the crew's report follow below.)
       addStoppedHit(state, G, row, owner, ammoIdx, x, y, z, face * 2 + part);
       return;
     }

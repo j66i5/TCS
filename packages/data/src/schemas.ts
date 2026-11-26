@@ -533,6 +533,8 @@ export const BehaviourFile = withProv({
     completeAfterSeconds: Num(1, 3600), giveUpSeconds: Num(1, 7200), exitFanMinM: Num(0, 50), exitFanMaxM: Num(0, 50),
     remountM: Num(0, 2000), holdDismountM: Num(0, 2000), resupplyRangeM: Num(0, 500), resupplyReachM: Num(0, 50),
     resupplyCount: z.number().int().min(0).max(50), seatSwapCheckSeconds: Num(0.1, 60),
+    /** Balance pass 6 (verification fix): passengers of a halted hull whose radio is wrecked get out on their own. */
+    radioOutDismount: z.boolean().optional(),
     /** Balance pass 3 (owner 2026-11-18): an attacking side's carriers in overwatch after the dismount bound forward
      *  when they have not fired for `idleS`. See BehaviourDef.mounting. */
     overwatchBound: z.object({
@@ -1064,7 +1066,7 @@ export const ItemSchema = withProv({
    *  range error (fraction, one standard deviation) of a round fired through it, in place of
    *  behaviour.antitank.rangeErrorFraction, and the reach it gives the launcher's rounds (m), in place of each
    *  round's delivery.maxRangeM. Not `rangefinder` (that makes its carrier an observer for indirect fire). */
-  launcherSight: z.object({ rangeErrorFraction: Num(0, 0.5), maxRangeM: Num(1, 2000).optional() }).strict().optional(),
+  launcherSight: z.object({ rangeErrorFraction: Num(0, 0.5), maxRangeM: Num(1, 2000).optional(), aimErrorFactor: Num(0, 1).optional() }).strict().optional(),
   /** M8.3a: a crew-served mortar (the tube; its carrier is the gunner): its HE and smoke rounds (counted round items
    *  in the crew's loads), minimum and maximum range (m), seconds to set up and to pack, seconds per round at the
    *  sustained rate with a full crew, crew (and the fewest who can still fire), the first round's aim error (m per

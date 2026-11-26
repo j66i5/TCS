@@ -53,6 +53,42 @@ describe("carrier stall (balance pass 6)", () => {
     expect(Math.hypot(wp(moveOrders[2]!).x - wp(moveOrders[0]!).x, wp(moveOrders[2]!).y - wp(moveOrders[0]!).y)).toBeGreaterThan(10);
   }, 300_000);
 
+  it("verification fix: the passengers of a halted hull whose radio is wrecked get out on their own (off the net, no order reaches them); the crew stays", () => {
+    const run = (on: boolean) => {
+      const input = getScenario("platoon-ru-vehicles").build(data, 1, 120);
+      if (!on) input.catalog = { ...input.catalog, behaviour: { ...input.catalog.behaviour, mounting: { ...input.catalog.behaviour.mounting, radioOutDismount: false } } };
+      const sim = createSim(input);
+      // A carrier with a squad aboard, halted at the start; nobody commands either side.
+      const vid = [...sim.state.unit.entries()].find(([, u]) => u.side === "red" && u.carrier !== undefined)![1].carrier!;
+      const v = sim.state.vehicle.req(vid), def = input.catalog.vehicles[v.def]!;
+      const riders = () => v.seats.filter((m, k) => m !== null && def.seats[k]!.station === "passenger").length;
+      const crew = () => v.seats.filter((m, k) => m !== null && def.seats[k]!.station !== "passenger").length;
+      const before = { riders: riders(), crew: crew() };
+      expect(before.riders).toBeGreaterThan(0);
+      v.comp[def.components!.findIndex((c) => c.kind === "radio")] = 0;
+      const keys: string[] = [];
+      let rejected = 0;
+      for (let i = 0; i < 60 * 60; i++) {
+        // (An order to its squad is lost: the squad is off the net while it is aboard.)
+        if (i === 30) for (const [id, u] of sim.state.unit.entries()) if (u.carrier === vid && u.vehicle === undefined) submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: id, kind: "halt" });
+        for (const e of step(sim)) {
+          if (e.kind === "radio") keys.push(e.key);
+          if (e.kind === "order.rejected" && e.reason === "no-comms") rejected++;
+        }
+      }
+      return { before, riders: riders(), crew: crew(), keys, rejected, status: v.status };
+    };
+    const on = run(true);
+    expect(on.riders).toBe(0);
+    expect(on.crew).toBe(on.before.crew);
+    expect(on.keys).toContain("radio.dismounted");
+    expect(on.rejected).toBeGreaterThan(0);
+    expect(on.status).toBe("ok");
+    // (Without the rule they sit there for good, as before.)
+    const off = run(false);
+    expect(off.riders).toBe(off.before.riders);
+    expect(off.keys).not.toContain("radio.dismounted");
+  });
   it("the lab's AI rows: every carrier out has a reason, 'point' means within the arrival distance, and the table is printed", () => {
     const r = mountedAssaultBattle(data, "platoon-ru-vehicles", "ai", 1, 360);
     const arriveM = getScenario("platoon-ru-vehicles").build(data, 1, 60).catalog.behaviour.mounting.mountedAssault!.arriveM;

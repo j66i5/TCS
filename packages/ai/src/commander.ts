@@ -248,7 +248,7 @@ export function reacquireStats(saved: unknown): ReacquireStats | null {
 }
 /** Balance pass 6 (carrier stall): why a carrier let its squad out on the ride (the mounted drill's words), how far
  *  from its dismount point and from the objective it stood, and when. */
-export type RideWhy = "point" | "stopped" | "late" | "immobile" | "hit" | "threatMen" | "threatVehicle";
+export type RideWhy = "point" | "stopped" | "late" | "immobile" | "hit" | "threatMen" | "threatVehicle" | "cutOff";
 export interface RideOut { vehicle: number; why: RideWhy; pointM: number; objectiveM: number; tick: number; retries: number }
 export interface RideStats {
   out: RideOut[];
@@ -1799,13 +1799,18 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             const crew = crews.find((c) => view.unit.get(c)?.vehicle === vid), r = crew === undefined ? undefined : mem.ride?.[String(crew)];
             const ended = v.drive.arrived || v.drive.routeIdx >= v.drive.route.length;
             if (ended && (r === undefined || hypot2(vt.x - r.x, vt.y - r.y) <= arriveM)) return "point";
+            // (Verification fix: a hull off the net (its radio wrecked) takes no order, nor do the men aboard it: they
+            // get out on their own once it has halted (the sim's `cutOffRiders`), logged then; waited for until the
+            // ride has taken too long, never counted as sent on or ordered out.)
+            if (crew !== undefined && view.unit.get(crew)?.comms.link === "none") return late ? "cutOff" : null;
             if (hitNear(vid)) return "hit";
             const th = atThreat(vid);
             if (th !== null) return th;
             if (late) return "late";
             if (!ended) return null;
             if (tick - r!.tick < RIDE_RETRY_S * 60) return null; // (the order sent on is not through yet)
-            if (r!.tries >= driveRetries) return "stopped";
+            // (A crew at a field repair is not sent on, `repairing`: its squad gets out where it stands.)
+            if (r!.tries >= driveRetries || v.repair?.working === true) return "stopped";
             r!.tries++; r!.tick = tick;
             if (r!.tries > 1) {
               const lat = -(vt.x - r!.x) * uy + (vt.y - r!.y) * ux;
@@ -1835,7 +1840,8 @@ export function commanderController(side: SideId, input: BattleInput, only?: Com
             // (One line a carrier: the first of its squads out.)
             // (Riders who got out by themselves, the sim's rule for a hull struck by a cannon round, a rocket or a
             // missile, or left a hull that can no longer drive: logged too.)
-            const self: RideWhy | null = aboard ? null : vid !== undefined && view.vehicle.get(vid)?.status === "ok" ? "hit" : "immobile";
+            const selfCrew = crews.find((c) => view.unit.get(c)?.vehicle === vid);
+            const self: RideWhy | null = aboard ? null : selfCrew !== undefined && view.unit.get(selfCrew)?.comms.link === "none" ? "cutOff" : vid !== undefined && view.vehicle.get(vid)?.status === "ok" ? "hit" : "immobile";
             if ((why ?? self) !== null && vid !== undefined && !(mem.rideLog ?? []).some((r) => r.vehicle === vid)) logOut(vid, (why ?? self)!);
             advance(sq, i);
             mem.out!.push(sq);

@@ -1477,7 +1477,10 @@ to a point half a slot (30 m) to the side it stands on, and only then lets its s
 for the support post after the dismount: a hull that ended more than 15 m short of its post is given another post
 (twice, 20 s apart) and after that fires from where it stands. Every carrier that lets its squad out has its reason
 on record: at its point, stopped (after being sent on twice), hit, enemy men known close, an enemy hull seen, late,
-or immobile. `npm run lab -- mounted-assault` prints them per scenario, with the drives that gave up and the posts
+immobile, or cut off. **Cut off** is a hull whose radio is wrecked: no order reaches its crew or the men aboard
+it, so the commander no longer counts it as sent on or ordered out. Once such a hull has halted, its passengers
+get out on their own (their own radios work again on foot; the crew stays with the hull); the same holds for the
+player's carriers. Before, a squad and a platoon headquarters could sit in such a hull for the whole battle. `npm run lab -- mounted-assault` prints them per scenario, with the drives that gave up and the posts
 ordered, reached, sited again and given up.
 
 **Area fire and air burst (balance pass 5, the owner's request).** A vehicle crew that has lost sight of enemy men
@@ -1512,8 +1515,9 @@ ordered KETF burst worth firing: its cone is under 3 m wide where it arrives, so
 the man or two nearest it. Measured at six prone men 3 m apart, 800 m, 30 s: at the one point 2 men hit, swept 5.
 
 **Is an air burst better than an impact against men lying down?** (The 2026-11-24 review read the lab as "no".) It
-is, and no error was found in the geometry: with 640 prone men a row, a 155 mm shell bursting 8 m up wounds 12 % of
-them at 25 m, against about 2 % for the same shell on impact, and the fragments that strike a man are 1.2 to 1.9
+is, and no error was found in the geometry: with 384 prone men a row (the lab's 24 seeds), a 155 mm shell bursting
+8 m up wounds 36 % of them at 15 m, 11 % at 25 m and 2 % at 50 m, against 6 %, 1 % and none for the same shell on
+impact, and the fragments that strike a man are 1.2 to 1.9
 times what an even spread over the sphere would give, steadily over burst heights of 3 to 25 m and distances of 15
 to 40 m. The earlier reading came from the lab: 96 men a row (2 % against 5 % is two men against five), and a
 "wounded" column that the blast pins at 100 % at 10 m whatever the fragments do. The artillery lab now runs 24
@@ -1581,13 +1585,18 @@ aims three times worse, the crew sees only through its vision blocks, no guided 
 or immobilised until the crew has mended the track (the crew's field repair; sights, launcher and gun are
 workshop work). The crew reports "sights are gone" or "missile launcher out of action". Most strikes find no such
 part: in the armour lab a BMP-2 firing armour-piercing at a Puma head-on at 800 m lands about 65 hits in two
-minutes and blinds it in two runs of six. **Crews now fire at armour they cannot get through** (before, they held
+minutes and blinds it in two runs of six (two BMP-2s firing together did it in 36 s in a play test: the rate is
+per round, so two guns halve the time). **Crews now fire at armour they cannot get through** (before, they held
 that fire): a carrier's cannon crew with no other target and no missile for it fires at such a vehicle within
 1,500 m, at the turret when it shows, high explosive first (its bursts break sights, dischargers and tracks, as
 they always did) and armour-piercing when the high explosive is down to its reserve. In the lab that blinds a
 Puma or a Leopard 2 after about 40 to 65 seconds of fire. A tank's main gun still holds its fire at a face it
 cannot get through. So a BMP-2 can degrade a Puma from the front without being able to kill it, and a Puma does
-the same to a tank.
+the same to a tank. Close in this goes for the gun: fire aimed at the middle of a turret lands on the gun's mantlet, and
+in the lab a Puma's 60 hits in two minutes on a halted T-90M wreck its gun in four runs of twelve at 500 m, in none
+at 1,000 m or beyond (the chance per strike was halved after verification; whether a tank that stands still under
+such fire should lose its gun is the owner's call). The unit card now shows damaged parts ("Damaged: sights 0 %,
+track 40 %") and marks a weapon that can no longer fire "out of action".
 
 - *Puma*: its heavy front (add-on composite modules) stops 30 mm rounds and — the owner's choice — a single RPG-7
   rocket; its sides, rear and roof stop machine-gun rounds up to 14.5 mm, but not a 30 mm round or a rocket.
@@ -1631,9 +1640,12 @@ the rocket's real flight (it speeds up when its motor fires and slows in the air
 the range are not perfect, and wind pushes the rocket. The anti-tank lab: against a halted BMP-2 side-on, a
 Panzerfaust hits nearly always at 100 m, about two times in three at 200 m and about a third of the time at
 300–400 m; an RPG-7 against a Puma, a taller target, about half the time at 300 m — but it never gets through
-its front. The Panzerfaust's firing unit has a sight with a laser rangefinder (balance pass 6): the gunner's range
-is right to about 1 % instead of the 5 % of a range judged by eye, which is worth about one hit more in ten at
-300–400 m; what is left is his aiming error, the same as the RPG gunner's. **When they fire on their own** is a standing rule of each unit (Rules panel,
+its front. The Panzerfaust's firing unit has a computing sight with a laser rangefinder (balance pass 6): the
+gunner's range is right to about 1 % instead of the 5 % of a range judged by eye, and because the sight sets one
+aiming mark for range and lead, his own aiming error is taken at 0.6 of the RPG gunner's (a game value). The
+rangefinder alone was not enough to tell from chance in the lab (43 % against 32 % at 300 m, 60 shots a cell); with
+both, a Panzerfaust hits a halted BMP-2 about 60 % of the time at 300 m, 45 % at 400 m and 25–30 % at 600 m. It
+still opens fire only out to 400 m. **When they fire on their own** is a standing rule of each unit (Rules panel,
 "Anti-tank weapons"): *vehicles only* (the default for new units, owner's choice), *vehicles and positions* (also
 at enemies in houses and at machine guns) or *only on order*; always within the unit's fire rule. You can order a
 shot at anything with the **Anti-tank** button and a tap (the best-placed man with a loaded launcher fires once).

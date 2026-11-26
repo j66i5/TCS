@@ -72,8 +72,10 @@ export interface ItemTypeDef {
   thermalCover?: number;
   /** M8.2a: a laser rangefinder its carrier locates targets for indirect fire with. */
   rangefinder?: boolean;
-  /** Balance pass 6: a shoulder-fired launcher's fire-control sight: its range error and the reach it gives. */
-  launcherSight?: { rangeErrorFraction: number; maxRangeM?: number };
+  /** Balance pass 6: a shoulder-fired launcher's fire-control sight: its range error and the reach it gives;
+   *  `aimErrorFactor` (verification fix; absent: 1): the share of the gunner's own aiming error
+   *  (`antitank.skillMrad`) left when the sight sets one aiming mark for range and lead. */
+  launcherSight?: { rangeErrorFraction: number; maxRangeM?: number; aimErrorFactor?: number };
   /** M7.6a: an explosive reactive armour tile: mild-steel mm added to the need against a long rod, a single shaped
    *  charge and a tandem charge's main jet; the least kinetic penetration (mm) of a heavy round that sets it off. */
   reactive?: ReactiveDef;
@@ -629,6 +631,9 @@ export interface BehaviourDef {
     completeAfterSeconds: number; giveUpSeconds: number; exitFanMinM: number; exitFanMaxM: number;
     remountM: number; holdDismountM: number; resupplyRangeM: number; resupplyReachM: number; resupplyCount: number; seatSwapCheckSeconds: number;
     overwatchBound?: { idleS: number; stepM: number; behindM: number; minGainM: number; retryS: number };
+    /** Balance pass 6 (verification fix): the passengers of a halted hull whose radio is wrecked get out on their own
+     *  (boarding.ts `cutOffRiders`; absent or false: they stay aboard, off the net, as before). */
+    radioOutDismount?: boolean;
     /** The mounted assault (balance pass 5, owner 2026-11-20; systems/assault-mounted.ts; absent: an assault order to
      *  men aboard dismounts them where they are, as before). See `MountedAssaultDef`. */
     mountedAssault?: MountedAssaultDef;

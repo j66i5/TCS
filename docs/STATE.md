@@ -1,10 +1,21 @@
 # State — handover note
 
-_Last updated: 2026-11-26 (balance pass 6 parts 1 and 2; start menu; M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-26 (balance pass 6 parts 1 and 2 and their verification fixes; start menu; M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 6, verification fixes (2026-11-26, branch `claude/balance-6`; DECISIONS "Balance pass 6:
+  verification fixes").** Two verifiers' findings, each confirmed first. Fixed: the passengers of a halted hull with a
+  wrecked radio get out on their own (a squad and a platoon headquarters sat in one for a whole battle, logged as
+  "stopped"; the commander now waits for such a hull and logs `cutOff`); the gun's chance from a hit that does not
+  get through is halved (a Puma wrecked a T-90M's gun at 500 m in 5 runs of 6; now about a third of twelve) and the
+  data note's energy calibration corrected; the Panzerfaust 3's sight also takes 0.4 of the gunner's own aiming
+  error (`launcherSight.aimErrorFactor` 0.6: 60 % at 300 m and 45 % at 400 m on a halted BMP-2, before 43 % and
+  33 %, which was inside the lab's noise); the unit card shows damaged parts, "out of action" for a weapon whose
+  part is wrecked, and "HE air burst" for the Puma's KETF belt; a second hull no longer takes a post its pair mate
+  holds when it moves off for an enemy man close by; HOW_IT_WORKS figures corrected. The mounted battle did not
+  move: Germany 15 of 24 on seeds 1-12 as on origin/main, 36 of 56 (64 %) over all seeds run on this build.
 - **Balance pass 6, part 2 (2026-11-26, branch `claude/balance-6`; DECISIONS "Balance pass 6 part 2"): balance
   pass 6 is done.** The owner's answers to pass 5 are built: the Puma's second belt is KETF only (no impact
   setting; refused if ordered; machine gun inside 45 m); the T-90M fires the 3OF26 with the Ainet time fuze (air
@@ -742,6 +753,20 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 
 ## Open questions for the owner
 
+- Balance pass 6 verification (DECISIONS "Balance pass 6: verification fixes"), questions, recommended first:
+  (1) a tank that stands still under 30 mm fire at 500 m loses its gun in about a third of the two-minute runs:
+  (a) keep, it is a halted tank that does not fire back; (b) halve the chance again; (c) the gun cannot be damaged
+  from outside. (2) The Panzerfaust 3's computing sight: (a) as built, 0.6 of the aiming error and fire out to
+  400 m; (b) also a reach of 600 m (25-30 % hits there); (c) only the rangefinder, as in part 1. (3) Every
+  Panzerfaust has the sight: (a) keep the simplification; (b) one launcher a platoon, the others plain. (4) The
+  T-90M's high explosive: (a) all Ainet as built; (b) half the load, as a third feed; (c) none. (5) Air bursts over
+  a single-storey house wound the men inside almost as in the open (the roof is a thin lid of the wall material):
+  (a) give roofs a real thickness per building kind next; (b) leave. (6) Damage that is not total ("sights 50 %")
+  changes nothing until it reaches 0: (a) leave, the card shows it; (b) give half sights a spotting penalty and a
+  radio line.
+- Balance pass 6 verification, low-confidence data to confirm: `launcherSight.aimErrorFactor` 0.6,
+  `nonPenetrating.parts.gun.chance` 0.03, `mounting.radioOutDismount`.
+
 - Balance pass 6 part 2 (DECISIONS "Balance pass 6 part 2"), questions, recommended first: (1) the swept ordered
   fire: (a) 8 m as built; (b) a radius the player sets; (c) off. (2) A KETF round that strikes before its fuze:
   (a) half its pellets, slow, as built; (b) nothing but the slug. (3) Half platoons in the player's list: (a) rows
@@ -753,6 +778,11 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   round item (whether line T-90M carry Ainet-fuzed 3OF26, and how many; burst height 3 m); the Puma round's
   strike-before-fuze values (81 pellets, 200-500 m/s) and `airburst.only`; `gunnery.areaFire.orderedRadiusM` 8 m;
   `core/campaign.json` `battle.sections`, `sectionBelow` 0.75, `proposeSectionAtRatio` 3.
+- Known gaps from the verification of pass 6, not fixed: (1) no screenshot scene and no browser check show a hit
+  that does not get through (the card's new lines have a unit test only); (2) the enemy carriers of the vehicles
+  sandbox did not fire on their own in a verifier's ten-minute run with the player's hulls 110-300 m away: not
+  traced; (3) air bursts over single-storey houses (question 5 above); (4) a hull whose radio is wrecked while it is
+  still driving keeps its passengers until it halts, and its crew stays off the net for the battle (M14: runners).
 - Known gaps found in part 2, not fixed: (1) in platoon-vehicles the second platoon's headquarters gets out about
   30 s into the battle near the start line while its Puma drives on (the ride handles the first top unit's
   headquarters hull only; the rule that gets the second one out was not traced). (2) A hull boxed in after the

@@ -102,7 +102,7 @@ export function vehicleItems(state: SimState, v: EntityId, item: DefId): number 
  * Condition (0..1) of a vehicle's components of one kind (M7.4b): the worst of them; 1 when it has none (a
  * vehicle without that part listed works as before).
  */
-export function compCondition(v: VehicleState, def: VehicleDef, kind: ComponentKind): number {
+export function compCondition(v: { readonly comp: readonly number[] }, def: VehicleDef, kind: ComponentKind): number {
   const comps = def.components;
   if (!comps) return 1;
   let c = 1;

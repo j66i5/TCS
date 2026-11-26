@@ -303,6 +303,10 @@ Two entries in `factions/<id>/ammunition.json`: the munition and one of its frag
   instead of `behaviour.json` `antitank.rangeErrorFraction`, and (`maxRangeM`, optional) are fired out to that range
   instead of each round's `delivery.maxRangeM`. It is not `rangefinder` (that makes the carrier an observer for
   indirect fire). Give a longer reach only if `npm run lab -- antitank` shows the hits there are worth the round.
+  `aimErrorFactor` (optional, 0..1): the share of the gunner's own aiming error (`antitank.skillMrad`) left through
+  a computing sight; leave it out for a sight that only measures the range.
+- `behaviour.json` `mounting.radioOutDismount` (true): the passengers of a halted hull whose radio is wrecked get
+  out on their own; false or absent: they stay aboard, off the net.
 - `npm run lab -- fragmentation` shows the effect by distance; add the new munition to the list in
   `packages/tools/src/labs/fragmentation.ts` to see it there.
 - A hand smoke grenade (D1) has `"kind": "smoke"`, no `explosive`, `"delivery": { "method": "thrown" }` and

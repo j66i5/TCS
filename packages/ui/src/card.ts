@@ -14,7 +14,7 @@
  */
 import type { Insignia, Strings } from "@tcs/data";
 import { shownCallsigns } from "@tcs/render";
-import { isAble, isOut, MORALE_SOURCES, secondsToTicks, type Catalog, type EntityId, type Order, type SimView } from "@tcs/sim";
+import { isAble, isOut, MORALE_SOURCES, secondsToTicks, weaponOut, type Catalog, type EntityId, type Order, type SimView } from "@tcs/sim";
 import type { UnitRules } from "./hud";
 import { icon, paceIcon } from "./icons";
 import { insigniaSvg } from "./insignia";
@@ -143,13 +143,44 @@ export function cardMen(view: SimView, catalog: Catalog, unit: EntityId, own = f
 }
 
 /** What a vehicle gun's feed holds (D3): high explosive, armour-piercing, a guided missile, or machine-gun belts. */
-export type GunFeedKind = "he" | "ap" | "missile" | "mg";
+/** ("ab": a high-explosive round that only bursts in the air by its fuze, balance pass 6: an impact order is refused.) */
+export type GunFeedKind = "he" | "ab" | "ap" | "missile" | "mg";
 
 /** One feed of a vehicle weapon: rounds ready on the weapon and stowed in the hull. */
 export interface GunFeed { kind: GunFeedKind; ready: number; stowed: number }
 
 /** One weapon of the unit's vehicle as the card shows it (D3). */
-export interface GunRow { weapon: string; faction: string; feeds: GunFeed[]; jammed: boolean; reloading: boolean }
+/** (`out`, balance pass 6 verification: the weapon cannot fire, its part wrecked: gun, coaxial machine gun, launcher, or
+ *  the sights a missile is guided through.) */
+export interface GunRow { weapon: string; faction: string; feeds: GunFeed[]; jammed: boolean; reloading: boolean; out?: boolean }
+
+/** A damaged part of the unit's vehicle as the card names it: its kind and what is left of it, 0..100. */
+export interface PartRow { kind: string; percent: number }
+
+/**
+ * The damaged parts of the unit's vehicle (balance pass 6 verification: a hit that did not get through may break
+ * sights, tracks, a launcher; the compact card said "ready"): every kind below full with the worst of its parts;
+ * none for a whole hull or a unit without one.
+ */
+export function vehicleDamage(view: SimView, catalog: Catalog, unit: EntityId): PartRow[] {
+  const vid = view.unit.get(unit)?.vehicle;
+  const veh = vid !== undefined ? view.vehicle.get(vid) : undefined;
+  const comps = veh ? catalog.vehicles[veh.def]?.components : undefined;
+  if (!veh || !comps) return [];
+  const out: PartRow[] = [];
+  comps.forEach((c, k) => {
+    const x = veh.comp[k] ?? 1;
+    if (x >= 1) return;
+    const pct = Math.round(x * 100), e = out.find((r) => r.kind === c.kind);
+    if (e) e.percent = Math.min(e.percent, pct); else out.push({ kind: c.kind, percent: pct });
+  });
+  return out;
+}
+
+/** The card's line for them: "Damaged: sights 0 %, track 40 %". */
+export function damageText(s: Strings, parts: readonly PartRow[]): string {
+  return s.t("card.damaged", { parts: parts.map((p) => `${s.t(`vehicle.comp.${p.kind}`)} ${p.percent} %`).join(", ") });
+}
 
 /**
  * The guns and their rounds of the unit's vehicle (D3, read only): one row per station weapon with each feed's
@@ -169,12 +200,12 @@ export function vehicleGuns(view: SimView, catalog: Catalog, unit: EntityId): Gu
     const feeds = wd.feeds.map((fd, fi): GunFeed => {
       const item = catalog.items[fd.item];
       const ammo = item?.chargeItem !== undefined ? catalog.ammo[item.chargeItem] : undefined;
-      const kind: GunFeedKind = ammo?.guided !== undefined ? "missile" : !cannon ? "mg" : ammo?.explosive !== undefined ? "he" : "ap";
+      const kind: GunFeedKind = ammo?.guided !== undefined ? "missile" : !cannon ? "mg" : ammo?.explosive !== undefined ? (ammo.airburst?.only === true ? "ab" : "he") : "ap";
       let stowed = 0;
       for (const st of stacks) if (st.type === fd.item) stowed += st.count * (st.charge ?? item?.chargeCapacity ?? 1);
       return { kind, ready: ws.feeds[fi]?.rounds ?? 0, stowed };
     });
-    out.push({ weapon: wd.weapon, faction: veh.faction, feeds, jammed: ws.jammed, reloading: ws.reloadDoneTick !== undefined });
+    out.push({ weapon: wd.weapon, faction: veh.faction, feeds, jammed: ws.jammed, reloading: ws.reloadDoneTick !== undefined, ...(weaponOut({ catalog }, veh, def, si, wi) ? { out: true } : {}) });
   }));
   return out;
 }
@@ -436,6 +467,8 @@ export interface UnitCardModel {
   men: readonly ManRow[];
   /** The vehicle's guns and their rounds (D3); absent or empty: no gun row. */
   guns?: readonly GunRow[];
+  /** The vehicle's damaged parts (balance pass 6 verification); absent or empty: no line. */
+  damage?: readonly PartRow[];
   /** M11.4a: the squad asked for ammunition and waits for the player (rule "ask"): the "Send bearers" button. */
   supplyAsk?: boolean;
   /** M11.5: the vehicle's fuel and what it is doing about supplies; absent: no vehicle. */
@@ -499,6 +532,7 @@ export function gunText(s: Strings, g: GunRow): string {
   const stowed = g.feeds.reduce((n, f) => n + f.stowed, 0);
   return `${s.t(`weapon.${g.weapon}`, {}, g.faction)} · ${feeds}`
     + (stowed > 0 ? ` ${s.t("card.gun.stowed", { n: stowed })}` : "")
+    + (g.out === true ? ` · ${s.t("card.gun.out")}` : "")
     + (g.jammed ? ` · ${s.t("card.gun.jammed")}` : "")
     + (g.reloading ? ` · ${s.t("card.gun.reloading")}` : "");
 }
@@ -587,7 +621,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
       men.textContent = `${s.t("side.men", { fit: m.fit, total: m.total })} · ${m.state}`;
       powRow.hidden = m.prisoners === undefined;
       if (m.prisoners !== undefined && powRow.textContent !== m.prisoners) powRow.textContent = m.prisoners;
-      const guns = [...(m.guns ?? []).map((g) => gunText(s, g)), ...(m.fuel ? [fuelText(s, m.fuel)] : [])];
+      const guns = [...(m.guns ?? []).map((g) => gunText(s, g)), ...(m.damage !== undefined && m.damage.length > 0 ? [damageText(s, m.damage)] : []), ...(m.fuel ? [fuelText(s, m.fuel)] : [])];
       const gk = guns.join("\n");
       if (gk !== gunKey) {
         gunKey = gk;

@@ -414,7 +414,8 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
   const rng = state.rng;
   // His estimate of the range is off by a few per cent; the lead follows from the flight time.
   // (Balance pass 6: through a launcher's fire-control sight, a laser rangefinder's error; the draw is the same.)
-  const sightErr = d.launcher !== undefined ? ctx.catalog.items[d.launcher]?.launcherSight?.rangeErrorFraction : undefined;
+  const sight = d.launcher !== undefined ? ctx.catalog.items[d.launcher]?.launcherSight : undefined;
+  const sightErr = sight?.rangeErrorFraction;
   const rangeErr = 1 + (sightErr ?? AT.rangeErrorFraction) * nextNormal(rng, Streams.antitank);
   const aimH = aimHeight(ctx, state, target, known);
   let ax = tx, ay = ty, sol: { el: number; tof: number } | null = null;
@@ -427,7 +428,8 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
     ax = tx + vx * sol.tof; ay = ty + vy * sol.tof;
   }
   const el0 = sol ? sol.el : 0.05;
-  const sigma = ((d.dispersionMrad ?? 1) + AT.skillMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5)) / 1000;
+  // (Verification fix: a computing sight sets one aiming mark for range and lead: less of the gunner's own error.)
+  const sigma = ((d.dispersionMrad ?? 1) + AT.skillMrad * (sight?.aimErrorFactor ?? 1) * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5)) / 1000;
   const az = atan2(ay - oy, ax - ox) + sigma * nextNormal(rng, Streams.antitank);
   const el = el0 + sigma * nextNormal(rng, Streams.antitank);
   if (removeItems(c, ammo, 1).length === 0) return;

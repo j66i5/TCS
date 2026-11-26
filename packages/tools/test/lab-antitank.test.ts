@@ -58,6 +58,8 @@ describe("the Panzerfaust 3's fire-control sight (balance pass 6)", () => {
   const de = data.factions["de"]!;
   /** The data without the sight: the firing unit as before balance pass 6. */
   const plain = { ...data, factions: { ...data.factions, de: { ...de, items: { ...de.items, "de-pzf3-firing-unit": (({ launcherSight: _s, ...rest }) => rest)(de.items["de-pzf3-firing-unit"]!) } } } } as typeof data;
+  /** The sight with its rangefinder alone (part 1 of the pass): without the smaller aiming error of the verification fix. */
+  const rangeOnly = { ...data, factions: { ...data.factions, de: { ...de, items: { ...de.items, "de-pzf3-firing-unit": { ...de.items["de-pzf3-firing-unit"]!, launcherSight: { rangeErrorFraction: 0.01 } } } } } } as typeof data;
   /** The elevation (mrad) the gunner fires at on order, 300 m from a halted BMP-2 side-on. */
   const launchEl = (d: typeof data, seed: number): number => {
     const { input, gunner, target } = antitankSetup(d, ["de", "ru"], 300, "side", seed);
@@ -76,7 +78,7 @@ describe("the Panzerfaust 3's fire-control sight (balance pass 6)", () => {
 
   it("the firing unit carries the sight in the data (range error 1 %); the RPG-7 has none; the rounds' reach is their own", () => {
     const cat = createSim(antitankSetup(data, ["de", "ru"], 100, "side", 1).input).ctx.catalog;
-    expect(cat.items["de-pzf3-firing-unit"]!.launcherSight).toEqual({ rangeErrorFraction: 0.01 });
+    expect(cat.items["de-pzf3-firing-unit"]!.launcherSight).toEqual({ rangeErrorFraction: 0.01, aimErrorFactor: 0.6 });
     expect(cat.items["ru-rpg7"]!.launcherSight).toBeUndefined();
     expect(launcherReachM(cat, "de-pzf3-dm12")).toBe(cat.ammo["de-pzf3-dm12"]!.delivery!.maxRangeM);
     expect(launcherReachM(cat, "ru-pg7vl")).toBe(300);
@@ -87,7 +89,12 @@ describe("the Panzerfaust 3's fire-control sight (balance pass 6)", () => {
 
   it("through the sight the elevation laid for 300 m scatters less than by the estimated range (the same draws: only the range error differs)", () => {
     const seeds = Array.from({ length: 12 }, (_, k) => 1000 + k);
-    const withSight = seeds.map((s) => launchEl(data, s)), without = seeds.map((s) => launchEl(plain, s));
+    const withSight = seeds.map((s) => launchEl(rangeOnly, s)), without = seeds.map((s) => launchEl(plain, s));
+    // (Verification fix: the sight's one aiming mark also takes part of the gunner's own error: less scatter again,
+    // from the same draws.)
+    const full = seeds.map((s) => launchEl(data, s));
+    expect(sd(full)).toBeLessThan(sd(withSight));
+    expect(sd(full)).toBeGreaterThan(1.5);
     // The range error is one of three draws (range, azimuth, elevation): the scatter falls, it does not vanish.
     expect(sd(withSight)).toBeLessThan(sd(without));
     expect(sd(withSight)).toBeGreaterThan(2);

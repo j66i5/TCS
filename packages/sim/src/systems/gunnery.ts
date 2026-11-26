@@ -145,7 +145,7 @@ function feedFor(ctx: SimContext, def: VehicleDef, st: StationState, si: number,
 }
 
 /** A station weapon wrecked (M7.4b): the cannon by the "gun" component, a coaxial machine gun by "coax". */
-export function weaponOut(ctx: SimContext, v: VehicleState, def: VehicleDef, si: number, wi: number): boolean {
+export function weaponOut(ctx: Pick<SimContext, "catalog">, v: { readonly comp: readonly number[] }, def: VehicleDef, si: number, wi: number): boolean {
   const wdef = def.stations[si]?.weapons[wi];
   if (!wdef || !def.components) return false;
   // A missile launcher is guided through the gunner's sight: wrecked sights, no missile (owner 2026-11-13).

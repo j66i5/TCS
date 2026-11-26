@@ -325,6 +325,7 @@
     "resupplyReachM": 5,
     "resupplyCount": 3,
     "seatSwapCheckSeconds": 1,
+    "radioOutDismount": true,
     "overwatchBound": { "idleS": 75, "stepM": 150, "behindM": 100, "minGainM": 40, "retryS": 30 },
     "mountedAssault": {
       "stepSeconds": 0.5, "dismountStepM": 50, "dismountCandidates": 3, "slotM": 60, "objectiveRadiusM": 30, "arriveM": 15,

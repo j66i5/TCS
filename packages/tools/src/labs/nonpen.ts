@@ -13,7 +13,7 @@ import { createSim, step, submitOrder, type EntityId } from "@tcs/sim";
 import type { DataSet } from "@tcs/data";
 import { duel } from "./gunnery";
 
-export interface NonPenCase { label: string; factions: [string, string]; crews: [string, string]; aspect: "front" | "side" }
+export interface NonPenCase { label: string; factions: [string, string]; crews: [string, string]; aspect: "front" | "side"; /** Range, m (default 800). */ rangeM?: number }
 export interface NonPenRow {
   label: string; aspect: "front" | "side"; mode: "ordered" | "own"; runs: number;
   /** Per run, means. */
@@ -37,6 +37,9 @@ export const NONPEN_CASES: NonPenCase[] = [
   { label: "BMP-2 (30 mm 2A42) at Leopard 2A7V", factions: ["ru", "de"], crews: ["bmp2-ekipazh", "leopard2a7v-besatzung"], aspect: "side" },
   { label: "Puma (30 mm MK30-2) at T-90M", factions: ["de", "ru"], crews: ["puma-besatzung", "t90m-ekipazh"], aspect: "front" },
   { label: "Puma (30 mm MK30-2) at T-72B3M", factions: ["de", "ru"], crews: ["puma-besatzung", "t72b3m-ekipazh"], aspect: "front" },
+  // (Verification fix: close in, fire aimed at the turret's middle lands on the mantlet; the gun is what goes.)
+  { label: "Puma (30 mm MK30-2) at T-90M, 500 m", factions: ["de", "ru"], crews: ["puma-besatzung", "t90m-ekipazh"], aspect: "front", rangeM: 500 },
+  { label: "BMP-2 (30 mm 2A42) at Leopard 2A7V, 500 m", factions: ["ru", "de"], crews: ["bmp2-ekipazh", "leopard2a7v-besatzung"], aspect: "front", rangeM: 500 },
 ];
 
 const RANGE_M = 800, SECONDS = 120;
@@ -44,7 +47,7 @@ const RANGE_M = 800, SECONDS = 120;
 export interface NonPenRun { rounds: number; stopped: number; penetrated: number; out: string[]; hitsToSights: number; hitsToRunningGear: number; secondsToSights: number; status: string; fire: boolean; hurt: boolean; why: string[]; damaged: Record<string, number> }
 
 /** One run. */
-export function nonPenRun(data: DataSet, cs: NonPenCase, mode: "ordered" | "own", seed: number, seconds = SECONDS, rangeM = RANGE_M): NonPenRun {
+export function nonPenRun(data: DataSet, cs: NonPenCase, mode: "ordered" | "own", seed: number, seconds = SECONDS, rangeM = cs.rangeM ?? RANGE_M): NonPenRun {
   const bx = 400, y = 600;
   const input = duel(data, cs.factions, { blue: { x: bx, y, heading: 0 }, red: { x: bx + rangeM, y, heading: cs.aspect === "front" ? Math.PI : Math.PI / 2 } }, undefined, 2400, cs.crews);
   input.seed = seed;
@@ -109,7 +112,7 @@ export function nonPenLab(data: DataSet, seeds = 6, cases: NonPenCase[] = NONPEN
 
 export function nonPenLabMarkdown(rows: NonPenRow[]): string {
   const out = [
-    `One hull firing at a halted enemy hull at ${RANGE_M} m for ${SECONDS} s. "ordered": the order to fire armour-piercing at it (aimed at the hull); "own": the crew's own choice with no missile aboard (degrading fire: high explosive first, aimed at the turret). Rounds and hits are means per run; "parts out" counts the runs in which a part of that kind was wrecked at the end; "hits to" is the mean number of hits that did not get through before the first sight (track, wheel) was wrecked, and "s to sights out" the seconds of fire until then, over the runs in which one was. A high-explosive burst on the armour that damages nothing is no hit event and is not counted. The target is frozen where it stands: "left" = its crew got out because it could neither move nor fire (a hull that can drive backs away instead).`, "",
+    `One hull firing at a halted enemy hull at ${RANGE_M} m (or the range its row names) for ${SECONDS} s. "ordered": the order to fire armour-piercing at it (aimed at the hull); "own": the crew's own choice with no missile aboard (degrading fire: high explosive first, aimed at the turret). Rounds and hits are means per run; "parts out" counts the runs in which a part of that kind was wrecked at the end; "hits to" is the mean number of hits that did not get through before the first sight (track, wheel) was wrecked, and "s to sights out" the seconds of fire until then, over the runs in which one was. A high-explosive burst on the armour that damages nothing is no hit event and is not counted. The target is frozen where it stands: "left" = its crew got out because it could neither move nor fire (a hull that can drive backs away instead).`, "",
     "| Shooter at target | Face | Mode | Runs | Rounds | Hits not through | Hits through | Parts out (runs) | Hits to sights out | s to sights out | Hits to track or wheel out | Burning | Destroyed | Left | Men hurt inside | Crew's reasons |",
     "|---|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---|",
   ];

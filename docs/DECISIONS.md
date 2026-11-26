@@ -11299,3 +11299,139 @@ posts"). Baseline as in part 1 (origin/main `c3d742c`); part 1 is commit `d43511
   the battle itself next (why two Pumas stop a company: sight ranges on the 1.9 km maps, men killed aboard, the
   attack drill), (b) let the campaign's enemy go below half a platoon (a single squad and its Puma), (c) accept
   Russia as the hard campaign for now.
+
+### Balance pass 6: verification fixes (2026-11-26)
+
+Two verifiers went over parts 1 and 2 (commits `d43511d`, `9fcfe5e`). Each finding was confirmed first; what was
+done, or why it was left:
+
+- **A carrier that stood for the whole battle with its men aboard, logged as "stopped" (major, confirmed:
+  `platoon-ru-vehicles` seed 204, 900 s).** A BMP-2 with the platoon headquarters and a squad aboard (10 men) was
+  penetrated twice at 22-28 s; its radio was wrecked, so its crew and, being all aboard, both units were off the net
+  (`comms.ts`). Every order to them was lost ("no-comms"), the crew began mending its coaxial machine gun, and the
+  commander counted two "sent on" orders it never sent (the `order` helper drops a move to a crew at a repair) and
+  then marked the squad as out. At the end the hull was "ok" with 10 seats taken. Fixed in two places. **Sim**
+  (`systems/boarding.ts` `cutOffRiders`, data `behaviour.json` `mounting.radioOutDismount` true; absent: as before):
+  the passengers of a halted hull whose radio is wrecked get out on their own, checked once a second per hull; not
+  off-map assets, nor a hull on a rear run or a tow bar; the crew stays. On foot their own radios put them back on
+  the net; the player's carriers do the same. No radio line of its own (they are off the net; the usual
+  "dismounted" follows). **Commander** (`ai/commander.ts`): a hull whose crew is off the net is never sent on or
+  ordered out (`outWhy` returns nothing until the ride is late); when its men are out it is logged with the new
+  reason `cutOff`; a crew at a field repair is not counted as sent on, its squad gets out as "stopped" at once.
+  Seed 204 after: the hull's 7 passengers out at about 90 s, reason `cutOff`, 3 crew aboard. The four carriers a
+  scenario "without a reason" in `platoon-vehicles` (the second platoon's headquarters out at about 30 s) are not
+  traced; they predate the pass and stay in STATE.
+- **A 30 mm cannon wrecks a tank's gun from the front at short range (major, confirmed; the part 1 table quoted
+  800 m only).** `nonPenRun`, crews' own fire, target halted and holding fire, 120 s, six seeds (501-506): Puma at
+  T-90M front, about 72 rounds: gun wrecked in 5 of 6 at 500 m (60 hits), 1 of 6 at 1000 m, 0 of 6 at 1500 m; BMP-2
+  at Leopard 2A7V front, 500 m, 300 s (96 hits): 4 of 6. Fire aimed at the middle of a turret lands on the gun's
+  mantlet box (most of the hits at 500 m, going by the rate of damage). The gun's chance per such strike is halved, 0.06 -> 0.03: 4 of 6,
+  0 of 6, 0 of 6 and 2 of 6 on the same seeds; the lab's own six seeds (101-106, new rows at 500 m) give 0 of 6 for
+  the Puma, so about a third of twelve runs. Sixty 30 mm sub-calibre hits on a mantlet in two minutes on a tank that
+  neither moves nor fires may well cost it its gun; whether it should is the owner's call (STATE). The data note's
+  calibration was wrong for the German round and is corrected: energy factor 1 is the 3UBR8 at 800-1000 m; the
+  PMC287 (about 150-190 kJ) has 1.6-1.8. `npm run lab -- armour` has the two 500 m rows.
+- **The Panzerfaust 3's rangefinder did not fix the review finding (major, confirmed).** The gain of part 1 (side
+  300 m 32 -> 43 %) is under two standard errors at 60 shots a cell, and HOW_IT_WORKS stated it as fact. The
+  rangefinder cannot do more: the gunner's own aiming error is the larger term. What the real sight changes besides
+  the range is that the gunner lays one computed mark instead of reading a hold-over and a lead off a reticle. New
+  optional item value `launcherSight.aimErrorFactor` (schema, `launcher.ts` `fireRound`; the draws are the same):
+  the share of `antitank.skillMrad` left through the sight; the firing unit has 0.6 (game value, low), set against
+  the only public figure, the stated effective range of 600 m with the sight against 400 m halted without (read as
+  an even chance). Paired lab, halted BMP-2, 60 shots a cell:
+
+  | Aspect | Range | No sight | Rangefinder only (part 1) | With the aim factor |
+  |---|---:|---:|---:|---:|
+  | side | 100 m | 97 % | 97 % | 98 % |
+  | side | 200 m | 65 % | 63 % | 83 % |
+  | side | 300 m | 32 % | 43 % | 60 % |
+  | side | 400 m | 28 % | 33 % | 45 % |
+  | side | 500 m | 15 % | 22 % | 33 % |
+  | side | 600 m | 12 % | 20 % | 28 % |
+  | front | 100 m | 98 % | 97 % | 98 % |
+  | front | 200 m | 67 % | 63 % | 87 % |
+  | front | 300 m | 32 % | 38 % | 57 % |
+  | front | 400 m | 23 % | 30 % | 48 % |
+  | front | 500 m | 12 % | 18 % | 33 % |
+  | front | 600 m | 13 % | 13 % | 25 % |
+
+  The reach stays 400 m (owner question). RPG-7 shots are unchanged. This makes Germany's infantry better against
+  hulls; it is in the tables below. The item's note no longer says every Bundeswehr launcher has the sight (limited
+  numbers as far as known; the 2.3 kg of the plain firing unit kept for want of a figure): "every launcher has it"
+  is a game simplification for the owner to review.
+- **Latent ordering trap in `resolveVehicleHit` (minor, confirmed by reading).** The early return for a round below
+  the heavy calibre now only applies when no part was damaged, so the status update and the crew's report can never
+  be skipped should data lower `minDiameterM` below 12.5 mm.
+- **The compact card gave no sign of the damage; a wrecked launcher still read as ready; the KETF belt was labelled
+  "HE" (minor, confirmed in the code).** `ui/card.ts`: `vehicleDamage` / `damageText` add a line "Damaged: sights
+  0 %, track 40 %" to the card's gun rows; a weapon whose part is wrecked (gun, coaxial machine gun, launcher, or
+  the sights a missile is guided through; the sim's `weaponOut`, now callable with a catalog alone) reads
+  "out of action"; a feed whose round has only the air-burst setting is the new kind `ab`, "HE air burst", as in
+  the Fire tray. Strings `card.damaged`, `card.gun.out`, `card.gun.ab`.
+- **HOW_IT_WORKS (minor, confirmed):** the air-burst paragraph quoted 640 men and 12 % / 2 %; it now gives the
+  committed lab's 384 men and 36 % / 11 % / 2 % against 6 % / 1 % / 0 %. The Panzerfaust paragraph and the
+  non-penetrating paragraph (two guns halve the time; the gun close in; the card) are rewritten.
+- **A test that moved, and a second hull on one post.** `tanks-ai.test.ts` ("no two carriers go for the same post")
+  failed on the new battle: a defending carrier that moved off for an enemy man within the stand-off took the post
+  farthest from him although its pair mate held it. `ai/tanks.ts`: that choice now skips a post another hull of the
+  section holds or goes to, as `nextPost` already did.
+
+Left as they are, with the reason:
+
+- **Air bursts over a single-storey house wound the men inside as in the open (minor, confirmed in part: the roof
+  is the building's thin lid of the wall material; not re-measured).** The roof model is older than the pass and
+  every battle with houses depends on it; pass 6 only adds more bursts over roofs (Ainet, the 8 m sweep). Known gap
+  and owner question in STATE.
+- **Partial damage has no radio line and no meaning of its own (minor, confirmed: only 0 has an effect for sights).**
+  The card's new line shows it at once; a radio line per damaging hit would need a throttle (new state). STATE.
+- **No screenshot scene or browser check for a hit that does not get through (minor, confirmed).** The card's lines
+  have a unit test (`ui/test/card.test.ts`); a scene is not cheap and is queued in STATE.
+- **The enemy carriers in the vehicles sandbox never fired on their own (minor, an observation the verifier did not
+  trace; not traced here either).** STATE.
+- **The T-90M's high explosive is all Ainet (minor, confirmed: both feeds).** A feed holds one kind of round; a mixed
+  load needs a third feed. The owner approved the round at low confidence (Q8): listed for him with the
+  alternative (half the load).
+- **The non-penetrating table has no source link; a KETF round that strikes before its fuze and the unused 30 mm
+  fragment entry are bare game values (minor, confirmed).** No page can be opened here; they stay low and listed.
+- **The mounted battle is not closer to even (minor, confirmed, and the stated goal).** See the tables.
+
+**Mounted battle after the fixes** (AI against AI, 1200 s; Germany's wins):
+
+| Build | Seeds | platoon-vehicles (DE attacks) | platoon-ru-vehicles (RU attacks; DE's wins) | Germany |
+|---|---|---|---|---|
+| origin/main | 1-12 | 9 of 12 | 6 of 12 | 15 of 24 |
+| part 2 | 1-12 | 9 of 12 | 6 of 12 | 15 of 24 |
+| verification fixes | 1-12 | 9 of 12 | 6 of 12 | 15 of 24 |
+| part 2 | 13-18 | 3 of 6 | 4 of 6 | 7 of 12 |
+| verification fixes | 13-18 | 4 of 6 | 5 of 6 | 9 of 12 |
+| origin/main (verifier) | 201-210 | 5 of 10 | 6 of 10 | 11 of 20 |
+| part 2 (verifier) | 201-210 | 8 of 10 | 4 of 10 | 12 of 20 |
+| verification fixes | 201-210 | 7 of 10 | 5 of 10 | 12 of 20 |
+
+Over the 56 battles of this build Germany wins 36 (64 %); on the 44 with an origin/main baseline, 27 against 26.
+The fixes did not move the balance either way beyond single battles. Seeds 1-18: casualties blue / red 21.1 / 27.6
+and 16.3 / 29.1; hulls lost a battle: Puma 1.83 of 8 and 2.17 of 4, BMP-2 2.83 of 3 and 2.83 of 6, T-90M 1.44 of 2,
+T-72B3M 0.67 of 2. Why it stays there is in part 2's entry: the BMP-2 platoon in defence loses nearly every hull to
+30 mm fire that goes through any face of it.
+
+**Carriers** (`npm run lab -- mounted-assault 6 --seconds 900 --modes ai`): platoon-vehicles started 48, out 46, at
+the point 28, out short hit 9, hull seen 3, immobile 2 (4 without a reason, as before), posts 18 ordered / 16 reached
+/ 1 sited again / 2 given up; platoon-ru-vehicles started 36, out 36 (before 35), at the point 19, enemy men known
+16, hit 1, posts 144 / 129 / 4 / 1.
+
+**Data and goldens.** `core/ballistics.json` (the gun's chance, the note), `core/behaviour.json`
+(`mounting.radioOutDismount`), `factions/de/items.json` (`aimErrorFactor`, the note), `core/strings.en.json`: the
+catalog fingerprint changes, all 12 goldens regenerated with `npm run golden:update`; `golden/no-interiors` untouched.
+All new values are game values, confidence low inside entries that say so.
+
+**Tests.** New: `tools/test/carrier-stall.test.ts` (+1: the passengers of a hull with a wrecked radio get out, the
+crew stays, an order to them is lost meanwhile; with the rule off they sit there), `ui/test/card.test.ts` (+1: the
+damage line, "out of action", "HE air burst"). Changed because behaviour changed: `tools/test/lab-antitank.test.ts`
+(the sight's data; the scatter falls again with the aim factor, the rangefinder-only comparison keeps its "same
+draws" check).
+
+**Checks.** typecheck, lint, lint:data clean; `npm test` 217 files, 1816 passed, 6 skipped. Labs re-run: armour (the
+part "not penetrated" with its 500 m rows), the paired Panzerfaust table above, mounted-assault. **Timing tests**
+(run alone on the 4-CPU container): 3 of 25 below their floors, three of the five that fail on origin/main here:
+spotting 7.6x and 6.7x with smoke (floor 8x), bench-vehicles 7.1x (floor 8x); bench-tanks, bench-combined and
+bench-caches passed this run. New per-tick work: one modulo test per hull (`cutOffRiders`). To be confirmed on CI.

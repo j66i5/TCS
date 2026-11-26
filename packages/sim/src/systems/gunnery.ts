@@ -150,7 +150,8 @@ export function weaponOut(ctx: SimContext, v: VehicleState, def: VehicleDef, si:
   if (!wdef || !def.components) return false;
   // A missile launcher is guided through the gunner's sight: wrecked sights, no missile (owner 2026-11-13).
   // A missile fired through a tank's gun (M7.6a): the gun wrecked, no missile either.
-  if (guidedRound(ctx.catalog, wdef)) return compCondition(v, def, "sights") <= 0 || (ctx.catalog.weapons[wdef.weapon]?.type === "tank-gun" && compCondition(v, def, "gun") <= 0);
+  // (Balance pass 6: a launcher outside the armour is a part of its own: wrecked, no missile. A hull without one: 1.)
+  if (guidedRound(ctx.catalog, wdef)) return compCondition(v, def, "sights") <= 0 || (ctx.catalog.weapons[wdef.weapon]?.type === "tank-gun" ? compCondition(v, def, "gun") <= 0 : compCondition(v, def, "launcher") <= 0);
   const cannon = ctx.catalog.weapons[wdef.weapon]?.type === "autocannon" || !wdef.coax;
   return compCondition(v, def, cannon ? "gun" : "coax") <= 0;
 }
@@ -318,6 +319,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   const st = v.stations[si]!;
   const op = stationOperator(state, v, def, si);
   let held: HoldWhy | null = null;
+  let noPierce: (typeof scored)[number] | null = null;
   for (const cnd of scored.slice(0, 4)) {
     const [mx, my, mz] = muzzleWorld(ctx, def, si, 0, me.x, me.y, me.heading, st.azimuth);
     // M7.6b: at a vehicle, the lowest of its aim points the line clears (hull, else the turret over a crest).
@@ -331,7 +333,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
       if (!(r.blockedBy === null || (1 - r.blockedAt) * hypot2(cnd.x - mx, cnd.y - my) <= LINE_ALLOWANCE_M)) continue;
     }
     const pick = natureFor(ctx, state, vid, me, v, def, si, st, cands, cnd, ap, reach, mReach, msl);
-    if (typeof pick === "string") { held ??= pick; continue; }
+    if (typeof pick === "string") { held ??= pick; if (pick === "why.hold.noPierce") noPierce ??= cnd; continue; }
     if (pick.nature !== "atgm" && op !== null) {
       const f = feedFor(ctx, def, st, si, pick.nature, v);
       const why = f ? stationHeld(ctx, state, vid, v, def, si, f.weapon, f.feed, op, cnd.x, cnd.y, pick.heightM) : null;
@@ -339,7 +341,54 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     }
     return { target: cnd.target, x: cnd.x, y: cnd.y, ...pick };
   }
+  // Balance pass 6: nothing else to fire at, and a hull its armour-piercing round cannot get through: the cannon at
+  // what is outside its armour.
+  if (noPierce !== null && op !== null) {
+    const dg = degradePick(ctx, state, vid, v, def, si, st, op, me, noPierce);
+    if (dg) return dg;
+  }
   return held;
+}
+
+/**
+ * Degrading fire (balance pass 6, gunnery.degrade): the nature and aim point for a burst at an enemy hull the
+ * armour-piercing round cannot get through: a cannon of the listed weapon types, the hull within `maxRangeM` and the
+ * weapon's reach, the first listed nature with ready rounds above the reserve and not held for own men; aimed at the
+ * turret (its highest aim point) when the line to it is clear, else at the lowest point in sight. Not under the
+ * ammunition rule 'conserve'. null: hold.
+ */
+function degradePick(
+  ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState, def: VehicleDef, si: number, st: StationState, op: EntityId,
+  me: { x: number; y: number; heading: number }, cnd: { target: EntityId; x: number; y: number },
+): { target: EntityId; x: number; y: number; heightM: number; nature: Nature; keys: string[] } | null {
+  const D = ctx.catalog.behaviour.gunnery.degrade;
+  if (!D || !D.enabled) return null;
+  // (Not with ammunition 'conserve': rounds that cannot kill are the first to be saved, as area fire is.)
+  if (v.unit !== null && state.unit.get(fireTop(state, v.unit))?.ammoRule === "conserve") return null;
+  const d = hypot2(cnd.x - me.x, cnd.y - me.y);
+  if (d > D.maxRangeM) return null;
+  const aps = aimPointsOf(ctx, state, cnd.target);
+  const [mx, my, mz] = muzzleWorld(ctx, def, si, 0, me.x, me.y, me.heading, st.azimuth);
+  let k = visibleAimIndex(ctx, state, cnd.target, mx, my, mz, vid, cnd.x, cnd.y);
+  if (k < 0) return null;
+  if (D.aimZone === "turret" && aps.length > 1 && k < aps.length - 1) {
+    const top = aps[aps.length - 1]!;
+    const tz = heightAt(ctx.map, cnd.x, cnd.y) + top[2]; // ground: ok (a hull's aim point)
+    const r = sight(ctx, mx, my, mz, cnd.x, cnd.y, tz, vid, cnd.target);
+    if (r.blockedBy === null || (1 - r.blockedAt) * hypot2(cnd.x - mx, cnd.y - my) <= LINE_ALLOWANCE_M) k = aps.length - 1;
+  }
+  const heightM = aps[k]![2];
+  const sn = def.stations[si]!;
+  for (const nature of D.natures) {
+    const f = pickFeed(ctx, def, st, si, nature, v);
+    if (!f) continue;
+    const wdef = sn.weapons[f.weapon]!, fd = wdef.feeds[f.feed]!;
+    if (!D.weaponTypes.includes(ctx.catalog.weapons[wdef.weapon]?.type ?? "") || d > wdef.engageRangeM) continue;
+    if (st.weapons[f.weapon]!.feeds[f.feed]!.rounds <= D.reserveFraction * fd.ready.count * fd.ready.charge) continue;
+    if (stationHeld(ctx, state, vid, v, def, si, f.weapon, f.feed, op, cnd.x, cnd.y, heightM) !== null) continue;
+    return { target: cnd.target, x: cnd.x, y: cnd.y, heightM, nature, keys: ["why.target.vehicle", "why.nature.degrade"] };
+  }
+  return null;
 }
 
 /** The nature to fire at a chosen target and why (`chooseTarget`), or why not at all. */

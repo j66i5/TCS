@@ -864,11 +864,33 @@
             },
             "toughnessMm": 10,
             "absorbMm": 5
+          },
+          {
+            "id": "mells-launcher",
+            "kind": "launcher",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.5,
+                1.1
+              ],
+              "r": [
+                0.9,
+                1.6
+              ],
+              "u": [
+                2.6,
+                3.2
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 2
           }
         ],
         "sources": [],
         "confidence": "low",
-        "note": "Game values: where the engine (front right), tracks, gun, ready ammunition (in the unmanned turret) and fuel lie, how much a round must have left to wreck each, what passing through costs it, and the chance that a penetrating hit on fuel or ammunition starts a fire or blows the ammunition up. M7.4b: transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke dischargers and extinguisher added (where they commonly sit; boxes and toughness are game values)."
+        "note": "Game values: where the engine (front right), tracks, gun, ready ammunition (in the unmanned turret) and fuel lie, how much a round must have left to wreck each, what passing through costs it, and the chance that a penetrating hit on fuel or ammunition starts a fire or blows the ammunition up. M7.4b: transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke dischargers and extinguisher added (where they commonly sit; boxes and toughness are game values). Balance pass 6: the MELLS launcher pod on the turret's side is a part of its own (kind launcher, external): wrecked, no missile is fired. Its box is a game value (low): it reaches into the turret box's edge because rounds are tested against the hull and turret boxes only."
       },
       "extinguisher": {
         "item": "de-puma-extinguisher",
@@ -2928,7 +2950,8 @@
               ]
             },
             "toughnessMm": 30,
-            "absorbMm": 20
+            "absorbMm": 20,
+            "external": true
           },
           {
             "id": "turret-drive",
@@ -3020,7 +3043,7 @@
         ],
         "sources": [],
         "confidence": "low",
-        "note": "Hull as the Boxer ambulance's (game values). The FLW 200 on the roof: gun cradle, drive, sensor head, ready box and smoke launchers, all outside the hull (game values; a wrecked station leaves the hull and its passengers fighting on foot)."
+        "note": "Hull as the Boxer ambulance's (game values). The FLW 200 on the roof: gun cradle, drive, sensor head, ready box and smoke launchers, all outside the hull (game values; a wrecked station leaves the hull and its passengers fighting on foot). Balance pass 6: the weapon station's gun stands outside the armour (external): bursts and cannon hits on the station may damage it."
       },
       "extinguisher": {
         "item": "de-boxer-extinguisher",
@@ -3718,7 +3741,8 @@
               ]
             },
             "toughnessMm": 30,
-            "absorbMm": 20
+            "absorbMm": 20,
+            "external": true
           },
           {
             "id": "turret-drive",
@@ -3810,7 +3834,7 @@
         ],
         "sources": [],
         "confidence": "low",
-        "note": "Hull as the Boxer ambulance's (game values). The FLW 200 on the roof: gun cradle, drive, sensor head, ready box and smoke launchers, all outside the hull (game values; a wrecked station leaves the hull and its passengers fighting on foot)."
+        "note": "Hull as the Boxer ambulance's (game values). The FLW 200 on the roof: gun cradle, drive, sensor head, ready box and smoke launchers, all outside the hull (game values; a wrecked station leaves the hull and its passengers fighting on foot). Balance pass 6: the weapon station's gun stands outside the armour (external): bursts and cannon hits on the station may damage it."
       },
       "extinguisher": {
         "item": "de-boxer-extinguisher",

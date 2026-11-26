@@ -1533,6 +1533,26 @@ hole (the owner's choice). A rocket's jet weakens as it goes; a cannon round tha
 through the far side. A hit on fuel or ammunition may start a fire, and a hit on the ammunition may blow it up at
 once. High explosive bursts on the plate: it holes only a very thin plate (a mortar bomb on a BMP-2's roof), but
 can break a track. Rifle bullets never get through either vehicle.
+**Hits that do not get through (balance pass 6).** A cannon round that the plate stops, or that glances off, is
+not always harmless: what sits outside the armour can still be broken. If such a round strikes where a sight, the
+smoke dischargers, a missile launcher, a track or a wheel is, or the gun or the coaxial machine gun at its opening
+in the turret front, there is a chance (a table in the data; game values) that this one part is damaged: a sight
+head loses half the sights (a hull has the gunner's and the commander's: the second such strike blinds it), a
+track takes two such strikes, a launcher one. The chance grows with the round's energy and is halved for a round
+that glanced off; rifle and machine-gun bullets up to 12.7 mm do nothing of the kind. Nothing burns, nobody inside
+is hurt and the crew does not treat it as a penetration; the vehicle is simply worse off: blind (its gunner
+aims three times worse, the crew sees only through its vision blocks, no guided missile), without its launcher,
+or immobilised until the crew has mended the track (the crew's field repair; sights, launcher and gun are
+workshop work). The crew reports "sights are gone" or "missile launcher out of action". Most strikes find no such
+part: in the armour lab a BMP-2 firing armour-piercing at a Puma head-on at 800 m lands about 65 hits in two
+minutes and blinds it in two runs of six. **Crews now fire at armour they cannot get through** (before, they held
+that fire): a carrier's cannon crew with no other target and no missile for it fires at such a vehicle within
+1,500 m, at the turret when it shows, high explosive first (its bursts break sights, dischargers and tracks, as
+they always did) and armour-piercing when the high explosive is down to its reserve. In the lab that blinds a
+Puma or a Leopard 2 after about 40 to 65 seconds of fire. A tank's main gun still holds its fire at a face it
+cannot get through. So a BMP-2 can degrade a Puma from the front without being able to kill it, and a Puma does
+the same to a tank.
+
 - *Puma*: its heavy front (add-on composite modules) stops 30 mm rounds and — the owner's choice — a single RPG-7
   rocket; its sides, rear and roof stop machine-gun rounds up to 14.5 mm, but not a 30 mm round or a rocket.
 - *BMP-2*: its front stops 23 mm and 12.7 mm, its sides stop rifle-calibre armour-piercing rounds but not 12.7 mm;
@@ -1573,8 +1593,11 @@ assistant carries three more and brings one over when he has none). A shot takes
 where he believes the target is, leads a moving vehicle by the rocket's flight time and sets the elevation from
 the rocket's real flight (it speeds up when its motor fires and slows in the air); his aim and his judgement of
 the range are not perfect, and wind pushes the rocket. The anti-tank lab: against a halted BMP-2 side-on, a
-Panzerfaust hits nearly always at 100 m and about half the time at 300–400 m; an RPG-7 against a Puma likewise —
-but never gets through its front. **When they fire on their own** is a standing rule of each unit (Rules panel,
+Panzerfaust hits nearly always at 100 m, about two times in three at 200 m and about a third of the time at
+300–400 m; an RPG-7 against a Puma, a taller target, about half the time at 300 m — but it never gets through
+its front. The Panzerfaust's firing unit has a sight with a laser rangefinder (balance pass 6): the gunner's range
+is right to about 1 % instead of the 5 % of a range judged by eye, which is worth about one hit more in ten at
+300–400 m; what is left is his aiming error, the same as the RPG gunner's. **When they fire on their own** is a standing rule of each unit (Rules panel,
 "Anti-tank weapons"): *vehicles only* (the default for new units, owner's choice), *vehicles and positions* (also
 at enemies in houses and at machine guns) or *only on order*; always within the unit's fire rule. You can order a
 shot at anything with the **Anti-tank** button and a tap (the best-placed man with a loaded launcher fires once).

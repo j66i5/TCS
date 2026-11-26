@@ -11,8 +11,9 @@ describe("vehicle debug overlay", () => {
     const data = loadData();
     const strings = new Strings(data);
     const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1100, y: 600, heading: Math.PI / 2 } }));
-    // Blue fires HE at the BMP-2 (it does not get through, M7.4a); red is struck and would return fire, but the Puma's
-    // front is beyond its 30 mm (balance pass 5, F1): it holds, and says why.
+    // Blue fires HE at the BMP-2 (it does not get through, M7.4a); red is struck and returns fire: the Puma's front is
+    // beyond its 30 mm (balance pass 5, F1 held that fire), so it fires at what is outside the armour and says so
+    // (balance pass 6, gunnery.degrade).
     const [bid, bv] = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "blue")!;
     const [rid] = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "red")!;
     submitOrder(sim, { tick: 0, issuer: "blue", target: bv.unit!, kind: "fire", x: 1100, y: 600, heightM: 1.2, nature: "he" });
@@ -22,9 +23,9 @@ describe("vehicle debug overlay", () => {
     expect(seen.some((e) => e.kind === "vehicle.decision" && e.vehicle === rid)).toBe(true);
     const view = dbg.view(sim.state, rid, strings);
     const text = view.lines.join("\n");
-    expect(text).toContain(strings.t("why.hold.noPierce"));
+    expect(text).toContain(strings.t("why.nature.degrade"));
     expect(text).toMatch(/turret -?\d+ deg/);
-    expect(view.targets.length).toBe(0);
+    expect(view.targets.length).toBe(1);
     // The ordered station shows its target line.
     expect(dbg.view(sim.state, bid, strings).targets.length).toBe(1);
     // The ordered station shows "target ordered".

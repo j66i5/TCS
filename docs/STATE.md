@@ -5,6 +5,18 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 6, part 1 (2026-11-25, branch `claude/balance-6`; DECISIONS "Balance pass 6 part 1").** Review
+  step 4, parts B and D. A cannon round that is stopped or glances off may now break one part where it struck
+  (sights, dischargers, launcher, track, wheel; gun and coax at their openings): data table
+  `ballistics.json armour.nonPenetrating`, no fire, no wound, repairable where the crew's field repair covers the
+  part. New part kind `launcher` (Puma MELLS pod, BMP-2 9P135M). Cannon crews now fire at armour they cannot get
+  through (`behaviour.json gunnery.degrade`, high explosive first, at the turret). The Panzerfaust 3's firing unit
+  has its sight's range error (1 % for 5 %). Measured: a BMP-2 blinds a Puma head-on at 800 m in about 40 s of its
+  own fire, without killing it; Panzerfaust hits at 300 m 32 -> 43 % (side), 400 m 28 -> 33 %, not the 60 % hoped
+  for (the aiming error, not the range, is the larger term). **Mounted battle, 12 seeds: Germany attacking 9 -> 11 of
+  12, Russia attacking 6 -> 6 of 12: not closer to even** (BMP-2s die before they fire; the Pumas use the new rule
+  on the tanks; with degrading fire off in the data it is 8 and 5 of 12, Germany 15 of 24 as before). Part 2 next: Puma KETF only, T-90M Ainet, campaign sections, carrier stall reasons and re-routes,
+  the lab fixes for air bursts, the village-edge note.
 - **Whole-game review (2026-11-24):** realism, function, fun, AI and plan, with ranked problems, next steps and owner
   questions: [docs/reviews/2026-11-24-game-review.md](reviews/2026-11-24-game-review.md).
   **Owner answers (2026-11-24):** Q1 "Fix & accept first": review steps 1-7 (friendly fire, contact drill, battle
@@ -12,7 +24,7 @@ DECISIONS.md under its date._
   before any new milestone. Q2 "M13 first" (then M14). Q3 auto-end when objectives are held with no contact for a
   few minutes, plus a "Claim victory" button. Q4 default fire rule "At will" when attacking, "Return" when
   defending (replaces the 2026-11-12 "Return" everywhere).
-- **NEXT (owner answers to balance pass 5, 2026-11-20; not built yet, branch `claude/balance-6` is empty).**
+- **NEXT (owner answers to balance pass 5, 2026-11-20; balance pass 6 part 2, not built yet).**
   Q17 village objective: "Village edge" (already built in pass 5; record in DECISIONS). Q6 Puma 30 mm: "Air-burst
   only" (KETF / PMC308 only; drop the impact HE the Puma does not carry). Q8 T-90M: "Yes, low confidence" (a separate
   3OF26 + Ainet air-burst round entry for the T-90M only; T-72B3M keeps impact HE). Q16/Q2 campaign: "Smaller forces
@@ -713,6 +725,19 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- Balance pass 6 part 1 (DECISIONS "Balance pass 6 part 1"), questions: (1) degrading fire: (a) as built, cannon
+  crews fire at a hull they cannot get through, high explosive first, within 1500 m; (b) only once that hull has
+  fired on them; (c) keep holding that fire (`gunnery.degrade.enabled` false). (2) Panzerfaust 3 reach: built (b),
+  400 m kept, because the lab gives 5-10 % hits at 500-600 m even with the sight; (a) would be 600 m. (3) Should
+  the gunner's aiming error with a launcher (`antitank.skillMrad` 2.5 mrad, both sides) be lower? It, not the range
+  estimate, keeps the Panzerfaust at about 40 % at 300 m; no source found either way.
+- Balance pass 6 part 1, low-confidence data to confirm (add-data-entry step 5): the whole table
+  `ballistics.json armour.nonPenetrating` (chances, losses, margins, the energy scale; no public per-hit figures);
+  `behaviour.json gunnery.degrade` (1500 m, high explosive first, reserve 0.3); `repair.workshopDays.launcher` 2;
+  the launcher parts' boxes on the Puma and BMP-2 and the `external` flag on the GTK Boxer's and BTR-82A's gun;
+  the Panzerfaust 3 firing unit's `launcherSight.rangeErrorFraction` 0.01 (the sight itself: medium, search
+  extracts only).
 
 - Balance pass 5, measurement: Q2 (DE as player wins 8 of 8 with RU at its one-company cap) and Q16 (RU as player
   loses 8 of 8 against DE's smallest commitment, one Puma platoon + HQ; `fightingValue` cannot move either) in

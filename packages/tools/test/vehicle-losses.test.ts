@@ -13,4 +13,13 @@ describe("kills by shooter (batch)", () => {
     t.lost(9, "ru-bmp2"); // never penetrated (burnt out)
     expect(t.killers).toEqual({ "ru-t72b3m": { "de-leopard2a7v": 1 }, "ru-bmp2": { none: 1 } });
   });
+
+  it("balance pass 6: hulls degraded by hits that did not get through: each hull once, each wrecked part once", () => {
+    const t = lossTally();
+    t.outside(3, "de-puma", []); // damaged, nothing wrecked yet
+    t.outside(3, "de-puma", [{ part: 10, kind: "sights" }]);
+    t.outside(3, "de-puma", [{ part: 10, kind: "sights" }]); // the same part again (repaired and wrecked again would count once)
+    t.outside(4, "de-puma", [{ part: 1, kind: "track" }, { part: 12, kind: "dischargers" }]);
+    expect(t.degraded).toEqual({ "de-puma": { hulls: 2, hits: 4, out: { sights: 1, track: 1, dischargers: 1 } } });
+  });
 });

@@ -40,6 +40,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.radio === true) d.radio = true;
       if (it.thermalCover !== undefined) d.thermalCover = it.thermalCover;
       if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;
+      if (it.launcherSight !== undefined) d.launcherSight = { ...it.launcherSight };
       if (it.reactive !== undefined) d.reactive = { ...it.reactive };
       if (it.mortar !== undefined) d.mortar = { ...it.mortar };
       if (it.crewServed !== undefined) d.crewServed = { ...it.crewServed };

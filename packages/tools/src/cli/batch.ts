@@ -95,7 +95,7 @@ interface Row {
    *  per lost vehicle type, who made the last penetrating hit before the loss (the shooter's vehicle type, "team" for a
    *  missile team, "foot" for a man with a launcher, "none"); reactive tiles used per side (of the hulls hit); tank gun
    *  rounds per side (a gun on a vehicle with no passenger seats; armour-piercing and high explosive). */
-  types: Record<string, Record<string, { n: number; lost: number; immob: number }>>; killers: Record<string, Record<string, number>>;
+  types: Record<string, Record<string, { n: number; lost: number; immob: number }>>; killers: Record<string, Record<string, number>>; degraded: Record<string, { hulls: number; hits: number; out: Record<string, number> }>;
   era: Record<string, number>; tankRounds: Record<string, { ap: number; he: number }>;
   /** M10.6a per side: ambulance runs (battle record `amb`). */
   amb: Record<string, SideRecord["amb"]>;
@@ -170,6 +170,11 @@ for (let i = 0; i < runs; i++) {
     for (const e of ev) {
       if (e.kind === "vehicle.hit") {
         losses.hit(e.vehicle, e.result === "penetrated" ? shooterLabel(sim, e.owner) : undefined);
+        if (e.result !== "penetrated" && e.result !== "intercepted" && e.components.length > 0) {
+          // (Balance pass 6: parts damaged from outside the armour; those at 0 after the hit are wrecked.)
+          const hv = sim.state.vehicle.get(e.vehicle), comps = hv ? input.catalog.vehicles[hv.def]?.components : undefined;
+          if (hv && comps) losses.outside(e.vehicle, hv.def, e.components.filter((k) => (hv.comp[k] ?? 1) <= 0).map((k) => ({ part: k, kind: comps[k]!.kind })));
+        }
         if (e.era !== undefined) { const sd0 = sim.state.vehicle.get(e.vehicle)?.side; if (sd0) era[sd0] = (era[sd0] ?? 0) + 1; }
       } else if (e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned") {
         losses.lost(e.vehicle, sim.state.vehicle.get(e.vehicle)?.def ?? "?"); // (abandoned, then destroyed: one loss)
@@ -273,7 +278,7 @@ for (let i = 0; i < runs; i++) {
       const mine = evacEnd.filter((e) => e.side === side);
       return { ...x.nest, needEnd: mine.length, reachedEnd: mine.filter((e) => rec.atNest[String(e.id)] !== undefined).length, wrong: Object.values(x.wrongTags).reduce((a, b) => a + b, 0), ...x.retriage };
     }),
-    types, killers, era, tankRounds,
+    types, killers, degraded: losses.degraded, era, tankRounds,
     amb: perSide((x) => x.amb),
     rear: perSide((x) => x.rear),
     repair: perSide((x) => x.repair),
@@ -383,6 +388,15 @@ const md = [
   `- Kills by shooter (M7.6b; the last penetrating hit before each loss, all runs): ${(() => {
     const vs = [...new Set(rows.flatMap((r) => Object.keys(r.killers ?? {})))].sort();
     return vs.length === 0 ? "none" : vs.map((t) => { const by: Record<string, number> = {}; for (const r of rows) for (const [w, n] of Object.entries(r.killers[t] ?? {})) by[w] = (by[w] ?? 0) + n; return `${t} by ${Object.entries(by).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([w, n]) => `${w} ${n}`).join(", ")}`; }).join("; ");
+  })()}`,
+  `- Hulls degraded by hits that did not get through (balance pass 6; a cannon round stopped or glancing off, or a high-explosive burst on the armour, that damaged a part; all runs): ${(() => {
+    const vs = [...new Set(rows.flatMap((r) => Object.keys(r.degraded ?? {})))].sort();
+    return vs.length === 0 ? "none" : vs.map((t) => {
+      let hulls = 0, hits = 0; const out: Record<string, number> = {};
+      for (const r of rows) { const d = r.degraded?.[t]; if (!d) continue; hulls += d.hulls; hits += d.hits; for (const [k, n] of Object.entries(d.out)) out[k] = (out[k] ?? 0) + n; }
+      const parts = Object.entries(out).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k, n]) => `${k} ${n}`).join(", ");
+      return `${t}: ${hulls} hulls, ${hits} such hits, parts wrecked: ${parts || "none"}`;
+    }).join("; ");
   })()}`,
   `- Reactive tiles used and tank gun rounds per battle (M7.6b): ${["blue", "red"].map((s) => `${s} tiles ${mean(rows.map((r) => r.era?.[s] ?? 0)).toFixed(1)}, tank rounds AP ${mean(rows.map((r) => r.tankRounds?.[s]?.ap ?? 0)).toFixed(1)}, HE ${mean(rows.map((r) => r.tankRounds?.[s]?.he ?? 0)).toFixed(1)}`).join("; ")}`,
   `- Protection recognised (M10.7a, by the observer's side; times a man newly told an enemy as protected): ${["blue", "red"].map((s) => {

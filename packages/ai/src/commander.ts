@@ -26,7 +26,7 @@
  */
 import { withDrones } from "./drone";
 import {
-  atan2, backblastBlocked, friendHolds, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
+  atan2, backblastBlocked, launcherReachM, friendHolds, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, standZ, supportLeft, syncTerrainDamage, eyeHeightM, TARGET_POINT_M,
   positionAt, type BattleInput, type Contact, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState, type UnitInput,
   cacheHolds, carrierHitNear, dismountDistance, dismountSpot, mountedAssaultDef, threatMenFor, siteSupportPost, supportPost, supportReachM, type VehicleState,
 } from "@tcs/sim";
@@ -297,7 +297,7 @@ function launcherReady(view: SimView, input: BattleInput, m: EntityId): { range:
     if (st.count <= 0) continue;
     const d = input.catalog.ammo[st.type]?.delivery;
     if (d?.method !== "direct" || d.launcher === undefined) continue;
-    if (c.stacks.some((x) => x.type === d.launcher && x.count > 0)) return { range: d.maxRangeM ?? 300, ammo: st.type };
+    if (c.stacks.some((x) => x.type === d.launcher && x.count > 0)) return { range: launcherReachM(input.catalog, st.type), ammo: st.type };
   }
   return null;
 }

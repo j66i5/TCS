@@ -22,6 +22,7 @@
 import { registerActionHandler, startAction } from "../actions";
 import { inArc } from "../arc";
 import { lineBlocked, type AmmoRT } from "../ballistics";
+import type { Catalog } from "../catalog";
 import type { SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
 import { roomAt } from "../interior";
@@ -45,6 +46,16 @@ import { spared } from "../protection";
 import { noteFireAt, noteShot } from "../conduct";
 
 export type AtRule = "vehicles" | "vehiclesAndPositions" | "hold";
+
+/**
+ * How far a shoulder-fired round is fired (m): the reach its launcher's fire-control sight gives (balance pass 6,
+ * item `launcherSight.maxRangeM`), else the round's own `delivery.maxRangeM` (300 without one).
+ */
+export function launcherReachM(catalog: Catalog, ammo: string): number {
+  const d = catalog.ammo[ammo]?.delivery;
+  const sight = d?.launcher !== undefined ? catalog.items[d.launcher]?.launcherSight : undefined;
+  return sight?.maxRangeM ?? d?.maxRangeM ?? 300;
+}
 /** M7.6d: an anti-personnel round's line may end on a wall this close before the man aimed at (his room's wall). */
 const AP_WALL_M = 3;
 
@@ -202,8 +213,8 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
   // whatever the anti-tank rule says (but not under "hold"), and never at a vehicle.
   const rdP = launcherRound(ctx, state, id, "antiPersonnel");
   if (!rdV && !rdP) { askForRound(ctx, state, events, id, unitId); return false; }
-  const range = rdV ? ctx.catalog.ammo[rdV.ammo]!.delivery?.maxRangeM ?? 300 : 0;
-  const rangeP = rdP ? Math.min(ctx.catalog.ammo[rdP.ammo]!.delivery?.maxRangeM ?? 300, AT.thermobaricRangeM ?? 0) : 0;
+  const range = rdV ? launcherReachM(ctx.catalog, rdV.ammo) : 0;
+  const rangeP = rdP ? Math.min(launcherReachM(ctx.catalog, rdP.ammo), AT.thermobaricRangeM ?? 0) : 0;
   const me = state.transform.req(id);
   const seen = secondsToTicks(AT.seenWithinSeconds);
   let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity, bestAmmo = "";
@@ -351,7 +362,7 @@ export function orderLauncherShot(ctx: SimContext, state: SimState, events: Even
     if (contact !== undefined) { const c = s!.contacts.find((k) => k.target === contact); if (c) { tx = c.x; ty = c.y; } }
     const t = state.transform.req(m);
     const d = hypot2(tx - t.x, ty - t.y);
-    if (d > (ctx.catalog.ammo[rd.ammo]!.delivery?.maxRangeM ?? 300) * 1.5 || d < 15) continue;
+    if (d > launcherReachM(ctx.catalog, rd.ammo) * 1.5 || d < 15) continue;
     if (backblastBlocked(ctx, state, m, rd.ammo, atan2(ty - t.y, tx - t.x)) !== null) continue;
     if (!best || d < best.d || (d === best.d && m < best.id)) best = { id: m, ammo: rd.ammo, d, x: tx, y: ty };
   }
@@ -402,7 +413,9 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
   const v0 = d.velocityMps ?? 100;
   const rng = state.rng;
   // His estimate of the range is off by a few per cent; the lead follows from the flight time.
-  const rangeErr = 1 + AT.rangeErrorFraction * nextNormal(rng, Streams.antitank);
+  // (Balance pass 6: through a launcher's fire-control sight, a laser rangefinder's error; the draw is the same.)
+  const sightErr = d.launcher !== undefined ? ctx.catalog.items[d.launcher]?.launcherSight?.rangeErrorFraction : undefined;
+  const rangeErr = 1 + (sightErr ?? AT.rangeErrorFraction) * nextNormal(rng, Streams.antitank);
   const aimH = aimHeight(ctx, state, target, known);
   let ax = tx, ay = ty, sol: { el: number; tof: number } | null = null;
   for (let it = 0; it < 2; it++) {

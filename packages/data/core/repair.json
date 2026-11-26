@@ -67,7 +67,8 @@
       "dischargers": 1,
       "extinguisher": 1,
       "ammo": 4,
-      "fuel": 3
+      "fuel": 3,
+      "launcher": 2
     },
     "sources": [
       "https://hmvf.co.uk/topic/15239-solo-track-bashing/",
@@ -76,7 +77,7 @@
       "https://www.bundeswehr.de/de/meldungen/reparieren-nacht-zurueck-gefecht-schnelle-schadensbeseitigung-5602330"
     ],
     "confidence": "low",
-    "note": "Field repair by the crew (M11.7a; research 2026-11-16 from search extracts only, no authoritative timetable found). Crews fix only light damage: a broken track with two spare links (forums: about 1.5 h for a broken track, a complete track change 1 h 20 with 5-6 men: 90 man-minutes here, two men, restored to 0.8), a holed wheel side on an 8x8 (Boxer run-flat inserts and tyre pressure control, BTR-82A drives on holed tyres: no part, 40 man-minutes, back to 0.5 = limping), the coaxial machine gun (spare barrel, 10 min, works with chance 0.6) and the radio (15 min, chance 0.5: a damaged set is often beyond the crew). Everything else (engine, transmission, gun, turret drive, stabiliser, sights, ammunition, fuel) is recovery or workshop work. Order of the tasks: mobility first (Bundeswehr 'Funken, Fahren, Feuern' adapted: a mobile hull can get out). Quiet before work: no hit for 60 s, the crew not under fire for 20 s, no enemy known within 300 m for work outside the hull (game values). Work rate per man 1 + 0.5 x (experience - 0.5), the driver (the mechanic) x1.25, at least 0.25. Workshop days at condition 0 per component kind: campaign input for the settlement of M11.7b (game values). All values low."
+    "note": "Field repair by the crew (M11.7a; research 2026-11-16 from search extracts only, no authoritative timetable found). Crews fix only light damage: a broken track with two spare links (forums: about 1.5 h for a broken track, a complete track change 1 h 20 with 5-6 men: 90 man-minutes here, two men, restored to 0.8), a holed wheel side on an 8x8 (Boxer run-flat inserts and tyre pressure control, BTR-82A drives on holed tyres: no part, 40 man-minutes, back to 0.5 = limping), the coaxial machine gun (spare barrel, 10 min, works with chance 0.6) and the radio (15 min, chance 0.5: a damaged set is often beyond the crew). Everything else (engine, transmission, gun, turret drive, stabiliser, sights, ammunition, fuel) is recovery or workshop work. Order of the tasks: mobility first (Bundeswehr 'Funken, Fahren, Feuern' adapted: a mobile hull can get out). Quiet before work: no hit for 60 s, the crew not under fire for 20 s, no enemy known within 300 m for work outside the hull (game values). Work rate per man 1 + 0.5 x (experience - 0.5), the driver (the mechanic) x1.25, at least 0.25. Workshop days at condition 0 per component kind: campaign input for the settlement of M11.7b (game values). All values low. Balance pass 6: a missile launcher outside the armour (component kind launcher) is workshop work, 2 days (game value, low)."
   },
   "recovery": {
     "delayMinS": 600,

@@ -194,9 +194,10 @@ function seatedZone(state: SimState): number {
 }
 
 /** What a hit did, for the event and the outcome. */
-interface Damage { components: number[]; fire: boolean; cookOff: boolean; pen: boolean; fireAmmo: boolean }
+interface Damage { components: number[]; fire: boolean; cookOff: boolean; pen: boolean; fireAmmo: boolean; sightsOut?: boolean; launcherOut?: boolean }
 
-function damageComponent(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, k: number, loss: number, ce: boolean, dmg: Damage): void {
+/** `outside` (balance pass 6): a blow from outside the armour: no fire and no explosion, and no draw for them. */
+function damageComponent(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, k: number, loss: number, ce: boolean, dmg: Damage, outside = false): void {
   const c: VehicleComponent = ctx.catalog.vehicles[v.def]!.components![k]!;
   const before = v.comp[k] ?? 1;
   const after = Math.max(0, before - loss);
@@ -204,6 +205,8 @@ function damageComponent(ctx: SimContext, state: SimState, events: EventSink, vi
   v.comp[k] = after;
   if (!dmg.components.includes(k)) dmg.components.push(k);
   events.emit({ kind: "vehicle.component", tick: state.tick, vehicle: vid, component: k, condition: after });
+  if (after <= 0) { if (c.kind === "sights") dmg.sightsOut = true; else if (c.kind === "launcher") dmg.launcherOut = true; }
+  if (outside) return;
   // A penetrating hit on fuel or ammunition may start a fire; on ammunition it may blow it up at once.
   if (c.cookOffChance !== undefined && nextFloat(state.rng, Streams.armour) < c.cookOffChance * (ce ? 1.2 : 1)) dmg.cookOff = true;
   else if (c.fireChance !== undefined && nextFloat(state.rng, Streams.armour) < c.fireChance * (ce ? 1.5 : 1)) { dmg.fire = true; if (c.kind === "ammo") dmg.fireAmmo = true; }
@@ -270,6 +273,50 @@ function interior(
     }
   }
   return { residual: res, L };
+}
+
+/**
+ * Balance pass 6 (review problem 4: 'a kinetic round that does not penetrate does nothing'): a cannon round that was
+ * stopped or glanced off may still break what sits outside the armour, or in an opening of it, where it struck
+ * (core/ballistics.json `armour.nonPenetrating`): sights, smoke dischargers, a missile launcher, a track, a wheel;
+ * the coaxial machine gun or the gun at the mantlet. One part at most: the nearest (by its box's middle, ties by
+ * index) of those whose box, grown by `marginM`, holds the strike point; an external part of the part struck may
+ * also sit up to `depthM` behind the face (running gear and sights stand back from the box's faces). One draw on the
+ * armour stream, only when a part was struck: chance x face x energy (x `ricochetFactor` off a glancing hit). No
+ * fire, no explosion, nobody hurt, no penetration recorded: the status follows from the parts as always
+ * (immobilised, disarmed), and the crew's field repair (M11.7a) mends what it can mend. Rifle-calibre rounds (below
+ * `minDiameterM`) never come here. Absent data: nothing, and no draw.
+ */
+function outsideDamage(
+  ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef,
+  x: number, y: number, z: number, part: number, face: number, energyJ: number, diameterM: number, glanced: boolean, dmg: Damage,
+): void {
+  const N = ctx.catalog.ballistics.armour.nonPenetrating;
+  const comps = def.components;
+  if (!N || !comps || diameterM < N.minDiameterM) return;
+  const g = N.marginM, deep = N.depthM;
+  let best = -1, bestD = Infinity;
+  for (let k = 0; k < comps.length; k++) {
+    const c = comps[k]!, rule = N.parts[c.kind];
+    if (!rule || (v.comp[k] ?? 1) <= 0) continue;
+    const ext = c.external === true;
+    if (!ext && rule.internal !== true) continue;
+    const b = c.box, f2 = c.part === "turret" ? TURRET : HULL;
+    const rx = x - f2.ox, ry = y - f2.oy, pf = rx * f2.c + ry * f2.s, pr = -rx * f2.s + ry * f2.c, pu = z - f2.gz;
+    // Behind the face struck (the same part's frame only): an external part may stand back from it.
+    const same = ext && (c.part === "turret") === (part === 1);
+    const gf = same && (face === 0 || face === 2) ? deep : g, gr = same && face === 1 ? deep : g, gu = same && face === 3 ? deep : g;
+    if (pf < b.f[0] - gf || pf > b.f[1] + gf || pr < b.r[0] - gr || pr > b.r[1] + gr || pu < b.u[0] - gu || pu > b.u[1] + gu) continue;
+    const df = pf - (b.f[0] + b.f[1]) / 2, dr = pr - (b.r[0] + b.r[1]) / 2, du = pu - (b.u[0] + b.u[1]) / 2;
+    const d2 = df * df + dr * dr + du * du;
+    if (d2 < bestD) { bestD = d2; best = k; }
+  }
+  if (best < 0) return;
+  const rule = N.parts[comps[best]!.kind]!;
+  const ef = Math.min(N.maxEnergyFactor, pow(energyJ / N.energyRefJ, N.energyExponent));
+  const chance = rule.chance * (rule.face?.[FACE_NAMES[face]!] ?? 1) * ef * (glanced ? N.ricochetFactor : 1);
+  if (nextFloat(state.rng, Streams.armour) >= chance) return;
+  damageComponent(ctx, state, events, vid, v, best, rule.loss * Math.min(1, ef), false, dmg, true);
 }
 
 /** Default fragment cones when the ammunition gives none (game values). */
@@ -419,6 +466,8 @@ export function resolveVehicleHit(
         }
       }
     }
+    // Balance pass 6: stopped or glanced off, a cannon round may still break what is outside the armour there.
+    if (result !== "penetrated") outsideDamage(ctx, state, events, vid, v, def, x, y, z, part, face, 0.5 * am.massKg * speed * speed, adef.diameterM, result === "ricochet", dmg);
     if (result !== "penetrated" && !am.heavy) {
       // A small-arms round that did not get in: the aggregated per-vehicle event, as for rounds stopped in the loop.
       addStoppedHit(state, G, row, owner, ammoIdx, x, y, z, face * 2 + part);
@@ -454,6 +503,11 @@ function afterDamage(ctx: SimContext, state: SimState, events: EventSink, vid: E
   }
   updateStatus(ctx, state, events, vid, v, def);
   if (v.status === "abandoned") return;
+  // (Balance pass 6: the crew reports its sights or its missile launcher out, from whatever cause.)
+  if (v.unit !== null) {
+    if (dmg.sightsOut) radioFromTarget(state, v.unit, "radio.vehicleSightsOut", events);
+    if (dmg.launcherOut) radioFromTarget(state, v.unit, "radio.vehicleLauncherOut", events);
+  }
   const why: string[] = [];
   if (v.fire !== null && v.fire.nextExtTick < 0) why.push("reaction.burning");
   if (wasImmobilised && dmg.pen) why.push("reaction.immobilisedPenetrated");

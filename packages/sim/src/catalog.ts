@@ -72,6 +72,8 @@ export interface ItemTypeDef {
   thermalCover?: number;
   /** M8.2a: a laser rangefinder its carrier locates targets for indirect fire with. */
   rangefinder?: boolean;
+  /** Balance pass 6: a shoulder-fired launcher's fire-control sight: its range error and the reach it gives. */
+  launcherSight?: { rangeErrorFraction: number; maxRangeM?: number };
   /** M7.6a: an explosive reactive armour tile: mild-steel mm added to the need against a long rod, a single shaped
    *  charge and a tandem charge's main jet; the least kinetic penetration (mm) of a heavy round that sets it off. */
   reactive?: ReactiveDef;
@@ -271,7 +273,9 @@ export interface BallisticsDef {
   fightingPosition?: { halfWidthM: number; depthM: number; exposedM: { standing: number; crouching: number; prone: number }; spacingM: number };
   bounce: { restitution: number; tangentKeep: number; softFactor: number; vegetationFactor: number; softBelowDensityKgM3: number; stopSpeedMps: number };
   /** Rounds against vehicle armour (M7.4a). */
-  armour: { losFloorCos: number; grazeFuseCos: number; jetDecayMmPerM: number; spallComponentDamage: number; seatHalfM: number; seatHeightM: number };
+  armour: { losFloorCos: number; grazeFuseCos: number; jetDecayMmPerM: number; spallComponentDamage: number; seatHalfM: number; seatHeightM: number;
+    /** Balance pass 6: what a kinetic hit that does not get through may break (see the data schema). Absent: nothing. */
+    nonPenetrating?: NonPenetratingDef };
 }
 
 export interface AmmoDef {
@@ -657,6 +661,8 @@ export interface BehaviourDef {
     /** Balance pass 5: area fire at places men were last known (see the schema). Absent: none. */
     areaFire?: { maxAgeSeconds: number; halfLifeSeconds: number; firingWeight: number; minWeight: number; minRadiusM: number; maxRadiusM: number;
       everySeconds: number; minEverySeconds: number; mainGunEverySeconds: number; mainGunMinWeight: number; reserveFraction: number };
+    /** Balance pass 6: fire at a hull the armour-piercing round cannot get through (see the schema). Absent: held. */
+    degrade?: { enabled: boolean; weaponTypes: string[]; maxRangeM: number; natures: ("he" | "ap")[]; aimZone: "turret" | "hull"; reserveFraction: number };
   };
   /**
    * Shoulder-fired anti-tank weapons (M7.4a, owner Q19/Q20). atRuleDefault: a unit's standing rule unless set;
@@ -1376,7 +1382,12 @@ export interface ReactiveDef { addKineticMm: number; addShapedMm: number; addTan
  *  (M7.6a, reactive: chance `coverage * left / fitted`, the item's `reactive` mm added). `fitted`: the stowed count. */
 export interface VehicleTile { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; item: DefId; factor?: number; coverage?: number; fitted: number }
 /** What a vehicle part is (M7.4a/b); the effect of its damage is in systems/armour.ts. */
-export type ComponentKind = "engine" | "transmission" | "track" | "wheels" | "turret-drive" | "stabiliser" | "gun" | "coax" | "sights" | "radio" | "dischargers" | "extinguisher" | "ammo" | "fuel";
+export type ComponentKind = "engine" | "transmission" | "track" | "wheels" | "turret-drive" | "stabiliser" | "gun" | "coax" | "sights" | "radio" | "dischargers" | "extinguisher" | "ammo" | "fuel" | "launcher";
+/** Balance pass 6: damage from kinetic hits that are stopped or glance off (core/ballistics.json armour.nonPenetrating). */
+export interface NonPenetratingDef {
+  minDiameterM: number; marginM: number; depthM: number; energyRefJ: number; energyExponent: number; maxEnergyFactor: number; ricochetFactor: number;
+  parts: Partial<Record<ComponentKind, { chance: number; loss: number; internal?: boolean; face?: Partial<Record<"front" | "side" | "rear" | "top", number>> }>>;
+}
 export interface VehicleComponent {
   id: string; kind: ComponentKind; part: "hull" | "turret";
   box: { f: [number, number]; r: [number, number]; u: [number, number] };

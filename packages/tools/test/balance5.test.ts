@@ -1,6 +1,7 @@
 /**
  * Balance pass 5 (Germany against Russia in the mounted battle): the crews' fixes, both sides by the same code.
- *   F1  no armour-piercing at a face it cannot get through; the missile chosen on the move, the hull halting for it.
+ *   F1  no armour-piercing at a face it cannot get through (balance pass 6: high explosive at what is outside the
+ *       armour instead of holding, `gunnery.degrade`); the missile chosen on the move, the hull halting for it.
  *   F2  a top-attack missile judged against the roof (a Puma takes its Spike to a T-90M's front).
  *   F3  a hull counts as firing between two looks for vehicles, and while its gunner guides a missile.
  *   F4  a hit on a carrier calls out the squads in it and in carriers near it, not the whole side.
@@ -57,18 +58,34 @@ function noMissiles(sim: Sim, vid: number): void {
 }
 
 describe("balance pass 5: crews' gunnery", () => {
-  it("F1: a BMP-2 with no missile left holds its fire at a Puma's front instead of firing armour-piercing", () => {
+  it("F1: a BMP-2 with no missile left fires no armour-piercing at a Puma's front; it holds (pass 5), or with degrading fire (pass 6) puts high explosive on its turret", () => {
+    // Balance pass 5 (gunnery.degrade off in the data): the hold.
+    const off = hulls("puma-besatzung", "bmp2-ekipazh", 600);
+    const G = off.catalog.behaviour.gunnery;
+    off.catalog = { ...off.catalog, behaviour: { ...off.catalog.behaviour, gunnery: { ...G, degrade: { ...G.degrade!, enabled: false } } } };
+    for (const [input, degrade] of [[off, false], [hulls("puma-besatzung", "bmp2-ekipazh", 600), true]] as const) {
+      const sim = createSim(input);
+      const bmp = vehicleOf(sim, "red");
+      noMissiles(sim, bmp);
+      rules(sim, "blue", "hold"); rules(sim, "red", "free");
+      let ap = 0, he = 0, noPierce = 0, degrading = 0;
+      run(sim, 30, (e) => {
+        if (e.kind === "shot.fired" && e.vehicle === bmp) { if (sim.ctx.catalog.ammo[e.ammo]?.explosive) he++; else ap++; }
+        if (e.kind === "vehicle.decision" && e.vehicle === bmp) { if (e.keys.includes("why.hold.noPierce")) noPierce++; if (e.keys.includes("why.nature.degrade")) degrading++; }
+      });
+      expect(ap).toBe(0);
+      if (degrade) { expect(he).toBeGreaterThan(0); expect(degrading).toBeGreaterThan(0); expect(noPierce).toBe(0); }
+      else { expect(he).toBe(0); expect(noPierce).toBeGreaterThan(0); }
+    }
+    // Told to conserve ammunition, the crew holds that fire too.
     const sim = createSim(hulls("puma-besatzung", "bmp2-ekipazh", 600));
     const bmp = vehicleOf(sim, "red");
     noMissiles(sim, bmp);
-    rules(sim, "blue", "hold"); rules(sim, "red", "free");
-    let shots = 0, noPierce = 0;
-    run(sim, 30, (e) => {
-      if (e.kind === "shot.fired" && e.vehicle === bmp) shots++;
-      if (e.kind === "vehicle.decision" && e.vehicle === bmp && e.keys.includes("why.hold.noPierce")) noPierce++;
-    });
+    rules(sim, "blue", "hold");
+    submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: sim.state.vehicle.req(bmp).unit!, kind: "rules", fire: "free", ammo: "conserve" } as never);
+    let shots = 0;
+    run(sim, 30, (e) => { if (e.kind === "shot.fired" && e.vehicle === bmp) shots++; });
     expect(shots).toBe(0);
-    expect(noPierce).toBeGreaterThan(0);
   });
 
   it("F1: a BMP-2 reversing slowly halts for its Konkurs at a Puma head-on at 600 m and launches it", () => {
@@ -78,17 +95,19 @@ describe("balance pass 5: crews' gunnery", () => {
     const v = sim.state.vehicle.req(bmp);
     const t = sim.state.transform.req(bmp);
     submitOrder(sim, { tick: 0, issuer: "red", target: v.unit!, kind: "move", waypoints: [{ x: t.x + 300, y: t.y, mode: "walk", reverse: true }] } as never);
-    let launch = -1, cannon = 0, held = false;
+    let launch = -1, cannonFirst = 0, held = false;
     run(sim, 40, (e) => {
       if (e.kind === "shot.fired" && e.vehicle === bmp) {
         if (sim.ctx.catalog.ammo[e.ammo]?.guided) { if (launch < 0) launch = e.tick; }
-        else cannon++;
+        // (Balance pass 6: once the missile is gone and the next is being put on, the cannon may fire at what is
+        // outside the Puma's armour; before the launch the missile is the choice.)
+        else if (launch < 0) cannonFirst++;
       }
       if (sim.state.vehicle.req(bmp).drive.fireHoldUntilTick !== undefined) held = true;
     });
     expect(launch).toBeGreaterThan(0);
     expect(held).toBe(true);
-    expect(cannon).toBe(0);
+    expect(cannonFirst).toBe(0);
   });
 
   it("F2: a Puma takes its top-attack Spike, not the cannon, to a T-90M head-on at 700 m", () => {

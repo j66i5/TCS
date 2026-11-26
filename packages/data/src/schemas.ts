@@ -93,6 +93,8 @@ export const BodyFile = z.object({
 export type BodyT = z.infer<typeof BodyFile>;
 
 // ---------- ballistics (core/ballistics.json) and weapons / ammunition (faction packs) ----------
+/** Vehicle component kinds (M7.4a; "launcher": an external missile launcher, balance pass 6). */
+export const COMPONENT_KINDS = ["engine", "transmission", "track", "wheels", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel", "launcher"] as const;
 export const BallisticsFile = withProv({
   gravityMps2: Num(1, 30), airDensityKgM3: Num(0.1, 2), referenceTempC: Num(-60, 60),
   /** Penetration capacity scales with (speed / reference speed) to this power. */
@@ -124,6 +126,22 @@ export const BallisticsFile = withProv({
     losFloorCos: Num(0.01, 1), grazeFuseCos: Num(0, 1), jetDecayMmPerM: Num(0, 5000), spallComponentDamage: Num(0, 1),
     /** Seated men inside (M7.4a): a box this wide and deep round each seat's position, from the floor to its head. */
     seatHalfM: Num(0.05, 2), seatHeightM: Num(0.1, 3),
+    /** Balance pass 6: damage from kinetic hits that do not get through (stopped or glancing off). A round at least
+     *  `minDiameterM` wide that strikes within `marginM` of a part of a kind listed in `parts` (an external part, or
+     *  one flagged `internal`: its opening in the armour, as a gun's mantlet; an external part of the part struck may
+     *  stand up to `depthM` behind the face struck) may damage it: chance = `chance` x the
+     *  face's factor (`face`, default 1) x the energy factor, x `ricochetFactor` when it glanced off; energy factor =
+     *  min(`maxEnergyFactor`, (kinetic energy / `energyRefJ`) ^ `energyExponent`). The part loses `loss` x
+     *  min(1, energy factor) of its condition. No fire, no explosion, nobody hurt inside. Absent: such hits do
+     *  nothing (as before). */
+    nonPenetrating: withProv({
+      minDiameterM: Num(0.005, 0.2), marginM: Num(0, 1), depthM: Num(0, 2),
+      energyRefJ: Num(1, 1e8), energyExponent: Num(0, 2), maxEnergyFactor: Num(0.1, 10), ricochetFactor: Num(0, 1),
+      parts: z.partialRecord(z.enum(COMPONENT_KINDS), z.object({
+        chance: Num(0, 1), loss: Num(0, 1), internal: z.boolean().optional(),
+        face: z.partialRecord(z.enum(["front", "side", "rear", "top"]), Num(0, 5)).optional(),
+      }).strict()),
+    }).optional(),
   }).strict(),
   /** Fragments are simulated only inside this band of elevation (degrees): the rest go into the ground or sky. */
   fragments: z.object({ bandDeg: z.tuple([Num(-90, 0), Num(0, 90)]), maxPerBurst: z.number().int().min(1).max(20000),
@@ -584,6 +602,17 @@ export const BehaviourFile = withProv({
       minRadiusM: Num(0, 100), maxRadiusM: Num(1, 200), everySeconds: Num(1, 300), minEverySeconds: Num(0.5, 300),
       mainGunEverySeconds: Num(1, 600), mainGunMinWeight: Num(0, 50), reserveFraction: Num(0, 1),
     }).strict().optional(),
+    /** Degrading fire (balance pass 6): a crew whose armour-piercing round cannot get through the face an enemy
+     *  vehicle shows, with no other target and no missile for it, fires its cannon at it all the same, to break
+     *  what is outside the armour (sights, dischargers, launcher, tracks; ballistics.json `armour.nonPenetrating`):
+     *  only weapons of `weaponTypes`, within `maxRangeM`, the first of `natures` it has ready rounds for above
+     *  `reserveFraction` of the feed's capacity, aimed at `aimZone` (the turret: its highest aim point, when in
+     *  sight; else what shows); never under the ammunition rule 'conserve'. Absent or not `enabled`: it holds that
+     *  fire ("why.hold.noPierce"). */
+    degrade: z.object({
+      enabled: z.boolean(), weaponTypes: z.array(z.string()).min(1), maxRangeM: Num(1, 10000),
+      natures: z.array(z.enum(["he", "ap"])).min(1), aimZone: z.enum(["turret", "hull"]), reserveFraction: Num(0, 1),
+    }).strict().optional(),
   }).strict(),
   /** Shoulder-fired anti-tank weapons (M7.4a). See BehaviourDef.antitank. */
   antitank: z.object({
@@ -1025,6 +1054,11 @@ export const ItemSchema = withProv({
   radio: z.literal(true).optional(),
   /** M8.2a: a laser rangefinder (binocular): its carrier locates a target for indirect fire with it. */
   rangefinder: z.boolean().optional(),
+  /** Balance pass 6: a shoulder-fired launcher's fire-control sight (laser rangefinder and ballistic computer): the
+   *  range error (fraction, one standard deviation) of a round fired through it, in place of
+   *  behaviour.antitank.rangeErrorFraction, and the reach it gives the launcher's rounds (m), in place of each
+   *  round's delivery.maxRangeM. Not `rangefinder` (that makes its carrier an observer for indirect fire). */
+  launcherSight: z.object({ rangeErrorFraction: Num(0, 0.5), maxRangeM: Num(1, 2000).optional() }).strict().optional(),
   /** M8.3a: a crew-served mortar (the tube; its carrier is the gunner): its HE and smoke rounds (counted round items
    *  in the crew's loads), minimum and maximum range (m), seconds to set up and to pack, seconds per round at the
    *  sustained rate with a full crew, crew (and the fewest who can still fire), the first round's aim error (m per
@@ -1152,7 +1186,6 @@ export const VehicleWeaponSchema = z.object({
   guideSensors: z.array(Id).min(1).max(8).optional(),
 }).strict();
 /** Component kinds a vehicle's parts may be (M7.4a/b); what each does when damaged is in systems/armour.ts. */
-export const COMPONENT_KINDS = ["engine", "transmission", "track", "wheels", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel"] as const;
 export const VehicleSchema = withProv({
   id: Id, nameKey: z.string(), class: z.enum(["tracked", "wheeled"]),
   body: withProv({

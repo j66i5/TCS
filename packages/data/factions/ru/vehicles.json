@@ -881,13 +881,35 @@
             },
             "toughnessMm": 10,
             "absorbMm": 5
+          },
+          {
+            "id": "atgm-launcher",
+            "kind": "launcher",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.5,
+                0.65
+              ],
+              "r": [
+                -0.3,
+                0.3
+              ],
+              "u": [
+                2.35,
+                2.8
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 2
           }
         ],
         "sources": [
           "https://en.wikipedia.org/wiki/BMP-2"
         ],
         "confidence": "low",
-        "note": "Game values. The fuel tanks in the hollow rear doors and between the troop seats, and the ready ammunition in the turret basket, are as commonly described (search extracts); boxes, toughness and chances are game values. M7.4b: transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke dischargers and extinguisher added (where they commonly sit; boxes and toughness are game values)."
+        "note": "Game values. The fuel tanks in the hollow rear doors and between the troop seats, and the ready ammunition in the turret basket, are as commonly described (search extracts); boxes, toughness and chances are game values. M7.4b: transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke dischargers and extinguisher added (where they commonly sit; boxes and toughness are game values). Balance pass 6: the 9P135M launcher on the turret roof is a part of its own (kind launcher, external): wrecked, no missile is fired. Its box is a game value (low): it reaches down to the turret's upper edge because rounds are tested against the hull and turret boxes only."
       },
       "extinguisher": {
         "item": "ru-bmp2-extinguisher",
@@ -3954,7 +3976,8 @@
               ]
             },
             "toughnessMm": 40,
-            "absorbMm": 30
+            "absorbMm": 30,
+            "external": true
           },
           {
             "id": "coax",
@@ -4091,7 +4114,7 @@
           "https://en.wikipedia.org/wiki/BTR-80"
         ],
         "confidence": "low",
-        "note": "Hull parts as the BMM's (BTR-80: engine at the rear, crew at the front); the turret's gun, coax, drive, stabiliser, sights and smoke launchers, and the ready 30 mm belts under the turret (game values, low; 'wheels': each side's running gear)."
+        "note": "Hull parts as the BMM's (BTR-80: engine at the rear, crew at the front); the turret's gun, coax, drive, stabiliser, sights and smoke launchers, and the ready 30 mm belts under the turret (game values, low; 'wheels': each side's running gear). Balance pass 6: the 2A72 is mounted outside the combat module's armour (external): bursts and cannon hits on the module may damage it."
       },
       "extinguisher": {
         "item": "ru-bmm-extinguisher",

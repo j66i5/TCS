@@ -234,9 +234,12 @@ export const AmmoSchema = withProv({
    *  its eye's), timed at the muzzle; it still bursts on anything it strikes first. With `cone` the burst ejects a
    *  payload forward (KETF: `count` sub-projectiles of `fragmentAmmo` in a cone of `halfAngleDeg` round the flight
    *  path, at `velocityFraction` of the round's speed, by an ejection charge of `fillingKg`); without, the round's own
-   *  filling and fragments burst in the air (fragments all round). */
+   *  filling and fragments burst in the air (fragments all round). `only` (balance pass 6, owner Q6): the round has
+   *  no impact setting a crew could choose (KETF): it is always fired with the fuze programmed, an order for the
+   *  impact setting is refused, and its `explosive` block is only what happens when it strikes something before the
+   *  fuze runs out. */
   airburst: z.object({
-    aimHeightM: Num(0, 50), standoffM: Num(0, 200),
+    aimHeightM: Num(0, 50), standoffM: Num(0, 200), only: z.boolean().optional(),
     cone: z.object({ halfAngleDeg: Num(0.5, 60), count: z.number().int().min(1).max(5000), fragmentAmmo: Id,
       velocityFraction: z.tuple([Num(0, 1.5), Num(0, 1.5)]), fillingKg: Num(0, 10) }).strict().optional(),
   }).strict().optional(),
@@ -601,6 +604,9 @@ export const BehaviourFile = withProv({
       maxAgeSeconds: Num(1, 600), halfLifeSeconds: Num(1, 600), firingWeight: Num(1, 10), minWeight: Num(0, 10),
       minRadiusM: Num(0, 100), maxRadiusM: Num(1, 200), everySeconds: Num(1, 300), minEverySeconds: Num(0.5, 300),
       mainGunEverySeconds: Num(1, 600), mainGunMinWeight: Num(0, 50), reserveFraction: Num(0, 1),
+      /** Balance pass 6: an ordered high-explosive fire at a point with no enemy named is swept over a circle of
+       *  this radius round it (m; each burst at a random point of it). Absent or 0: every burst at the point. */
+      orderedRadiusM: Num(0, 100).optional(),
     }).strict().optional(),
     /** Degrading fire (balance pass 6): a crew whose armour-piercing round cannot get through the face an enemy
      *  vehicle shows, with no other target and no missile for it, fires its cannon at it all the same, to break
@@ -1660,6 +1666,14 @@ export const CampaignFile = z.object({
       /** M12.4: the enemy's caps (platoons and each support kind) scale with the fighting values (player / enemy),
        *  at most by this factor (a stronger player meets more than a company); below 1 they shrink with it. */
       enemyCapScale: Num(1, 3).optional(),
+      /** Balance pass 6 (owner 2026-11-20: "Smaller forces vs strong side"): half platoons may be committed (the
+       *  player's choice lists them; the enemy commits one when the men it wants are fewer than `sectionBelow` of its
+       *  fittest platoon), and a side whose men are worth more than the enemy's is proposed fewer platoons (the cap
+       *  divided by its fighting value over the enemy's). Absent: whole platoons only, as before. */
+      sections: z.boolean().optional(), sectionBelow: Num(0, 1).optional(),
+      /** With `sections`: a side whose fighting value is at least this many times the enemy's is proposed half a
+       *  platoon (the half with the platoon's headquarters) instead of platoons. Absent: never. */
+      proposeSectionAtRatio: Num(1, 20).optional(),
     }).strict(),
     /** M12.1a: the clock between battles: hours from one battle's end to the next battle of an operation, days between
      *  operations (the replenishment); battles of an operation (the chain's), endless mode's replenishment rhythm. */

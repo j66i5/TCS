@@ -89,24 +89,33 @@ describe("area fire", () => {
     const rows = areaFireLab(data, { seeds: 1, ranges: [800], seconds: 30, parts: ["fuse"] });
     console.log(areaFireLabMarkdown(rows));
     const puma = rows.filter((r) => r.vehicle === "de-puma");
-    expect(puma.length).toBe(2);
-    expect(puma.every((r) => r.rounds > 10)).toBe(true);
+    // Balance pass 6 (owner Q6): the Puma's belt is KETF only: no impact row; air burst swept and at one point.
+    expect(puma.length).toBe(3);
+    expect(puma[0]!.extra).toBe("no impact setting (air burst only)");
+    expect(puma.slice(1).every((r) => r.rounds > 10)).toBe(true);
+    // The sweep reaches more of the six men than every round at the one point (a 10-degree cone 15 m short).
+    expect(puma[1]!.hit).toBeGreaterThan(puma[2]!.hit);
+    expect(puma[2]!.hit).toBeLessThanOrEqual(2);
     // the BMP-2's 3UOF8 has no air-burst setting (impact only)
     expect(rows.find((r) => r.vehicle === "ru-bmp2" && r.case.startsWith("air burst"))?.extra).toBe("no air-burst setting");
   });
 
-  it("review fix MH5: an air burst holds for an own man in the pellet cone 100 m past the point; the impact setting does not", () => {
+  it("review fix MH5: an air burst holds for an own man in the pellet cone 100 m past the point; pass 6: the impact setting is refused", () => {
     const reach = coneReachM(createSim(areaFireLayout(data, "de", "puma-besatzung", "ru", 400, 1, false, 30)).ctx, "de-30x173-he", 1100);
     expect(reach).toBeGreaterThan(100);
     expect(reach).toBeLessThan(600);
-    const shots = (fuse: "airburst" | "impact"): number => {
-      const s = setup(areaFireLayout(data, "de", "puma-besatzung", "ru", 400, 1, false, 30, { x: 600, y: 304 }), "hold");
+    let refused = false;
+    const shots = (fuse: "airburst" | "impact", own: boolean): number => {
+      const s = setup(areaFireLayout(data, "de", "puma-besatzung", "ru", 400, 1, false, 30, own ? { x: 600, y: 304 } : undefined), "hold");
       submitOrder(s.sim, { tick: 0, issuer: "blue", target: s.crew, kind: "fire", x: 500, y: 300, nature: "he", fuse });
       let n = 0;
-      for (let k = 0; k < 20 * 60; k++) for (const e of step(s.sim)) if (e.kind === "shot.fired" && e.vehicle === s.vid) n++;
+      for (let k = 0; k < 20 * 60; k++) for (const e of step(s.sim)) { if (e.kind === "shot.fired" && e.vehicle === s.vid) n++; if (e.kind === "radio" && e.key === "radio.noImpactFuse") refused = true; }
       return n;
     };
-    expect(shots("airburst")).toBe(0);
-    expect(shots("impact")).toBeGreaterThan(0);
+    expect(shots("airburst", true)).toBe(0);
+    expect(shots("airburst", false)).toBeGreaterThan(0);
+    // Balance pass 6 (owner Q6): the belt is KETF only: the impact setting is refused, and said so.
+    expect(shots("impact", false)).toBe(0);
+    expect(refused).toBe(true);
   });
 });

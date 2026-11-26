@@ -106,6 +106,8 @@ export function applyResult(data: DataSet, record0: CampaignRecord, battle: Camp
     // Who led each committed unit going in.
     const leaderIn = new Map<string, string>();
     for (const u of inUnits) for (const x of unitsOf(u)) { const l = x.leaderIndex >= 0 ? x.members[x.leaderIndex] : undefined; if (l) leaderIn.set(x.key, l.personId); }
+    const wentIn = new Map<string, Set<string>>();
+    for (const u of inUnits) for (const x of unitsOf(u)) wentIn.set(x.key, new Set(x.members.map((m) => m.personId)));
     // Men back into the battalion, by unit key.
     const merge = (o: UnitInput) => {
       const t = findUnit(f.battalion, o.key);
@@ -122,8 +124,18 @@ export function applyResult(data: DataSet, record0: CampaignRecord, battle: Camp
         else if (r.status === "missing") { f.pools.missing.push(p); addMan(catalog, writtenOff, r); men[side].missing++; }
         else { f.pools.heldByEnemy.push(p); captives[side].push(p); addMan(catalog, writtenOff, r); men[side].captured++; }
       }
-      t.members = stay;
-      t.leaderIndex = was !== undefined ? stay.findIndex((m) => m.personId === was) : t.leaderIndex >= 0 && t.leaderIndex < stay.length ? t.leaderIndex : -1;
+      // Balance pass 6 (half platoons): men of the unit who did not go into the battle stay where they are (a
+      // platoon's second half goes without its headquarters). Everyone went (every battle before pass 6): as before.
+      const went = wentIn.get(o.key);
+      const home = t.members.filter((m) => went === undefined || !went.has(m.personId));
+      if (home.length === 0) {
+        t.members = stay;
+        t.leaderIndex = was !== undefined ? stay.findIndex((m) => m.personId === was) : t.leaderIndex >= 0 && t.leaderIndex < stay.length ? t.leaderIndex : -1;
+      } else {
+        const leader = was ?? (t.leaderIndex >= 0 ? t.members[t.leaderIndex]?.personId : undefined);
+        t.members = [...home, ...stay];
+        t.leaderIndex = leader !== undefined ? t.members.findIndex((m) => m.personId === leader) : -1;
+      }
       if (was !== undefined && t.leaderIndex < 0) lost[side].set(o.key, was);
       o.subunits.forEach(merge);
     };

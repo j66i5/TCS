@@ -83,3 +83,13 @@ and fire, so the last covered spot lies at the houses' edge, not 300-400 m out);
 open, and inside its 300 m safe distance from own artillery for an attack on BMPs. A built-up objective: a building,
 or 8 buildings (centres) or 4 % footprint within 120 m (core/behaviour.json). Owner to correct; replace with manual
 figures if found.
+
+**The village edge (owner Q17, answered 2026-11-20: "Village edge"; recorded in balance pass 6).** For an objective
+deep inside a village the dismount point is the last cover before the houses: at least 50 m
+(`mountedAssault.urban.edgeMarginM`) outside the built-up edge on the way in (`builtUpEdgeM`: walking out from the
+objective, buildings within 30 m of the line, gaps up to 60 m count as still built-up), when that is farther out than
+the urban distance; the squads then clear through on foot. In the platoon battle's village that is about 590 m from
+the objective. The urban distance (150 / 200 m) applies to an objective at the village's edge or to a single
+building. This is the German "letzte Deckung vor dem Feind" row above taken literally; the 50 m is a game value
+(low). The alternatives the owner did not choose: ride on along the streets to the urban distance, or cap the edge
+rule at the open-ground distance (300 / 400 m).

@@ -512,6 +512,14 @@ metres: `f` forward (+) / back, `r` right (+) / left, `u` up from the ground.
   instead). Mark a weapon station's `gun` `external` when the weapon stands outside the armour. Check with
   `npm run lab -- armour` (part "Not penetrated"). `behaviour.json` `gunnery.degrade` is the crews' rule for firing
   at a hull they cannot get through.
+- Air burst only, the swept ordered fire, half platoons (balance pass 6 part 2): an ammunition's `airburst.only: true`
+  says the round has no impact setting a crew can choose (KETF): its `explosive` block is then only what happens when
+  it strikes something before its fuze runs out. `behaviour.json` `gunnery.areaFire.orderedRadiusM` (m) is the circle
+  an ordered high-explosive fire at a point is swept over (absent or 0: every round at the point).
+  `core/campaign.json` `battle.sections` (half platoons may fight), `sectionBelow` (the enemy commits a half when the
+  men it wants are below this share of its fittest platoon) and `proposeSectionAtRatio` (a side whose fighting value
+  is this many times the enemy's is proposed half a platoon) are game values; they are part of the campaign's
+  `rulesFingerprint`, not of the catalog.
 - Recovery vehicle (M11.7b): `recovery: { towMaxKg, towMaxSpeedKmh, hookUpS, hookUpMen }`: it tows hulls up to that
   combat mass (heavier: refused), at no more than that speed; `hookUpMen` of its crew (not the driver first) work
   `hookUpS` outside to hook one up. Recovery vehicles are unarmed in the game (`stations: []`) and have no

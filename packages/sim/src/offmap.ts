@@ -56,7 +56,7 @@ export function parkOffMap(state: SimState, vid: EntityId): void {
   t.x = OFF_MAP_PARK.x; t.y = OFF_MAP_PARK.y; t.z = 0;
   const d = v.drive;
   d.route = []; d.routeIdx = 0; d.arrived = true; d.endHeading = null; d.yieldTo = null; d.speed = 0; d.yawRate = 0;
-  d.trackL = 0; d.trackR = 0; d.throttle = 0; d.brake = 1; d.steer = 0; d.stuckTicks = 0; d.replans = 0;
+  d.trackL = 0; d.trackR = 0; d.throttle = 0; d.brake = 1; d.steer = 0; d.stuckTicks = 0; d.replans = 0; delete d.replanLeft;
   d.progressX = t.x; d.progressY = t.y; d.backX = t.x; d.backY = t.y; d.crossing = null; delete d.escape; delete d.towCapMps;
   for (const sid of v.seats) {
     if (sid === null) continue;

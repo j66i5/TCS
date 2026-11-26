@@ -92,8 +92,16 @@ describe("M12.3 views: the briefing and the choice", () => {
     const b = briefingView(data, r);
     expect(b.choice).toEqual(b.proposed);
     expect(b.problems).toEqual([]);
-    expect(b.own.men).toBeGreaterThan(90);
-    expect(b.own.hulls).toBeGreaterThan(8);
+    // (Balance pass 6: Germany's men count three of the enemy's, so half a platoon is proposed, with the company
+    // headquarters and the support.)
+    expect(b.choice.filter((k) => b.selectables.find((x) => x.key === k)?.what === "platoon")).toHaveLength(0);
+    expect(b.choice.filter((k) => b.selectables.find((x) => x.key === k)?.what === "section")).toHaveLength(1);
+    expect(b.own.men).toBeGreaterThan(25);
+    expect(b.own.hulls).toBeGreaterThan(3);
+    // Half platoons are listed under their platoon, with its callsign and their own hulls.
+    const half = b.selectables.find((x) => x.what === "section")!;
+    expect(half.callsign).toBe(b.selectables.find((x) => x.key === half.platoon)!.callsign);
+    expect(half.hulls).toBeGreaterThan(0);
     expect(b.enemy.men).toBeGreaterThan(0);
     expect(b.enemy.men % 5).toBe(0); // (an estimate: rounded)
     expect(b.enemy.hulls.length).toBeGreaterThan(0);

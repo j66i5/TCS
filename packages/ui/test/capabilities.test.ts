@@ -89,13 +89,14 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     const cap = unitCapabilities(sim.state, cat, uid);
     expect(cap.kind).toBe("vehicle");
     // (Balance pass 5: the Puma's 30 mm HE has the KETF air-burst setting: "ab".)
-    expect(cap.natures).toEqual(["ap", "he", "ab", "mg"]);
+    // (Balance pass 6, owner Q6: that belt is KETF only: no plain "he".)
+    expect(cap.natures).toEqual(["ap", "ab", "mg"]);
     expect(cap.hasSmokeDischargers).toBe(true);
     expect(cap.passengers).toBe(6);
     const o = ordersFor(cap, modes);
     expect(o.modes).toEqual(["move", "assault", "fire", "antitank"]); // (M9.3a: the Puma's MELLS; balance pass 5: Assault)
     expect(o.discharge && o.nature && o.dismount && !o.mount).toBe(true);
-    expect(o.natures).toEqual(["ap", "he", "ab", "mg"]);
+    expect(o.natures).toEqual(["ap", "ab", "mg"]);
     expect(o.paces.at(-1)).toBe("reverse");
     // Dischargers empty: no smoke screen button.
     const s2 = fresh();

@@ -1,10 +1,26 @@
 # State — handover note
 
-_Last updated: 2026-11-20 (start menu; M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-26 (balance pass 6 parts 1 and 2; start menu; M12.4 campaign review and tuning, M12 complete; M12.3 phone roster interface; M12.2 linked operations and endless mode; M12.1b campaign saves; M12.1a battalion data, campaign record and rules between battles; M12.0b scenario kinds and company-size battles; M12.0a contract gaps; balance pass 4 and its review fixes: H danger close, E defence starts on its posts, F hold loose rounds, G return fire; balance pass 3 review fixes; balance pass 3 B+C: `--no-resupply` is the supply chain only, hold battle re-balanced, idle overwatch Pumas bound forward; balance pass 3 A+D: friendly hulls block fire, the app's mounted battle has the batch's tanks; balance pass 2: mounted scenarios, range rule on, smaller hold stock; M11.9c slice 55 prisoners under fire, escapes, review: MP/POW and M11 complete; M11.9b slice 54 military police; M11.9a slice 53 prisoners; balance pass after M11; M11.8 slice 52; M11.5 slice 48; M11.4b slice 47; M11.4a slice 46; M11.3 slice 45; M11.2 slice 44; M11 hold battle: a stronger defence; M11.7b recovery; M11.7a field repair; M11.6 batteries; M11.1 slice 43; sight realism review fixes; step 5; morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Balance pass 6, part 2 (2026-11-26, branch `claude/balance-6`; DECISIONS "Balance pass 6 part 2"): balance
+  pass 6 is done.** The owner's answers to pass 5 are built: the Puma's second belt is KETF only (no impact
+  setting; refused if ordered; machine gun inside 45 m); the T-90M fires the 3OF26 with the Ainet time fuze (air
+  burst over men in the open, low confidence); half platoons in the campaign (listed under each platoon, the enemy
+  commits one when it wants few men, a stronger side is proposed fewer platoons and at three to one half a
+  platoon); the village-edge dismount rule is recorded. Also: an ordered high-explosive fire at a point is swept
+  over 8 m (KETF at six prone men: 6 hit at the one point, 17 of 18 swept); carriers have a reason on record when
+  they let their squads out, are sent on twice when a drive gives up, and support posts they did not reach are
+  sited again; the re-plan count starts again after 15 m of progress. Air burst against prone men: no bug (155 mm
+  at 15 m: 6 % wounded on impact, 36 % from 8 m up; the labs misled: now 24 seeds, a 15 m ring, fragment strikes
+  per man). **Measured.** Mounted battle, seeds 1-12: Germany attacking 9 of 12 (origin/main 9, part 1 11), Russia
+  attacking 6 of 12 (6, 6): Germany wins 15 of 24, where origin/main stood; six fresh seeds 3 of 6 and 2 of 6;
+  36 battles in all: Germany 22 (61 %): **not measurably closer to even.** Campaign, 4 operations a side at
+  1200 s: Germany as the player 2 of 4 with 2 at the battle limit (8 of 8 before): in the band; **Russia as the
+  player 0 of 4** (0 of 8 before): half a Puma platoon still stops a company two times in three.
+  `fightingValue` kept (DE 3.0, RU 1.0). What remains: see "Open questions" and "Known gaps" below.
 - **Balance pass 6, part 1 (2026-11-25, branch `claude/balance-6`; DECISIONS "Balance pass 6 part 1").** Review
   step 4, parts B and D. A cannon round that is stopped or glances off may now break one part where it struck
   (sights, dischargers, launcher, track, wheel; gun and coax at their openings): data table
@@ -24,7 +40,7 @@ DECISIONS.md under its date._
   before any new milestone. Q2 "M13 first" (then M14). Q3 auto-end when objectives are held with no contact for a
   few minutes, plus a "Claim victory" button. Q4 default fire rule "At will" when attacking, "Return" when
   defending (replaces the 2026-11-12 "Return" everywhere).
-- **NEXT (owner answers to balance pass 5, 2026-11-20; balance pass 6 part 2, not built yet).**
+- **Done in part 2 (owner answers to balance pass 5, 2026-11-20).**
   Q17 village objective: "Village edge" (already built in pass 5; record in DECISIONS). Q6 Puma 30 mm: "Air-burst
   only" (KETF / PMC308 only; drop the impact HE the Puma does not carry). Q8 T-90M: "Yes, low confidence" (a separate
   3OF26 + Ainet air-burst round entry for the T-90M only; T-72B3M keeps impact HE). Q16/Q2 campaign: "Smaller forces
@@ -725,6 +741,24 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- Balance pass 6 part 2 (DECISIONS "Balance pass 6 part 2"), questions, recommended first: (1) the swept ordered
+  fire: (a) 8 m as built; (b) a radius the player sets; (c) off. (2) A KETF round that strikes before its fuze:
+  (a) half its pellets, slow, as built; (b) nothing but the slug. (3) Half platoons in the player's list: (a) rows
+  under each platoon, as built; (b) for the enemy and the proposal only. (4) Russia as the player still fails every
+  operation: (a) take it to the battle itself next (why two Pumas stop a company on the 1.9 km maps: who sees
+  first, men killed aboard, the attack drill); (b) let the enemy go below half a platoon; (c) accept Russia as the
+  hard campaign for now.
+- Balance pass 6 part 2, low-confidence data to confirm (add-data-entry step 5): `ru-125-3of26-ainet` and its
+  round item (whether line T-90M carry Ainet-fuzed 3OF26, and how many; burst height 3 m); the Puma round's
+  strike-before-fuze values (81 pellets, 200-500 m/s) and `airburst.only`; `gunnery.areaFire.orderedRadiusM` 8 m;
+  `core/campaign.json` `battle.sections`, `sectionBelow` 0.75, `proposeSectionAtRatio` 3.
+- Known gaps found in part 2, not fixed: (1) in platoon-vehicles the second platoon's headquarters gets out about
+  30 s into the battle near the start line while its Puma drives on (the ride handles the first top unit's
+  headquarters hull only; the rule that gets the second one out was not traced). (2) A hull boxed in after the
+  dismount is sent on the same overwatch bound every 30 s (11 give-ups in one battle). (3) The mounted battle is
+  where it was (Germany 61 % of 36 battles); the BMP-2 platoon in defence loses 2.8 of 3 hulls. (4) The batch
+  report has no line for the carriers' reasons (the mounted-assault lab has the table).
 
 - Balance pass 6 part 1 (DECISIONS "Balance pass 6 part 1"), questions: (1) degrading fire: (a) as built, cannon
   crews fire at a hull they cannot get through, high explosive first, within 1500 m; (b) only once that hull has

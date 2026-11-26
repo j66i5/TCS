@@ -427,6 +427,7 @@
       "airburst": {
         "aimHeightM": 1.0,
         "standoffM": 15,
+        "only": true,
         "cone": {
           "halfAngleDeg": 10,
           "count": 162,
@@ -439,18 +440,18 @@
         }
       },
       "explosive": {
-        "fillingKg": 0.05,
-        "fragmentCount": 80,
-        "fragmentAmmo": "de-30mm-fragment",
+        "fillingKg": 0.0005,
+        "fragmentCount": 81,
+        "fragmentAmmo": "de-30-ketf-pellet",
         "fragmentVelocityMps": [
-          900,
-          1300
+          200,
+          500
         ],
         "armingSeconds": 0.02,
         "burstOnBody": true
       },
       "confidence": "low",
-      "note": "Impact-fused high explosive for the Puma (owner Q16: impact HE in M7, the ABM air-burst round later). Muzzle velocity, filling, fragments and arming distance are game values (low). Bursts on a man it strikes (owner Q18). The search tool cannot open pages in this container: values from published references as remembered (search extracts only). Balance pass 5, area fire (owner 2026-11-20: 'they can use HE / airburst munitions, as they do in real life'): the Puma's high-explosive belt now also has the air-burst setting of the MK30-2/ABM's programmable round, the 30 x 173 KETF (Rheinmetall PMC308, Bundeswehr DM21). Rheinmetall data sheets (search extracts, pages not opened): 162 cylindrical tungsten-alloy sub-projectiles of 1.24 g each (201 g payload) ejected by a 0.5 g charge just ahead of the target, fuze timed inductively at the muzzle, 1100 m/s, round about 830 g; targets include dismounted troops. Modelled (airburst): the round is aimed 1 m over the point and bursts 15 m short of the laser range, the 162 pellets flying on in a 10-degree cone at 95-100 % of its speed; aim height, stand-off and cone are game values (low). The impact setting keeps the old values (one belt with two settings, a game simplification: the real belt holds KETF, not a second HE round; owner question Q6 open).",
+      "note": "The Puma's 30 x 173 KETF belt (history: first modelled as impact-fused high explosive, owner Q16: impact HE in M7, the ABM air-burst round later). Muzzle velocity, filling, fragments and arming distance are game values (low). Bursts on a man it strikes (owner Q18). The search tool cannot open pages in this container: values from published references as remembered (search extracts only). Balance pass 5, area fire (owner 2026-11-20: 'they can use HE / airburst munitions, as they do in real life'): the Puma's high-explosive belt now also has the air-burst setting of the MK30-2/ABM's programmable round, the 30 x 173 KETF (Rheinmetall PMC308, Bundeswehr DM21). Rheinmetall data sheets (search extracts, pages not opened): 162 cylindrical tungsten-alloy sub-projectiles of 1.24 g each (201 g payload) ejected by a 0.5 g charge just ahead of the target, fuze timed inductively at the muzzle, 1100 m/s, round about 830 g; targets include dismounted troops. Modelled (airburst): the round is aimed 1 m over the point and bursts 15 m short of the laser range, the 162 pellets flying on in a 10-degree cone at 95-100 % of its speed; aim height, stand-off and cone are game values (low). The impact setting keeps the old values (one belt with two settings, a game simplification: the real belt holds KETF, not a second HE round; owner question Q6: answered, see the end of this note). Balance pass 6 (owner Q6, 2026-11-20: 'Air-burst only'): the belt is KETF and nothing else (airburst.only): the crew always programs the fuze, an order for the impact setting is refused, inside the fuze's shortest distance (stand-off + 30 m) the coaxial machine gun fires instead. The explosive block is now only what happens when the round strikes something before its fuze runs out: the 0.5 g ejection charge and half of the 162 pellets (81) thrown all round at 200-500 m/s as the body breaks up, the rest staying in it or going into the ground (game values, low: no public figure for a KETF round that strikes before its fuze; chosen well below the air burst's cone and below the old impact round). The old impact high-explosive values (50 g filling, 80 fragments at 900-1300 m/s) are gone; a strike on a hull's outside part now does about a fifth of the old damage (the rule scales with the filling), and a crew that cannot pierce a hull fires its armour-piercing belt at it instead (gunnery.degrade skips a round with only the air-burst setting).",
       "sources": [
         "https://www.rheinmetall.com/en/products/ammunition/medium-calibre-ammunition",
         "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)",
@@ -481,7 +482,7 @@
       "guidance": "unguided",
       "sources": [],
       "confidence": "low",
-      "note": "One fragment of the 30 mm HE round (game abstraction: all fragments equal)."
+      "note": "One fragment of the 30 mm HE round (game abstraction: all fragments equal). Balance pass 6: no round uses it since the Puma's belt is KETF only (owner Q6); kept for a later impact HE round."
     },
     {
       "id": "de-30-ketf-pellet",

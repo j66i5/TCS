@@ -1721,7 +1721,7 @@
                   }
                 },
                 {
-                  "item": "ru-125-3of26-round",
+                  "item": "ru-125-3of26-ainet-round",
                   "ready": {
                     "count": 9,
                     "charge": 1
@@ -1797,7 +1797,7 @@
           "charge": 1
         },
         {
-          "item": "ru-125-3of26-round",
+          "item": "ru-125-3of26-ainet-round",
           "count": 8,
           "charge": 1
         },

@@ -301,7 +301,7 @@ export interface AmmoDef {
     /** M9.3a: top attack (climb above the aim point, dive within diveAtM) and the seeker through smoke. */
     topAttack?: { climbM: number; diveAtM: number; launchElevationDeg: number }; seekerSmokeFactor?: number };
   /** Area fire (balance pass 5): a programmable fuze's air-burst setting (see the schema). */
-  airburst?: { aimHeightM: number; standoffM: number; cone?: { halfAngleDeg: number; count: number; fragmentAmmo: DefId; velocityFraction: [number, number]; fillingKg: number } };
+  airburst?: { aimHeightM: number; standoffM: number; only?: boolean; cone?: { halfAngleDeg: number; count: number; fragmentAmmo: DefId; velocityFraction: [number, number]; fillingKg: number } };
   /** Kinetic rounds against armour (M7.4a): ricochet threshold factor (default 1). */
   ricochetFactor?: number;
   /** Fragments thrown inside a hull it penetrates (M7.4a, owner Q11). */
@@ -660,7 +660,7 @@ export interface BehaviourDef {
     missileHoldSeconds?: number; guidedTargetFactor?: number; penetratedTargetFactor?: number; recentPenSeconds?: number; missileNightFloor?: number;
     /** Balance pass 5: area fire at places men were last known (see the schema). Absent: none. */
     areaFire?: { maxAgeSeconds: number; halfLifeSeconds: number; firingWeight: number; minWeight: number; minRadiusM: number; maxRadiusM: number;
-      everySeconds: number; minEverySeconds: number; mainGunEverySeconds: number; mainGunMinWeight: number; reserveFraction: number };
+      everySeconds: number; minEverySeconds: number; mainGunEverySeconds: number; mainGunMinWeight: number; reserveFraction: number; orderedRadiusM?: number };
     /** Balance pass 6: fire at a hull the armour-piercing round cannot get through (see the schema). Absent: held. */
     degrade?: { enabled: boolean; weaponTypes: string[]; maxRangeM: number; natures: ("he" | "ap")[]; aimZone: "turret" | "hull"; reserveFraction: number };
   };

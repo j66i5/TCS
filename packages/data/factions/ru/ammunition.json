@@ -1082,6 +1082,48 @@
       "note": "3OF26 HE-FRAG for the 125 mm gun. The search for it was refused; projectile about 23 kg, about 3.4 kg filling, about 850 m/s are from memory, not from a source (low). Fragments are the 120 mm mortar bomb's (game abstraction); count and speed are game values. The T-90M's programmable 3VOF128 Telnik is not modelled. cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
     },
     {
+      "id": "ru-125-3of26-ainet",
+      "nameKey": "ammo.ru-125-3of26-ainet",
+      "calibre": "125mm",
+      "kind": "high-explosive",
+      "projectileMassKg": 23.0,
+      "cartridgeMassKg": 23.0,
+      "diameterM": 0.125,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 10,
+        "atVelocityMps": 850
+      },
+      "tracer": false,
+      "fuse": "programmable",
+      "guidance": "unguided",
+      "airburst": {
+        "aimHeightM": 3,
+        "standoffM": 0
+      },
+      "explosive": {
+        "fillingKg": 3.4,
+        "fragmentCount": 2000,
+        "fragmentAmmo": "ru-120-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1600
+        ],
+        "armingSeconds": 0.05,
+        "burstOnBody": true
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition",
+        "https://en.wikipedia.org/wiki/T-90"
+      ],
+      "confidence": "low",
+      "note": "Balance pass 6 (owner Q8, 2026-11-20: 'Yes, low confidence'): the 3OF26 high-explosive round with the 3VM-12 electronic time fuze of the Ainet remote-detonation system, as the T-90M's fire control (Kalina) is said to set it from the laser range; only the T-90M feeds it, the T-72B3M keeps the impact-fuzed 3OF26. Modelled as the Leopard's DM11: aimed 3 m over the point and timed at the muzzle, it bursts over it and throws the 3OF26's fragments all round; point detonation stays the setting at a hull or a house. Every figure is the 3OF26's (from memory, low) and the burst height is a game value. Whether line T-90M carry Ainet rounds, or the 3VOF128 Telnik rounds with ready-made fragments, and in what numbers, is not known from open sources (search extracts and memory only; pages cannot be opened in this container): low. cartridgeMassKg here is the projectile alone (the round item's charge)."
+    },
+    {
       "id": "ru-9m119m",
       "nameKey": "ammo.ru-9m119m",
       "calibre": "125mm-atgm",

@@ -5,7 +5,11 @@
  *
  *   fuse   each hull with a high-explosive round fires at six prone men in a line (3 m apart) R m off, on order,
  *          for `seconds`: once with the impact setting, once with the air burst where its round has one. Men hit and
- *          men down per round fired.
+ *          men down per round fired. Balance pass 6: an ordered high-explosive fire at a point is swept over a
+ *          small circle (`gunnery.areaFire.orderedRadiusM`); the "point" rows switch that off (every round at the one
+ *          point, as before pass 6) to show what the sweep is worth: a forward cone 15 m short of the point is under
+ *          3 m wide at the men, so at one point it can only reach the man or two nearest it, while an impact round's
+ *          all-round fragments reach his neighbours. A round with only the air-burst setting refuses "impact".
  *   area   a crew under fire "free" sees six standing men R m off at the edge of a crop field; 8 s later they lie down
  *          in the crops (a day sight loses them; a thermal one may not). Rounds fired at men it saw, rounds fired at
  *          the place (area fire), men hit, the high explosive left in the ready feed, and when the last area burst
@@ -80,10 +84,14 @@ function track(sim: ReturnType<typeof createSim>, vid: EntityId) {
 function fusePart(data: DataSet, seeds: number, ranges: number[], seconds: number): AreaFireRow[] {
   const rows: AreaFireRow[] = [];
   for (const [vf, crewT, ef] of HULLS) {
-    for (const R of ranges) for (const fuse of ["impact", "airburst"] as const) {
+    for (const R of ranges) for (const [fuse, sweep] of [["impact", true], ["airburst", true], ["impact", false], ["airburst", false]] as const) {
       let rounds = 0, hit = 0, down = 0, refused = 0, vtype = "";
       for (let s = 1; s <= seeds; s++) {
-        const sim = createSim(areaFireLayout(data, vf, crewT, ef, R, s, false, seconds));
+        const input = areaFireLayout(data, vf, crewT, ef, R, s, false, seconds);
+        const G = input.catalog.behaviour.gunnery;
+        if ((G.areaFire?.orderedRadiusM ?? 0) <= 0 && !sweep) { refused++; continue; } // (no sweep in the data: one row)
+        if (!sweep && G.areaFire) input.catalog = { ...input.catalog, behaviour: { ...input.catalog.behaviour, gunnery: { ...G, areaFire: { ...G.areaFire, orderedRadiusM: 0 } } } };
+        const sim = createSim(input);
         const [vid, v] = [...sim.state.vehicle.entries()][0]!;
         vtype = v.def;
         const red = [...sim.state.unit.entries()].find(([, u]) => u.side === "red")![0];
@@ -94,13 +102,13 @@ function fusePart(data: DataSet, seeds: number, ranges: number[], seconds: numbe
         submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: v.unit!, kind: "fire", x: 100 + R, y: 300, heightM: 0, nature: "he", fuse });
         const t = track(sim, vid);
         let noAir = false;
-        for (let k = 0; k < seconds * 60; k++) for (const e of step(sim)) { t.on(e); if (e.kind === "radio" && e.key === "radio.noAirburst") noAir = true; }
+        for (let k = 0; k < seconds * 60; k++) for (const e of step(sim)) { t.on(e); if (e.kind === "radio" && (e.key === "radio.noAirburst" || e.key === "radio.noImpactFuse")) noAir = true; }
         if (noAir) { refused++; continue; }
         const g = t.get();
         rounds += g.rounds; hit += g.hit; down += g.down;
       }
-      if (refused === seeds) { if (fuse === "airburst") rows.push({ part: "fuse", vehicle: vtype, case: `air burst at six prone men ${R} m`, rounds: 0, hit: 0, down: 0, extra: "no air-burst setting" }); continue; }
-      rows.push({ part: "fuse", vehicle: vtype, case: `${fuse === "airburst" ? "air burst" : "impact"} at six prone men ${R} m, ${seconds} s x ${seeds}`, rounds, hit, down, extra: rounds > 0 ? `${(hit / rounds).toFixed(3)} men hit a round` : "" });
+      if (refused === seeds) { if (sweep && vtype !== "") rows.push({ part: "fuse", vehicle: vtype, case: `${fuse === "airburst" ? "air burst" : "impact"} at six prone men ${R} m`, rounds: 0, hit: 0, down: 0, extra: fuse === "airburst" ? "no air-burst setting" : "no impact setting (air burst only)" }); continue; }
+      rows.push({ part: "fuse", vehicle: vtype, case: `${fuse === "airburst" ? "air burst" : "impact"}${sweep ? "" : ", point (no sweep)"} at six prone men ${R} m, ${seconds} s x ${seeds}`, rounds, hit, down, extra: rounds > 0 ? `${(hit / rounds).toFixed(3)} men hit a round` : "" });
     }
   }
   return rows;
@@ -155,6 +163,7 @@ export function areaFireLab(data: DataSet, opts: { seeds?: number; ranges?: numb
 }
 
 export function areaFireLabMarkdown(rows: AreaFireRow[]): string {
-  return ["| part | vehicle | case | rounds | men hit | men down | notes |", "|---|---|---|---:|---:|---:|---|",
+  return ["Fuse part: ordered high explosive at a point in the middle of six prone men 3 m apart. An ordered fire at a point is swept over a circle (8 m radius in the data) round it; the \"point (no sweep)\" rows put every round on the one point, as before balance pass 6. A forward cone (KETF) bursting 15 m short is under 3 m wide at the men: at one point it reaches at most the two men nearest it, while an impact round's all-round fragments reach their neighbours; swept, it reaches all six. In battle crews lay on each man they see.", "",
+    "| part | vehicle | case | rounds | men hit | men down | notes |", "|---|---|---|---:|---:|---:|---|",
     ...rows.map((r) => `| ${r.part} | ${r.vehicle} | ${r.case} | ${r.rounds} | ${r.hit} | ${r.down} | ${r.extra} |`)].join("\n");
 }

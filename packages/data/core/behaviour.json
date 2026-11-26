@@ -380,7 +380,7 @@
     "missileNightFloor": 0.3,
     "areaFire": {
       "maxAgeSeconds": 120, "halfLifeSeconds": 45, "firingWeight": 2, "minWeight": 0.4, "minRadiusM": 8, "maxRadiusM": 40,
-      "everySeconds": 20, "minEverySeconds": 6, "mainGunEverySeconds": 45, "mainGunMinWeight": 3, "reserveFraction": 0.5
+      "everySeconds": 20, "minEverySeconds": 6, "mainGunEverySeconds": 45, "mainGunMinWeight": 3, "reserveFraction": 0.5, "orderedRadiusM": 8
     },
     "degrade": {
       "enabled": true, "weaponTypes": ["autocannon"], "maxRangeM": 1500, "natures": ["he", "ap"], "aimZone": "turret", "reserveFraction": 0.3

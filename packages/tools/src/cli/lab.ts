@@ -145,7 +145,7 @@ const LABS: Record<string, () => string> = {
     if (mode !== "defend") throw new Error(`unknown house lab mode '${mode}' (known: defend, leave, clear, rocket)`);
     return `# House lab\n\n${houseDefendMarkdown(houseDefendLab(loadData(), Number(process.argv[4] ?? 10)))}\n`;
   },
-  artillery: () => `# Artillery lab\n\n${artilleryLabMarkdown(artilleryLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
+  artillery: () => `# Artillery lab\n\n${artilleryLabMarkdown(artilleryLab(loadData(), Number(process.argv[3] ?? 24)))}\n`,
   indirect: () => `# Indirect fire lab\n\n${indirectLabMarkdown(indirectLab(loadData(), Number(process.argv[3] ?? 12)))}\n`,
   smoke: () => `# Smoke lab\n\n## Hand smoke grenades\n\n${handSmokeLabMarkdown(handSmokeLab(loadData()))}\n\n${smokeLabMarkdown(smokeLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,

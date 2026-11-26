@@ -215,8 +215,11 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
       if (!cannon) { set.add("mg"); return; }
       for (const f of w.feeds) {
         const r = catalog.items[f.item]?.chargeItem;
-        set.add(r !== undefined && catalog.ammo[r]?.explosive !== undefined ? "he" : "ap");
-        if (r !== undefined && catalog.ammo[r]?.airburst !== undefined) set.add("ab"); // (balance pass 5)
+        // (Balance pass 5: a round with an air-burst setting adds "ab"; pass 6: one with only that setting (KETF)
+        // offers no plain "he".)
+        const ab = r !== undefined ? catalog.ammo[r]?.airburst : undefined;
+        if (ab?.only !== true) set.add(r !== undefined && catalog.ammo[r]?.explosive !== undefined ? "he" : "ap");
+        if (ab !== undefined) set.add("ab");
       }
     }));
     out.natures = (["ap", "he", "ab", "mg"] as const).filter((n) => set.has(n));

@@ -27,7 +27,9 @@ export type SimEvent =
   /** M12.0b: a man on foot (`soldier`) or a hull with everyone aboard (`vehicle`) left the map by its side's exit zone
    *  (`rules.exits`): off the map for good, saved. */
   | { kind: "unit.exited"; tick: number; side: SideId; soldier?: EntityId; vehicle?: EntityId; men: number }
-  | { kind: "move.noRoute"; tick: number; target: EntityId }
+  /** (Balance pass 6: a hull that gave up its drive adds itself, the metres left to its goal and the cause: three
+   *  re-plans without getting on, the planner finding no way, or no goal left.) */
+  | { kind: "move.noRoute"; tick: number; target: EntityId; vehicle?: EntityId; leftM?: number; cause?: "replans" | "planner" | "noGoal" }
   | {
       kind: "impact"; tick: number; x: number; y: number; z: number;
       surface: "ground" | "obstacle" | "building" | "vegetation" | "vehicle";

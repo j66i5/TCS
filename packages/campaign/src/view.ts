@@ -20,7 +20,7 @@ import { newVehicleRecord, type SoldierRecord, type UnitInput, type VehicleRecor
 import { loadOf, standardSlot } from "./between";
 import { menOf } from "./carry";
 import { commitOf, commitProblems, proposeChoice, selectables, type CommitProblem, type Selectable } from "./commit";
-import { enemyFor } from "./flow";
+import { enemyFor, valueRatio } from "./flow";
 import { canLead } from "./leaders";
 import { addHull, addMan, emptyHoldings } from "./holdings";
 import { ableShare, operationRules, sectorOf } from "./operation";
@@ -211,7 +211,8 @@ export interface BriefingView {
 function hullsOfKeys(data: DataSet, f: CampaignForce, keys: readonly string[]): { men: number; hulls: VehicleRecord[]; platoons: number } {
   const forces = commitOf(data, f, keys);
   const sel = new Map(selectables(data, f).map((s) => [s.key, s]));
-  return { men: menOf(forces.units), hulls: forces.vehicles ?? [], platoons: keys.filter((k) => sel.get(k)?.what === "platoon").length };
+  // (Balance pass 6: a half platoon counts as half.)
+  return { men: menOf(forces.units), hulls: forces.vehicles ?? [], platoons: keys.filter((k) => sel.get(k)?.what === "platoon").length + 0.5 * keys.filter((k) => sel.get(k)?.what === "section").length };
 }
 
 /** Round an estimate (the player sees the enemy's strength only roughly). */
@@ -225,7 +226,7 @@ export function briefingView(data: DataSet, record: CampaignRecord): BriefingVie
   const nt = o.nodes[op.node]!;
   const s = sectorOf(op, "main");
   const p = record.sides.player, e = record.sides.enemy;
-  const proposed = proposeChoice(data, p);
+  const proposed = proposeChoice(data, p, [], valueRatio(data, record));
   const choice = record.flow?.choice ?? proposed;
   const own = hullsOfKeys(data, p, choice);
   const ek = own.men > 0 ? enemyFor(data, record, "main", own.men) : [];
@@ -234,6 +235,8 @@ export function briefingView(data: DataSet, record: CampaignRecord): BriefingVie
   for (const v of en.hulls) { const k = nameKeyOf(data, e.faction, v.type); byName.set(k, (byName.get(k) ?? 0) + 1); }
   const units = new Map(unitsOf(p.battalion).map((u) => [u.key, u]));
   const crews = (key: string) => {
+    // (Balance pass 6: a half platoon's hulls: its crews with a hull in service, as the battle would take them.)
+    if (!units.has(key)) return (commitOf(data, p, [key]).vehicles ?? []).length;
     const u = units.get(key);
     if (!u) return 0;
     const inUnit = u.echelon === "company" ? [u, ...u.subunits.filter((x) => x.echelon !== "platoon").flatMap(unitsOf)] : unitsOf(u);
@@ -246,7 +249,7 @@ export function briefingView(data: DataSet, record: CampaignRecord): BriefingVie
     sector: { id: s.id, mapKind: s.mapKind, mapSeed: s.mapSeed, widthM: s.widthM, heightM: s.heightM, battles: s.battles, wrecks: s.wrecks?.length ?? 0, craters: s.damage?.craters?.length ?? 0 },
     flank: op.flank ? { node: op.flank.node, kind: o.nodes[op.flank.node]!.kind } : null,
     hours: record.hours, seconds: record.battleSeconds ?? o.seconds,
-    selectables: selectables(data, p).map((x) => ({ ...x, callsign: units.get(x.key)?.callsign ?? x.key, hulls: crews(x.key) })),
+    selectables: selectables(data, p).map((x) => ({ ...x, callsign: units.get(x.platoon ?? x.key)?.callsign ?? x.key, hulls: crews(x.key) })),
     choice, proposed, problems: commitProblems(data, p, choice),
     cap: { platoons: cap.platoons, companyHq: cap.companyHq, mortarSections: cap.mortarSections, missileTeams: cap.missileTeams, aglTeams: cap.aglTeams, tankSections: cap.tankSections },
     own: { men: own.men, hulls: own.hulls.length },

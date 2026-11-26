@@ -597,18 +597,13 @@
   {
    "tick": 1500,
    "issuer": "blue",
-   "target": 13,
+   "target": 40,
    "kind": "move",
    "waypoints": [
     {
-     "x": 402.2302524127795,
-     "y": 399.90877797139444,
-     "mode": "walk"
-    },
-    {
-     "x": 451.4298134021569,
-     "y": 390.9979307360003,
-     "mode": "sneak"
+     "x": 106.62532435368723,
+     "y": 395.01219679889647,
+     "mode": "run"
     }
    ],
    "facing": -0.17917408857160244
@@ -616,18 +611,27 @@
   {
    "tick": 2100,
    "issuer": "blue",
-   "target": 56,
+   "target": 83,
    "kind": "move",
    "waypoints": [
     {
-     "x": 433.4182177366591,
-     "y": 572.1072414342154,
-     "mode": "walk"
-    },
+     "x": 149.39739108357915,
+     "y": 631.1700895479081,
+     "mode": "run"
+    }
+   ],
+   "facing": -0.17917408857160244
+  },
+  {
+   "tick": 2400,
+   "issuer": "blue",
+   "target": 40,
+   "kind": "move",
+   "waypoints": [
     {
-     "x": 482.6177787260365,
-     "y": 563.1963941988213,
-     "mode": "sneak"
+     "x": 111.9718326949237,
+     "y": 424.5319333925229,
+     "mode": "run"
     }
    ],
    "facing": -0.17917408857160244
@@ -635,18 +639,13 @@
   {
    "tick": 2700,
    "issuer": "blue",
-   "target": 22,
+   "target": 43,
    "kind": "move",
    "waypoints": [
     {
-     "x": 430.7829438049827,
-     "y": 501.44568660200815,
-     "mode": "walk"
-    },
-    {
-     "x": 479.9825047943601,
-     "y": 492.534839366614,
-     "mode": "sneak"
+     "x": 117.3183410361602,
+     "y": 454.05166998614936,
+     "mode": "run"
     }
    ],
    "facing": -0.17917408857160244
@@ -692,58 +691,21 @@
   {
    "tick": 3300,
    "issuer": "blue",
-   "target": 40,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 3300,
-   "issuer": "blue",
-   "target": 43,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 3300,
-   "issuer": "blue",
-   "target": 46,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 3300,
-   "issuer": "blue",
-   "target": 49,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 3300,
-   "issuer": "blue",
-   "target": 83,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 3300,
-   "issuer": "blue",
-   "target": 86,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 3300,
-   "issuer": "blue",
-   "target": 89,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 3300,
-   "issuer": "blue",
-   "target": 92,
-   "kind": "rules",
-   "fire": "free"
+   "target": 13,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 402.2302524127795,
+     "y": 399.90877797139444,
+     "mode": "walk"
+    },
+    {
+     "x": 451.4298134021569,
+     "y": 390.9979307360003,
+     "mode": "sneak"
+    }
+   ],
+   "facing": -0.17917408857160244
   },
   {
    "tick": 3300,
@@ -752,13 +714,12 @@
    "kind": "move",
    "waypoints": [
     {
-     "x": 94.83531080283333,
-     "y": 498.5001643758616,
-     "mode": "walk",
-     "reverse": true
+     "x": 144.05088274234265,
+     "y": 601.6503529542816,
+     "mode": "run"
     }
    ],
-   "facing": -0.030792044388374466
+   "facing": -0.17917408857160244
   },
   {
    "tick": 3600,
@@ -766,8 +727,8 @@
    "target": 9,
    "kind": "drone",
    "op": "fly",
-   "x": 679.7415958455657,
-   "y": 459.01811696854594,
+   "x": 687.14518629761,
+   "y": 476.61579130615223,
    "altM": 120
   },
   {
@@ -776,8 +737,8 @@
    "target": 52,
    "kind": "drone",
    "op": "fly",
-   "x": 679.7415958455657,
-   "y": 459.01811696854594,
+   "x": 687.14518629761,
+   "y": 476.61579130615223,
    "altM": 120
   },
   {
@@ -786,68 +747,61 @@
    "target": 98,
    "kind": "drone",
    "op": "fly",
-   "x": 224.7338042735886,
-   "y": 619.0129531558612,
+   "x": 270.51827024662424,
+   "y": 587.5012927817762,
    "altM": 120
   },
   {
-   "tick": 3900,
+   "tick": 4200,
+   "issuer": "blue",
+   "target": 56,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 433.4182177366591,
+     "y": 572.1072414342154,
+     "mode": "walk"
+    },
+    {
+     "x": 482.6177787260365,
+     "y": 563.1963941988213,
+     "mode": "sneak"
+    }
+   ],
+   "facing": -0.17917408857160244
+  },
+  {
+   "tick": 4500,
    "issuer": "blue",
    "target": 43,
    "kind": "move",
    "waypoints": [
     {
-     "x": 84.68650781905663,
-     "y": 499.3416559817558,
-     "mode": "walk",
-     "reverse": true
+     "x": 122.66484937739669,
+     "y": 483.57140657977584,
+     "mode": "run"
     }
    ],
-   "facing": -0.03152321865505485
+   "facing": -0.17917408857160244
   },
   {
-   "tick": 3900,
+   "tick": 6300,
    "issuer": "blue",
-   "target": 86,
+   "target": 22,
    "kind": "move",
    "waypoints": [
     {
-     "x": 132.08794704076635,
-     "y": 718.0907404492822,
-     "mode": "walk",
-     "reverse": true
-    }
-   ],
-   "facing": -0.34352209768965775
-  },
-  {
-   "tick": 4200,
-   "issuer": "blue",
-   "target": 89,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 93.58515001132075,
-     "y": 730.246567055618,
-     "mode": "walk",
-     "reverse": true
-    }
-   ],
-   "facing": -0.34151237646602284
-  },
-  {
-   "tick": 5400,
-   "issuer": "red",
-   "target": 127,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 911.2842712474619,
-     "y": 454.7157287525381,
+     "x": 430.7829438049827,
+     "y": 501.44568660200815,
      "mode": "walk"
+    },
+    {
+     "x": 479.9825047943601,
+     "y": 492.534839366614,
+     "mode": "sneak"
     }
    ],
-   "facing": 3.0266089833802345
+   "facing": -0.17917408857160244
   },
   {
    "tick": 6300,
@@ -887,6 +841,92 @@
   },
   {
    "tick": 6600,
+   "issuer": "blue",
+   "target": 40,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 43,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 46,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 49,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 83,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 86,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 89,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 92,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 86,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 132.08794704076635,
+     "y": 718.0907404492822,
+     "mode": "walk",
+     "reverse": true
+    }
+   ],
+   "facing": -0.34352209768965775
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 89,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 93.58515001132075,
+     "y": 730.246567055618,
+     "mode": "walk",
+     "reverse": true
+    }
+   ],
+   "facing": -0.34151237646602284
+  },
+  {
+   "tick": 6600,
    "issuer": "red",
    "target": 135,
    "kind": "fire",
@@ -894,6 +934,16 @@
    "y": 512.6278936219097,
    "contact": 3,
    "nature": "at"
+  },
+  {
+   "tick": 6600,
+   "issuer": "red",
+   "target": 98,
+   "kind": "callFire",
+   "x": 220.38761717674151,
+   "y": 743.784782396581,
+   "ammo": "he",
+   "rounds": 4
   },
   {
    "tick": 6900,
@@ -916,18 +966,18 @@
   }
  ],
  "checkpoints": {
-  "600": "63ffcd526b148a1f",
-  "1200": "8b1ce8f3e53ad51a",
-  "1800": "d6f4a6a2bae4dce3",
-  "2400": "fffa30ee1402d294",
-  "3000": "c53797b966181a86",
-  "3600": "35a27e79c4926e8a",
-  "4200": "2abdf691c7186e7c",
-  "4800": "294b5ca188de4d03",
-  "5400": "4c0d002d319a1839",
-  "6000": "66af4898bd238c3a",
-  "6600": "17c6232275c22c24",
-  "7200": "5db4d6d7637f0a66"
+  "600": "22160783c4056f9b",
+  "1200": "ec46216236a6cb8f",
+  "1800": "91ff1aee659f6259",
+  "2400": "537043a4750a3e78",
+  "3000": "e001e74127845df1",
+  "3600": "feeaa3dc91c7ed23",
+  "4200": "58c00dd0693e8fd3",
+  "4800": "aa328a7aec63dc70",
+  "5400": "0d3141fb51ac5174",
+  "6000": "bd997b1a87f0c796",
+  "6600": "ee09c6e39cc6c633",
+  "7200": "ca82fa42c1f4e5e4"
  },
- "catalogFingerprint": "4620a96b7c1d5c7f"
+ "catalogFingerprint": "749caca7b02434ac"
 }

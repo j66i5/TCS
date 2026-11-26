@@ -382,6 +382,8 @@ function degradePick(
   for (const nature of D.natures) {
     const f = pickFeed(ctx, def, st, si, nature, v);
     if (!f) continue;
+    // (Balance pass 6, owner Q6: a round with only the air-burst setting has no burst on the plate: the next nature.)
+    if (nature === "he" && airburstOf(ctx, def, si, f.weapon, f.feed)?.only === true) continue;
     const wdef = sn.weapons[f.weapon]!, fd = wdef.feeds[f.feed]!;
     if (!D.weaponTypes.includes(ctx.catalog.weapons[wdef.weapon]?.type ?? "") || d > wdef.engageRangeM) continue;
     if (st.weapons[f.weapon]!.feeds[f.feed]!.rounds <= D.reserveFraction * fd.ready.count * fd.ready.charge) continue;
@@ -634,7 +636,9 @@ function areaFeed(ctx: SimContext, def: VehicleDef, st: StationState, si: number
     const single = wdef.feedKind !== "belt";
     if (single && w < A.mainGunMinWeight) continue;
     const every = single ? A.mainGunEverySeconds : Math.max(A.minEverySeconds, A.everySeconds / Math.max(w, 1e-3));
-    return { ...f, nature: n, every, air: n === "he" && airburstAt(airburstOf(ctx, def, si, f.weapon, f.feed), d) };
+    const ab = n === "he" ? airburstOf(ctx, def, si, f.weapon, f.feed) : undefined, air = airburstAt(ab, d);
+    if (ab?.only === true && !air) continue; // (pass 6: inside the fuze's shortest distance: the machine gun)
+    return { ...f, nature: n, every, air };
   }
   return null;
 }
@@ -737,7 +741,13 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
         if (st.task || (pick !== null && st.why.keys[0] !== pick)) { st.task = null; emitDecision(events, state, vid, si, st, null, [pick ?? "why.hold.noTarget"]); }
         continue;
       }
-      const f = feedFor(ctx, def, st, si, pick.nature, v);
+      let f = feedFor(ctx, def, st, si, pick.nature, v);
+      const me = state.transform.req(vid);
+      // Balance pass 6 (owner Q6): a round with only the air-burst setting (KETF) inside its fuze's shortest
+      // distance: the machine gun instead.
+      const ab = f !== null && f.nature === "he" ? airburstOf(ctx, def, si, f.weapon, f.feed) : undefined;
+      const abNear = airburstAt(ab, hypot2(pick.x - me.x, pick.y - me.y));
+      if (f !== null && ab?.only === true && !abNear) { const m = pickFeed(ctx, def, st, si, "mg", v); f = m ? { ...m, nature: "mg" } : null; }
       if (!f) {
         if (st.task) { st.task = null; emitDecision(events, state, vid, si, st, null, ["why.hold.ammunition"]); }
         continue;
@@ -745,8 +755,8 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
       // (The feed fired, a substitute included, was checked for own men in chooseTarget: `stationHeld`.)
       // (Balance pass 5: high explosive at a man with a round that has an air-burst setting: air burst, unless he is
       // in a building, where the impact setting strikes the wall or the window.)
-      const me = state.transform.req(vid);
-      const air = f.nature === "he" && !state.vehicle.has(pick.target) && airburstAt(airburstOf(ctx, def, si, f.weapon, f.feed), hypot2(pick.x - me.x, pick.y - me.y)) && indoorAt(ctx, pick.x, pick.y) < 0;
+      // (Pass 6: a round with only that setting is always programmed: it bursts short of the wall or the hull.)
+      const air = f.nature === "he" && abNear && (ab!.only === true || (!state.vehicle.has(pick.target) && indoorAt(ctx, pick.x, pick.y) < 0));
       const hM = air ? airburstOf(ctx, def, si, f.weapon, f.feed)!.aimHeightM : pick.heightM;
       const changed = !st.task || st.task.contact !== pick.target || st.taskWeapon !== f.weapon || st.taskFeed !== f.feed || st.task.area !== undefined || (st.task.fuse === "airburst") !== air;
       if (changed) { setStationTask(ctx, state, vid, si, pick.x, pick.y, hM, f.weapon, f.feed, pick.target, true); if (air) { st.task!.fuse = "airburst"; pick.keys.push("why.nature.airburst"); } }
@@ -1052,7 +1062,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       else {
         w.burstLeft = 0;
         const trickle = !task.self && since > fullTicks;
-        const interval = task.area ? task.area.every : trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : 60 / wd.cyclicRpm;
+        const interval = task.area && task.area.every > 0 ? task.area.every : trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : 60 / wd.cyclicRpm;
         const disc = ctx.catalog.behaviour.decisions.ammoIntervalFactor[crew?.ammoRule ?? "normal"];
         w.nextShotTick = tick + Math.max(1, Math.round(secondsToTicks(interval) * disc * (0.85 + 0.3 * nextFloat(state.rng, Streams.fire))));
         if (wdef.feedKind !== "belt") w.burstIndex = 0;
@@ -1529,23 +1539,38 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
   // (The crew's own setting at a point where it knows an enemy hull: impact, at the hull.)
   const hullNear = crew !== undefined && crew.members.some((m) => state.soldier.get(m)?.contacts.some((c) => c.cls === "vehicle" && c.wreck !== true && hypot2(c.x - x, c.y - y) <= HULL_NEAR_M) === true);
   const want0: Nature = order.nature === "at" ? "atgm" : wantAir ? "he" : order.nature ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
-  let any = false, noAir = false;
+  let any = false, noAir = false, noImpact = false;
   for (let si = 0; si < v.stations.length; si++) {
     if (stationOperator(state, v, def, si) === null) continue;
     const want: Nature = order.nature === undefined && !wantAir && mslVeh(si) ? "atgm" : want0;
-    const f = wantAir ? (() => { const p = pickFeed(ctx, def, v.stations[si]!, si, "he", v); return p ? { ...p, nature: "he" as Nature } : null; })() : feedFor(ctx, def, v.stations[si]!, si, want, v);
+    let f = wantAir ? (() => { const p = pickFeed(ctx, def, v.stations[si]!, si, "he", v); return p ? { ...p, nature: "he" as Nature } : null; })() : feedFor(ctx, def, v.stations[si]!, si, want, v);
     if (!f) continue;
     // The air-burst setting: asked for, or the crew's choice at men in the open (not a vehicle, not a building).
-    const ab = f.nature === "he" ? airburstOf(ctx, def, si, f.weapon, f.feed) : undefined;
-    const air = ab !== undefined && airburstAt(ab, d) && order.fuse !== "impact" && (wantAir || (!isVeh && !hullNear && indoorAt(ctx, x, y) < 0));
+    let ab = f.nature === "he" ? airburstOf(ctx, def, si, f.weapon, f.feed) : undefined;
+    // Balance pass 6 (owner Q6): a round with only the air-burst setting (KETF): the impact setting asked for is
+    // refused; inside the fuze's shortest distance the machine gun fires instead (not when air burst was asked for).
+    if (ab?.only === true) {
+      if (order.fuse === "impact") { noImpact = true; continue; }
+      if (!airburstAt(ab, d) && !wantAir) {
+        const m = pickFeed(ctx, def, v.stations[si]!, si, "mg", v);
+        if (!m) continue;
+        f = { ...m, nature: "mg" }; ab = undefined;
+      }
+    }
+    const air = ab !== undefined && airburstAt(ab, d) && order.fuse !== "impact" && (wantAir || ab.only === true || (!isVeh && !hullNear && indoorAt(ctx, x, y) < 0));
     if (wantAir && !air) { noAir = true; continue; }
-    const h = air && order.heightM === undefined ? ab.aimHeightM : order.heightM ?? (isVeh ? aimPointsOf(ctx, state, named)[apk]![2] : f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : aimHeightAt(ctx, known));
+    const h = air && order.heightM === undefined ? ab!.aimHeightM : order.heightM ?? (isVeh ? aimPointsOf(ctx, state, named)[apk]![2] : f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : aimHeightAt(ctx, known));
     setStationTask(ctx, state, vid, si, x, y, h, f.weapon, f.feed, named, false);
     if (air) v.stations[si]!.task!.fuse = "airburst";
+    // Balance pass 6: ordered high explosive at a point with no enemy named is swept over a small circle round it
+    // (a gunner traverses; every burst at one point reaches only what stands there). `every` 0: the gun's own rate.
+    // Not at a house (the impact setting is laid on its wall or window) or at a point where an enemy hull is known.
+    const sweep = G.areaFire?.orderedRadiusM ?? 0;
+    if (sweep > 0 && named === undefined && f.nature === "he" && !hullNear && (air || indoorAt(ctx, x, y) < 0)) v.stations[si]!.task!.area = { r: sweep, w: 1, every: 0, ox: 0, oy: 0 };
     v.stations[si]!.why = { tick: state.tick, keys: ["why.target.ordered", air ? "why.nature.airburst" : `why.nature.${f.nature}`] };
     any = true;
   }
-  if (!any) return { unable: noAir ? "radio.noAirburst" : "radio.noAmmunition" };
+  if (!any) return { unable: noAir ? "radio.noAirburst" : noImpact ? "radio.noImpactFuse" : "radio.noAmmunition" };
   if (crew) { crew.firing = true; crew.lineBlockedReported = false; }
   return true;
 }

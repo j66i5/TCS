@@ -3,7 +3,7 @@
 A real-time, top-down tactical combat simulation at platoon to company scale, set in the present day.
 Plain visuals, deep simulation: every soldier is an individual and every projectile is simulated.
 
-- **Play the current build:** https://j66i5.github.io/TCS/ — current version: **balance pass 6: hits that do not get through, Panzerfaust 3 sight, KETF only, carriers** (2026-11-26 09:18 UTC; deployed from `main`)
+- **Play the current build:** https://j66i5.github.io/TCS/ — current version: **review step 5: quick-battle polish (battle type and size in the menu, briefing, fire rule by role, opening view)** (2026-11-26 17:01 UTC; deployed from `main`)
 - **How to start:** the link opens the main menu: Continue, Quick battle (attack or defend, Germany or Russia, on foot
   or mounted, tanks, map, time of day), Campaign, Hold the village, Assault group and More (vehicle sandbox, look).
   Links with parameters (e.g. `?seed=3&map=farmland`) still open a battle directly.
